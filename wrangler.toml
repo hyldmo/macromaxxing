@@ -1,0 +1,9 @@
+name = "macromaxxing"
+compatibility_date = "2024-12-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "macromaxxing"
+database_id = "c76ae2a2-9925-4351-ad53-1de7d6dfe504"
+migrations_dir = "drizzle"

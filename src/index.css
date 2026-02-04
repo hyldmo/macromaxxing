@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+	/* Surfaces — dark soapstone with warm undertone */
+	--color-surface-0: oklch(0.13 0.008 60);
+	--color-surface-1: oklch(0.17 0.008 60);
+	--color-surface-2: oklch(0.22 0.008 60);
+
+	/* Ink — warm off-white hierarchy */
+	--color-ink: oklch(0.9 0.015 70);
+	--color-ink-muted: oklch(0.6 0.01 60);
+	--color-ink-faint: oklch(0.4 0.008 60);
+
+	/* Edges — warm subtle borders */
+	--color-edge: oklch(0.25 0.01 60);
+
+	/* Macro colors — food-inspired, functionally distinct */
+	--color-macro-protein: oklch(0.72 0.14 55);
+	--color-macro-carbs: oklch(0.76 0.12 85);
+	--color-macro-fat: oklch(0.68 0.1 135);
+	--color-macro-kcal: oklch(0.72 0.15 40);
+	--color-macro-fiber: oklch(0.66 0.09 170);
+
+	/* Accent — copper */
+	--color-accent: oklch(0.72 0.15 50);
+	--color-accent-hover: oklch(0.64 0.15 50);
+
+	/* Semantic */
+	--color-destructive: oklch(0.6 0.2 25);
+	--color-success: oklch(0.65 0.15 155);
+
+	/* Radius — sharp, instrument-grade */
+	--radius-sm: 4px;
+	--radius-md: 6px;
+
+	/* Font */
+	--font-mono:
+		"JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono",
+		monospace;
+}
+
+body {
+	background-color: var(--color-surface-0);
+	color: var(--color-ink);
+	font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-track {
+	background: var(--color-surface-0);
+}
+::-webkit-scrollbar-thumb {
+	background: var(--color-edge);
+	border-radius: var(--radius-sm);
+}

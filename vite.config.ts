@@ -6,7 +6,10 @@ import { defineConfig } from 'vite'
 // https://vitejs.dev/config/
 export default defineConfig({
 	server: {
-		port: 1337
+		port: 1337,
+		proxy: {
+			'/api': 'https://macromaxxing.pages.dev'
+		}
 	},
 	plugins: [react(), tailwind()],
 	resolve: {

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -24,7 +24,13 @@
 		"rules": {
 			"a11y": {
 				"useSemanticElements": "off",
-				"noNoninteractiveElementToInteractiveRole": "off"
+				"noNoninteractiveElementToInteractiveRole": "off",
+				"noLabelWithoutControl": {
+					"level": "error",
+					"options": {
+						"inputComponents": ["Input"]
+					}
+				}
 			},
 			"complexity": {
 				"noExcessiveNestedTestSuites": "error",
@@ -36,18 +42,7 @@
 			},
 			"correctness": {
 				"noUndeclaredDependencies": "warn",
-				"useExhaustiveDependencies": {
-					"level": "error",
-					"options": {
-						"hooks": [
-							{
-								"name": "useMemoSelector",
-								"closureIndex": 1,
-								"dependenciesIndex": 2
-							}
-						]
-					}
-				}
+				"useExhaustiveDependencies": "error"
 			},
 			"suspicious": {
 				"useIterableCallbackReturn": "off",
@@ -66,20 +61,7 @@
 				"noMisplacedAssertion": "error"
 			},
 			"style": {
-				"noNonNullAssertion": "off",
-				"noRestrictedImports": {
-					"level": "error",
-					"options": {
-						"paths": {
-							"react-redux": "Import from ~/lib instead",
-							"redux-saga/effects": "Import from typed-redux-saga instead",
-							"typed-redux-saga": {
-								"message": "Import from ~/lib instead",
-								"allowImportNames": ["call", "cancel", "delay", "fork", "put", "take"]
-							}
-						}
-					}
-				}
+				"noNonNullAssertion": "off"
 			},
 			"nursery": {
 				"useSortedClasses": {
@@ -110,7 +92,6 @@
 		}
 	},
 	"html": {
-		// "experimentalFullSupportEnabled": true, // pending https://github.com/biomejs/biome/issues/8020
 		"formatter": {
 			"enabled": true,
 			"selfCloseVoidElements": "always",
@@ -135,35 +116,7 @@
 			}
 		},
 		{
-			"includes": ["**/*.svelte", "**/*.astro", "**/*.vue"],
-			"linter": {
-				"rules": {
-					"style": {
-						"useConst": "off",
-						"useImportType": "off"
-					},
-					"correctness": {
-						"noUnusedVariables": "off",
-						"noUnusedImports": "off"
-					}
-				}
-			}
-		},
-		{
-			"includes": ["scripts/**", "packages/scripts/**"],
-			"linter": {
-				"rules": {
-					"suspicious": {
-						"noConsole": "off"
-					},
-					"correctness": {
-						"noUnusedVariables": "warn"
-					}
-				}
-			}
-		},
-		{
-			"includes": ["supabase/functions/**"],
+			"includes": ["functions/**"],
 			"linter": {
 				"rules": {
 					"correctness": {
