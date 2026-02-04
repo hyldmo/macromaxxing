@@ -1,0 +1,176 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true,
+		"root": "."
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 4,
+		"lineEnding": "lf",
+		"lineWidth": 120,
+		"attributePosition": "auto",
+		"bracketSpacing": true,
+		"includes": ["**"]
+	},
+	"linter": {
+		"enabled": true,
+		"domains": {
+			"react": "recommended"
+		},
+		"rules": {
+			"a11y": {
+				"useSemanticElements": "off",
+				"noNoninteractiveElementToInteractiveRole": "off"
+			},
+			"complexity": {
+				"noExcessiveNestedTestSuites": "error",
+				"noUselessStringRaw": "error",
+				"noUselessStringConcat": "error",
+				"useSimplifiedLogicExpression": "error",
+				"useWhile": "error",
+				"noBannedTypes": "off"
+			},
+			"correctness": {
+				"noUndeclaredDependencies": "warn",
+				"useExhaustiveDependencies": {
+					"level": "error",
+					"options": {
+						"hooks": [
+							{
+								"name": "useMemoSelector",
+								"closureIndex": 1,
+								"dependenciesIndex": 2
+							}
+						]
+					}
+				}
+			},
+			"suspicious": {
+				"useIterableCallbackReturn": "off",
+				"noConsole": {
+					"level": "warn",
+					"options": {
+						"allow": ["info", "warn", "error"]
+					}
+				},
+				"noConstantBinaryExpressions": "error",
+				"noDuplicateTestHooks": "error",
+				"noEmptyBlockStatements": "error",
+				"noExportsInTest": "error",
+				"noExplicitAny": "off",
+				"noFocusedTests": "warn",
+				"noMisplacedAssertion": "error"
+			},
+			"style": {
+				"noNonNullAssertion": "off",
+				"noRestrictedImports": {
+					"level": "error",
+					"options": {
+						"paths": {
+							"react-redux": "Import from ~/lib instead",
+							"redux-saga/effects": "Import from typed-redux-saga instead",
+							"typed-redux-saga": {
+								"message": "Import from ~/lib instead",
+								"allowImportNames": ["call", "cancel", "delay", "fork", "put", "take"]
+							}
+						}
+					}
+				}
+			},
+			"nursery": {
+				"useSortedClasses": {
+					"level": "warn",
+					"fix": "safe",
+					"options": {
+						"functions": ["cva", "cn"]
+					}
+				},
+				"noLeakedRender": "off" // Currently too many false positives as of v2.3.8
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"jsxQuoteStyle": "double",
+			"quoteProperties": "preserve",
+			"trailingCommas": "none",
+			"semicolons": "asNeeded",
+			"arrowParentheses": "asNeeded",
+			"bracketSameLine": false,
+			"quoteStyle": "single",
+			"attributePosition": "auto",
+			"bracketSpacing": true
+		},
+		"linter": {
+			"enabled": true
+		}
+	},
+	"html": {
+		// "experimentalFullSupportEnabled": true, // pending https://github.com/biomejs/biome/issues/8020
+		"formatter": {
+			"enabled": true,
+			"selfCloseVoidElements": "always",
+			"indentScriptAndStyle": false
+		},
+		"linter": {
+			"enabled": true
+		}
+	},
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/package.json", "**/*.yml", "**/*.yaml"],
+			"formatter": {
+				"indentStyle": "space",
+				"indentWidth": 2,
+				"lineWidth": 200
+			}
+		},
+		{
+			"includes": ["**/*.svelte", "**/*.astro", "**/*.vue"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useConst": "off",
+						"useImportType": "off"
+					},
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["scripts/**", "packages/scripts/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					},
+					"correctness": {
+						"noUnusedVariables": "warn"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["supabase/functions/**"],
+			"linter": {
+				"rules": {
+					"correctness": {
+						"noUndeclaredDependencies": "off"
+					}
+				}
+			}
+		}
+	]
+}

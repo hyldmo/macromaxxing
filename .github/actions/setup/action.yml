@@ -1,0 +1,26 @@
+name: "Setup"
+description: "Setup Node.js with Yarn caching"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Enable corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: "lts/*"
+        check-latest: true
+        cache: "yarn"
+        cache-dependency-path: "yarn.lock"
+
+    - name: Setup Deno
+      uses: denoland/setup-deno@v2
+      with:
+        deno-version: v2.1
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn --immutable
