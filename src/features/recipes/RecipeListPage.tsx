@@ -7,7 +7,6 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
-import { useUser } from '~/lib/user'
 import { RecipeCard } from './components/RecipeCard'
 import {
 	calculatePortionMacros,

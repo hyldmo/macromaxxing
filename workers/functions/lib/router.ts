@@ -3,7 +3,6 @@ import { ingredientsRouter } from './routes/ingredients'
 import { mealPlansRouter } from './routes/mealPlans'
 import { recipesRouter } from './routes/recipes'
 import { settingsRouter } from './routes/settings'
-import { userRouter } from './routes/user'
 import { router } from './trpc'
 
 export const appRouter = router({
