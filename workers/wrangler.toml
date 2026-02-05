@@ -2,11 +2,6 @@ name = "macromaxxing"
 compatibility_date = "2024-12-01"
 pages_build_output_dir = "dist"
 
-# Secrets - actual values set in Cloudflare dashboard, these are for type generation
-[vars]
-ENCRYPTION_SECRET = ""
-USDA_API_KEY = ""
-
 [[d1_databases]]
 binding = "DB"
 database_name = "macromaxxing"
