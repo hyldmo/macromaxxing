@@ -85,42 +85,44 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 						</button>
 					</div>
 
-					{/* Inline portion controls */}
-					<div className="mt-1 flex items-center gap-1">
-						<button
-							type="button"
-							onClick={() => updatePortions(inventory.totalPortions - 0.5)}
-							disabled={inventory.totalPortions <= 0.5 || updateMutation.isPending}
-							className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
-						>
-							<Minus className="size-3" />
-						</button>
-						<span
-							className={cn(
-								'min-w-12 text-center font-mono text-xs tabular-nums',
-								isOverAllocated ? 'text-destructive' : 'text-ink-muted'
-							)}
-						>
-							{remaining}/{inventory.totalPortions}
-						</span>
-						<button
-							type="button"
-							onClick={() => updatePortions(inventory.totalPortions + 0.5)}
-							disabled={updateMutation.isPending}
-							className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
-						>
-							<Plus className="size-3" />
-						</button>
-						<button
-							type="button"
-							onClick={resetToDefault}
-							disabled={isAtDefault || updateMutation.isPending}
-							title={`Reset to ${defaultPortions} portions`}
-							className="ml-1 cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
-						>
-							<RotateCcw className="size-3" />
-						</button>
-					</div>
+					{/* Inline portion controls - only show for recipes with portionSize */}
+					{recipe.portionSize != null && (
+						<div className="mt-1 flex items-center gap-1">
+							<button
+								type="button"
+								onClick={() => updatePortions(inventory.totalPortions - 0.5)}
+								disabled={inventory.totalPortions <= 0.5 || updateMutation.isPending}
+								className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+							>
+								<Minus className="size-3" />
+							</button>
+							<span
+								className={cn(
+									'min-w-12 text-center font-mono text-xs tabular-nums',
+									isOverAllocated ? 'text-destructive' : 'text-ink-muted'
+								)}
+							>
+								{remaining}/{inventory.totalPortions}
+							</span>
+							<button
+								type="button"
+								onClick={() => updatePortions(inventory.totalPortions + 0.5)}
+								disabled={updateMutation.isPending}
+								className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+							>
+								<Plus className="size-3" />
+							</button>
+							<button
+								type="button"
+								onClick={resetToDefault}
+								disabled={isAtDefault || updateMutation.isPending}
+								title={`Reset to ${defaultPortions} portions`}
+								className="ml-1 cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+							>
+								<RotateCcw className="size-3" />
+							</button>
+						</div>
+					)}
 
 					{/* Macros per portion */}
 					<div className="mt-1.5 flex items-center gap-2 font-mono text-xs tabular-nums">
@@ -129,7 +131,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 						<span className="text-macro-fat">F {portionMacros.fat.toFixed(0)}g</span>
 					</div>
 					<div className="mt-0.5 font-bold font-mono text-macro-kcal text-xs tabular-nums">
-						{portionMacros.kcal.toFixed(0)} kcal/portion
+						{portionMacros.kcal.toFixed(0)} kcal{recipe.portionSize != null && '/portion'}
 					</div>
 					<div className="mt-1.5">
 						<MacroBar protein={portionMacros.protein} carbs={portionMacros.carbs} fat={portionMacros.fat} />

@@ -63,27 +63,29 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 				<span className="line-clamp-2 font-medium text-ink text-sm leading-tight">
 					{slot.inventory.recipe.name}
 				</span>
-				<div className="mt-1 flex items-center gap-1">
-					<button
-						type="button"
-						onClick={() => updatePortions(slot.portions - 0.5)}
-						disabled={slot.portions <= 0.5 || updateMutation.isPending}
-						className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
-					>
-						<Minus className="size-3" />
-					</button>
-					<span className="min-w-8 text-center font-mono text-ink-muted text-xs tabular-nums">
-						{slot.portions}
-					</span>
-					<button
-						type="button"
-						onClick={() => updatePortions(slot.portions + 0.5)}
-						disabled={updateMutation.isPending}
-						className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
-					>
-						<Plus className="size-3" />
-					</button>
-				</div>
+				{recipe.portionSize != null && (
+					<div className="mt-1 flex items-center gap-1">
+						<button
+							type="button"
+							onClick={() => updatePortions(slot.portions - 0.5)}
+							disabled={slot.portions <= 0.5 || updateMutation.isPending}
+							className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+						>
+							<Minus className="size-3" />
+						</button>
+						<span className="min-w-8 text-center font-mono text-ink-muted text-xs tabular-nums">
+							{slot.portions}
+						</span>
+						<button
+							type="button"
+							onClick={() => updatePortions(slot.portions + 0.5)}
+							disabled={updateMutation.isPending}
+							className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+						>
+							<Plus className="size-3" />
+						</button>
+					</div>
+				)}
 				<div className="mt-1.5 flex items-center gap-3 font-mono text-xs tabular-nums">
 					<span className="text-macro-protein">P {macros.protein.toFixed(0)}g</span>
 					<span className="text-macro-carbs">C {macros.carbs.toFixed(0)}g</span>
