@@ -6,7 +6,7 @@ import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { ingredientAiSchema, MODELS } from '../constants'
+import { enrichIngredientSchema, ingredientAiSchema, MODELS } from '../constants'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { toStartCase } from '../utils'
 import { getDecryptedApiKey } from './settings'
@@ -77,6 +77,15 @@ async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macro
 const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
 
 Also provide common units for measuring this ingredient with their gram equivalents:
+- For liquids/powders: include tbsp, tsp, cup, dl
+- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
+- For supplements/protein powders: include scoop
+- Always include "g" as a unit with grams=1
+- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
+
+Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
+
+const ENRICH_INGREDIENT_PROMPT = `Provide common units for measuring this ingredient with their gram equivalents:
 - For liquids/powders: include tbsp, tsp, cup, dl
 - For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
 - For supplements/protein powders: include scoop
@@ -162,6 +171,66 @@ export const ingredientsRouter = router({
 			.set(updates)
 			.where(and(eq(ingredients.id, id), eq(ingredients.userId, ctx.user.id)))
 		return ctx.db.query.ingredients.findFirst({ where: eq(ingredients.id, id) })
+	}),
+
+	/** Enrich an existing ingredient with units and density from AI */
+	enrich: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
+		// Verify user owns the ingredient
+		const ingredient = await ctx.db.query.ingredients.findFirst({
+			where: and(eq(ingredients.id, input), eq(ingredients.userId, ctx.user.id)),
+			with: { units: true }
+		})
+		if (!ingredient) {
+			throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
+		}
+
+		const encryptionSecret = ctx.env.ENCRYPTION_SECRET
+		if (!encryptionSecret) {
+			throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
+		}
+
+		const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
+		if (!settings) {
+			throw new TRPCError({
+				code: 'PRECONDITION_FAILED',
+				message: 'No AI provider configured. Go to Settings to add your API key.'
+			})
+		}
+
+		const { output: aiResult } = await generateText({
+			model: getModel(settings.provider, settings.apiKey),
+			output: Output.object({ schema: enrichIngredientSchema }),
+			prompt: `${ENRICH_INGREDIENT_PROMPT}\n\nIngredient: ${ingredient.name}`
+		})
+
+		// Update density if AI provided one and current is null
+		if (aiResult.density !== null && ingredient.density === null) {
+			await ctx.db.update(ingredients).set({ density: aiResult.density }).where(eq(ingredients.id, input))
+		}
+
+		// Add units that don't already exist (by name, case-insensitive)
+		const existingUnitNames = new Set(ingredient.units.map(u => u.name.toLowerCase()))
+		const newUnits = aiResult.units.filter(u => !existingUnitNames.has(u.name.toLowerCase()))
+
+		if (newUnits.length > 0) {
+			// If no units exist yet, respect isDefault from AI; otherwise no defaults
+			const hasExistingDefault = ingredient.units.some(u => u.isDefault)
+			await ctx.db.insert(ingredientUnits).values(
+				newUnits.map(unit => ({
+					ingredientId: ingredient.id,
+					name: unit.name,
+					grams: unit.grams,
+					isDefault: !hasExistingDefault && unit.isDefault ? 1 : 0,
+					source: 'ai' as const,
+					createdAt: Date.now()
+				}))
+			)
+		}
+
+		return ctx.db.query.ingredients.findFirst({
+			where: eq(ingredients.id, input),
+			with: { units: true }
+		})
 	}),
 
 	delete: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {

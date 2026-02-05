@@ -60,6 +60,8 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 
 	return (
 		<div
+			role="group"
+			aria-label={`Inventory item for ${inventory.recipe.name}`}
 			draggable
 			onDragStart={handleDragStart}
 			className={cn(

@@ -29,6 +29,11 @@ export const cookedWeightSchema = z.object({
 	cookedWeight: z.number().describe('Estimated cooked weight in grams after typical cooking')
 })
 
+export const enrichIngredientSchema = z.object({
+	density: z.number().nullable().describe('g/ml for liquids and powders, null for solid items'),
+	units: z.array(unitSchema).describe('Common units for measuring this ingredient with gram equivalents')
+})
+
 export const MODELS: Record<AiProvider, string> = {
 	gemini: 'gemini-3-flash-preview',
 	openai: 'gpt-4o-mini',

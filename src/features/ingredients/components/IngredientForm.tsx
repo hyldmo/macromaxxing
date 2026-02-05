@@ -1,4 +1,4 @@
-import { Plus, Star, Trash2 } from 'lucide-react'
+import { Plus, Sparkles, Star, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
@@ -56,6 +56,15 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 
+	const enrichMutation = trpc.ingredient.enrich.useMutation({
+		onSuccess: data => {
+			utils.ingredient.listPublic.invalidate()
+			if (data?.density !== null && data?.density !== undefined) {
+				setDensity(data.density.toString())
+			}
+		}
+	})
+
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault()
 		const data = {
@@ -100,7 +109,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 	}
 
 	const isPending = createMutation.isPending || updateMutation.isPending
-	const error = createMutation.error || updateMutation.error || createUnitMutation.error
+	const error = createMutation.error || updateMutation.error || createUnitMutation.error || enrichMutation.error
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
@@ -181,7 +190,21 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 
 			{editIngredient && (
 				<div className="space-y-2">
-					<span className="block text-ink-muted text-xs">Units</span>
+					<div className="flex items-center justify-between">
+						<span className="block text-ink-muted text-xs">Units</span>
+						<Button
+							type="button"
+							variant="ghost"
+							size="sm"
+							className="h-6 gap-1 px-2 text-xs"
+							onClick={() => enrichMutation.mutate(editIngredient.id)}
+							disabled={enrichMutation.isPending}
+							title="Auto-fill units and density from AI"
+						>
+							<Sparkles className={`size-3 ${enrichMutation.isPending ? 'animate-pulse' : ''}`} />
+							{enrichMutation.isPending ? 'Loading...' : 'Auto-fill'}
+						</Button>
+					</div>
 					<div className="space-y-1">
 						{units.map(unit => (
 							<div

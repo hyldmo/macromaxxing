@@ -46,6 +46,8 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 	return (
 		<>
 			<div
+				role="region"
+				aria-label="Empty meal slot"
 				onDragOver={handleDragOver}
 				onDragLeave={handleDragLeave}
 				onDrop={handleDrop}

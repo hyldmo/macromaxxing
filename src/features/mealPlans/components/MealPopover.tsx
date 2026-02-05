@@ -1,5 +1,6 @@
-import { Copy, RefreshCw, Trash2, X } from 'lucide-react'
-import { type FC, useState } from 'react'
+import { Copy, ExternalLink, RefreshCw, Trash2, X } from 'lucide-react'
+import { type FC, type RefObject, useLayoutEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -14,13 +15,25 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 export interface MealPopoverProps {
 	slot: SlotWithInventory
 	inventory: InventoryItem[]
+	anchorRef: RefObject<HTMLDivElement | null>
 	onClose: () => void
 }
 
-export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, onClose }) => {
+export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, onClose }) => {
 	const [showCopy, setShowCopy] = useState(false)
 	const [showSwap, setShowSwap] = useState(false)
 	const [selectedDays, setSelectedDays] = useState<number[]>([])
+	const [position, setPosition] = useState({ top: 0, left: 0 })
+
+	useLayoutEffect(() => {
+		if (anchorRef.current) {
+			const rect = anchorRef.current.getBoundingClientRect()
+			setPosition({
+				top: rect.top,
+				left: rect.right + 8
+			})
+		}
+	}, [anchorRef])
 
 	const utils = trpc.useUtils()
 
@@ -78,7 +91,8 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, onClose }) 
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation for modal */}
 			<div
 				role="document"
-				className="absolute top-1/2 left-1/2 w-64 -translate-x-1/2 -translate-y-1/2 rounded-[--radius-md] border border-edge bg-surface-0 shadow-lg"
+				style={{ top: position.top, left: position.left }}
+				className="fixed w-64 rounded-[--radius-md] border border-edge bg-surface-0 shadow-lg"
 				onClick={e => e.stopPropagation()}
 			>
 				{/* Header */}
@@ -105,6 +119,13 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, onClose }) 
 								<RefreshCw className="size-4" />
 								Swap
 							</Button>
+							<Link
+								to={`/recipes/${recipe.id}`}
+								className="inline-flex h-7 items-center gap-2 rounded-[--radius-sm] px-2.5 text-ink-muted text-xs transition-colors hover:bg-surface-2 hover:text-ink"
+							>
+								<ExternalLink className="size-4" />
+								View Recipe
+							</Link>
 							<Button
 								size="sm"
 								variant="ghost"
