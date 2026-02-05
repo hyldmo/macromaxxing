@@ -26,17 +26,11 @@ jobs:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
 
-      - name: Debug token
-        run: |
-          echo "Token length: ${#CLOUDFLARE_API_TOKEN}"
-          yarn workspace @macromaxxing/workers wrangler whoami
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
       - name: Apply D1 migrations
         run: yarn workspace @macromaxxing/workers wrangler d1 migrations apply ${{ github.event.repository.name }} --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Build
         run: yarn build
@@ -45,6 +39,7 @@ jobs:
         run: yarn workspace @macromaxxing/workers wrangler pages deploy --project-name=${{ github.event.repository.name }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   release:
     runs-on: ubuntu-latest
