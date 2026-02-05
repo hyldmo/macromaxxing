@@ -102,8 +102,8 @@ export function IngredientListPage() {
 					{search
 						? 'No ingredients match your search.'
 						: filter === 'mine'
-							? "You haven't added any ingredients yet."
-							: 'No ingredients yet.'}
+						? "You haven't added any ingredients yet."
+						: 'No ingredients yet.'}
 				</Card>
 			)}
 
@@ -242,7 +242,7 @@ export function IngredientListPage() {
 												) : ingredient.source === 'usda' ? (
 													<USDA className="ml-auto size-4 text-accent" />
 												) : (
-													<NotebookPenIcon className="size-3.5 text-ink-faint" />
+													<NotebookPenIcon className="ml-auto size-3.5 text-ink-faint" />
 												)}
 											</td>
 											<td className="px-1 py-1.5">
