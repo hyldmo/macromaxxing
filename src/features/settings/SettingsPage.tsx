@@ -10,26 +10,20 @@ import { trpc } from '~/lib/trpc'
 
 export function SettingsPage() {
 	const settingsQuery = trpc.settings.get.useQuery()
-	const saveMutation = trpc.settings.save.useMutation({
-		onSuccess: () => {
-			utils.settings.get.invalidate()
-			setApiKey('')
-		}
-	})
-	const utils = trpc.useUtils()
+	const saveMutation = trpc.settings.save.useMutation()
 
 	const [provider, setProvider] = useState<AiProvider>('gemini')
 	const [apiKey, setApiKey] = useState('')
 
 	const savedProvider = settingsQuery.data?.provider
-	const hasExistingKey = settingsQuery.data?.hasKey
 	const providerChanged = savedProvider && provider !== savedProvider
 
 	useEffect(() => {
-		if (savedProvider) {
-			setProvider(savedProvider)
-		}
+		if (savedProvider) setProvider(savedProvider)
 	}, [savedProvider])
+	useEffect(() => {
+		if (settingsQuery.data?.apiKey) setApiKey(settingsQuery.data.apiKey)
+	}, [settingsQuery.data?.apiKey])
 
 	function handleSave(e: React.FormEvent) {
 		e.preventDefault()
@@ -82,25 +76,28 @@ export function SettingsPage() {
 							<Input
 								type="password"
 								name="apiKey"
-								placeholder={hasExistingKey ? 'Key saved (enter new to update)' : 'Enter API key'}
+								placeholder={'Enter API key'}
+								readOnly={settingsQuery.isLoading}
 								autoComplete="off"
 								value={apiKey}
 								onChange={e => setApiKey(e.target.value)}
 							/>
 						</label>
 
-						<div className="flex gap-2">
+						<div className="flex items-center gap-2">
 							<Button type="submit" disabled={!canSave || saveMutation.isPending}>
 								{buttonText}
 							</Button>
-							{saveMutation.isPending && <Spinner className="size-4" />}
-							{saveMutation.isSuccess && (
+							{saveMutation.isPending ? (
+								<Spinner className="size-4" />
+							) : saveMutation.isSuccess ? (
 								<span className="flex items-center gap-1 text-sm text-success">
 									<Check className="size-4" /> Saved
 								</span>
-							)}
+							) : saveMutation.isError ? (
+								<TRPCError error={saveMutation.error} />
+							) : null}
 						</div>
-						{saveMutation.isError && <TRPCError error={saveMutation.error} />}
 					</form>
 				</CardContent>
 			</Card>

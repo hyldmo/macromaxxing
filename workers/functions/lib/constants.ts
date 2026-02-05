@@ -9,8 +9,12 @@ export const macroSchema = z.object({
 	fiber: z.number().describe('Fiber in grams per 100g')
 })
 
+export const cookedWeightSchema = z.object({
+	cookedWeight: z.number().describe('Estimated cooked weight in grams after typical cooking')
+})
+
 export const MODELS: Record<AiProvider, string> = {
-	gemini: 'gemini-2.0-flash',
+	gemini: 'gemini-3-flash-preview',
 	openai: 'gpt-4o-mini',
 	anthropic: 'claude-3-5-haiku-20241022'
 }

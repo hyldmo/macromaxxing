@@ -46,6 +46,7 @@ export const settingsRouter = router({
 		if (!settings) return null
 		return {
 			provider: settings.aiProvider,
+			apiKey: settings.aiApiKey,
 			hasKey: Boolean(settings.aiApiKey)
 		}
 	}),

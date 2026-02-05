@@ -83,10 +83,12 @@ No shadows — borders-only depth strategy.
 ```
 trpc.recipe.list/listPublic/get/getPublic/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
-trpc.ingredient.list/listPublic/create/update/delete
+trpc.ingredient.list/listPublic/create/update/delete/findOrCreate
 trpc.settings.get/save
 trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber } per 100g
 ```
+
+`ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive), falls back to AI lookup if not found. Returns `{ ingredient, source: 'existing' | 'ai' }`.
 
 **Public endpoints (no auth):** `recipe.listPublic`, `recipe.getPublic`, `ingredient.listPublic`
 

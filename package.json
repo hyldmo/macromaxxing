@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently -k -c 'green,#CA7B38' 'yarn:dev:*'",
     "dev:web": "vite",
-    "dev:api": "yarn workspace @macromaxxing/workers wrangler pages dev ../dist --d1=macromaxxing --port=8788 --live-reload",
+    "dev:api": "yarn workspace @macromaxxing/workers wrangler pages dev --d1=macromaxxing --port=8788 --live-reload",
     "build": "vite build",
     "codegen": "yarn workspace @macromaxxing/workers wrangler types",
     "fix": "biome check . --fix --unsafe",

@@ -54,8 +54,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const utils = trpc.useUtils()
 
 	const ingredientsQuery = trpc.ingredient.listPublic.useQuery()
-	const aiLookup = trpc.ai.lookup.useMutation()
-	const createIngredient = trpc.ingredient.create.useMutation({
+	const findOrCreate = trpc.ingredient.findOrCreate.useMutation({
 		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 	const addIngredient = trpc.recipe.addIngredient.useMutation({
@@ -73,18 +72,13 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		setShowDropdown(false)
 	}
 
-	async function handleAiLookup(name?: string, grams?: number) {
+	async function handleFindOrCreate(name?: string, grams?: number) {
 		const ingredientName = name ?? search.trim()
 		if (!ingredientName) return
-		const macros = await aiLookup.mutateAsync({ ingredientName })
-		const ingredient = await createIngredient.mutateAsync({
-			name: ingredientName,
-			...macros,
-			source: 'ai'
-		})
-		if (ingredient) {
-			addIngredient.mutate({ recipeId, ingredientId: ingredient.id, amountGrams: grams ?? 100 })
-		}
+
+		const { ingredient } = await findOrCreate.mutateAsync({ name: ingredientName })
+		addIngredient.mutate({ recipeId, ingredientId: ingredient.id, amountGrams: grams ?? 100 })
+
 		if (!name) {
 			setSearch('')
 			setShowDropdown(false)
@@ -112,7 +106,6 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	async function handleAddPastedIngredients(itemsToProcess?: ParsedIngredient[]) {
 		setIsProcessingPaste(true)
 		setPasteError(null)
-		const ingredients = ingredientsQuery.data ?? []
 		const updated = [...(itemsToProcess ?? pastedIngredients)]
 
 		for (let i = 0; i < updated.length; i++) {
@@ -120,16 +113,9 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 			if (item.status === 'added' || item.status === 'error') continue
 
 			try {
-				// Try to find existing ingredient (case-insensitive)
-				const existing = ingredients.find(ing => ing.name.toLowerCase() === item.name.toLowerCase())
-				if (existing) {
-					addIngredient.mutate({ recipeId, ingredientId: existing.id, amountGrams: item.grams })
-					updated[i] = { ...item, status: 'added' }
-				} else {
-					// Look up with AI
-					await handleAiLookup(item.name, item.grams)
-					updated[i] = { ...item, status: 'added' }
-				}
+				// Backend handles DB lookup + AI fallback
+				await handleFindOrCreate(item.name, item.grams)
+				updated[i] = { ...item, status: 'added' }
 				setPastedIngredients([...updated])
 			} catch (err) {
 				const errorMsg = err instanceof Error ? err.message : 'Unknown error'
@@ -150,12 +136,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	function cancelPaste() {
 		setPastedIngredients([])
 		setPasteError(null)
-		aiLookup.reset()
+		findOrCreate.reset()
 	}
 
 	function retryPaste() {
 		setPasteError(null)
-		aiLookup.reset()
+		findOrCreate.reset()
 		// Reset failed items back to pending so they get processed
 		const resetItems = pastedIngredients.map(item =>
 			item.status === 'error' ? { ...item, status: 'pending' as const, error: undefined } : item
@@ -196,7 +182,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					))}
 				</div>
 
-				{pasteError && <TRPCError error={aiLookup.error} className="mb-3" />}
+				{pasteError && <TRPCError error={findOrCreate.error} className="mb-3" />}
 
 				<div className="flex gap-2">
 					{hasErrors ? (
@@ -215,7 +201,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						</Button>
 					) : (
 						<>
-							<Button onClick={handleAddPastedIngredients} disabled={isProcessingPaste}>
+							<Button onClick={() => handleAddPastedIngredients()} disabled={isProcessingPaste}>
 								{isProcessingPaste ? (
 									<>
 										<Spinner className="size-4" />
@@ -277,20 +263,19 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							</div>
 						</button>
 					))}
-					{filtered.length === 0 && !aiLookup.isPending && (
+					{filtered.length === 0 && !findOrCreate.isPending && (
 						<div className="px-3 py-2 text-ink-faint text-sm">No ingredients found</div>
 					)}
 					<button
 						type="button"
 						className="flex w-full items-center gap-2 border-edge border-t px-3 py-2.5 text-left text-accent text-sm hover:bg-surface-2"
-						onMouseDown={() => handleAiLookup()}
-						disabled={aiLookup.isPending}
+						onMouseDown={() => handleFindOrCreate()}
+						disabled={findOrCreate.isPending}
 					>
-						{aiLookup.isPending ? <Spinner className="size-4" /> : <Sparkles className="size-4" />}
-						Look up "{search}" with AI
+						{findOrCreate.isPending ? <Spinner className="size-4" /> : <Plus className="size-4" />}
+						Add "{search}"
 					</button>
-					{aiLookup.isError && <TRPCError error={aiLookup.error} />}
-					{createIngredient.isError && <TRPCError error={createIngredient.error} />}
+					{findOrCreate.isError && <TRPCError error={findOrCreate.error} />}
 					{addIngredient.isError && <TRPCError error={addIngredient.error} />}
 				</div>
 			)}

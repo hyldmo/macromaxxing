@@ -1,6 +1,7 @@
 import type { TRPCClientErrorLike } from '@trpc/client'
 import { AlertTriangle } from 'lucide-react'
-import type { FC } from 'react'
+import type { FC, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 import type { AppRouter } from '../../../workers/functions/lib/router'
 
@@ -16,7 +17,7 @@ export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', className
 	return (
 		<div
 			className={cn(
-				'flex items-center gap-2 rounded-[--radius-md] px-3 py-1',
+				'flex h-8 items-center gap-2 rounded-[--radius-md] px-3',
 				{
 					'bg-destructive/10': type === 'error',
 					'bg-warning/10': type === 'warning',
@@ -52,15 +53,20 @@ const friendlyMessages: Record<string, string> = {
 	INTERNAL_SERVER_ERROR: 'Something went wrong on the server. Please try again.'
 }
 
-function getFriendlyMessage(error: TRPCClientErrorLike<AppRouter>): string {
+function getFriendlyMessage(error: TRPCClientErrorLike<AppRouter>): ReactNode {
 	const message = error.message
 
 	// Check for known error patterns
 	if (message.includes('ENCRYPTION_SECRET not configured')) {
 		return friendlyMessages.ENCRYPTION_SECRET_NOT_CONFIGURED
 	}
-	if (message.includes('API key')) {
-		return 'AI lookup requires an API key. Go to Settings to configure your AI provider.'
+	if (message.includes('API key required for initial setup')) {
+		return (
+			<p>
+				{message}
+				<Link to="/settings">Go to Settings to configure your AI provider.</Link>
+			</p>
+		)
 	}
 
 	// Check by error code

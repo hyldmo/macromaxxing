@@ -13,6 +13,7 @@ export interface PortionPanelProps {
 	effectiveCookedWeight: number
 	onCookedWeightChange?: (value: number | null) => void
 	onPortionSizeChange?: (value: number) => void
+	ingredients?: Array<{ name: string; grams: number }>
 }
 
 export const PortionPanel: FC<PortionPanelProps> = ({
@@ -22,7 +23,8 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 	portionSize,
 	effectiveCookedWeight,
 	onCookedWeightChange,
-	onPortionSizeChange
+	onPortionSizeChange,
+	ingredients
 }) => {
 	const portions = effectiveCookedWeight > 0 ? effectiveCookedWeight / portionSize : 0
 
@@ -55,6 +57,7 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 						cookedWeight={cookedWeight}
 						rawTotal={rawTotal}
 						onChange={onCookedWeightChange}
+						ingredients={ingredients}
 					/>
 					<PortionSizeInput portionSize={portionSize} onChange={onPortionSizeChange} />
 					<div className="text-center font-mono text-ink-muted text-sm">

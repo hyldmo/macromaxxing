@@ -41,6 +41,11 @@ export function RecipeEditorPage() {
 
 	const calculations = useRecipeCalculations(recipeQuery.data)
 
+	const ingredients = recipeQuery.data?.recipeIngredients.map(ri => ({
+		name: ri.ingredient.name,
+		grams: ri.amountGrams
+	}))
+
 	function handleCreate() {
 		if (!name.trim()) return
 		createMutation.mutate({ name: name.trim() })
@@ -120,6 +125,7 @@ export function RecipeEditorPage() {
 							effectiveCookedWeight={calculations.cookedWeight}
 							onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
 							onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
+							ingredients={isOwner ? ingredients : undefined}
 						/>
 					</div>
 
@@ -147,6 +153,7 @@ export function RecipeEditorPage() {
 								effectiveCookedWeight={calculations.cookedWeight}
 								onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
 								onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
+								ingredients={isOwner ? ingredients : undefined}
 							/>
 						</div>
 					</div>

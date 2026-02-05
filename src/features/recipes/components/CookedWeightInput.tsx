@@ -1,15 +1,27 @@
+import { Sparkles } from 'lucide-react'
 import { type FC, useState } from 'react'
+import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
+import { Spinner } from '~/components/ui/Spinner'
+import { trpc } from '~/lib/trpc'
 
 export interface CookedWeightInputProps {
 	cookedWeight: number | null
 	rawTotal: number
 	onChange?: (value: number | null) => void
+	ingredients?: Array<{ name: string; grams: number }>
 }
 
-export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, rawTotal, onChange }) => {
+export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, rawTotal, onChange, ingredients }) => {
 	const readOnly = !onChange
 	const [value, setValue] = useState(cookedWeight?.toString() ?? '')
+	const estimateMutation = trpc.ai.estimateCookedWeight.useMutation({
+		onSuccess: data => {
+			const rounded = Math.round(data.cookedWeight)
+			setValue(rounded.toString())
+			onChange?.(rounded)
+		}
+	})
 
 	const effectiveWeight = cookedWeight ?? rawTotal
 	const lossPct = rawTotal > 0 ? ((effectiveWeight - rawTotal) / rawTotal) * 100 : 0
@@ -28,6 +40,8 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, ra
 		onChange(parsed)
 	}
 
+	const canEstimate = !readOnly && ingredients && ingredients.length > 0
+
 	return (
 		<label className="flex flex-col gap-1">
 			<span className="text-ink-muted text-xs uppercase tracking-wider">Cooked weight</span>
@@ -44,6 +58,18 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, ra
 					disabled={readOnly}
 				/>
 				<span className="text-ink-faint text-xs">g</span>
+				{canEstimate && (
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-8 shrink-0"
+						onClick={() => estimateMutation.mutate({ ingredients })}
+						disabled={estimateMutation.isPending}
+						title="Estimate with AI"
+					>
+						{estimateMutation.isPending ? <Spinner className="size-4" /> : <Sparkles className="size-4" />}
+					</Button>
+				)}
 			</div>
 			{rawTotal > 0 && (
 				<span className="font-mono text-[10px] text-ink-faint">
