@@ -30,7 +30,7 @@ export const ingredients = sqliteTable('ingredients', {
 	fat: real('fat').notNull(),
 	kcal: real('kcal').notNull(),
 	fiber: real('fiber').notNull(),
-	source: text('source').notNull(), // 'manual' | 'ai'
+	source: text('source').notNull(), // 'manual' | 'ai' | 'usda'
 	createdAt: integer('created_at').notNull()
 })
 

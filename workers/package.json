@@ -1,18 +1,21 @@
 {
-  "name": "@macromaxxing/workers",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@hono/trpc-server": "^0.4.2",
-    "@macromaxxing/db": "workspace:*",
-    "@trpc/server": "*",
-    "drizzle-orm": "^0.45.1",
-    "hono": "^4.11.7",
-    "zod": "*"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260203.0",
-    "wrangler": "^4.62.0"
-  }
+	"name": "@macromaxxing/workers",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@hono/trpc-server": "^0.4.2",
+		"@macromaxxing/db": "workspace:*",
+		"@trpc/server": "*",
+		"drizzle-orm": "^0.45.1",
+		"hono": "^4.11.7",
+		"zod": "*"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260203.0",
+		"wrangler": "^4.62.0"
+	}
 }

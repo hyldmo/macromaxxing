@@ -61,7 +61,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 					<span className="mb-1 block text-macro-protein text-xs">Protein</span>
 					<Input
 						type="number"
-						step="0.1"
+						step="0.01"
 						value={protein}
 						onChange={e => setProtein(e.target.value)}
 						min={0}
@@ -72,7 +72,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 					<span className="mb-1 block text-macro-carbs text-xs">Carbs</span>
 					<Input
 						type="number"
-						step="0.1"
+						step="0.01"
 						value={carbs}
 						onChange={e => setCarbs(e.target.value)}
 						min={0}
@@ -83,7 +83,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 					<span className="mb-1 block text-macro-fat text-xs">Fat</span>
 					<Input
 						type="number"
-						step="0.1"
+						step="0.01"
 						value={fat}
 						onChange={e => setFat(e.target.value)}
 						min={0}
@@ -105,7 +105,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 					<span className="mb-1 block text-macro-fiber text-xs">Fiber</span>
 					<Input
 						type="number"
-						step="0.1"
+						step="0.01"
 						value={fiber}
 						onChange={e => setFiber(e.target.value)}
 						min={0}

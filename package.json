@@ -15,6 +15,7 @@
 		"dev:web": "vite",
 		"dev:api": "yarn workspace @macromaxxing/workers wrangler pages dev --d1=macromaxxing --port=8788 --live-reload",
 		"build": "vite build",
+		"typecheck": "tsc && yarn workspaces foreach --all --parallel typecheck",
 		"codegen": "yarn workspace @macromaxxing/workers wrangler types",
 		"fix": "biome check . --fix --unsafe",
 		"lint": "biome check .",

@@ -27,11 +27,13 @@ Set `API_URL` env var to override the API proxy target (defaults to `http://loca
 
 ## Local Setup
 
-Create `.dev.vars` for local secrets (required for AI features):
+Create `.dev.vars` for local secrets:
 
 ```bash
 # Generate a secret: openssl rand -hex 32
 ENCRYPTION_SECRET=your-32-byte-hex-secret
+# Get from https://fdc.nal.usda.gov/api-key-signup/
+USDA_API_KEY=your-usda-api-key
 ```
 
 ## Key Files
@@ -85,10 +87,12 @@ trpc.recipe.list/listPublic/get/getPublic/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
 trpc.ingredient.list/listPublic/create/update/delete/findOrCreate
 trpc.settings.get/save
-trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber } per 100g
+trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, source } per 100g
 ```
 
-`ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive), falls back to AI lookup if not found. Returns `{ ingredient, source: 'existing' | 'ai' }`.
+`ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`.
+
+**Nutrition lookup priority:** USDA FoodData Central API → AI (user's configured provider)
 
 **Public endpoints (no auth):** `recipe.listPublic`, `recipe.getPublic`, `ingredient.listPublic`
 

@@ -1,8 +1,9 @@
-import { Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
+import { USDA } from '~/components/ui/icons'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
@@ -101,8 +102,8 @@ export function IngredientListPage() {
 					{search
 						? 'No ingredients match your search.'
 						: filter === 'mine'
-							? "You haven't added any ingredients yet."
-							: 'No ingredients yet.'}
+						? "You haven't added any ingredients yet."
+						: 'No ingredients yet.'}
 				</Card>
 			)}
 
@@ -160,7 +161,7 @@ export function IngredientListPage() {
 													setShowForm(false)
 												}}
 											>
-												<Pencil className="h-3.5 w-3.5 text-ink-faint" />
+												<Pencil className="size-3.5 text-ink-faint" />
 											</Button>
 											<Button
 												variant="ghost"
@@ -168,7 +169,7 @@ export function IngredientListPage() {
 												className="size-7"
 												onClick={() => deleteMutation.mutate(ingredient.id)}
 											>
-												<Trash2 className="h-3.5 w-3.5 text-ink-faint" />
+												<Trash2 className="size-3.5 text-ink-faint" />
 											</Button>
 										</div>
 									)}
@@ -234,9 +235,11 @@ export function IngredientListPage() {
 											</td>
 											<td className="px-2 py-1.5 text-right">
 												{ingredient.source === 'ai' ? (
-													<Sparkles className="ml-auto h-3.5 w-3.5 text-accent" />
+													<Sparkles className="ml-auto size-3.5 text-accent" />
+												) : ingredient.source === 'usda' ? (
+													<USDA className="ml-auto size-4 text-accent" />
 												) : (
-													<span className="text-ink-faint text-xs">manual</span>
+													<NotebookPenIcon className="size-3.5 text-ink-faint" />
 												)}
 											</td>
 											<td className="px-1 py-1.5">
@@ -251,7 +254,7 @@ export function IngredientListPage() {
 																setShowForm(false)
 															}}
 														>
-															<Pencil className="h-3.5 w-3.5 text-ink-faint" />
+															<Pencil className="size-3.5 text-ink-faint" />
 														</Button>
 														<Button
 															variant="ghost"
@@ -259,7 +262,7 @@ export function IngredientListPage() {
 															className="size-7"
 															onClick={() => deleteMutation.mutate(ingredient.id)}
 														>
-															<Trash2 className="h-3.5 w-3.5 text-ink-faint" />
+															<Trash2 className="size-3.5 text-ink-faint" />
 														</Button>
 													</div>
 												)}

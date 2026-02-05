@@ -1,3 +1,4 @@
+import type { D1Database } from '@cloudflare/workers-types'
 import * as db from '@macromaxxing/db'
 import { drizzle } from 'drizzle-orm/d1'
 

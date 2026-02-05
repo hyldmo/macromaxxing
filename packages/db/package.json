@@ -1,22 +1,25 @@
 {
-  "name": "@macromaxxing/db",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./index.ts",
-    "./schema": "./schema.ts",
-    "./types": "./types.ts"
-  },
-  "dependencies": {
-    "drizzle-orm": "^0.45.1",
-    "es-toolkit": "*",
-    "typeid-js": "^1.2.0"
-  },
-  "peerDependencies": {
-    "zod": "*"
-  },
-  "devDependencies": {
-    "drizzle-kit": "^0.31.8"
-  }
+	"name": "@macromaxxing/db",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"typecheck": "tsc --noEmit"
+	},
+	"exports": {
+		".": "./index.ts",
+		"./schema": "./schema.ts",
+		"./types": "./types.ts"
+	},
+	"dependencies": {
+		"drizzle-orm": "^0.45.1",
+		"es-toolkit": "*",
+		"typeid-js": "^1.2.0"
+	},
+	"peerDependencies": {
+		"zod": "*"
+	},
+	"devDependencies": {
+		"drizzle-kit": "^0.31.8"
+	}
 }

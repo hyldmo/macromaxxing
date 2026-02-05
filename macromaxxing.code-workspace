@@ -1,0 +1,31 @@
+{
+	"folders": [
+		{
+			"name": "macromaxxing",
+			"path": "."
+		},
+		{
+			"name": "db",
+			"path": "packages/db"
+		},
+		{
+			"path": "workers"
+		}
+	],
+	"settings": {
+		"editor.codeActionsOnSave": {
+			"source.addMissingImports.ts": "explicit",
+			"source.removeUnusedImports": "explicit",
+			"source.fixAll.biome": "explicit",
+			"source.organizeImports.biome": "explicit"
+		},
+		"editor.defaultFormatter": "biomejs.biome",
+		"editor.formatOnSave": true,
+		"editor.rulers": [120],
+		"typescript.tsdk": "node_modules/typescript/lib",
+		"[typescript]": {
+			"editor.defaultFormatter": "biomejs.biome"
+		},
+		"yaml.format.printWidth": 120
+	}
+}

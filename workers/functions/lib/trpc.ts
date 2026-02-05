@@ -5,7 +5,7 @@ import type { Database } from './db'
 export interface TRPCContext {
 	db: Database
 	user: AuthUser | null
-	env: Env
+	env: Cloudflare.Env
 }
 
 const t = initTRPC.context<TRPCContext>().create()

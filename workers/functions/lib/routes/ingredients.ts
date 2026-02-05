@@ -3,7 +3,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { type AiProvider, ingredients, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { generateText, object } from 'ai'
+import { generateText, Output } from 'ai'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { MODELS, macroSchema } from '../constants'
@@ -21,6 +21,52 @@ function getModel(provider: AiProvider, apiKey: string) {
 	}
 }
 
+// USDA nutrient IDs
+const NUTRIENT_IDS = {
+	protein: 1003,
+	fat: 1004,
+	carbs: 1005,
+	kcal: 1008,
+	fiber: 1079
+} as const
+
+type Macros = z.infer<typeof macroSchema>
+
+async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macros | null> {
+	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
+	url.searchParams.set('api_key', apiKey)
+	url.searchParams.set('query', ingredientName)
+	url.searchParams.set('pageSize', '5')
+	// Prefer Foundation and SR Legacy (standard reference) for raw ingredients
+	url.searchParams.set('dataType', 'Foundation,SR Legacy')
+
+	const res = await fetch(url.toString())
+	if (!res.ok) return null
+
+	const data = (await res.json()) as {
+		foods?: Array<{
+			description: string
+			foodNutrients?: Array<{ nutrientId: number; value: number }>
+		}>
+	}
+
+	if (!data.foods?.length) return null
+
+	// Use the first result
+	const food = data.foods[0]
+	const nutrients = food.foodNutrients ?? []
+
+	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
+
+	return {
+		protein: getNutrient(NUTRIENT_IDS.protein),
+		fat: getNutrient(NUTRIENT_IDS.fat),
+		carbs: getNutrient(NUTRIENT_IDS.carbs),
+		kcal: getNutrient(NUTRIENT_IDS.kcal),
+		fiber: getNutrient(NUTRIENT_IDS.fiber)
+	}
+}
+
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
 const createIngredientSchema = z.object({
@@ -31,7 +77,7 @@ const createIngredientSchema = z.object({
 	fat: z.number().nonnegative(),
 	kcal: z.number().nonnegative(),
 	fiber: z.number().nonnegative(),
-	source: z.enum(['manual', 'ai'])
+	source: z.enum(['manual', 'ai', 'usda'])
 })
 
 const updateIngredientSchema = z.object({
@@ -42,7 +88,7 @@ const updateIngredientSchema = z.object({
 	fat: z.number().nonnegative().optional(),
 	kcal: z.number().nonnegative().optional(),
 	fiber: z.number().nonnegative().optional(),
-	source: z.enum(['manual', 'ai']).optional()
+	source: z.enum(['manual', 'ai', 'usda']).optional()
 })
 
 export const ingredientsRouter = router({
@@ -85,7 +131,7 @@ export const ingredientsRouter = router({
 		await ctx.db.delete(ingredients).where(and(eq(ingredients.id, input), eq(ingredients.userId, ctx.user.id)))
 	}),
 
-	/** Find existing ingredient by name (case-insensitive) or create via AI lookup */
+	/** Find existing ingredient by name (case-insensitive) or create via USDA/AI lookup */
 	findOrCreate: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {
 		// Check for existing ingredient (case-insensitive)
 		const existing = await ctx.db.query.ingredients.findFirst({
@@ -96,7 +142,27 @@ export const ingredientsRouter = router({
 			return { ingredient: existing, source: 'existing' as const }
 		}
 
-		// No existing match - look up with AI
+		// Try USDA first (free, accurate, fast)
+		const usdaKey = ctx.env.USDA_API_KEY
+		if (usdaKey) {
+			const usdaResult = await lookupUSDA(input.name, usdaKey)
+			if (usdaResult) {
+				const [ingredient] = await ctx.db
+					.insert(ingredients)
+					.values({
+						userId: ctx.user.id,
+						name: input.name,
+						...usdaResult,
+						source: 'usda',
+						createdAt: Date.now()
+					})
+					.returning()
+
+				return { ingredient, source: 'usda' as const }
+			}
+		}
+
+		// Fall back to AI
 		const encryptionSecret = ctx.env.ENCRYPTION_SECRET
 		if (!encryptionSecret) {
 			throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
@@ -112,7 +178,7 @@ export const ingredientsRouter = router({
 
 		const { output: macros } = await generateText({
 			model: getModel(settings.provider, settings.apiKey),
-			output: object({ schema: macroSchema }),
+			output: Output.object({ schema: macroSchema }),
 			prompt: `Return nutritional values per 100g raw weight for: ${input.name}. Use USDA data.`
 		})
 
