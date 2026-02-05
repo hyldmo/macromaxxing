@@ -15,9 +15,9 @@
 	--color-edge: oklch(0.25 0.01 60);
 
 	/* Macro colors — food-inspired, functionally distinct */
-	--color-macro-protein: oklch(0.72 0.14 55);
-	--color-macro-carbs: oklch(0.76 0.12 85);
-	--color-macro-fat: oklch(0.68 0.1 135);
+	--color-macro-protein: oklch(0.68 0.1 135);
+	--color-macro-carbs: oklch(0.72 0.14 55);
+	--color-macro-fat: oklch(0.76 0.12 85);
 	--color-macro-kcal: oklch(0.72 0.15 40);
 	--color-macro-fiber: oklch(0.66 0.09 170);
 
