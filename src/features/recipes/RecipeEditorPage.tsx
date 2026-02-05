@@ -6,6 +6,7 @@ import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { MarkdownEditor } from '~/components/ui/MarkdownEditor'
 import { Spinner } from '~/components/ui/Spinner'
+import { Switch } from '~/components/ui/Switch'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 import { getUserId } from '~/lib/user'
@@ -120,6 +121,19 @@ export function RecipeEditorPage() {
 					<Button onClick={handleCreate} disabled={!name.trim() || createMutation.isPending}>
 						Create
 					</Button>
+				)}
+				{isOwner && (
+					<label
+						htmlFor="public-toggle"
+						className="ml-auto flex cursor-pointer items-center gap-2 text-ink-muted text-sm"
+					>
+						<span>Public</span>
+						<Switch
+							id="public-toggle"
+							checked={!!recipeQuery.data?.isPublic}
+							onChange={checked => updateMutation.mutate({ id: id!, isPublic: checked })}
+						/>
+					</label>
 				)}
 				{!(isNew || isOwner) && (
 					<span className="ml-auto flex items-center gap-1.5 text-ink-muted text-sm">

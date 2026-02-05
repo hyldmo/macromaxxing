@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
@@ -17,19 +17,56 @@ import {
 } from './utils/macros'
 
 type Filter = 'all' | 'mine'
+type Sort = 'recent' | 'protein' | 'calories' | 'name'
+
+const sortLabels: Record<Sort, string> = {
+	recent: 'Recent',
+	protein: 'Protein',
+	calories: 'Calories',
+	name: 'Name'
+}
 
 export function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
+	const [sort, setSort] = useState<Sort>('recent')
 	const userId = getUserId()
 	const recipesQuery = trpc.recipe.listPublic.useQuery()
 
-	const filteredRecipes = filter === 'mine' ? recipesQuery.data?.filter(r => r.userId === userId) : recipesQuery.data
+	const recipesWithMacros = useMemo(() => {
+		if (!recipesQuery.data) return []
+		return recipesQuery.data.map(recipe => {
+			const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
+				per100g: ri.ingredient,
+				amountGrams: ri.amountGrams
+			}))
+			const totals = calculateRecipeTotals(items)
+			const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
+			const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
+			return { recipe, portion, isMine: recipe.userId === userId }
+		})
+	}, [recipesQuery.data, userId])
 
-	const myRecipeCount = recipesQuery.data?.filter(r => r.userId === userId).length ?? 0
+	const sortedRecipes = useMemo(() => {
+		const filtered = filter === 'mine' ? recipesWithMacros.filter(r => r.isMine) : recipesWithMacros
+		return [...filtered].sort((a, b) => {
+			switch (sort) {
+				case 'protein':
+					return b.portion.protein - a.portion.protein
+				case 'calories':
+					return a.portion.kcal - b.portion.kcal
+				case 'name':
+					return a.recipe.name.localeCompare(b.recipe.name)
+				default:
+					return b.recipe.updatedAt - a.recipe.updatedAt
+			}
+		})
+	}, [recipesWithMacros, filter, sort])
+
+	const myRecipeCount = recipesWithMacros.filter(r => r.isMine).length
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center justify-between">
+			<div className="flex items-center justify-between gap-2">
 				<div className="flex items-center gap-2">
 					<h1 className="font-semibold text-ink">Recipes</h1>
 					<div className="flex gap-1">
@@ -57,12 +94,25 @@ export function RecipeListPage() {
 						</button>
 					</div>
 				</div>
-				<Link to="/recipes/new">
-					<Button>
-						<Plus className="size-4" />
-						New Recipe
-					</Button>
-				</Link>
+				<div className="flex items-center gap-2">
+					<select
+						value={sort}
+						onChange={e => setSort(e.target.value as Sort)}
+						className="h-7 rounded-full border-none bg-surface-2 px-2.5 pr-7 text-ink-muted text-xs transition-colors hover:text-ink focus:outline-none focus:ring-1 focus:ring-accent/50"
+					>
+						{(Object.keys(sortLabels) as Sort[]).map(key => (
+							<option key={key} value={key}>
+								{sortLabels[key]}
+							</option>
+						))}
+					</select>
+					<Link to="/recipes/new">
+						<Button>
+							<Plus className="size-4" />
+							New Recipe
+						</Button>
+					</Link>
+				</div>
 			</div>
 
 			{recipesQuery.isLoading && (
@@ -73,7 +123,7 @@ export function RecipeListPage() {
 
 			{recipesQuery.error && <TRPCError error={recipesQuery.error} />}
 
-			{filteredRecipes?.length === 0 && (
+			{sortedRecipes.length === 0 && !recipesQuery.isLoading && (
 				<Card className="py-12 text-center text-ink-faint">
 					{filter === 'mine'
 						? "You haven't created any recipes yet."
@@ -82,28 +132,17 @@ export function RecipeListPage() {
 			)}
 
 			<div className="grid gap-2">
-				{filteredRecipes?.map(recipe => {
-					const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-						per100g: ri.ingredient,
-						amountGrams: ri.amountGrams
-					}))
-					const totals = calculateRecipeTotals(items)
-					const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-					const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-					const isMine = recipe.userId === userId
-
-					return (
-						<RecipeCard
-							key={recipe.id}
-							id={recipe.id}
-							name={recipe.name}
-							ingredientCount={recipe.recipeIngredients.length}
-							portionSize={recipe.portionSize}
-							portion={portion}
-							isMine={isMine}
-						/>
-					)
-				})}
+				{sortedRecipes.map(({ recipe, portion, isMine }) => (
+					<RecipeCard
+						key={recipe.id}
+						id={recipe.id}
+						name={recipe.name}
+						ingredientCount={recipe.recipeIngredients.length}
+						portionSize={recipe.portionSize}
+						portion={portion}
+						isMine={isMine}
+					/>
+				))}
 			</div>
 		</div>
 	)

@@ -1,5 +1,5 @@
 import { recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 
@@ -15,7 +15,8 @@ const updateRecipeSchema = z.object({
 	name: z.string().min(1).optional(),
 	instructions: z.string().nullable().optional(),
 	cookedWeight: z.number().positive().nullable().optional(),
-	portionSize: z.number().positive().nullable().optional()
+	portionSize: z.number().positive().nullable().optional(),
+	isPublic: z.boolean().optional()
 })
 
 const addIngredientSchema = z.object({
@@ -46,6 +47,7 @@ export const recipesRouter = router({
 
 	listPublic: publicProcedure.query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
+			where: ctx.user ? or(eq(recipes.isPublic, 1), eq(recipes.userId, ctx.user.id)) : eq(recipes.isPublic, 1),
 			with: { recipeIngredients: { with: { ingredient: { with: { units: true } } } } },
 			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
 			limit: 50
@@ -80,6 +82,9 @@ export const recipesRouter = router({
 				}
 			})
 			if (!recipe) throw new Error('Recipe not found')
+			// Allow access if public OR if user is authenticated and owns it
+			const isOwner = ctx.user && recipe.userId === ctx.user.id
+			if (!(recipe.isPublic || isOwner)) throw new Error('Recipe not found')
 			return recipe
 		}),
 
@@ -99,10 +104,14 @@ export const recipesRouter = router({
 	}),
 
 	update: protectedProcedure.input(updateRecipeSchema).mutation(async ({ ctx, input }) => {
-		const { id, ...updates } = input
+		const { id, isPublic, ...updates } = input
 		await ctx.db
 			.update(recipes)
-			.set({ ...updates, updatedAt: Date.now() })
+			.set({
+				...updates,
+				...(isPublic !== undefined && { isPublic: isPublic ? 1 : 0 }),
+				updatedAt: Date.now()
+			})
 			.where(and(eq(recipes.id, id), eq(recipes.userId, ctx.user.id)))
 		return ctx.db.query.recipes.findFirst({
 			where: eq(recipes.id, id),

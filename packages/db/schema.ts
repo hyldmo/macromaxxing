@@ -60,6 +60,7 @@ export const recipes = sqliteTable('recipes', {
 	instructions: text('instructions'),
 	cookedWeight: real('cooked_weight'), // nullable, null = use raw total
 	portionSize: real('portion_size'), // null = entire dish is 1 portion
+	isPublic: integer('is_public').notNull().default(0), // 0 = private, 1 = public
 	createdAt: integer('created_at').notNull(),
 	updatedAt: integer('updated_at').notNull()
 })
