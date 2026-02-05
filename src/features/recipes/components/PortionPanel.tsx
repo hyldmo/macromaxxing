@@ -1,10 +1,11 @@
+import type { FC } from 'react'
 import type { AbsoluteMacros } from '../utils/macros'
 import { CookedWeightInput } from './CookedWeightInput'
 import { MacroReadout } from './MacroReadout'
 import { MacroRing } from './MacroRing'
 import { PortionSizeInput } from './PortionSizeInput'
 
-interface PortionPanelProps {
+export interface PortionPanelProps {
 	portion: AbsoluteMacros
 	cookedWeight: number | null
 	rawTotal: number
@@ -14,7 +15,7 @@ interface PortionPanelProps {
 	onPortionSizeChange: (value: number) => void
 }
 
-export function PortionPanel({
+export const PortionPanel: FC<PortionPanelProps> = ({
 	portion,
 	cookedWeight,
 	rawTotal,
@@ -22,7 +23,7 @@ export function PortionPanel({
 	effectiveCookedWeight,
 	onCookedWeightChange,
 	onPortionSizeChange
-}: PortionPanelProps) {
+}) => {
 	const portions = effectiveCookedWeight > 0 ? effectiveCookedWeight / portionSize : 0
 
 	return (

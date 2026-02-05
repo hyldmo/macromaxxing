@@ -1,5 +1,6 @@
+import type { Ingredient } from '@macromaxxing/db'
 import { ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { type FC, useRef, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
@@ -43,7 +44,7 @@ function parseIngredientList(text: string): ParsedIngredient[] {
 	return results
 }
 
-export function IngredientSearchInput({ recipeId }: IngredientSearchInputProps) {
+export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId }) => {
 	const [search, setSearch] = useState('')
 	const [showDropdown, setShowDropdown] = useState(false)
 	const [pastedIngredients, setPastedIngredients] = useState<ParsedIngredient[]>([])
@@ -66,7 +67,7 @@ export function IngredientSearchInput({ recipeId }: IngredientSearchInputProps) 
 	const filtered =
 		ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10) ?? []
 
-	function handleSelectIngredient(ingredientId: string, amountGrams = 100) {
+	function handleSelectIngredient(ingredientId: Ingredient['id'], amountGrams = 100) {
 		addIngredient.mutate({ recipeId, ingredientId, amountGrams })
 		setSearch('')
 		setShowDropdown(false)
@@ -169,7 +170,9 @@ export function IngredientSearchInput({ recipeId }: IngredientSearchInputProps) 
 					<ClipboardPaste className="h-4 w-4" />
 					<span>
 						{isProcessingPaste
-							? `Adding ingredients... (${pastedIngredients.filter(i => i.status === 'added').length}/${pastedIngredients.length})`
+							? `Adding ingredients... (${pastedIngredients.filter(i => i.status === 'added').length}/${
+									pastedIngredients.length
+								})`
 							: `Parsed ${pastedIngredients.length} ingredients from paste`}
 					</span>
 				</div>

@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { type FC, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { type RouterOutput, trpc } from '~/lib/trpc'
@@ -13,7 +13,7 @@ export interface RecipeIngredientRowProps {
 	recipeId: RouterOutput['recipe']['get']['id']
 }
 
-export function RecipeIngredientRow({ ri, macros, recipeId }: RecipeIngredientRowProps) {
+export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, recipeId }) => {
 	const [amount, setAmount] = useState(ri.amountGrams.toString())
 	const utils = trpc.useUtils()
 

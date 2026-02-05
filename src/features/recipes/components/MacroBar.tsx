@@ -1,12 +1,13 @@
+import type { FC } from 'react'
 import { caloricRatio } from '../utils/macros'
 
-interface MacroBarProps {
+export interface MacroBarProps {
 	protein: number
 	carbs: number
 	fat: number
 }
 
-export function MacroBar({ protein, carbs, fat }: MacroBarProps) {
+export const MacroBar: FC<MacroBarProps> = ({ protein, carbs, fat }) => {
 	const ratio = caloricRatio(protein, carbs, fat)
 	const total = ratio.protein + ratio.carbs + ratio.fat
 

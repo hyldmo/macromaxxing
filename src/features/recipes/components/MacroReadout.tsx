@@ -1,9 +1,10 @@
 import { startCase } from 'es-toolkit'
+import type { FC } from 'react'
 import { cn } from '~/lib/cn'
 
 type MacroReadoutType = 'protein' | 'carbs' | 'fat' | 'fiber'
 
-interface MacroReadoutProps {
+export interface MacroReadoutProps {
 	label?: string
 	value: number
 	unit?: string
@@ -17,7 +18,7 @@ const colorClass: Record<MacroReadoutType, string> = {
 	fiber: 'text-macro-fiber'
 }
 
-export function MacroReadout({ label, value, unit = 'g', type }: MacroReadoutProps) {
+export const MacroReadout: FC<MacroReadoutProps> = ({ label, value, unit = 'g', type }) => {
 	return (
 		<div className="flex flex-col items-center">
 			<span className="text-[10px] text-ink-muted uppercase tracking-wider">{label ?? startCase(type)}</span>

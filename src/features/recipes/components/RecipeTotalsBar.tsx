@@ -1,11 +1,12 @@
+import type { FC } from 'react'
 import type { AbsoluteMacros } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 
-interface RecipeTotalsBarProps {
+export interface RecipeTotalsBarProps {
 	totals: AbsoluteMacros
 }
 
-export function RecipeTotalsBar({ totals }: RecipeTotalsBarProps) {
+export const RecipeTotalsBar: FC<RecipeTotalsBarProps> = ({ totals }) => {
 	return (
 		<div className="rounded-[--radius-md] bg-surface-2/60 px-3 py-2">
 			<div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-sm">

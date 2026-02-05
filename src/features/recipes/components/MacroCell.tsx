@@ -1,3 +1,4 @@
+import type { FC } from 'react'
 import { cn } from '~/lib/cn'
 import { macroPercentage } from '../utils/macros'
 
@@ -11,13 +12,13 @@ const macroColorClass: Record<MacroType, string> = {
 	fiber: 'text-macro-fiber'
 }
 
-interface MacroCellProps {
+export interface MacroCellProps {
 	grams: number
 	weight: number
 	macro: MacroType
 }
 
-export function MacroCell({ grams, weight, macro }: MacroCellProps) {
+export const MacroCell: FC<MacroCellProps> = ({ grams, weight, macro }) => {
 	const pct = macroPercentage(grams, weight)
 	const isKcal = macro === 'kcal'
 	return (

@@ -1,8 +1,9 @@
 import type { TRPCClientErrorLike } from '@trpc/client'
 import { AlertTriangle } from 'lucide-react'
+import type { FC } from 'react'
 import type { AppRouter } from '../../../functions/lib/router'
 
-interface TRPCErrorProps {
+export interface TRPCErrorProps {
 	error: TRPCClientErrorLike<AppRouter> | null
 	className?: string
 }
@@ -35,7 +36,7 @@ function getFriendlyMessage(error: TRPCClientErrorLike<AppRouter>): string {
 	return message.length > 100 ? `${message.slice(0, 100)}...` : message
 }
 
-export function TRPCError({ error, className = '' }: TRPCErrorProps) {
+export const TRPCError: FC<TRPCErrorProps> = ({ error, className = '' }) => {
 	if (!error) return null
 
 	return (

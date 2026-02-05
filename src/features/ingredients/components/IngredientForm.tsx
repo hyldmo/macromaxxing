@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type FC, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -8,8 +8,7 @@ export interface IngredientFormProps {
 	onClose: () => void
 	editIngredient?: RouterOutput['ingredient']['list'][number]
 }
-
-export function IngredientForm({ onClose, editIngredient }: IngredientFormProps) {
+export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredient }) => {
 	const [name, setName] = useState(editIngredient?.name ?? '')
 	const [protein, setProtein] = useState(editIngredient?.protein.toString() ?? '')
 	const [carbs, setCarbs] = useState(editIngredient?.carbs.toString() ?? '')

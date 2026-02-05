@@ -6,13 +6,14 @@ import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
+import type { Recipe } from '../../../functions/lib/types'
 import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
 import { RecipeTotalsBar } from './components/RecipeTotalsBar'
 import { useRecipeCalculations } from './hooks/useRecipeCalculations'
 
 export function RecipeEditorPage() {
-	const { id } = useParams()
+	const { id } = useParams<{ id: Recipe['id'] }>()
 	const navigate = useNavigate()
 	const isNew = !id
 

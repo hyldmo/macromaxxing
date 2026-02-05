@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { type FC, useState } from 'react'
 import { Input } from '~/components/ui/Input'
 
-interface PortionSizeInputProps {
+export interface PortionSizeInputProps {
 	portionSize: number
 	onChange: (value: number) => void
 }
 
-export function PortionSizeInput({ portionSize, onChange }: PortionSizeInputProps) {
+export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, onChange }) => {
 	const [value, setValue] = useState(portionSize.toString())
 
 	function handleBlur() {

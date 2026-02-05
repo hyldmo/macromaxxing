@@ -1,3 +1,4 @@
+import type { FC } from 'react'
 import { Link } from 'react-router-dom'
 import type { RouterOutput } from '~/lib/trpc'
 import type { AbsoluteMacros } from '../utils/macros'
@@ -14,7 +15,7 @@ export interface RecipeCardProps {
 	portion: AbsoluteMacros
 }
 
-export function RecipeCard({ id, name, ingredientCount, portionSize, portion }: RecipeCardProps) {
+export const RecipeCard: FC<RecipeCardProps> = ({ id, name, ingredientCount, portionSize, portion }) => {
 	return (
 		<Link to={`/recipes/${id}`}>
 			<div className="flex items-center gap-4 rounded-[--radius-md] border border-edge bg-surface-1 p-3 transition-colors hover:bg-surface-2">
