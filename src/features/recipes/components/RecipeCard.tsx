@@ -1,13 +1,16 @@
 import { Link } from 'react-router-dom'
+import type { RouterOutput } from '~/lib/trpc'
 import type { AbsoluteMacros } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 import { MacroRing } from './MacroRing'
 
-interface RecipeCardProps {
-	id: string
-	name: string
+type Recipe = RouterOutput['recipe']['list'][number]
+
+export interface RecipeCardProps {
+	id: Recipe['id']
+	name: Recipe['name']
 	ingredientCount: number
-	portionSize: number
+	portionSize: Recipe['portionSize']
 	portion: AbsoluteMacros
 }
 

@@ -111,7 +111,7 @@ export function IngredientListPage() {
 										variant="ghost"
 										size="icon"
 										className="h-7 w-7"
-										onClick={() => deleteMutation.mutate({ id: ingredient.id })}
+										onClick={() => deleteMutation.mutate(ingredient.id)}
 									>
 										<Trash2 className="h-3.5 w-3.5 text-ink-faint" />
 									</Button>
@@ -185,7 +185,7 @@ export function IngredientListPage() {
 													variant="ghost"
 													size="icon"
 													className="h-7 w-7"
-													onClick={() => deleteMutation.mutate({ id: ingredient.id })}
+													onClick={() => deleteMutation.mutate(ingredient.id)}
 												>
 													<Trash2 className="h-3.5 w-3.5 text-ink-faint" />
 												</Button>

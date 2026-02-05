@@ -1,4 +1,5 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { newId, typeidCol } from './custom-types'
 
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(),
@@ -17,7 +18,7 @@ export const userSettings = sqliteTable('user_settings', {
 })
 
 export const ingredients = sqliteTable('ingredients', {
-	id: text('id').primaryKey(),
+	id: typeidCol('ing')('id').primaryKey().$defaultFn(() => newId('ing')),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
@@ -32,7 +33,7 @@ export const ingredients = sqliteTable('ingredients', {
 })
 
 export const recipes = sqliteTable('recipes', {
-	id: text('id').primaryKey(),
+	id: typeidCol('rcp')('id').primaryKey().$defaultFn(() => newId('rcp')),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
@@ -44,11 +45,11 @@ export const recipes = sqliteTable('recipes', {
 })
 
 export const recipeIngredients = sqliteTable('recipe_ingredients', {
-	id: text('id').primaryKey(),
-	recipeId: text('recipe_id')
+	id: typeidCol('rci')('id').primaryKey().$defaultFn(() => newId('rci')),
+	recipeId: typeidCol('rcp')('recipe_id')
 		.notNull()
 		.references(() => recipes.id, { onDelete: 'cascade' }),
-	ingredientId: text('ingredient_id')
+	ingredientId: typeidCol('ing')('ingredient_id')
 		.notNull()
 		.references(() => ingredients.id),
 	amountGrams: real('amount_grams').notNull(),

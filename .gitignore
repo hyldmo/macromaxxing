@@ -80,3 +80,5 @@ server
 packages/scripts/.pi-cache
 
 apps/hub/bin/
+
+worker-configuration.d.ts

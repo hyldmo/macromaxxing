@@ -2,19 +2,11 @@ import { useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { TRPCError } from '~/components/ui/TRPCError'
-import { trpc } from '~/lib/trpc'
+import { type RouterOutput, trpc } from '~/lib/trpc'
 
-interface IngredientFormProps {
+export interface IngredientFormProps {
 	onClose: () => void
-	editIngredient?: {
-		id: string
-		name: string
-		protein: number
-		carbs: number
-		fat: number
-		kcal: number
-		fiber: number
-	}
+	editIngredient?: RouterOutput['ingredient']['list'][number]
 }
 
 export function IngredientForm({ onClose, editIngredient }: IngredientFormProps) {

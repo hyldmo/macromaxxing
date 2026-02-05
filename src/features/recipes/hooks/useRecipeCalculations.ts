@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { RouterOutput } from '~/lib/trpc'
 import {
 	type AbsoluteMacros,
 	calculateIngredientMacros,
@@ -8,22 +9,7 @@ import {
 	type IngredientWithAmount
 } from '../utils/macros'
 
-interface RecipeIngredient {
-	amountGrams: number
-	ingredient: {
-		protein: number
-		carbs: number
-		fat: number
-		kcal: number
-		fiber: number
-	}
-}
-
-interface RecipeData {
-	cookedWeight: number | null
-	portionSize: number
-	recipeIngredients: RecipeIngredient[]
-}
+type Recipe = RouterOutput['recipe']['get']
 
 interface RecipeCalculations {
 	ingredientMacros: AbsoluteMacros[]
@@ -32,7 +18,7 @@ interface RecipeCalculations {
 	portion: AbsoluteMacros
 }
 
-export function useRecipeCalculations(recipe: RecipeData | undefined): RecipeCalculations | null {
+export function useRecipeCalculations(recipe: Recipe | undefined): RecipeCalculations | null {
 	return useMemo(() => {
 		if (!recipe) return null
 

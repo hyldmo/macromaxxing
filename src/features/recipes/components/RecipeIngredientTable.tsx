@@ -1,29 +1,23 @@
+import type { FC } from 'react'
+import type { RouterOutput } from '~/lib/trpc'
 import type { AbsoluteMacros } from '../utils/macros'
 import { IngredientSearchInput } from './IngredientSearchInput'
 import { MacroHeader } from './MacroCell'
 import { RecipeIngredientRow } from './RecipeIngredientRow'
 
-interface RecipeIngredient {
-	id: string
-	amountGrams: number
-	ingredient: {
-		id: string
-		name: string
-		protein: number
-		carbs: number
-		fat: number
-		kcal: number
-		fiber: number
-	}
-}
+type RecipeIngredient = RouterOutput['recipe']['get']['recipeIngredients'][number]
 
-interface RecipeIngredientTableProps {
-	recipeId: string
+export interface RecipeIngredientTableProps {
+	recipeId: RouterOutput['recipe']['get']['id']
 	recipeIngredients: RecipeIngredient[]
 	ingredientMacros: AbsoluteMacros[]
 }
 
-export function RecipeIngredientTable({ recipeId, recipeIngredients, ingredientMacros }: RecipeIngredientTableProps) {
+export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
+	recipeId,
+	recipeIngredients,
+	ingredientMacros
+}) => {
 	return (
 		<div className="space-y-2">
 			<IngredientSearchInput recipeId={recipeId} />

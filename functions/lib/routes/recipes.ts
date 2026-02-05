@@ -1,25 +1,30 @@
 import { and, eq } from 'drizzle-orm'
-import { createInsertSchema } from 'drizzle-zod'
 import { z } from 'zod'
+import type { TypeIDString } from '../custom-types'
 import { recipeIngredients, recipes } from '../schema'
 import { protectedProcedure, router } from '../trpc'
 
-const insertRecipeSchema = createInsertSchema(recipes).pick({ name: true })
+// TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
+// See: https://github.com/drizzle-team/drizzle-orm/pull/5192
+const insertRecipeSchema = z.object({
+	name: z.string().min(1)
+})
+
 const updateRecipeSchema = z.object({
-	id: z.string(),
-	name: z.string().optional(),
+	id: z.custom<TypeIDString<'rcp'>>(),
+	name: z.string().min(1).optional(),
 	cookedWeight: z.number().positive().nullable().optional(),
 	portionSize: z.number().positive().optional()
 })
 
 const addIngredientSchema = z.object({
-	recipeId: z.string(),
-	ingredientId: z.string(),
+	recipeId: z.custom<TypeIDString<'rcp'>>(),
+	ingredientId: z.custom<TypeIDString<'ing'>>(),
 	amountGrams: z.number().positive()
 })
 
 const updateIngredientSchema = z.object({
-	id: z.string(),
+	id: z.custom<TypeIDString<'rci'>>(),
 	amountGrams: z.number().positive().optional(),
 	sortOrder: z.number().int().optional()
 })
@@ -34,7 +39,7 @@ export const recipesRouter = router({
 		return result
 	}),
 
-	get: protectedProcedure.input(z.object({ id: z.string() })).query(async ({ ctx, input }) => {
+	get: protectedProcedure.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() })).query(async ({ ctx, input }) => {
 		const recipe = await ctx.db.query.recipes.findFirst({
 			where: and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)),
 			with: {
@@ -49,16 +54,17 @@ export const recipesRouter = router({
 	}),
 
 	create: protectedProcedure.input(insertRecipeSchema).mutation(async ({ ctx, input }) => {
-		const id = crypto.randomUUID()
 		const now = Date.now()
-		await ctx.db.insert(recipes).values({
-			id,
-			userId: ctx.user.id,
-			name: input.name,
-			createdAt: now,
-			updatedAt: now
-		})
-		return ctx.db.query.recipes.findFirst({ where: eq(recipes.id, id) })
+		const [recipe] = await ctx.db
+			.insert(recipes)
+			.values({
+				userId: ctx.user.id,
+				name: input.name,
+				createdAt: now,
+				updatedAt: now
+			})
+			.returning()
+		return recipe
 	}),
 
 	update: protectedProcedure.input(updateRecipeSchema).mutation(async ({ ctx, input }) => {
@@ -78,12 +84,13 @@ export const recipesRouter = router({
 		})
 	}),
 
-	delete: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
-		await ctx.db.delete(recipes).where(and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)))
-	}),
+	delete: protectedProcedure
+		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db.delete(recipes).where(and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)))
+		}),
 
 	addIngredient: protectedProcedure.input(addIngredientSchema).mutation(async ({ ctx, input }) => {
-		const id = crypto.randomUUID()
 		// Get next sort order
 		const existing = await ctx.db
 			.select()
@@ -91,19 +98,21 @@ export const recipesRouter = router({
 			.where(eq(recipeIngredients.recipeId, input.recipeId))
 		const sortOrder = existing.length
 
-		await ctx.db.insert(recipeIngredients).values({
-			id,
-			recipeId: input.recipeId,
-			ingredientId: input.ingredientId,
-			amountGrams: input.amountGrams,
-			sortOrder
-		})
+		const [newIngredient] = await ctx.db
+			.insert(recipeIngredients)
+			.values({
+				recipeId: input.recipeId,
+				ingredientId: input.ingredientId,
+				amountGrams: input.amountGrams,
+				sortOrder
+			})
+			.returning()
 
 		// Touch recipe updatedAt
 		await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, input.recipeId))
 
 		return ctx.db.query.recipeIngredients.findFirst({
-			where: eq(recipeIngredients.id, id),
+			where: eq(recipeIngredients.id, newIngredient.id),
 			with: { ingredient: true }
 		})
 	}),
@@ -124,11 +133,13 @@ export const recipesRouter = router({
 		})
 	}),
 
-	removeIngredient: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
-		const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, input.id) })
-		await ctx.db.delete(recipeIngredients).where(eq(recipeIngredients.id, input.id))
-		if (ri) {
-			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
-		}
-	})
+	removeIngredient: protectedProcedure
+		.input(z.object({ id: z.custom<TypeIDString<'rci'>>() }))
+		.mutation(async ({ ctx, input }) => {
+			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, input.id) })
+			await ctx.db.delete(recipeIngredients).where(eq(recipeIngredients.id, input.id))
+			if (ri) {
+				await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
+			}
+		})
 })

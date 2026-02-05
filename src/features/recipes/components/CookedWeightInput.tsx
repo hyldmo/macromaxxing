@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { type FC, useState } from 'react'
 import { Input } from '~/components/ui/Input'
 
-interface CookedWeightInputProps {
+export interface CookedWeightInputProps {
 	cookedWeight: number | null
 	rawTotal: number
 	onChange: (value: number | null) => void
 }
 
-export function CookedWeightInput({ cookedWeight, rawTotal, onChange }: CookedWeightInputProps) {
+export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, rawTotal, onChange }) => {
 	const [value, setValue] = useState(cookedWeight?.toString() ?? '')
 
 	const effectiveWeight = cookedWeight ?? rawTotal

@@ -1,4 +1,5 @@
 import { trpcServer } from '@hono/trpc-server'
+import type { ExecutionContext as HonoExecutionContext } from 'hono'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { authenticateRequest } from '../lib/auth'
@@ -22,7 +23,7 @@ app.use(
 
 			let user = null
 			try {
-				user = await authenticateRequest(req as unknown as Request, db)
+				user = await authenticateRequest(req, db)
 			} catch {
 				// User remains null, protectedProcedure will throw
 			}
@@ -33,5 +34,9 @@ app.use(
 )
 
 export const onRequest: PagesFunction<Env> = async ctx => {
-	return app.fetch(ctx.request, ctx.env, ctx)
+	const executionContext: HonoExecutionContext = {
+		...ctx,
+		props: {}
+	}
+	return app.fetch(ctx.request, ctx.env, executionContext)
 }

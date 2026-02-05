@@ -2,19 +2,15 @@ import { Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
-import { trpc } from '~/lib/trpc'
+import { type RouterOutput, trpc } from '~/lib/trpc'
 import type { AbsoluteMacros } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 import { MacroCell } from './MacroCell'
 
-interface RecipeIngredientRowProps {
-	ri: {
-		id: string
-		amountGrams: number
-		ingredient: { name: string }
-	}
+export interface RecipeIngredientRowProps {
+	ri: RouterOutput['recipe']['get']['recipeIngredients'][number]
 	macros: AbsoluteMacros
-	recipeId: string
+	recipeId: RouterOutput['recipe']['get']['id']
 }
 
 export function RecipeIngredientRow({ ri, macros, recipeId }: RecipeIngredientRowProps) {

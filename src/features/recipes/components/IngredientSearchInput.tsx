@@ -4,11 +4,11 @@ import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
-import { trpc } from '~/lib/trpc'
+import { type RouterOutput, trpc } from '~/lib/trpc'
 import { MacroBar } from './MacroBar'
 
-interface IngredientSearchInputProps {
-	recipeId: string
+export interface IngredientSearchInputProps {
+	recipeId: RouterOutput['recipe']['get']['id']
 }
 
 interface ParsedIngredient {

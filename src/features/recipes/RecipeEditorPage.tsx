@@ -14,7 +14,6 @@ import { useRecipeCalculations } from './hooks/useRecipeCalculations'
 export function RecipeEditorPage() {
 	const { id } = useParams()
 	const navigate = useNavigate()
-	const utils = trpc.useUtils()
 	const isNew = !id
 
 	const recipeQuery = trpc.recipe.get.useQuery({ id: id! }, { enabled: !!id })
@@ -24,7 +23,7 @@ export function RecipeEditorPage() {
 		}
 	})
 	const updateMutation = trpc.recipe.update.useMutation({
-		onSuccess: () => utils.recipe.get.invalidate({ id: id! })
+		onSuccess: () => recipeQuery.refetch()
 	})
 
 	const [name, setName] = useState('')

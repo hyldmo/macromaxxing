@@ -30,7 +30,8 @@
 					"options": {
 						"inputComponents": ["Input"]
 					}
-				}
+				},
+				"useValidAutocomplete": "error"
 			},
 			"complexity": {
 				"noExcessiveNestedTestSuites": "error",
@@ -41,6 +42,7 @@
 				"noBannedTypes": "off"
 			},
 			"correctness": {
+				"noRestrictedElements": "error",
 				"noUndeclaredDependencies": "warn",
 				"useExhaustiveDependencies": "error"
 			},
@@ -71,7 +73,15 @@
 						"functions": ["cva", "cn"]
 					}
 				},
-				"noLeakedRender": "off" // Currently too many false positives as of v2.3.8
+				"noLeakedRender": "off", // Currently too many false positives as of v2.3.14
+				"useConsistentEnumValueType": "error",
+				"useConsistentMethodSignatures": "error",
+				"useErrorCause": "error",
+				"noMultiAssign": "error",
+				"useAwaitThenable": "off", // Currently too many false positives as of v2.3.14
+				"noMultiStr": "error",
+				"noProto": "error",
+				"useFind": "error"
 			}
 		}
 	},
