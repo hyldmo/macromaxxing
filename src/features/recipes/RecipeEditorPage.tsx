@@ -7,7 +7,7 @@ import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
-import { getUserId } from '~/lib/user'
+import { useUser } from '~/lib/user'
 import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
 import { RecipeTotalsBar } from './components/RecipeTotalsBar'
@@ -17,7 +17,8 @@ export function RecipeEditorPage() {
 	const { id } = useParams<{ id: Recipe['id'] }>()
 	const navigate = useNavigate()
 	const isNew = !id
-	const userId = getUserId()
+	const { user } = useUser()
+	const userId = user?.id
 
 	const recipeQuery = trpc.recipe.getPublic.useQuery({ id: id! }, { enabled: !!id })
 	const isOwner = recipeQuery.data?.userId === userId

@@ -7,7 +7,7 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
-import { getUserId } from '~/lib/user'
+import { useUser } from '~/lib/user'
 import { RecipeCard } from './components/RecipeCard'
 import {
 	calculatePortionMacros,
@@ -20,7 +20,8 @@ type Filter = 'all' | 'mine'
 
 export function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
-	const userId = getUserId()
+	const { user } = useUser()
+	const userId = user?.id
 	const recipesQuery = trpc.recipe.listPublic.useQuery()
 
 	const filteredRecipes = filter === 'mine' ? recipesQuery.data?.filter(r => r.userId === userId) : recipesQuery.data

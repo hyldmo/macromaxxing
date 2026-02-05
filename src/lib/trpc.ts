@@ -1,7 +1,6 @@
 import { createTRPCReact, httpBatchLink } from '@trpc/react-query'
 import type { inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '../../workers/functions/lib/router'
-import { getUserId } from './user'
 
 export const trpc = createTRPCReact<AppRouter>()
 
@@ -12,9 +11,10 @@ export function createTRPCClient() {
 		links: [
 			httpBatchLink({
 				url: '/api/trpc',
-				headers: () => ({
-					'X-User-ID': getUserId()
-				})
+				// Cloudflare Access handles auth via cookies
+				fetch(url, options) {
+					return fetch(url, { ...options, credentials: 'include' })
+				}
 			})
 		]
 	})

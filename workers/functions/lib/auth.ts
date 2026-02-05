@@ -8,21 +8,25 @@ export interface AuthUser {
 }
 
 export async function authenticateRequest(request: Request, db: Database): Promise<AuthUser> {
-	const userId = request.headers.get('X-User-ID')
+	// Get user email from Cloudflare Access header
+	const email = request.headers.get('CF-Access-Authenticated-User-Email')
 
-	if (!userId) {
-		throw new Error('Missing X-User-ID header')
+	if (!email) {
+		throw new Error('Not authenticated via Cloudflare Access')
 	}
+
+	// Use email as the user ID for simplicity
+	const userId = email
 
 	// Upsert user
 	const existing = await db.select().from(users).where(eq(users.id, userId)).get()
 	if (!existing) {
 		await db.insert(users).values({
 			id: userId,
-			email: `${userId}@anonymous`,
+			email,
 			createdAt: Date.now()
 		})
 	}
 
-	return { id: userId, email: existing?.email ?? `${userId}@anonymous` }
+	return { id: userId, email }
 }
