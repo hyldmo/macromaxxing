@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Eye } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
@@ -6,6 +6,7 @@ import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
+import { getUserId } from '~/lib/user'
 import type { Recipe } from '../../../functions/lib/types'
 import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
@@ -16,8 +17,11 @@ export function RecipeEditorPage() {
 	const { id } = useParams<{ id: Recipe['id'] }>()
 	const navigate = useNavigate()
 	const isNew = !id
+	const userId = getUserId()
 
-	const recipeQuery = trpc.recipe.get.useQuery({ id: id! }, { enabled: !!id })
+	const recipeQuery = trpc.recipe.getPublic.useQuery({ id: id! }, { enabled: !!id })
+	const isOwner = recipeQuery.data?.userId === userId
+
 	const createMutation = trpc.recipe.create.useMutation({
 		onSuccess: data => {
 			if (data) navigate(`/recipes/${data.id}`, { replace: true })
@@ -43,17 +47,17 @@ export function RecipeEditorPage() {
 	}
 
 	function handleNameBlur() {
-		if (id && name.trim() && name.trim() !== recipeQuery.data?.name) {
+		if (id && isOwner && name.trim() && name.trim() !== recipeQuery.data?.name) {
 			updateMutation.mutate({ id, name: name.trim() })
 		}
 	}
 
 	function handleCookedWeightChange(value: number | null) {
-		if (id) updateMutation.mutate({ id, cookedWeight: value })
+		if (id && isOwner) updateMutation.mutate({ id, cookedWeight: value })
 	}
 
 	function handlePortionSizeChange(value: number) {
-		if (id) updateMutation.mutate({ id, portionSize: value })
+		if (id && isOwner) updateMutation.mutate({ id, portionSize: value })
 	}
 
 	if (!isNew && recipeQuery.isLoading) {
@@ -69,26 +73,37 @@ export function RecipeEditorPage() {
 			<div className="flex items-center gap-3">
 				<Link to="/recipes">
 					<Button variant="ghost" size="icon">
-						<ArrowLeft className="h-4 w-4" />
+						<ArrowLeft className="size-4" />
 					</Button>
 				</Link>
-				<Input
-					placeholder="Recipe name"
-					value={name}
-					onChange={e => setName(e.target.value)}
-					onBlur={handleNameBlur}
-					onKeyDown={e => {
-						if (e.key === 'Enter' && isNew) handleCreate()
-					}}
-					className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
-				/>
+				{isOwner || isNew ? (
+					<Input
+						placeholder="Recipe name"
+						value={name}
+						onChange={e => setName(e.target.value)}
+						onBlur={handleNameBlur}
+						onKeyDown={e => {
+							if (e.key === 'Enter' && isNew) handleCreate()
+						}}
+						className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
+					/>
+				) : (
+					<h1 className="font-semibold text-ink text-lg">{name}</h1>
+				)}
 				{isNew && (
 					<Button onClick={handleCreate} disabled={!name.trim() || createMutation.isPending}>
 						Create
 					</Button>
 				)}
+				{!(isNew || isOwner) && (
+					<span className="ml-auto flex items-center gap-1.5 text-ink-muted text-sm">
+						<Eye className="size-4" />
+						View only
+					</span>
+				)}
 			</div>
 
+			{recipeQuery.error && <TRPCError error={recipeQuery.error} />}
 			{(createMutation.error || updateMutation.error) && (
 				<TRPCError error={createMutation.error || updateMutation.error} />
 			)}
@@ -103,8 +118,8 @@ export function RecipeEditorPage() {
 							rawTotal={calculations.totals.weight}
 							portionSize={recipeQuery.data.portionSize}
 							effectiveCookedWeight={calculations.cookedWeight}
-							onCookedWeightChange={handleCookedWeightChange}
-							onPortionSizeChange={handlePortionSizeChange}
+							onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
+							onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
 						/>
 					</div>
 
@@ -114,6 +129,7 @@ export function RecipeEditorPage() {
 							recipeId={id!}
 							recipeIngredients={recipeQuery.data.recipeIngredients}
 							ingredientMacros={calculations.ingredientMacros}
+							readOnly={!isOwner}
 						/>
 						{recipeQuery.data.recipeIngredients.length > 0 && (
 							<RecipeTotalsBar totals={calculations.totals} />
@@ -129,8 +145,8 @@ export function RecipeEditorPage() {
 								rawTotal={calculations.totals.weight}
 								portionSize={recipeQuery.data.portionSize}
 								effectiveCookedWeight={calculations.cookedWeight}
-								onCookedWeightChange={handleCookedWeightChange}
-								onPortionSizeChange={handlePortionSizeChange}
+								onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
+								onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
 							/>
 						</div>
 					</div>

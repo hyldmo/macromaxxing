@@ -1,3 +1,4 @@
+import { AI_PROVIDER_OPTIONS, type AiProvider } from '@macromaxxing/db'
 import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '~/components/ui/Button'
@@ -7,14 +8,6 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 
-const providers = [
-	{ value: 'gemini', label: 'Gemini', defaultModel: 'gemini-2.0-flash' },
-	{ value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o-mini' },
-	{ value: 'anthropic', label: 'Anthropic', defaultModel: 'claude-sonnet-4-20250514' }
-] as const
-
-type Provider = (typeof providers)[number]['value']
-
 export function SettingsPage() {
 	const settingsQuery = trpc.settings.get.useQuery()
 	const saveMutation = trpc.settings.save.useMutation({
@@ -22,31 +15,25 @@ export function SettingsPage() {
 	})
 	const utils = trpc.useUtils()
 
-	const [provider, setProvider] = useState<Provider>('gemini')
+	const [provider, setProvider] = useState<AiProvider>('gemini')
 	const [apiKey, setApiKey] = useState('')
-	const [model, setModel] = useState('gemini-2.0-flash')
 
 	useEffect(() => {
-		if (settingsQuery.data) {
-			setProvider(settingsQuery.data.provider as Provider)
-			setModel(settingsQuery.data.model)
+		if (settingsQuery.data?.provider) {
+			setProvider(settingsQuery.data.provider)
 		}
 	}, [settingsQuery.data])
 
-	function handleProviderChange(p: Provider) {
-		setProvider(p)
-		const defaultModel = providers.find(pr => pr.value === p)?.defaultModel ?? ''
-		setModel(defaultModel)
-	}
-
 	function handleSave(e: React.FormEvent) {
 		e.preventDefault()
-		saveMutation.mutate({ provider, apiKey, model })
+		saveMutation.mutate({ provider, apiKey })
 	}
 
 	return (
 		<div className="space-y-3">
 			<h1 className="font-semibold text-ink">Settings</h1>
+
+			{settingsQuery.error && <TRPCError error={settingsQuery.error} />}
 
 			<Card>
 				<CardHeader>
@@ -60,11 +47,11 @@ export function SettingsPage() {
 						<fieldset>
 							<legend className="mb-1.5 text-ink-muted text-sm">Provider</legend>
 							<div className="flex gap-1.5">
-								{providers.map(p => (
+								{AI_PROVIDER_OPTIONS.map(p => (
 									<button
 										key={p.value}
 										type="button"
-										onClick={() => handleProviderChange(p.value)}
+										onClick={() => setProvider(p.value)}
 										className={`rounded-[--radius-sm] border px-3 py-1 text-sm transition-colors ${
 											provider === p.value
 												? 'border-accent bg-accent text-surface-0'
@@ -77,10 +64,11 @@ export function SettingsPage() {
 							</div>
 						</fieldset>
 
-						<label>
-							<span className="mb-1 block text-ink-muted text-sm">API Key</span>
+						<label className="block space-y-1">
+							<span className="text-ink-muted text-sm">API Key</span>
 							<Input
 								type="password"
+								name="password"
 								placeholder={
 									settingsQuery.data?.hasKey ? 'Key saved (enter new to update)' : 'Enter API key'
 								}
@@ -89,18 +77,13 @@ export function SettingsPage() {
 							/>
 						</label>
 
-						<label>
-							<span className="mb-1 block text-ink-muted text-sm">Model</span>
-							<Input value={model} onChange={e => setModel(e.target.value)} placeholder="Model name" />
-						</label>
-
-						<div className="flex items-center gap-3">
+						<div className="flex gap-2">
 							<Button type="submit" disabled={!apiKey || saveMutation.isPending}>
-								{saveMutation.isPending ? <Spinner className="h-4 w-4" /> : 'Save'}
+								{saveMutation.isPending ? <Spinner className="size-4" /> : 'Save'}
 							</Button>
 							{saveMutation.isSuccess && (
 								<span className="flex items-center gap-1 text-sm text-success">
-									<Check className="h-4 w-4" /> Saved
+									<Check className="size-4" /> Saved
 								</span>
 							)}
 							{saveMutation.isError && <TRPCError error={saveMutation.error} />}

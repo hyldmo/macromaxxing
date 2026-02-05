@@ -1,7 +1,7 @@
 import { recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { protectedProcedure, router } from '../trpc'
+import { protectedProcedure, publicProcedure, router } from '../trpc'
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -38,6 +38,15 @@ export const recipesRouter = router({
 		return result
 	}),
 
+	listPublic: publicProcedure.query(async ({ ctx }) => {
+		const result = await ctx.db.query.recipes.findMany({
+			with: { recipeIngredients: { with: { ingredient: true } } },
+			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
+			limit: 50
+		})
+		return result
+	}),
+
 	get: protectedProcedure.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() })).query(async ({ ctx, input }) => {
 		const recipe = await ctx.db.query.recipes.findFirst({
 			where: and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)),
@@ -51,6 +60,22 @@ export const recipesRouter = router({
 		if (!recipe) throw new Error('Recipe not found')
 		return recipe
 	}),
+
+	getPublic: publicProcedure
+		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
+		.query(async ({ ctx, input }) => {
+			const recipe = await ctx.db.query.recipes.findFirst({
+				where: eq(recipes.id, input.id),
+				with: {
+					recipeIngredients: {
+						with: { ingredient: true },
+						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
+					}
+				}
+			})
+			if (!recipe) throw new Error('Recipe not found')
+			return recipe
+		}),
 
 	create: protectedProcedure.input(insertRecipeSchema).mutation(async ({ ctx, input }) => {
 		const now = Date.now()

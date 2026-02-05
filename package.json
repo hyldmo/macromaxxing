@@ -7,10 +7,9 @@
     "functions"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"yarn dev:api\" \"yarn dev:web\"",
+    "dev": "concurrently -k -c 'green,#CA7B38' 'yarn:dev:*'",
     "dev:web": "vite",
     "dev:api": "wrangler pages dev --d1=macromaxxing --port=8788 --live-reload",
-    "dev:remote": "API_URL=https://macromaxxing.pages.dev vite",
     "build": "vite build",
     "preview": "wrangler pages dev --d1=macromaxxing",
     "codegen:functions": "wrangler types",

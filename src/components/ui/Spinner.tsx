@@ -7,5 +7,5 @@ export interface SpinnerProps {
 }
 
 export const Spinner: FC<SpinnerProps> = ({ className }) => {
-	return <Loader2 className={cn('h-5 w-5 animate-spin text-accent', className)} />
+	return <Loader2 className={cn('size-5 animate-spin text-accent', className)} />
 }

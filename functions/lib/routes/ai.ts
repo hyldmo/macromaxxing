@@ -13,7 +13,14 @@ const macroResultSchema = z.object({
 
 const systemPrompt = `You are a nutrition database. Given a food ingredient name, return nutritional values per 100g raw weight as JSON: { "protein": number, "carbs": number, "fat": number, "kcal": number, "fiber": number }. Use USDA data. Return ONLY the JSON object, no markdown, no explanation.`
 
-async function callGemini(apiKey: string, model: string, ingredientName: string) {
+const MODELS = {
+	gemini: 'gemini-3.0-flash',
+	openai: 'gpt-4o-mini',
+	anthropic: 'claude-3-5-haiku-20241022'
+} as const
+
+async function callGemini(apiKey: string, ingredientName: string) {
+	const model = MODELS.gemini
 	const response = await fetch(
 		`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
 		{
@@ -30,7 +37,8 @@ async function callGemini(apiKey: string, model: string, ingredientName: string)
 	return data.candidates[0].content.parts[0].text
 }
 
-async function callOpenAI(apiKey: string, model: string, ingredientName: string) {
+async function callOpenAI(apiKey: string, ingredientName: string) {
+	const model = MODELS.openai
 	const response = await fetch('https://api.openai.com/v1/chat/completions', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -48,7 +56,8 @@ async function callOpenAI(apiKey: string, model: string, ingredientName: string)
 	return data.choices[0].message.content
 }
 
-async function callAnthropic(apiKey: string, model: string, ingredientName: string) {
+async function callAnthropic(apiKey: string, ingredientName: string) {
+	const model = MODELS.anthropic
 	const response = await fetch('https://api.anthropic.com/v1/messages', {
 		method: 'POST',
 		headers: {
@@ -88,16 +97,14 @@ export const aiRouter = router({
 			let rawText: string
 			switch (settings.provider) {
 				case 'gemini':
-					rawText = await callGemini(settings.apiKey, settings.model, input.ingredientName)
+					rawText = await callGemini(settings.apiKey, input.ingredientName)
 					break
 				case 'openai':
-					rawText = await callOpenAI(settings.apiKey, settings.model, input.ingredientName)
+					rawText = await callOpenAI(settings.apiKey, input.ingredientName)
 					break
 				case 'anthropic':
-					rawText = await callAnthropic(settings.apiKey, settings.model, input.ingredientName)
+					rawText = await callAnthropic(settings.apiKey, input.ingredientName)
 					break
-				default:
-					throw new TRPCError({ code: 'BAD_REQUEST', message: `Unknown provider: ${settings.provider}` })
 			}
 
 			// Parse and validate the response

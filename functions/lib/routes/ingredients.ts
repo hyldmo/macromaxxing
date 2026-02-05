@@ -1,7 +1,7 @@
 import { ingredients, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { protectedProcedure, router } from '../trpc'
+import { protectedProcedure, publicProcedure, router } from '../trpc'
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -32,6 +32,13 @@ export const ingredientsRouter = router({
 		return ctx.db.query.ingredients.findMany({
 			where: eq(ingredients.userId, ctx.user.id),
 			orderBy: (ingredients, { asc }) => [asc(ingredients.name)]
+		})
+	}),
+
+	listPublic: publicProcedure.query(async ({ ctx }) => {
+		return ctx.db.query.ingredients.findMany({
+			orderBy: (ingredients, { asc }) => [asc(ingredients.name)],
+			limit: 200
 		})
 	}),
 

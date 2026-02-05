@@ -19,14 +19,14 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 
 	const createMutation = trpc.ingredient.create.useMutation({
 		onSuccess: () => {
-			utils.ingredient.list.invalidate()
+			utils.ingredient.listPublic.invalidate()
 			onClose()
 		}
 	})
 
 	const updateMutation = trpc.ingredient.update.useMutation({
 		onSuccess: () => {
-			utils.ingredient.list.invalidate()
+			utils.ingredient.listPublic.invalidate()
 			onClose()
 		}
 	})

@@ -1,6 +1,7 @@
 import type { TRPCClientErrorLike } from '@trpc/client'
 import { AlertTriangle } from 'lucide-react'
 import type { FC } from 'react'
+import { cn } from '~/lib/cn'
 import type { AppRouter } from '../../../functions/lib/router'
 
 export interface TRPCErrorProps {
@@ -40,8 +41,8 @@ export const TRPCError: FC<TRPCErrorProps> = ({ error, className = '' }) => {
 	if (!error) return null
 
 	return (
-		<div className={`flex items-start gap-2 rounded-[--radius-md] bg-destructive/10 px-3 py-2 ${className}`}>
-			<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+		<div className={cn('flex items-center gap-2 rounded-[--radius-md] bg-destructive/10 px-3 py-1', className)}>
+			<AlertTriangle className="size-4 shrink-0 text-destructive" />
 			<span className="text-destructive text-sm">{getFriendlyMessage(error)}</span>
 		</div>
 	)

@@ -3,13 +3,15 @@ import { Input } from '~/components/ui/Input'
 
 export interface PortionSizeInputProps {
 	portionSize: number
-	onChange: (value: number) => void
+	onChange?: (value: number) => void
 }
 
 export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, onChange }) => {
 	const [value, setValue] = useState(portionSize.toString())
+	const readOnly = !onChange
 
 	function handleBlur() {
+		if (!onChange) return
 		const parsed = Number.parseFloat(value)
 		if (Number.isNaN(parsed) || parsed <= 0) {
 			setValue(portionSize.toString())
@@ -29,6 +31,8 @@ export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, onCha
 					onChange={e => setValue(e.target.value)}
 					onBlur={handleBlur}
 					min={0}
+					readOnly={readOnly}
+					disabled={readOnly}
 				/>
 				<span className="text-ink-faint text-xs">g</span>
 			</div>

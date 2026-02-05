@@ -53,14 +53,14 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const inputRef = useRef<HTMLInputElement>(null)
 	const utils = trpc.useUtils()
 
-	const ingredientsQuery = trpc.ingredient.list.useQuery()
+	const ingredientsQuery = trpc.ingredient.listPublic.useQuery()
 	const aiLookup = trpc.ai.lookup.useMutation()
 	const createIngredient = trpc.ingredient.create.useMutation({
-		onSuccess: () => utils.ingredient.list.invalidate()
+		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 	const addIngredient = trpc.recipe.addIngredient.useMutation({
 		onSuccess: () => {
-			utils.recipe.get.invalidate({ id: recipeId })
+			utils.recipe.getPublic.invalidate({ id: recipeId })
 		}
 	})
 
@@ -144,7 +144,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		// All done successfully
 		setPastedIngredients([])
 		setIsProcessingPaste(false)
-		utils.recipe.get.invalidate({ id: recipeId })
+		utils.recipe.getPublic.invalidate({ id: recipeId })
 	}
 
 	function cancelPaste() {
@@ -167,12 +167,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		return (
 			<div className="rounded-[--radius-md] border border-edge bg-surface-1 p-3">
 				<div className="mb-2 flex items-center gap-2 text-ink-muted text-sm">
-					<ClipboardPaste className="h-4 w-4" />
+					<ClipboardPaste className="size-4" />
 					<span>
 						{isProcessingPaste
 							? `Adding ingredients... (${pastedIngredients.filter(i => i.status === 'added').length}/${
 									pastedIngredients.length
-								})`
+							  })`
 							: `Parsed ${pastedIngredients.length} ingredients from paste`}
 					</span>
 				</div>
@@ -197,7 +197,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					{hasErrors ? (
 						<>
 							<Button onClick={retryPaste} disabled={isProcessingPaste}>
-								<Sparkles className="h-4 w-4" />
+								<Sparkles className="size-4" />
 								Retry Failed
 							</Button>
 							<Button variant="ghost" onClick={cancelPaste}>
@@ -213,12 +213,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							<Button onClick={handleAddPastedIngredients} disabled={isProcessingPaste}>
 								{isProcessingPaste ? (
 									<>
-										<Spinner className="h-4 w-4" />
+										<Spinner className="size-4" />
 										Adding...
 									</>
 								) : (
 									<>
-										<Plus className="h-4 w-4" />
+										<Plus className="size-4" />
 										Add All
 									</>
 								)}
@@ -236,7 +236,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	return (
 		<div className="relative">
 			<div className="relative">
-				<Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+				<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
 				<Input
 					ref={inputRef}
 					placeholder="Search, add, or paste ingredient list..."
@@ -281,10 +281,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						onMouseDown={() => handleAiLookup()}
 						disabled={aiLookup.isPending}
 					>
-						{aiLookup.isPending ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+						{aiLookup.isPending ? <Spinner className="size-4" /> : <Sparkles className="size-4" />}
 						Look up "{search}" with AI
 					</button>
 					{aiLookup.isError && <TRPCError error={aiLookup.error} />}
+					{createIngredient.isError && <TRPCError error={createIngredient.error} />}
+					{addIngredient.isError && <TRPCError error={addIngredient.error} />}
 				</div>
 			)}
 		</div>

@@ -11,16 +11,18 @@ export interface RecipeIngredientTableProps {
 	recipeId: RouterOutput['recipe']['get']['id']
 	recipeIngredients: RecipeIngredient[]
 	ingredientMacros: AbsoluteMacros[]
+	readOnly?: boolean
 }
 
 export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 	recipeId,
 	recipeIngredients,
-	ingredientMacros
+	ingredientMacros,
+	readOnly
 }) => {
 	return (
 		<div className="space-y-2">
-			<IngredientSearchInput recipeId={recipeId} />
+			{!readOnly && <IngredientSearchInput recipeId={recipeId} />}
 			<div className="overflow-x-auto rounded-[--radius-md] border border-edge">
 				<table className="w-full text-sm">
 					<thead>
@@ -31,17 +33,25 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 							<MacroHeader macro="carbs" label="Carbs" />
 							<MacroHeader macro="fat" label="Fat" />
 							<MacroHeader macro="kcal" label="Kcal" />
-							<th className="w-8" />
+							{!readOnly && <th className="w-8" />}
 						</tr>
 					</thead>
 					<tbody>
 						{recipeIngredients.map((ri, i) => (
-							<RecipeIngredientRow key={ri.id} ri={ri} macros={ingredientMacros[i]} recipeId={recipeId} />
+							<RecipeIngredientRow
+								key={ri.id}
+								ri={ri}
+								macros={ingredientMacros[i]}
+								recipeId={recipeId}
+								readOnly={readOnly}
+							/>
 						))}
 						{recipeIngredients.length === 0 && (
 							<tr>
-								<td colSpan={7} className="px-2 py-8 text-center text-ink-faint text-sm">
-									No ingredients yet. Search above to add some.
+								<td colSpan={readOnly ? 6 : 7} className="px-2 py-8 text-center text-ink-faint text-sm">
+									{readOnly
+										? 'No ingredients in this recipe.'
+										: 'No ingredients yet. Search above to add some.'}
 								</td>
 							</tr>
 						)}

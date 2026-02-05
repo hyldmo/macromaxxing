@@ -4,16 +4,18 @@ import { Input } from '~/components/ui/Input'
 export interface CookedWeightInputProps {
 	cookedWeight: number | null
 	rawTotal: number
-	onChange: (value: number | null) => void
+	onChange?: (value: number | null) => void
 }
 
 export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, rawTotal, onChange }) => {
+	const readOnly = !onChange
 	const [value, setValue] = useState(cookedWeight?.toString() ?? '')
 
 	const effectiveWeight = cookedWeight ?? rawTotal
 	const lossPct = rawTotal > 0 ? ((effectiveWeight - rawTotal) / rawTotal) * 100 : 0
 
 	function handleBlur() {
+		if (!onChange) return
 		if (value === '' || value === rawTotal.toString()) {
 			onChange(null)
 			return
@@ -38,6 +40,8 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, ra
 					onChange={e => setValue(e.target.value)}
 					onBlur={handleBlur}
 					min={0}
+					readOnly={readOnly}
+					disabled={readOnly}
 				/>
 				<span className="text-ink-faint text-xs">g</span>
 			</div>

@@ -46,6 +46,7 @@ Use these Tailwind classes (defined in `src/index.css`):
 **Macro colors:** `text-macro-protein`, `text-macro-carbs`, `text-macro-fat`, `text-macro-kcal`, `text-macro-fiber`
 **Accent:** `bg-accent`, `text-accent`, `hover:bg-accent-hover`
 **Radius:** `rounded-[--radius-sm]` (4px), `rounded-[--radius-md]` (6px)
+**Sizing:** Use `size-4` instead of `size-4`
 
 No shadows — borders-only depth strategy.
 
@@ -71,12 +72,16 @@ No shadows — borders-only depth strategy.
 ## API Structure
 
 ```
-trpc.recipe.list/get/create/update/delete
+trpc.recipe.list/listPublic/get/getPublic/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
-trpc.ingredient.list/get/create/update/delete
+trpc.ingredient.list/listPublic/create/update/delete
 trpc.settings.get/save
 trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber } per 100g
 ```
+
+**Public endpoints (no auth):** `recipe.listPublic`, `recipe.getPublic`, `ingredient.listPublic`
+
+All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 
 ## After Making Changes
 

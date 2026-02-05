@@ -11,8 +11,8 @@ export interface PortionPanelProps {
 	rawTotal: number
 	portionSize: number
 	effectiveCookedWeight: number
-	onCookedWeightChange: (value: number | null) => void
-	onPortionSizeChange: (value: number) => void
+	onCookedWeightChange?: (value: number | null) => void
+	onPortionSizeChange?: (value: number) => void
 }
 
 export const PortionPanel: FC<PortionPanelProps> = ({

@@ -1,13 +1,12 @@
-import { userSettings } from '@macromaxxing/db'
+import { type AiProvider, userSettings, zAiProvider } from '@macromaxxing/db'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { decrypt, encrypt } from '../crypto'
 import { protectedProcedure, router } from '../trpc'
 
 const saveSettingsSchema = z.object({
-	provider: z.enum(['gemini', 'openai', 'anthropic']),
-	apiKey: z.string().min(1),
-	model: z.string().min(1)
+	provider: zAiProvider,
+	apiKey: z.string().min(1)
 })
 
 export const settingsRouter = router({
@@ -18,7 +17,6 @@ export const settingsRouter = router({
 		if (!settings) return null
 		return {
 			provider: settings.aiProvider,
-			model: settings.aiModel,
 			hasKey: true
 		}
 	}),
@@ -39,8 +37,7 @@ export const settingsRouter = router({
 				.set({
 					aiProvider: input.provider,
 					aiApiKey: ciphertext,
-					aiKeyIv: iv,
-					aiModel: input.model
+					aiKeyIv: iv
 				})
 				.where(eq(userSettings.userId, ctx.user.id))
 		} else {
@@ -49,7 +46,7 @@ export const settingsRouter = router({
 				aiProvider: input.provider,
 				aiApiKey: ciphertext,
 				aiKeyIv: iv,
-				aiModel: input.model
+				aiModel: '' // deprecated, kept for schema compatibility
 			})
 		}
 	})
@@ -59,7 +56,7 @@ export async function getDecryptedApiKey(
 	db: any,
 	userId: string,
 	encryptionSecret: string
-): Promise<{ apiKey: string; provider: string; model: string } | null> {
+): Promise<{ apiKey: string; provider: AiProvider } | null> {
 	const settings = await db.query.userSettings.findFirst({
 		where: eq(userSettings.userId, userId)
 	})
@@ -68,7 +65,6 @@ export async function getDecryptedApiKey(
 	const apiKey = await decrypt(settings.aiApiKey, settings.aiKeyIv, encryptionSecret)
 	return {
 		apiKey,
-		provider: settings.aiProvider,
-		model: settings.aiModel
+		provider: settings.aiProvider
 	}
 }

@@ -80,5 +80,5 @@ server
 packages/scripts/.pi-cache
 
 apps/hub/bin/
-
+.wrangler/
 worker-configuration.d.ts

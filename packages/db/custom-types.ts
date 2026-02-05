@@ -1,4 +1,5 @@
 import { text } from 'drizzle-orm/sqlite-core'
+import { startCase } from 'es-toolkit'
 import { typeid } from 'typeid-js'
 import { z } from 'zod'
 
@@ -15,3 +16,7 @@ export const newId = <T extends string>(prefix: T) => typeid(prefix).toString() 
 
 export const zodTypeID = <T extends string>(prefix: T) =>
 	z.custom<TypeIDString<T>>(val => typeof val === 'string' && val.startsWith(`${prefix}_`))
+
+export type AiProvider = z.infer<typeof zAiProvider>
+export const zAiProvider = z.enum(['gemini', 'openai', 'anthropic'])
+export const AI_PROVIDER_OPTIONS = zAiProvider.options.map(p => ({ value: p, label: startCase(p) }))

@@ -1,5 +1,5 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { newId, typeidCol } from './custom-types'
+import { type AiProvider, newId, typeidCol } from './custom-types'
 
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(),
@@ -11,7 +11,7 @@ export const userSettings = sqliteTable('user_settings', {
 	userId: text('user_id')
 		.primaryKey()
 		.references(() => users.id),
-	aiProvider: text('ai_provider').notNull(), // 'gemini' | 'openai' | 'anthropic'
+	aiProvider: text('ai_provider').notNull().$type<AiProvider>(),
 	aiApiKey: text('ai_api_key').notNull(), // AES-GCM encrypted
 	aiKeyIv: text('ai_key_iv').notNull(), // IV for decryption
 	aiModel: text('ai_model').notNull()
