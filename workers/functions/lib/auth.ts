@@ -7,9 +7,14 @@ export interface AuthUser {
 	email: string
 }
 
-export async function authenticateRequest(request: Request, db: Database): Promise<AuthUser> {
+export async function authenticateRequest(request: Request, db: Database, isDev: boolean): Promise<AuthUser> {
 	// Get user email from Cloudflare Access header
-	const email = request.headers.get('CF-Access-Authenticated-User-Email')
+	let email = request.headers.get('CF-Access-Authenticated-User-Email')
+
+	// In local dev, allow simulated auth via X-Dev-User-Email header
+	if (!email && isDev) {
+		email = request.headers.get('X-Dev-User-Email')
+	}
 
 	if (!email) {
 		throw new Error('Not authenticated via Cloudflare Access')

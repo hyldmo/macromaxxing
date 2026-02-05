@@ -28,6 +28,11 @@ export const UserProvider: FC<UserProviderProps> = ({ children }) => {
 
 export const useUser = () => useContext(UserContext)
 
+export const login = () => {
+	// Cloudflare Access login - redirects to the access login page
+	window.location.href = '/cdn-cgi/access/login'
+}
+
 export const logout = () => {
 	// Cloudflare Access logout - redirects to the access logout endpoint
 	// This clears the CF_Authorization cookie

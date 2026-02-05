@@ -1,7 +1,7 @@
-import { ChefHat, CookingPot, LogOut, Settings, UtensilsCrossed } from 'lucide-react'
+import { ChefHat, CookingPot, LogIn, LogOut, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
-import { logout, useUser } from '~/lib/user'
+import { login, logout, useUser } from '~/lib/user'
 
 const mainLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
@@ -49,7 +49,7 @@ export function Nav() {
 						>
 							<Settings className="size-5" />
 						</NavLink>
-						{user && (
+						{user ? (
 							<>
 								<span className="text-ink-muted text-sm">{user.email}</span>
 								<button
@@ -61,6 +61,15 @@ export function Nav() {
 									<LogOut className="size-5" />
 								</button>
 							</>
+						) : (
+							<button
+								type="button"
+								onClick={login}
+								className="flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
+							>
+								<LogIn className="size-4" />
+								Sign in
+							</button>
 						)}
 					</div>
 				</div>
@@ -86,7 +95,7 @@ export function Nav() {
 							</NavLink>
 						)
 					)}
-					{user && (
+					{user ? (
 						<button
 							type="button"
 							onClick={logout}
@@ -94,6 +103,15 @@ export function Nav() {
 						>
 							<LogOut className="size-5" />
 							<span>Sign out</span>
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={login}
+							className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
+						>
+							<LogIn className="size-5" />
+							<span>Sign in</span>
 						</button>
 					)}
 				</div>
