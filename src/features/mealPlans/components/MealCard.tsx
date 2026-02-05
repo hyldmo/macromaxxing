@@ -99,6 +99,8 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 
 			<div className="absolute top-0 left-[calc(100%-1px)] z-10 flex flex-col justify-center rounded-r-[--radius-md] border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100">
 				<div
+					role="group"
+					aria-label="Drag handle"
 					draggable
 					onDragStart={handleDragStart}
 					className="flex cursor-grab justify-center px-1 py-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink active:cursor-grabbing"
@@ -115,7 +117,14 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 				</button>
 			</div>
 
-			{showPopover && <MealPopover slot={slot} inventory={inventory} anchorRef={cardRef} onClose={() => setShowPopover(false)} />}
+			{showPopover && (
+				<MealPopover
+					slot={slot}
+					inventory={inventory}
+					anchorRef={cardRef}
+					onClose={() => setShowPopover(false)}
+				/>
+			)}
 		</div>
 	)
 }

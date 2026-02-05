@@ -24,6 +24,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 	const [fiber, setFiber] = useState(editIngredient?.fiber.toString() ?? '')
 	const [density, setDensity] = useState(editIngredient?.density?.toString() ?? '')
 	const [newUnit, setNewUnit] = useState<NewUnit>({ name: '', grams: '' })
+	const [isEnriching, setIsEnriching] = useState(false)
 	const utils = trpc.useUtils()
 
 	const units = editIngredient?.units ?? []
@@ -56,14 +57,47 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 
-	const enrichMutation = trpc.ingredient.enrich.useMutation({
-		onSuccess: data => {
-			utils.ingredient.listPublic.invalidate()
-			if (data?.density !== null && data?.density !== undefined) {
-				setDensity(data.density.toString())
+	const lookupMutation = trpc.ai.lookup.useMutation()
+
+	async function handleEnrich() {
+		if (!editIngredient) return
+		setIsEnriching(true)
+
+		try {
+			const result = await lookupMutation.mutateAsync({
+				ingredientName: editIngredient.name,
+				unitsOnly: true
+			})
+
+			// Update density if AI provided one and current is empty
+			if (result.density !== null && !density) {
+				setDensity(result.density.toString())
+				// Also save to DB
+				await updateMutation.mutateAsync({
+					id: editIngredient.id,
+					density: result.density
+				})
 			}
+
+			// Add units that don't already exist (by name, case-insensitive)
+			const existingUnitNames = new Set(units.map(u => u.name.toLowerCase()))
+			const newUnits = result.units.filter(u => !existingUnitNames.has(u.name.toLowerCase()))
+
+			// Create units sequentially to avoid race conditions
+			for (const unit of newUnits) {
+				await createUnitMutation.mutateAsync({
+					ingredientId: editIngredient.id,
+					name: unit.name,
+					grams: unit.grams,
+					isDefault: unit.isDefault && units.length === 0 && newUnits.indexOf(unit) === 0
+				})
+			}
+
+			utils.ingredient.listPublic.invalidate()
+		} finally {
+			setIsEnriching(false)
 		}
-	})
+	}
 
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault()
@@ -109,7 +143,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 	}
 
 	const isPending = createMutation.isPending || updateMutation.isPending
-	const error = createMutation.error || updateMutation.error || createUnitMutation.error || enrichMutation.error
+	const error = createMutation.error || updateMutation.error || createUnitMutation.error || lookupMutation.error
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
@@ -197,12 +231,12 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 							variant="ghost"
 							size="sm"
 							className="h-6 gap-1 px-2 text-xs"
-							onClick={() => enrichMutation.mutate(editIngredient.id)}
-							disabled={enrichMutation.isPending}
+							onClick={handleEnrich}
+							disabled={isEnriching}
 							title="Auto-fill units and density from AI"
 						>
-							<Sparkles className={`size-3 ${enrichMutation.isPending ? 'animate-pulse' : ''}`} />
-							{enrichMutation.isPending ? 'Loading...' : 'Auto-fill'}
+							<Sparkles className={`size-3 ${isEnriching ? 'animate-pulse' : ''}`} />
+							{isEnriching ? 'Loading...' : 'Auto-fill'}
 						</Button>
 					</div>
 					<div className="space-y-1">

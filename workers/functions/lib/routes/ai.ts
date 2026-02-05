@@ -1,96 +1,33 @@
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { createOpenAI } from '@ai-sdk/openai'
-import type { AiProvider } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
-import { cookedWeightSchema, ingredientAiSchema, MODELS, type macroSchema } from '../constants'
+import { calculateVolumeUnits, getModel, INGREDIENT_AI_PROMPT, lookupUSDA } from '../ai-utils'
+import { cookedWeightSchema, ingredientAiSchema } from '../constants'
 import { protectedProcedure, router } from '../trpc'
 import { getDecryptedApiKey } from './settings'
 
-function getModel(provider: AiProvider, apiKey: string) {
-	switch (provider) {
-		case 'gemini':
-			return createGoogleGenerativeAI({ apiKey })(MODELS.gemini)
-		case 'openai':
-			return createOpenAI({ apiKey })(MODELS.openai)
-		case 'anthropic':
-			return createAnthropic({ apiKey })(MODELS.anthropic)
-	}
-}
-
-// USDA nutrient IDs
-const NUTRIENT_IDS = {
-	protein: 1003,
-	fat: 1004,
-	carbs: 1005,
-	kcal: 1008,
-	fiber: 1079
-} as const
-
-type Macros = z.infer<typeof macroSchema>
-
-async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macros | null> {
-	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
-	url.searchParams.set('api_key', apiKey)
-	url.searchParams.set('query', ingredientName)
-	url.searchParams.set('pageSize', '5')
-	// Prefer Foundation and SR Legacy (standard reference) for raw ingredients
-	url.searchParams.set('dataType', 'Foundation,SR Legacy')
-
-	const res = await fetch(url.toString())
-	if (!res.ok) return null
-
-	const data = (await res.json()) as {
-		foods?: Array<{
-			description: string
-			foodNutrients?: Array<{ nutrientId: number; value: number }>
-		}>
-	}
-
-	if (!data.foods?.length) return null
-
-	// Use the first result
-	const food = data.foods[0]
-	const nutrients = food.foodNutrients ?? []
-
-	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
-
-	return {
-		protein: getNutrient(NUTRIENT_IDS.protein),
-		fat: getNutrient(NUTRIENT_IDS.fat),
-		carbs: getNutrient(NUTRIENT_IDS.carbs),
-		kcal: getNutrient(NUTRIENT_IDS.kcal),
-		fiber: getNutrient(NUTRIENT_IDS.fiber)
-	}
-}
-
-const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
-
-Also provide common units for measuring this ingredient with their gram equivalents:
-- For liquids/powders: include tbsp, tsp, cup, dl
-- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
-- For supplements/protein powders: include scoop
-- Always include "g" as a unit with grams=1
-- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
-
-Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
-
 export const aiRouter = router({
 	lookup: protectedProcedure
-		.input(z.object({ ingredientName: z.string().min(1) }))
+		.input(
+			z.object({
+				ingredientName: z.string().min(1),
+				unitsOnly: z.boolean().optional()
+			})
+		)
 		.mutation(async ({ ctx, input }) => {
-			// Try USDA first (free, accurate, fast)
-			const usdaKey = ctx.env.USDA_API_KEY
-			if (usdaKey) {
-				const usdaResult = await lookupUSDA(input.ingredientName, usdaKey)
-				if (usdaResult) {
-					return { ...usdaResult, density: null, units: [], source: 'usda' as const }
+			// If unitsOnly is true, skip USDA and go straight to AI for density + units
+			if (!input.unitsOnly) {
+				// Try USDA first (free, accurate, fast)
+				const usdaKey = ctx.env.USDA_API_KEY
+				if (usdaKey) {
+					const usdaResult = await lookupUSDA(input.ingredientName, usdaKey)
+					if (usdaResult) {
+						return { ...usdaResult, density: null, units: [], source: 'usda' as const }
+					}
 				}
 			}
 
-			// Fall back to AI
+			// Fall back to AI (or use AI directly when unitsOnly=true)
 			const encryptionSecret = ctx.env.ENCRYPTION_SECRET
 			if (!encryptionSecret) {
 				throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
@@ -110,7 +47,20 @@ export const aiRouter = router({
 				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.ingredientName}`
 			})
 
-			return { ...output, source: 'ai' as const }
+			// Merge AI units with calculated volume units if density exists
+			const allUnits = [...output.units]
+			if (output.density !== null) {
+				const volumeUnits = calculateVolumeUnits(output.density)
+				// Add volume units that don't already exist (by name, case-insensitive)
+				const existingNames = new Set(allUnits.map(u => u.name.toLowerCase()))
+				for (const vu of volumeUnits) {
+					if (!existingNames.has(vu.name.toLowerCase())) {
+						allUnits.push(vu)
+					}
+				}
+			}
+
+			return { ...output, units: allUnits, source: 'ai' as const }
 		}),
 
 	estimateCookedWeight: protectedProcedure

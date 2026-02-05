@@ -1,98 +1,13 @@
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { createOpenAI } from '@ai-sdk/openai'
-import { type AiProvider, ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
+import { ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { enrichIngredientSchema, ingredientAiSchema, MODELS } from '../constants'
+import { calculateVolumeUnits, getModel, INGREDIENT_AI_PROMPT, lookupUSDA } from '../ai-utils'
+import { ingredientAiSchema } from '../constants'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { toStartCase } from '../utils'
 import { getDecryptedApiKey } from './settings'
-
-function getModel(provider: AiProvider, apiKey: string) {
-	switch (provider) {
-		case 'gemini':
-			return createGoogleGenerativeAI({ apiKey })(MODELS.gemini)
-		case 'openai':
-			return createOpenAI({ apiKey })(MODELS.openai)
-		case 'anthropic':
-			return createAnthropic({ apiKey })(MODELS.anthropic)
-	}
-}
-
-// USDA nutrient IDs
-const NUTRIENT_IDS = {
-	protein: 1003,
-	fat: 1004,
-	carbs: 1005,
-	kcal: 1008,
-	fiber: 1079
-} as const
-
-interface Macros {
-	protein: number
-	fat: number
-	carbs: number
-	kcal: number
-	fiber: number
-}
-
-async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macros | null> {
-	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
-	url.searchParams.set('api_key', apiKey)
-	url.searchParams.set('query', ingredientName)
-	url.searchParams.set('pageSize', '5')
-	// Prefer Foundation and SR Legacy (standard reference) for raw ingredients
-	url.searchParams.set('dataType', 'Foundation,SR Legacy')
-
-	const res = await fetch(url.toString())
-	if (!res.ok) return null
-
-	const data = (await res.json()) as {
-		foods?: Array<{
-			description: string
-			foodNutrients?: Array<{ nutrientId: number; value: number }>
-		}>
-	}
-
-	if (!data.foods?.length) return null
-
-	// Use the first result
-	const food = data.foods[0]
-	const nutrients = food.foodNutrients ?? []
-
-	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
-
-	return {
-		protein: getNutrient(NUTRIENT_IDS.protein),
-		fat: getNutrient(NUTRIENT_IDS.fat),
-		carbs: getNutrient(NUTRIENT_IDS.carbs),
-		kcal: getNutrient(NUTRIENT_IDS.kcal),
-		fiber: getNutrient(NUTRIENT_IDS.fiber)
-	}
-}
-
-const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
-
-Also provide common units for measuring this ingredient with their gram equivalents:
-- For liquids/powders: include tbsp, tsp, cup, dl
-- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
-- For supplements/protein powders: include scoop
-- Always include "g" as a unit with grams=1
-- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
-
-Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
-
-const ENRICH_INGREDIENT_PROMPT = `Provide common units for measuring this ingredient with their gram equivalents:
-- For liquids/powders: include tbsp, tsp, cup, dl
-- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
-- For supplements/protein powders: include scoop
-- Always include "g" as a unit with grams=1
-- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
-
-Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -171,66 +86,6 @@ export const ingredientsRouter = router({
 			.set(updates)
 			.where(and(eq(ingredients.id, id), eq(ingredients.userId, ctx.user.id)))
 		return ctx.db.query.ingredients.findFirst({ where: eq(ingredients.id, id) })
-	}),
-
-	/** Enrich an existing ingredient with units and density from AI */
-	enrich: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
-		// Verify user owns the ingredient
-		const ingredient = await ctx.db.query.ingredients.findFirst({
-			where: and(eq(ingredients.id, input), eq(ingredients.userId, ctx.user.id)),
-			with: { units: true }
-		})
-		if (!ingredient) {
-			throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
-		}
-
-		const encryptionSecret = ctx.env.ENCRYPTION_SECRET
-		if (!encryptionSecret) {
-			throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
-		}
-
-		const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
-		if (!settings) {
-			throw new TRPCError({
-				code: 'PRECONDITION_FAILED',
-				message: 'No AI provider configured. Go to Settings to add your API key.'
-			})
-		}
-
-		const { output: aiResult } = await generateText({
-			model: getModel(settings.provider, settings.apiKey),
-			output: Output.object({ schema: enrichIngredientSchema }),
-			prompt: `${ENRICH_INGREDIENT_PROMPT}\n\nIngredient: ${ingredient.name}`
-		})
-
-		// Update density if AI provided one and current is null
-		if (aiResult.density !== null && ingredient.density === null) {
-			await ctx.db.update(ingredients).set({ density: aiResult.density }).where(eq(ingredients.id, input))
-		}
-
-		// Add units that don't already exist (by name, case-insensitive)
-		const existingUnitNames = new Set(ingredient.units.map(u => u.name.toLowerCase()))
-		const newUnits = aiResult.units.filter(u => !existingUnitNames.has(u.name.toLowerCase()))
-
-		if (newUnits.length > 0) {
-			// If no units exist yet, respect isDefault from AI; otherwise no defaults
-			const hasExistingDefault = ingredient.units.some(u => u.isDefault)
-			await ctx.db.insert(ingredientUnits).values(
-				newUnits.map(unit => ({
-					ingredientId: ingredient.id,
-					name: unit.name,
-					grams: unit.grams,
-					isDefault: !hasExistingDefault && unit.isDefault ? 1 : 0,
-					source: 'ai' as const,
-					createdAt: Date.now()
-				}))
-			)
-		}
-
-		return ctx.db.query.ingredients.findFirst({
-			where: eq(ingredients.id, input),
-			with: { units: true }
-		})
 	}),
 
 	delete: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
@@ -318,10 +173,23 @@ export const ingredientsRouter = router({
 			})
 			.returning()
 
-		// Insert units from AI response
-		if (units.length > 0) {
+		// Merge AI units with calculated volume units if density exists
+		const allUnits = [...units]
+		if (aiResult.density !== null) {
+			const volumeUnits = calculateVolumeUnits(aiResult.density)
+			// Add volume units that don't already exist (by name, case-insensitive)
+			const existingNames = new Set(allUnits.map(u => u.name.toLowerCase()))
+			for (const vu of volumeUnits) {
+				if (!existingNames.has(vu.name.toLowerCase())) {
+					allUnits.push(vu)
+				}
+			}
+		}
+
+		// Insert all units (AI + calculated volume units)
+		if (allUnits.length > 0) {
 			await ctx.db.insert(ingredientUnits).values(
-				units.map(unit => ({
+				allUnits.map(unit => ({
 					ingredientId: ingredient.id,
 					name: unit.name,
 					grams: unit.grams,
