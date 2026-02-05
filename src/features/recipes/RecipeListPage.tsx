@@ -7,6 +7,7 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
+import { useUser } from '~/lib/user'
 import { RecipeCard } from './components/RecipeCard'
 import {
 	calculatePortionMacros,
@@ -28,7 +29,7 @@ const sortLabels: Record<Sort, string> = {
 export function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = useState<Sort>('recent')
-	const userId = getUserId()
+	const { user } = useUser()
 	const recipesQuery = trpc.recipe.listPublic.useQuery()
 
 	const recipesWithMacros = useMemo(() => {
@@ -41,9 +42,9 @@ export function RecipeListPage() {
 			const totals = calculateRecipeTotals(items)
 			const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 			const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-			return { recipe, portion, isMine: recipe.userId === userId }
+			return { recipe, portion, isMine: recipe.userId === user?.id }
 		})
-	}, [recipesQuery.data, userId])
+	}, [recipesQuery.data, user?.id])
 
 	const sortedRecipes = useMemo(() => {
 		const filtered = filter === 'mine' ? recipesWithMacros.filter(r => r.isMine) : recipesWithMacros

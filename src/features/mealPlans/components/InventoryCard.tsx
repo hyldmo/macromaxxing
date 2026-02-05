@@ -38,8 +38,9 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 	}))
 	const totals = calculateRecipeTotals(items)
 	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-	const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-	const defaultPortions = recipe.portionSize > 0 ? Math.round((cookedWeight / recipe.portionSize) * 2) / 2 : 1
+	const portionSize = recipe.portionSize ?? cookedWeight
+	const portionMacros = calculatePortionMacros(totals, cookedWeight, portionSize)
+	const defaultPortions = portionSize > 0 ? Math.round((cookedWeight / portionSize) * 2) / 2 : 1
 	const isAtDefault = inventory.totalPortions === defaultPortions
 
 	function updatePortions(newPortions: number) {

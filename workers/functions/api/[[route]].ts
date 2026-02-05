@@ -5,9 +5,8 @@ import { cors } from 'hono/cors'
 import { authenticateRequest } from '../lib/auth'
 import { createDb } from '../lib/db'
 import { appRouter } from '../lib/router'
-import type { Env } from '../lib/trpc'
 
-type HonoEnv = { Bindings: Env }
+type HonoEnv = { Bindings: Cloudflare.Env }
 
 const app = new Hono<HonoEnv>()
 

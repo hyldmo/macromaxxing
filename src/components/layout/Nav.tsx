@@ -1,4 +1,4 @@
-import { CalendarDays, ChefHat, CookingPot, Settings, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChefHat, CookingPot, LogIn, LogOut, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 import { login, logout, useUser } from '~/lib/user'

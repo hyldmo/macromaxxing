@@ -6,3 +6,10 @@ repos:
         entry: yarn lint
         language: system
         pass_filenames: false
+        priority: 1
+      - id: typecheck
+        name: typecheck
+        entry: yarn typecheck
+        language: system
+        pass_filenames: false
+        priority: 1
