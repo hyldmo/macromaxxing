@@ -8,7 +8,7 @@ export default defineConfig({
 	server: {
 		port: 1337,
 		proxy: {
-			'/api': 'https://macromaxxing.pages.dev'
+			'/api': process.env.API_URL ?? 'http://localhost:8788'
 		}
 	},
 	plugins: [react(), tailwind()],

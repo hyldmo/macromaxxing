@@ -12,18 +12,24 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 ## Commands
 
 ```bash
-yarn dev          # Dev server
+yarn dev          # Full local dev (frontend + API + local D1)
+yarn dev:web      # Frontend only (API_URL defaults to localhost:8788)
+yarn dev:api      # API only (wrangler + local D1 on port 8788)
+yarn dev:remote   # Frontend only (proxies to production API)
 yarn build        # Build
+yarn preview      # Preview build with local D1
 yarn fix          # Lint + format (Biome)
 yarn db:generate  # Generate migration from schema
 yarn db:migrate   # Apply migrations to local D1
 ```
 
+Set `API_URL` env var to override the API proxy target (defaults to `http://localhost:8788`).
+
 ## Key Files
 
 | Task | Location |
 |------|----------|
-| DB schema | `functions/lib/schema.ts` |
+| DB schema & types | `packages/db/` (shared package `@macromaxxing/db`) |
 | tRPC routes | `functions/lib/routes/*.ts` |
 | Macro calculations | `src/features/recipes/utils/macros.ts` |
 | Design tokens | `src/index.css` |

@@ -1,7 +1,6 @@
+import { recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import type { TypeIDString } from '../custom-types'
-import { recipeIngredients, recipes } from '../schema'
 import { protectedProcedure, router } from '../trpc'
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers

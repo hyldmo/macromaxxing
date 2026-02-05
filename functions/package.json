@@ -1,0 +1,17 @@
+{
+  "name": "@macromaxxing/functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hono/trpc-server": "^0.4.2",
+    "@macromaxxing/db": "workspace:*",
+    "@trpc/server": "*",
+    "drizzle-orm": "*",
+    "hono": "^4.11.7",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260203.0"
+  }
+}

@@ -1,6 +1,6 @@
+import { users } from '@macromaxxing/db'
 import { eq } from 'drizzle-orm'
 import type { Database } from './db'
-import { users } from './schema'
 
 export interface AuthUser {
 	id: string

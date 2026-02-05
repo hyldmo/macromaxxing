@@ -1,7 +1,7 @@
+import { userSettings } from '@macromaxxing/db'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { decrypt, encrypt } from '../crypto'
-import { userSettings } from '../schema'
 import { protectedProcedure, router } from '../trpc'
 
 const saveSettingsSchema = z.object({

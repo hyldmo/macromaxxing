@@ -18,7 +18,9 @@ export const userSettings = sqliteTable('user_settings', {
 })
 
 export const ingredients = sqliteTable('ingredients', {
-	id: typeidCol('ing')('id').primaryKey().$defaultFn(() => newId('ing')),
+	id: typeidCol('ing')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('ing')),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
@@ -33,7 +35,9 @@ export const ingredients = sqliteTable('ingredients', {
 })
 
 export const recipes = sqliteTable('recipes', {
-	id: typeidCol('rcp')('id').primaryKey().$defaultFn(() => newId('rcp')),
+	id: typeidCol('rcp')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('rcp')),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id),
@@ -45,7 +49,9 @@ export const recipes = sqliteTable('recipes', {
 })
 
 export const recipeIngredients = sqliteTable('recipe_ingredients', {
-	id: typeidCol('rci')('id').primaryKey().$defaultFn(() => newId('rci')),
+	id: typeidCol('rci')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('rci')),
 	recipeId: typeidCol('rcp')('recipe_id')
 		.notNull()
 		.references(() => recipes.id, { onDelete: 'cascade' }),
