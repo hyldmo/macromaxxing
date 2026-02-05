@@ -4,6 +4,7 @@ import { Button } from '~/components/ui/Button'
 import { Card, CardContent, CardHeader } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
+import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 
 const providers = [
@@ -102,9 +103,7 @@ export function SettingsPage() {
 									<Check className="h-4 w-4" /> Saved
 								</span>
 							)}
-							{saveMutation.isError && (
-								<span className="text-destructive text-sm">{saveMutation.error.message}</span>
-							)}
+							{saveMutation.isError && <TRPCError error={saveMutation.error} />}
 						</div>
 					</form>
 				</CardContent>

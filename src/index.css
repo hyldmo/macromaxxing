@@ -45,6 +45,11 @@ body {
 	font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Tabular numbers for aligned data */
+.tabular-nums {
+	font-variant-numeric: tabular-nums;
+}
+
 /* Scrollbar styling for dark theme */
 ::-webkit-scrollbar {
 	width: 8px;

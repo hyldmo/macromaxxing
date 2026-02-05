@@ -1,0 +1,23 @@
+import type { AbsoluteMacros } from '../utils/macros'
+import { MacroBar } from './MacroBar'
+
+interface RecipeTotalsBarProps {
+	totals: AbsoluteMacros
+}
+
+export function RecipeTotalsBar({ totals }: RecipeTotalsBarProps) {
+	return (
+		<div className="rounded-[--radius-md] bg-surface-2/60 px-3 py-2">
+			<div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-sm">
+				<span className="font-semibold text-ink-muted">{totals.weight.toFixed(0)}g raw</span>
+				<span className="text-macro-protein">P {totals.protein.toFixed(0)}</span>
+				<span className="text-macro-carbs">C {totals.carbs.toFixed(0)}</span>
+				<span className="text-macro-fat">F {totals.fat.toFixed(0)}</span>
+				<span className="font-semibold text-macro-kcal">{totals.kcal.toFixed(0)} kcal</span>
+			</div>
+			<div className="mt-1.5">
+				<MacroBar protein={totals.protein} carbs={totals.carbs} fat={totals.fat} />
+			</div>
+		</div>
+	)
+}

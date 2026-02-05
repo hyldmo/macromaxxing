@@ -4,6 +4,7 @@ import { Button } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
 import { Spinner } from '~/components/ui/Spinner'
 import { trpc } from '~/lib/trpc'
+import { RecipeCard } from './components/RecipeCard'
 import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
@@ -47,34 +48,14 @@ export function RecipeListPage() {
 					const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 
 					return (
-						<Link key={recipe.id} to={`/recipes/${recipe.id}`}>
-							<Card className="p-3 transition-colors hover:bg-surface-2">
-								<div className="flex items-center justify-between">
-									<div>
-										<h2 className="font-medium text-ink text-sm">{recipe.name}</h2>
-										<p className="text-ink-faint text-xs">
-											{recipe.recipeIngredients.length} ingredients
-											{recipe.cookedWeight ? ` \u00B7 ${recipe.cookedWeight}g cooked` : ''}
-											{` \u00B7 ${recipe.portionSize}g portion`}
-										</p>
-									</div>
-									{recipe.recipeIngredients.length > 0 && (
-										<div className="text-right font-mono text-sm">
-											<div className="font-medium text-macro-kcal">
-												{portion.kcal.toFixed(0)} kcal
-											</div>
-											<div className="space-x-2 text-xs">
-												<span className="text-macro-protein">
-													P{portion.protein.toFixed(0)}
-												</span>
-												<span className="text-macro-carbs">C{portion.carbs.toFixed(0)}</span>
-												<span className="text-macro-fat">F{portion.fat.toFixed(0)}</span>
-											</div>
-										</div>
-									)}
-								</div>
-							</Card>
-						</Link>
+						<RecipeCard
+							key={recipe.id}
+							id={recipe.id}
+							name={recipe.name}
+							ingredientCount={recipe.recipeIngredients.length}
+							portionSize={recipe.portionSize}
+							portion={portion}
+						/>
 					)
 				})}
 			</div>

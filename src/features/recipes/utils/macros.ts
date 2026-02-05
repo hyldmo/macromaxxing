@@ -74,3 +74,18 @@ export function macroPercentage(macroGrams: number, totalWeight: number): number
 	if (totalWeight === 0) return 0
 	return (macroGrams / totalWeight) * 100
 }
+
+export interface CaloricRatio {
+	protein: number
+	carbs: number
+	fat: number
+}
+
+export function caloricRatio(protein: number, carbs: number, fat: number): CaloricRatio {
+	const pCal = protein * 4
+	const cCal = carbs * 4
+	const fCal = fat * 9
+	const total = pCal + cCal + fCal
+	if (total === 0) return { protein: 0, carbs: 0, fat: 0 }
+	return { protein: pCal / total, carbs: cCal / total, fat: fCal / total }
+}

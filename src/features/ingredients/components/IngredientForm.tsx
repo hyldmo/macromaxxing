@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
+import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 
 interface IngredientFormProps {
@@ -58,9 +59,11 @@ export function IngredientForm({ onClose, editIngredient }: IngredientFormProps)
 	}
 
 	const isPending = createMutation.isPending || updateMutation.isPending
+	const error = createMutation.error || updateMutation.error
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-3">
+			{error && <TRPCError error={error} />}
 			<Input placeholder="Ingredient name" value={name} onChange={e => setName(e.target.value)} required />
 			<div className="grid grid-cols-5 gap-2">
 				<label>

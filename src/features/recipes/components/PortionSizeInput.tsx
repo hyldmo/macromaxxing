@@ -19,17 +19,19 @@ export function PortionSizeInput({ portionSize, onChange }: PortionSizeInputProp
 	}
 
 	return (
-		<label className="flex items-center gap-2">
-			<span className="text-ink-muted text-sm">Portion size</span>
-			<Input
-				type="number"
-				className="h-7 w-20 text-right font-mono"
-				value={value}
-				onChange={e => setValue(e.target.value)}
-				onBlur={handleBlur}
-				min={0}
-			/>
-			<span className="text-ink-faint text-xs">g</span>
+		<label className="flex flex-col gap-1">
+			<span className="text-ink-muted text-xs uppercase tracking-wider">Portion size</span>
+			<div className="flex items-center gap-2">
+				<Input
+					type="number"
+					className="h-8 w-full text-right font-mono"
+					value={value}
+					onChange={e => setValue(e.target.value)}
+					onBlur={handleBlur}
+					min={0}
+				/>
+				<span className="text-ink-faint text-xs">g</span>
+			</div>
 		</label>
 	)
 }

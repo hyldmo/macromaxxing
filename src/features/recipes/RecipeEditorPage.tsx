@@ -2,13 +2,13 @@ import { ArrowLeft } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
-import { Card, CardContent, CardHeader } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
+import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
-import { CookedWeightInput } from './components/CookedWeightInput'
-import { PortionSizeInput } from './components/PortionSizeInput'
+import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
+import { RecipeTotalsBar } from './components/RecipeTotalsBar'
 import { useRecipeCalculations } from './hooks/useRecipeCalculations'
 
 export function RecipeEditorPage() {
@@ -66,59 +66,76 @@ export function RecipeEditorPage() {
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-3">
 				<Link to="/recipes">
 					<Button variant="ghost" size="icon">
 						<ArrowLeft className="h-4 w-4" />
 					</Button>
 				</Link>
-				<h1 className="font-semibold text-ink">{isNew ? 'New Recipe' : 'Edit Recipe'}</h1>
+				<Input
+					placeholder="Recipe name"
+					value={name}
+					onChange={e => setName(e.target.value)}
+					onBlur={handleNameBlur}
+					onKeyDown={e => {
+						if (e.key === 'Enter' && isNew) handleCreate()
+					}}
+					className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
+				/>
+				{isNew && (
+					<Button onClick={handleCreate} disabled={!name.trim() || createMutation.isPending}>
+						Create
+					</Button>
+				)}
 			</div>
 
-			<Card>
-				<CardHeader>
-					<div className="flex items-center gap-2">
-						<Input
-							placeholder="Recipe name"
-							value={name}
-							onChange={e => setName(e.target.value)}
-							onBlur={handleNameBlur}
-							onKeyDown={e => {
-								if (e.key === 'Enter' && isNew) handleCreate()
-							}}
-							className="font-medium"
-						/>
-						{isNew && (
-							<Button onClick={handleCreate} disabled={!name.trim() || createMutation.isPending}>
-								Create
-							</Button>
-						)}
-					</div>
-				</CardHeader>
+			{(createMutation.error || updateMutation.error) && (
+				<TRPCError error={createMutation.error || updateMutation.error} />
+			)}
 
-				{!isNew && recipeQuery.data && calculations && (
-					<CardContent className="space-y-3">
+			{!isNew && recipeQuery.data && calculations && (
+				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
+					{/* Mobile: PortionPanel at top */}
+					<div className="order-first lg:hidden">
+						<PortionPanel
+							portion={calculations.portion}
+							cookedWeight={recipeQuery.data.cookedWeight}
+							rawTotal={calculations.totals.weight}
+							portionSize={recipeQuery.data.portionSize}
+							effectiveCookedWeight={calculations.cookedWeight}
+							onCookedWeightChange={handleCookedWeightChange}
+							onPortionSizeChange={handlePortionSizeChange}
+						/>
+					</div>
+
+					{/* Left column: ingredients */}
+					<div className="min-w-0 space-y-3">
 						<RecipeIngredientTable
 							recipeId={id!}
 							recipeIngredients={recipeQuery.data.recipeIngredients}
 							ingredientMacros={calculations.ingredientMacros}
-							totals={calculations.totals}
-							portion={calculations.portion}
 						/>
-						<div className="flex flex-wrap gap-6">
-							<CookedWeightInput
+						{recipeQuery.data.recipeIngredients.length > 0 && (
+							<RecipeTotalsBar totals={calculations.totals} />
+						)}
+					</div>
+
+					{/* Right column: PortionPanel (desktop only) */}
+					<div className="hidden lg:block">
+						<div className="sticky top-4">
+							<PortionPanel
+								portion={calculations.portion}
 								cookedWeight={recipeQuery.data.cookedWeight}
 								rawTotal={calculations.totals.weight}
-								onChange={handleCookedWeightChange}
-							/>
-							<PortionSizeInput
 								portionSize={recipeQuery.data.portionSize}
-								onChange={handlePortionSizeChange}
+								effectiveCookedWeight={calculations.cookedWeight}
+								onCookedWeightChange={handleCookedWeightChange}
+								onPortionSizeChange={handlePortionSizeChange}
 							/>
 						</div>
-					</CardContent>
-				)}
-			</Card>
+					</div>
+				</div>
+			)}
 		</div>
 	)
 }
