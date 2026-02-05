@@ -25,12 +25,21 @@ yarn db:migrate   # Apply migrations to local D1
 
 Set `API_URL` env var to override the API proxy target (defaults to `http://localhost:8788`).
 
+## Local Setup
+
+Create `.dev.vars` for local secrets (required for AI features):
+
+```bash
+# Generate a secret: openssl rand -hex 32
+ENCRYPTION_SECRET=your-32-byte-hex-secret
+```
+
 ## Key Files
 
 | Task | Location |
 |------|----------|
 | DB schema & types | `packages/db/` (shared package `@macromaxxing/db`) |
-| tRPC routes | `functions/lib/routes/*.ts` |
+| tRPC routes | `workers/functions/lib/routes/*.ts` |
 | Macro calculations | `src/features/recipes/utils/macros.ts` |
 | Design tokens | `src/index.css` |
 | UI components | `src/components/ui/` |

@@ -41,6 +41,77 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/anthropic@npm:^3.0.36":
+  version: 3.0.36
+  resolution: "@ai-sdk/anthropic@npm:3.0.36"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.7"
+    "@ai-sdk/provider-utils": "npm:4.0.13"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/63b7dfa2403487a8a2bb96f52979248092d65321c7c95caf83e43cf213aa343a1d67dc133df2df754aa8cf3072da119c4c2833f4c6c06095a9b49cd0a8da78da
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/gateway@npm:3.0.34":
+  version: 3.0.34
+  resolution: "@ai-sdk/gateway@npm:3.0.34"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.7"
+    "@ai-sdk/provider-utils": "npm:4.0.13"
+    "@vercel/oidc": "npm:3.1.0"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/fe1da1fe601989b88f92eaeb857eb013f184bce25429277be9cc36118c8fd69c5705b75f86092ac81aa59711a9300935456d2d8e5978e46cc3fbdddc90df62a7
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/google@npm:^3.0.21":
+  version: 3.0.21
+  resolution: "@ai-sdk/google@npm:3.0.21"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.7"
+    "@ai-sdk/provider-utils": "npm:4.0.13"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/a1871ca43d6c6482fb5a2e79e3ea50ac472fb5d657d8135f22f0a3d007ea4e83ce88f6fbaed6865e57cee188b2671665a3ce1371681fb086dd77973809b1fadd
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/openai@npm:^3.0.25":
+  version: 3.0.25
+  resolution: "@ai-sdk/openai@npm:3.0.25"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.7"
+    "@ai-sdk/provider-utils": "npm:4.0.13"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/d29b25e06cf673a0c3f87bea2e357b84fb90a54b4c1939b78ea283b32a4d0abbb99f6dc227654a596925ab1be298d5959884c02f632f3e608208f1b015a066b9
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/provider-utils@npm:4.0.13":
+  version: 4.0.13
+  resolution: "@ai-sdk/provider-utils@npm:4.0.13"
+  dependencies:
+    "@ai-sdk/provider": "npm:3.0.7"
+    "@standard-schema/spec": "npm:^1.1.0"
+    eventsource-parser: "npm:^3.0.6"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/c63b12130475fddab4adc7f7897c2ad4d5bd689483a54e772282bf19391916226cc9a3200f6e2db3668aef1d3577e9198e30cd6a619d371e754fc1f7c82d8b72
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/provider@npm:3.0.7":
+  version: 3.0.7
+  resolution: "@ai-sdk/provider@npm:3.0.7"
+  dependencies:
+    json-schema: "npm:^0.4.0"
+  checksum: 10c0/2ff19daf26fb725857c5f1f28190c49878b84113aa5b551707814e98a8cddf104bd4549b2f491aa5ff07fe0cc2fd327429613f13fca5f83509775763a0474a9e
+  languageName: node
+  linkType: hard
+
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.26.2, @babel/code-frame@npm:^7.28.6, @babel/code-frame@npm:^7.29.0":
   version: 7.29.0
   resolution: "@babel/code-frame@npm:7.29.0"
@@ -1511,23 +1582,26 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@macromaxxing/db@workspace:packages/db"
   dependencies:
+    drizzle-kit: "npm:^0.31.8"
+    drizzle-orm: "npm:^0.45.1"
+    es-toolkit: "npm:*"
     typeid-js: "npm:^1.2.0"
   peerDependencies:
-    drizzle-orm: "*"
     zod: "*"
   languageName: unknown
   linkType: soft
 
-"@macromaxxing/functions@workspace:functions":
+"@macromaxxing/workers@workspace:workers":
   version: 0.0.0-use.local
-  resolution: "@macromaxxing/functions@workspace:functions"
+  resolution: "@macromaxxing/workers@workspace:workers"
   dependencies:
     "@cloudflare/workers-types": "npm:^4.20260203.0"
     "@hono/trpc-server": "npm:^0.4.2"
     "@macromaxxing/db": "workspace:*"
     "@trpc/server": "npm:*"
-    drizzle-orm: "npm:*"
+    drizzle-orm: "npm:^0.45.1"
     hono: "npm:^4.11.7"
+    wrangler: "npm:^4.62.0"
     zod: "npm:*"
   languageName: unknown
   linkType: soft
@@ -1859,6 +1933,13 @@ __metadata:
   dependencies:
     "@octokit/openapi-types": "npm:^27.0.0"
   checksum: 10c0/b8d41098ba6fc194d13d641f9441347e3a3b96c0efabac0e14f57319340a2d4d1c8676e4cb37ab3062c5c323c617e790b0126916e9bf7b201b0cced0826f8ae2
+  languageName: node
+  linkType: hard
+
+"@opentelemetry/api@npm:1.9.0":
+  version: 1.9.0
+  resolution: "@opentelemetry/api@npm:1.9.0"
+  checksum: 10c0/9aae2fe6e8a3a3eeb6c1fdef78e1939cf05a0f37f8a4fae4d6bf2e09eb1e06f966ece85805626e01ba5fab48072b94f19b835449e58b6d26720ee19a58298add
   languageName: node
   linkType: hard
 
@@ -2288,6 +2369,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@standard-schema/spec@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@standard-schema/spec@npm:1.1.0"
+  checksum: 10c0/d90f55acde4b2deb983529c87e8025fa693de1a5e8b49ecc6eb84d1fd96328add0e03d7d551442156c7432fd78165b2c26ff561b970a9a881f046abb78d6a526
+  languageName: node
+  linkType: hard
+
 "@tailwindcss/node@npm:4.1.18":
   version: 4.1.18
   resolution: "@tailwindcss/node@npm:4.1.18"
@@ -2602,6 +2690,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@vercel/oidc@npm:3.1.0":
+  version: 3.1.0
+  resolution: "@vercel/oidc@npm:3.1.0"
+  checksum: 10c0/f57278ed4b4c022c7ca85e8baa5f9bdb2623397abfa0e5dbfd75de283c8e5dc534d64dac1364b5ad8c96d00eb2d469886e6f7b640f6f195def5766950ad8ce71
+  languageName: node
+  linkType: hard
+
 "@vitejs/plugin-react@npm:^5.1.3":
   version: 5.1.3
   resolution: "@vitejs/plugin-react@npm:5.1.3"
@@ -2639,6 +2734,20 @@ __metadata:
     clean-stack: "npm:^5.2.0"
     indent-string: "npm:^5.0.0"
   checksum: 10c0/a5de7138571f514bad76290736f49a0db8809247082f2519037e0c37d03fc8d91d733e079d6b1674feda28a757b1932421ad205b8c0f8794a0c0e5bf1be2315e
+  languageName: node
+  linkType: hard
+
+"ai@npm:^6.0.71":
+  version: 6.0.71
+  resolution: "ai@npm:6.0.71"
+  dependencies:
+    "@ai-sdk/gateway": "npm:3.0.34"
+    "@ai-sdk/provider": "npm:3.0.7"
+    "@ai-sdk/provider-utils": "npm:4.0.13"
+    "@opentelemetry/api": "npm:1.9.0"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/08ad003e01e3074ecfcd2109b5b3d208f96ad42579ac5dd32b1afef0e6000c85d96246a8fc9a3840c3ed8e50fc992442eda42e1af91088d4e2dcb7dcf433dd23
   languageName: node
   linkType: hard
 
@@ -3363,7 +3472,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"drizzle-orm@npm:*, drizzle-orm@npm:^0.45.1":
+"drizzle-orm@npm:^0.45.1":
   version: 0.45.1
   resolution: "drizzle-orm@npm:0.45.1"
   peerDependencies:
@@ -3619,7 +3728,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"es-toolkit@npm:^1.44.0":
+"es-toolkit@npm:*, es-toolkit@npm:^1.44.0":
   version: 1.44.0
   resolution: "es-toolkit@npm:1.44.0"
   dependenciesMeta:
@@ -4004,6 +4113,13 @@ __metadata:
   version: 1.0.5
   resolution: "escape-string-regexp@npm:1.0.5"
   checksum: 10c0/a968ad453dd0c2724e14a4f20e177aaf32bb384ab41b674a8454afe9a41c5e6fe8903323e0a1052f56289d04bd600f81278edf140b0fcc02f5cac98d0f5b5371
+  languageName: node
+  linkType: hard
+
+"eventsource-parser@npm:^3.0.6":
+  version: 3.0.6
+  resolution: "eventsource-parser@npm:3.0.6"
+  checksum: 10c0/70b8ccec7dac767ef2eca43f355e0979e70415701691382a042a2df8d6a68da6c2fca35363669821f3da876d29c02abe9b232964637c1b6635c940df05ada78a
   languageName: node
   linkType: hard
 
@@ -4787,6 +4903,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-schema@npm:^0.4.0":
+  version: 0.4.0
+  resolution: "json-schema@npm:0.4.0"
+  checksum: 10c0/d4a637ec1d83544857c1c163232f3da46912e971d5bf054ba44fdb88f07d8d359a462b4aec46f2745efbc57053365608d88bc1d7b1729f7b4fc3369765639ed3
+  languageName: node
+  linkType: hard
+
 "json-stringify-nice@npm:^1.1.4":
   version: 1.1.4
   resolution: "json-stringify-nice@npm:1.1.4"
@@ -5196,6 +5319,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "macromaxxing@workspace:."
   dependencies:
+    "@ai-sdk/anthropic": "npm:^3.0.36"
+    "@ai-sdk/google": "npm:^3.0.21"
+    "@ai-sdk/openai": "npm:^3.0.25"
     "@biomejs/biome": "npm:^2.3.8"
     "@j178/prek": "npm:^0.3.1"
     "@macromaxxing/db": "workspace:*"
@@ -5207,11 +5333,10 @@ __metadata:
     "@types/react": "npm:^19.2.10"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^5.1.3"
+    ai: "npm:^6.0.71"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
     concurrently: "npm:^9.2.1"
-    drizzle-kit: "npm:^0.31.8"
-    drizzle-orm: "npm:^0.45.1"
     es-toolkit: "npm:^1.44.0"
     lucide-react: "npm:^0.563.0"
     react: "npm:^19.2.4"
@@ -5221,7 +5346,6 @@ __metadata:
     tailwind-merge: "npm:^3.4.0"
     typescript: "npm:^5.9.3"
     vite: "npm:^7.3.1"
-    wrangler: "npm:^4.62.0"
     zod: "npm:^4.3.6"
   languageName: unknown
   linkType: soft

@@ -19,3 +19,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: yarn --immutable
+
+    - name: Generate worker types
+      shell: bash
+      run: yarn codegen

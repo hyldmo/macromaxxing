@@ -9,10 +9,14 @@
     "./types": "./types.ts"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.1",
+    "es-toolkit": "*",
     "typeid-js": "^1.2.0"
   },
   "peerDependencies": {
-    "drizzle-orm": "*",
     "zod": "*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.8"
   }
 }

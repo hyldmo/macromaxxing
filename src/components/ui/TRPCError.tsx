@@ -2,11 +2,47 @@ import type { TRPCClientErrorLike } from '@trpc/client'
 import { AlertTriangle } from 'lucide-react'
 import type { FC } from 'react'
 import { cn } from '~/lib/cn'
-import type { AppRouter } from '../../../functions/lib/router'
+import type { AppRouter } from '../../../workers/functions/lib/router'
 
 export interface TRPCErrorProps {
 	error: TRPCClientErrorLike<AppRouter> | null
+	type?: 'error' | 'warning' | 'info'
 	className?: string
+}
+
+export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', className }) => {
+	if (!error) return null
+
+	return (
+		<div
+			className={cn(
+				'flex items-center gap-2 rounded-[--radius-md] px-3 py-1',
+				{
+					'bg-destructive/10': type === 'error',
+					'bg-warning/10': type === 'warning',
+					'bg-info/10': type === 'info'
+				},
+				className
+			)}
+		>
+			<AlertTriangle
+				className={cn('size-4 shrink-0', {
+					'text-destructive': type === 'error',
+					'text-warning': type === 'warning',
+					'text-info': type === 'info'
+				})}
+			/>
+			<span
+				className={cn('text-sm', {
+					'text-destructive': type === 'error',
+					'text-warning': type === 'warning',
+					'text-info': type === 'info'
+				})}
+			>
+				{getFriendlyMessage(error)}
+			</span>
+		</div>
+	)
 }
 
 const friendlyMessages: Record<string, string> = {
@@ -35,15 +71,4 @@ function getFriendlyMessage(error: TRPCClientErrorLike<AppRouter>): string {
 
 	// Fallback to the original message, but clean it up
 	return message.length > 100 ? `${message.slice(0, 100)}...` : message
-}
-
-export const TRPCError: FC<TRPCErrorProps> = ({ error, className = '' }) => {
-	if (!error) return null
-
-	return (
-		<div className={cn('flex items-center gap-2 rounded-[--radius-md] bg-destructive/10 px-3 py-1', className)}>
-			<AlertTriangle className="size-4 shrink-0 text-destructive" />
-			<span className="text-destructive text-sm">{getFriendlyMessage(error)}</span>
-		</div>
-	)
 }

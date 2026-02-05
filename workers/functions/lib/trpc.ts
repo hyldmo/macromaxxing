@@ -2,11 +2,6 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import type { AuthUser } from './auth'
 import type { Database } from './db'
 
-export interface Env {
-	DB: D1Database
-	ENCRYPTION_SECRET: string
-}
-
 export interface TRPCContext {
 	db: Database
 	user: AuthUser | null

@@ -27,7 +27,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Apply D1 migrations
-        run: yarn wrangler d1 migrations apply ${{ github.event.repository.name }} --remote
+        run: yarn workspace @macromaxxing/workers wrangler d1 migrations apply ${{ github.event.repository.name }} --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
@@ -35,7 +35,7 @@ jobs:
         run: yarn build
 
       - name: Deploy to Cloudflare Pages
-        run: yarn wrangler pages deploy dist --project-name=${{ github.event.repository.name }}
+        run: yarn workspace @macromaxxing/workers wrangler pages deploy --project-name=${{ github.event.repository.name }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 

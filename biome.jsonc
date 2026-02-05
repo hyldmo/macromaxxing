@@ -126,7 +126,7 @@
 			}
 		},
 		{
-			"includes": ["functions/**"],
+			"includes": ["workers/**"],
 			"linter": {
 				"rules": {
 					"correctness": {

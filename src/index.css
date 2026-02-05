@@ -27,6 +27,8 @@
 
 	/* Semantic */
 	--color-destructive: oklch(0.6 0.2 25);
+	--color-warning: oklch(0.6 0.2 25);
+	--color-info: oklch(0.6 0.2 25);
 	--color-success: oklch(0.65 0.15 155);
 
 	/* Radius — sharp, instrument-grade */

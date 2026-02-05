@@ -109,11 +109,11 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		}
 	}
 
-	async function handleAddPastedIngredients() {
+	async function handleAddPastedIngredients(itemsToProcess?: ParsedIngredient[]) {
 		setIsProcessingPaste(true)
 		setPasteError(null)
 		const ingredients = ingredientsQuery.data ?? []
-		const updated = [...pastedIngredients]
+		const updated = [...(itemsToProcess ?? pastedIngredients)]
 
 		for (let i = 0; i < updated.length; i++) {
 			const item = updated[i]
@@ -156,7 +156,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	function retryPaste() {
 		setPasteError(null)
 		aiLookup.reset()
-		handleAddPastedIngredients()
+		// Reset failed items back to pending so they get processed
+		const resetItems = pastedIngredients.map(item =>
+			item.status === 'error' ? { ...item, status: 'pending' as const, error: undefined } : item
+		)
+		setPastedIngredients(resetItems)
+		handleAddPastedIngredients(resetItems)
 	}
 
 	// Show paste preview mode
@@ -172,7 +177,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						{isProcessingPaste
 							? `Adding ingredients... (${pastedIngredients.filter(i => i.status === 'added').length}/${
 									pastedIngredients.length
-							  })`
+								})`
 							: `Parsed ${pastedIngredients.length} ingredients from paste`}
 					</span>
 				</div>

@@ -1,33 +1,46 @@
 import { AI_PROVIDER_OPTIONS, type AiProvider } from '@macromaxxing/db'
 import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Spinner } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { Card, CardContent, CardHeader } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
-import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 
 export function SettingsPage() {
 	const settingsQuery = trpc.settings.get.useQuery()
 	const saveMutation = trpc.settings.save.useMutation({
-		onSuccess: () => utils.settings.get.invalidate()
+		onSuccess: () => {
+			utils.settings.get.invalidate()
+			setApiKey('')
+		}
 	})
 	const utils = trpc.useUtils()
 
 	const [provider, setProvider] = useState<AiProvider>('gemini')
 	const [apiKey, setApiKey] = useState('')
 
+	const savedProvider = settingsQuery.data?.provider
+	const hasExistingKey = settingsQuery.data?.hasKey
+	const providerChanged = savedProvider && provider !== savedProvider
+
 	useEffect(() => {
-		if (settingsQuery.data?.provider) {
-			setProvider(settingsQuery.data.provider)
+		if (savedProvider) {
+			setProvider(savedProvider)
 		}
-	}, [settingsQuery.data])
+	}, [savedProvider])
 
 	function handleSave(e: React.FormEvent) {
 		e.preventDefault()
-		saveMutation.mutate({ provider, apiKey })
+		saveMutation.mutate({
+			provider,
+			apiKey: apiKey || undefined
+		})
 	}
+
+	const canSave = apiKey || providerChanged
+	const buttonText = saveMutation.isPending ? (apiKey ? 'Verifying...' : 'Saving...') : 'Save'
 
 	return (
 		<div className="space-y-3">
@@ -68,26 +81,26 @@ export function SettingsPage() {
 							<span className="text-ink-muted text-sm">API Key</span>
 							<Input
 								type="password"
-								name="password"
-								placeholder={
-									settingsQuery.data?.hasKey ? 'Key saved (enter new to update)' : 'Enter API key'
-								}
+								name="apiKey"
+								placeholder={hasExistingKey ? 'Key saved (enter new to update)' : 'Enter API key'}
+								autoComplete="off"
 								value={apiKey}
 								onChange={e => setApiKey(e.target.value)}
 							/>
 						</label>
 
 						<div className="flex gap-2">
-							<Button type="submit" disabled={!apiKey || saveMutation.isPending}>
-								{saveMutation.isPending ? <Spinner className="size-4" /> : 'Save'}
+							<Button type="submit" disabled={!canSave || saveMutation.isPending}>
+								{buttonText}
 							</Button>
+							{saveMutation.isPending && <Spinner className="size-4" />}
 							{saveMutation.isSuccess && (
 								<span className="flex items-center gap-1 text-sm text-success">
 									<Check className="size-4" /> Saved
 								</span>
 							)}
-							{saveMutation.isError && <TRPCError error={saveMutation.error} />}
 						</div>
+						{saveMutation.isError && <TRPCError error={saveMutation.error} />}
 					</form>
 				</CardContent>
 			</Card>

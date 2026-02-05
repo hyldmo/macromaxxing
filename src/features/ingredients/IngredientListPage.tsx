@@ -101,8 +101,8 @@ export function IngredientListPage() {
 					{search
 						? 'No ingredients match your search.'
 						: filter === 'mine'
-						? "You haven't added any ingredients yet."
-						: 'No ingredients yet.'}
+							? "You haven't added any ingredients yet."
+							: 'No ingredients yet.'}
 				</Card>
 			)}
 

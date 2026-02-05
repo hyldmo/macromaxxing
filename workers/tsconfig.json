@@ -11,6 +11,6 @@
 		"isolatedModules": true,
 		"resolveJsonModule": true
 	},
-	"files": ["../worker-configuration.d.ts"],
-	"include": ["."]
+	"files": ["./worker-configuration.d.ts"],
+	"include": ["functions"]
 }
