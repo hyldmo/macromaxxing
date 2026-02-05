@@ -21,9 +21,12 @@ app.use(
 			const env = c.env
 			const db = createDb(env.DB)
 
+			// Check if running in local dev (wrangler sets CF-Connecting-IP to 127.0.0.1 in dev)
+			const isDev = req.headers.get('CF-Connecting-IP') === '127.0.0.1' || !req.headers.get('CF-Connecting-IP')
+
 			let user = null
 			try {
-				user = await authenticateRequest(req, db)
+				user = await authenticateRequest(req, db, isDev)
 			} catch {
 				// User remains null, protectedProcedure will throw
 			}

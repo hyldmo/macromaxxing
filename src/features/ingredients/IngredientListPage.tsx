@@ -8,7 +8,7 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
-import { getUserId } from '~/lib/user'
+import { useUser } from '~/lib/user'
 import { MacroBar } from '../recipes/components/MacroBar'
 import { IngredientForm } from './components/IngredientForm'
 
@@ -19,7 +19,8 @@ export function IngredientListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
-	const userId = getUserId()
+	const { user } = useUser()
+	const userId = user?.id
 	const utils = trpc.useUtils()
 
 	const ingredientsQuery = trpc.ingredient.listPublic.useQuery()
@@ -102,8 +103,8 @@ export function IngredientListPage() {
 					{search
 						? 'No ingredients match your search.'
 						: filter === 'mine'
-						? "You haven't added any ingredients yet."
-						: 'No ingredients yet.'}
+							? "You haven't added any ingredients yet."
+							: 'No ingredients yet.'}
 				</Card>
 			)}
 

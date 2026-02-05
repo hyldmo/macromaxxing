@@ -1,48 +1,55 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1770207078307,
-			"tag": "0000_motionless_scorpion",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "6",
-			"when": 1770292952280,
-			"tag": "0001_wet_romulus",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "6",
-			"when": 1770295132895,
-			"tag": "0002_woozy_cannonball",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "6",
-			"when": 1770298287308,
-			"tag": "0003_lying_ultimates",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "6",
-			"when": 1770298676310,
-			"tag": "0004_fat_scourge",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "6",
-			"when": 1770308956792,
-			"tag": "0005_swift_mephisto",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1770207078307,
+      "tag": "0000_motionless_scorpion",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1770292952280,
+      "tag": "0001_wet_romulus",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770295132895,
+      "tag": "0002_woozy_cannonball",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1770298287308,
+      "tag": "0003_lying_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1770298676310,
+      "tag": "0004_fat_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1770308956792,
+      "tag": "0005_swift_mephisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1770322546283,
+      "tag": "20260205201546_classy_weapon_omega",
+      "breakpoints": true
+    }
+  ]
 }

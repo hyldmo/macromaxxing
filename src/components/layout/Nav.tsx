@@ -1,6 +1,7 @@
 import { CalendarDays, ChefHat, CookingPot, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
+import { login, logout, useUser } from '~/lib/user'
 
 const mainLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
@@ -9,6 +10,8 @@ const mainLinks = [
 ] as const
 
 export function Nav() {
+	const { user } = useUser()
+
 	return (
 		<>
 			{/* Desktop top nav */}
@@ -35,17 +38,41 @@ export function Nav() {
 							</NavLink>
 						))}
 					</div>
-					<NavLink
-						to="/settings"
-						className={({ isActive }) =>
-							cn(
-								'ml-auto hidden rounded-[--radius-sm] p-1.5 transition-colors md:block',
-								isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
-							)
-						}
-					>
-						<Settings className="size-5" />
-					</NavLink>
+					<div className="ml-auto hidden items-center gap-2 md:flex">
+						<NavLink
+							to="/settings"
+							className={({ isActive }) =>
+								cn(
+									'rounded-[--radius-sm] p-1.5 transition-colors',
+									isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
+								)
+							}
+						>
+							<Settings className="size-5" />
+						</NavLink>
+						{user ? (
+							<>
+								<span className="text-ink-muted text-sm">{user.email}</span>
+								<button
+									type="button"
+									onClick={logout}
+									className="rounded-[--radius-sm] p-1.5 text-ink-muted transition-colors hover:text-ink"
+									title="Sign out"
+								>
+									<LogOut className="size-5" />
+								</button>
+							</>
+						) : (
+							<button
+								type="button"
+								onClick={login}
+								className="flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
+							>
+								<LogIn className="size-4" />
+								Sign in
+							</button>
+						)}
+					</div>
 				</div>
 			</nav>
 
@@ -68,6 +95,25 @@ export function Nav() {
 								{label}
 							</NavLink>
 						)
+					)}
+					{user ? (
+						<button
+							type="button"
+							onClick={logout}
+							className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
+						>
+							<LogOut className="size-5" />
+							<span>Sign out</span>
+						</button>
+					) : (
+						<button
+							type="button"
+							onClick={login}
+							className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
+						>
+							<LogIn className="size-5" />
+							<span>Sign in</span>
+						</button>
 					)}
 				</div>
 			</nav>
