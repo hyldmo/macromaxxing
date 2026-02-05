@@ -2,8 +2,10 @@ import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { type AiProvider, newId, typeidCol } from './custom-types'
 
 export const users = sqliteTable('users', {
-	id: text('id').primaryKey(),
-	email: text('email').notNull(),
+	id: typeidCol('usr')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('usr')),
+	email: text('email').notNull().unique(),
 	createdAt: integer('created_at').notNull()
 })
 

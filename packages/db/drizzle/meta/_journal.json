@@ -8,6 +8,13 @@
 			"when": 1770207078307,
 			"tag": "0000_motionless_scorpion",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1770208820000,
+			"tag": "0001_user_typeid",
+			"breakpoints": true
 		}
 	]
 }
