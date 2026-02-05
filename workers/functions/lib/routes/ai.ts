@@ -3,7 +3,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { AiProvider } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { generateObject } from 'ai'
+import { generateText, object } from 'ai'
 import { z } from 'zod'
 import { cookedWeightSchema, MODELS, macroSchema } from '../constants'
 import { protectedProcedure, router } from '../trpc'
@@ -37,13 +37,13 @@ export const aiRouter = router({
 				})
 			}
 
-			const { object } = await generateObject({
+			const { output } = await generateText({
 				model: getModel(settings.provider, settings.apiKey),
-				schema: macroSchema,
+				output: object({ schema: macroSchema }),
 				prompt: `Return nutritional values per 100g raw weight for: ${input.ingredientName}. Use USDA data.`
 			})
 
-			return object
+			return output
 		}),
 
 	estimateCookedWeight: protectedProcedure
@@ -68,12 +68,12 @@ export const aiRouter = router({
 
 			const ingredientList = input.ingredients.map(i => `${i.grams}g ${i.name}`).join(', ')
 
-			const { object } = await generateObject({
+			const { output } = await generateText({
 				model: getModel(settings.provider, settings.apiKey),
-				schema: cookedWeightSchema,
+				output: object({ schema: cookedWeightSchema }),
 				prompt: `Estimate the cooked weight for a recipe with these raw ingredients: ${ingredientList}. Consider typical water loss/gain during cooking. Return weight in grams.`
 			})
 
-			return object
+			return output
 		})
 })

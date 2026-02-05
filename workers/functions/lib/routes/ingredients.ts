@@ -3,7 +3,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { type AiProvider, ingredients, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { generateObject } from 'ai'
+import { generateText, object } from 'ai'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { MODELS, macroSchema } from '../constants'
@@ -110,9 +110,9 @@ export const ingredientsRouter = router({
 			})
 		}
 
-		const { object: macros } = await generateObject({
+		const { output: macros } = await generateText({
 			model: getModel(settings.provider, settings.apiKey),
-			schema: macroSchema,
+			output: object({ schema: macroSchema }),
 			prompt: `Return nutritional values per 100g raw weight for: ${input.name}. Use USDA data.`
 		})
 
