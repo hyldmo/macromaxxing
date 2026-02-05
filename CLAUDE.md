@@ -46,6 +46,7 @@ USDA_API_KEY=your-usda-api-key
 | Design tokens | `src/index.css` |
 | UI components | `src/components/ui/` |
 | Recipe components | `src/features/recipes/components/` |
+| Meal plan components | `src/features/mealPlans/components/` |
 
 ## Design Tokens
 
@@ -86,12 +87,21 @@ No shadows — borders-only depth strategy.
 trpc.recipe.list/listPublic/get/getPublic/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
 trpc.ingredient.list/listPublic/create/update/delete/findOrCreate
+trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
+trpc.mealPlan.list/get/create/update/delete/duplicate
+trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
+trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.settings.get/save
-trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, source } per 100g
+trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight # Returns { cookedWeight } based on ingredients + instructions
 ```
 
-`ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`.
+`ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
+
+**Meal Plans** - Template-based weekly meal planning with per-plan inventory:
+- Add recipes to plan's inventory with portion count → allocate portions to day slots (Mon-Sun)
+- Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
+- Over-allocation allowed with visual warning
 
 **Nutrition lookup priority:** USDA FoodData Central API → AI (user's configured provider)
 
