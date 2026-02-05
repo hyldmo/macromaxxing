@@ -7604,6 +7604,7 @@ __metadata:
     react-router-dom: "npm:^7.13.0"
     semantic-release: "npm:^25.0.3"
     tailwind-merge: "npm:^3.4.0"
+    tailwindcss: "npm:^4.1.18"
     ts-extras: "npm:^0.17.0"
     typescript: "npm:^5.9.3"
     vite: "npm:^7.3.1"
@@ -10240,7 +10241,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tailwindcss@npm:4.1.18":
+"tailwindcss@npm:4.1.18, tailwindcss@npm:^4.1.18":
   version: 4.1.18
   resolution: "tailwindcss@npm:4.1.18"
   checksum: 10c0/c79263cea0b2c577859b02f28284caa4eb3844e4d0f563686726ca97817c045c5c395a55bc776daaa351ba9e4aefa9a75bfbb43c22d86f3c573eecc2b87d6bf1
