@@ -1,20 +1,29 @@
-import { type FC, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { Input } from '~/components/ui/Input'
 
 export interface PortionSizeInputProps {
-	portionSize: number
-	onChange?: (value: number) => void
+	portionSize: number | null
+	onChange?: (value: number | null) => void
 }
 
 export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, onChange }) => {
-	const [value, setValue] = useState(portionSize.toString())
+	const [value, setValue] = useState(portionSize?.toString() ?? '')
 	const readOnly = !onChange
+
+	useEffect(() => {
+		setValue(portionSize?.toString() ?? '')
+	}, [portionSize])
 
 	function handleBlur() {
 		if (!onChange) return
-		const parsed = Number.parseFloat(value)
+		const trimmed = value.trim()
+		if (trimmed === '') {
+			onChange(null)
+			return
+		}
+		const parsed = Number.parseFloat(trimmed)
 		if (Number.isNaN(parsed) || parsed <= 0) {
-			setValue(portionSize.toString())
+			setValue(portionSize?.toString() ?? '')
 			return
 		}
 		onChange(parsed)
@@ -30,6 +39,7 @@ export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, onCha
 					value={value}
 					onChange={e => setValue(e.target.value)}
 					onBlur={handleBlur}
+					placeholder="Whole"
 					min={0}
 					readOnly={readOnly}
 					disabled={readOnly}

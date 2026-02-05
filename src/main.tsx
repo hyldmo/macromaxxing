@@ -5,6 +5,7 @@ import { RouterProvider } from 'react-router-dom'
 import { createTRPCClient, trpc } from '~/lib/trpc'
 import { UserProvider } from '~/lib/user'
 import { router } from '~/router'
+import '@mdxeditor/editor/style.css'
 import '~/index.css'
 
 function App() {

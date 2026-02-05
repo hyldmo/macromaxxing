@@ -6,6 +6,7 @@ import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
 	getEffectiveCookedWeight,
+	getEffectivePortionSize,
 	type IngredientWithAmount
 } from '../utils/macros'
 
@@ -15,6 +16,7 @@ interface RecipeCalculations {
 	ingredientMacros: AbsoluteMacros[]
 	totals: AbsoluteMacros
 	cookedWeight: number
+	portionSize: number
 	portion: AbsoluteMacros
 }
 
@@ -30,8 +32,9 @@ export function useRecipeCalculations(recipe: Recipe | undefined): RecipeCalcula
 		const ingredientMacros = items.map(item => calculateIngredientMacros(item.per100g, item.amountGrams))
 		const totals = calculateRecipeTotals(items)
 		const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
+		const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
 		const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 
-		return { ingredientMacros, totals, cookedWeight, portion }
+		return { ingredientMacros, totals, cookedWeight, portionSize, portion }
 	}, [recipe])
 }

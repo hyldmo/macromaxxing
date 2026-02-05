@@ -9,11 +9,13 @@ export interface PortionPanelProps {
 	portion: AbsoluteMacros
 	cookedWeight: number | null
 	rawTotal: number
-	portionSize: number
+	portionSize: number | null
+	effectivePortionSize: number
 	effectiveCookedWeight: number
 	onCookedWeightChange?: (value: number | null) => void
-	onPortionSizeChange?: (value: number) => void
+	onPortionSizeChange?: (value: number | null) => void
 	ingredients?: Array<{ name: string; grams: number }>
+	instructions?: string
 }
 
 export const PortionPanel: FC<PortionPanelProps> = ({
@@ -21,12 +23,16 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 	cookedWeight,
 	rawTotal,
 	portionSize,
+	effectivePortionSize,
 	effectiveCookedWeight,
 	onCookedWeightChange,
 	onPortionSizeChange,
-	ingredients
+	ingredients,
+	instructions
 }) => {
-	const portions = effectiveCookedWeight > 0 ? effectiveCookedWeight / portionSize : 0
+	// null portionSize = entire dish is 1 portion
+	const portions =
+		portionSize === null ? 1 : effectivePortionSize > 0 ? effectiveCookedWeight / effectivePortionSize : 0
 
 	return (
 		<div className="rounded-[--radius-md] border border-edge bg-gradient-to-b from-surface-1 to-surface-0 p-4">
@@ -58,10 +64,12 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 						rawTotal={rawTotal}
 						onChange={onCookedWeightChange}
 						ingredients={ingredients}
+						instructions={instructions}
 					/>
 					<PortionSizeInput portionSize={portionSize} onChange={onPortionSizeChange} />
 					<div className="text-center font-mono text-ink-muted text-sm">
-						= <span className="font-bold text-ink">{portions.toFixed(1)}</span> portions
+						= <span className="font-bold text-ink">{portions.toFixed(1)}</span>{' '}
+						{portions === 1 ? 'portion' : 'portions'}
 					</div>
 				</div>
 			</div>

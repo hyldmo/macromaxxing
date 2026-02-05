@@ -1,7 +1,7 @@
 {
 	"version": "6",
 	"dialect": "sqlite",
-	"id": "b8c9e2f1-4a7d-4b12-9c3e-8f1a2b3c4d5e",
+	"id": "a3d0dcf6-16e8-40e3-b8a1-38885514bcf7",
 	"prevId": "e739f18e-09be-4123-a629-6fd39573ca09",
 	"tables": {
 		"ingredients": {
@@ -182,6 +182,13 @@
 					"notNull": true,
 					"autoincrement": false
 				},
+				"instructions": {
+					"name": "instructions",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
 				"cooked_weight": {
 					"name": "cooked_weight",
 					"type": "real",
@@ -308,13 +315,7 @@
 					"autoincrement": false
 				}
 			},
-			"indexes": {
-				"users_email_unique": {
-					"name": "users_email_unique",
-					"columns": ["email"],
-					"isUnique": true
-				}
-			},
+			"indexes": {},
 			"foreignKeys": {},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {},

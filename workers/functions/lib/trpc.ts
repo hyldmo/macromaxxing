@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noTsIgnore: Cloudflare.Env sometimes marks this line as erroring in CLI runs but it will catch in production builds */
 import { initTRPC, TRPCError } from '@trpc/server'
 import type { AuthUser } from './auth'
 import type { Database } from './db'
@@ -5,6 +6,7 @@ import type { Database } from './db'
 export interface TRPCContext {
 	db: Database
 	user: AuthUser | null
+	// @ts-ignore
 	env: Cloudflare.Env
 }
 

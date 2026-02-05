@@ -130,6 +130,9 @@ export function IngredientListPage() {
 											{ingredient.source === 'ai' && (
 												<Sparkles className="size-3 shrink-0 text-accent" />
 											)}
+											{ingredient.source === 'usda' && (
+												<USDA className="size-3.5 shrink-0 text-accent" />
+											)}
 											{isMine && (
 												<span className="shrink-0 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
 													yours
@@ -240,7 +243,7 @@ export function IngredientListPage() {
 												) : ingredient.source === 'usda' ? (
 													<USDA className="ml-auto size-4 text-accent" />
 												) : (
-													<NotebookPenIcon className="size-3.5 text-ink-faint" />
+													<NotebookPenIcon className="ml-auto size-3.5 text-ink-faint" />
 												)}
 											</td>
 											<td className="px-1 py-1.5">

@@ -1,5 +1,6 @@
 import { aiRouter } from './routes/ai'
 import { ingredientsRouter } from './routes/ingredients'
+import { mealPlansRouter } from './routes/mealPlans'
 import { recipesRouter } from './routes/recipes'
 import { settingsRouter } from './routes/settings'
 import { userRouter } from './routes/user'
@@ -10,7 +11,7 @@ export const appRouter = router({
 	ingredient: ingredientsRouter,
 	settings: settingsRouter,
 	ai: aiRouter,
-	user: userRouter
+	mealPlan: mealPlansRouter
 })
 
 export type AppRouter = typeof appRouter

@@ -48,7 +48,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ id, name, ingredientCount, por
 					</span>
 				</div>
 				<p className="text-ink-faint text-xs">
-					{ingredientCount} items / {portionSize}g portion
+					{ingredientCount} items / {portionSize ? `${portionSize}g portion` : 'whole dish'}
 				</p>
 				<div className="mt-1 flex items-center gap-3 font-mono text-xs">
 					<span className="text-macro-protein">P {portion.protein.toFixed(0)}g</span>

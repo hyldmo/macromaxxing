@@ -49,8 +49,8 @@ export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', className
 const friendlyMessages: Record<string, string> = {
 	ENCRYPTION_SECRET_NOT_CONFIGURED: 'AI lookup requires configuration. Go to Settings to add your API key.',
 	UNAUTHORIZED: 'You need to be logged in to do this.',
-	NOT_FOUND: 'The requested item was not found.',
-	INTERNAL_SERVER_ERROR: 'Something went wrong on the server. Please try again.'
+	NOT_FOUND: 'The requested item was not found.'
+	// INTERNAL_SERVER_ERROR: 'Something went wrong on the server. Please try again.'
 }
 
 function getFriendlyMessage(error: TRPCClientErrorLike<AppRouter>): ReactNode {

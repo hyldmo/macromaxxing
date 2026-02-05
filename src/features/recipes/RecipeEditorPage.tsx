@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
+import { MarkdownEditor } from '~/components/ui/MarkdownEditor'
 import { Spinner } from '~/components/ui/Spinner'
+import { Switch } from '~/components/ui/Switch'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 import { useUser } from '~/lib/user'
@@ -33,10 +35,15 @@ export function RecipeEditorPage() {
 	})
 
 	const [name, setName] = useState('')
+	const [instructions, setInstructions] = useState('')
+	const [hasLoadedRecipe, setHasLoadedRecipe] = useState(false)
+	const handleReadonlyChange = () => undefined
 
 	useEffect(() => {
 		if (recipeQuery.data) {
 			setName(recipeQuery.data.name)
+			setInstructions(recipeQuery.data.instructions || '')
+			setHasLoadedRecipe(true)
 		}
 	}, [recipeQuery.data])
 
@@ -58,11 +65,26 @@ export function RecipeEditorPage() {
 		}
 	}
 
+	useEffect(() => {
+		if (!hasLoadedRecipe) return
+		if (!id) return
+		if (!isOwner) return
+		const current = (recipeQuery.data?.instructions || '').trim()
+		const next = instructions.trim()
+		if (current === next) return
+
+		const timeout = setTimeout(() => {
+			updateMutation.mutate({ id, instructions: next === '' ? null : next })
+		}, 800)
+
+		return () => clearTimeout(timeout)
+	}, [hasLoadedRecipe, id, instructions, isOwner, recipeQuery.data?.instructions, updateMutation])
+
 	function handleCookedWeightChange(value: number | null) {
 		if (id && isOwner) updateMutation.mutate({ id, cookedWeight: value })
 	}
 
-	function handlePortionSizeChange(value: number) {
+	function handlePortionSizeChange(value: number | null) {
 		if (id && isOwner) updateMutation.mutate({ id, portionSize: value })
 	}
 
@@ -101,6 +123,19 @@ export function RecipeEditorPage() {
 						Create
 					</Button>
 				)}
+				{isOwner && (
+					<label
+						htmlFor="public-toggle"
+						className="ml-auto flex cursor-pointer items-center gap-2 text-ink-muted text-sm"
+					>
+						<span>Public</span>
+						<Switch
+							id="public-toggle"
+							checked={!!recipeQuery.data?.isPublic}
+							onChange={checked => updateMutation.mutate({ id: id!, isPublic: checked })}
+						/>
+					</label>
+				)}
 				{!(isNew || isOwner) && (
 					<span className="ml-auto flex items-center gap-1.5 text-ink-muted text-sm">
 						<Eye className="size-4" />
@@ -123,10 +158,12 @@ export function RecipeEditorPage() {
 							cookedWeight={recipeQuery.data.cookedWeight}
 							rawTotal={calculations.totals.weight}
 							portionSize={recipeQuery.data.portionSize}
+							effectivePortionSize={calculations.portionSize}
 							effectiveCookedWeight={calculations.cookedWeight}
 							onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
 							onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
 							ingredients={isOwner ? ingredients : undefined}
+							instructions={isOwner ? instructions : undefined}
 						/>
 					</div>
 
@@ -141,6 +178,26 @@ export function RecipeEditorPage() {
 						{recipeQuery.data.recipeIngredients.length > 0 && (
 							<RecipeTotalsBar totals={calculations.totals} />
 						)}
+
+						<div className="space-y-1.5">
+							<h3 className="px-1 font-semibold text-ink-muted text-xs uppercase tracking-wider">
+								Method
+							</h3>
+							{isOwner ? (
+								<MarkdownEditor
+									value={instructions}
+									onChange={setInstructions}
+									placeholder="Add cooking instructions..."
+								/>
+							) : (
+								<MarkdownEditor
+									value={instructions || 'No instructions provided.'}
+									onChange={handleReadonlyChange}
+									readOnly
+									className="min-h-[150px]"
+								/>
+							)}
+						</div>
 					</div>
 
 					{/* Right column: PortionPanel (desktop only) */}
@@ -151,10 +208,12 @@ export function RecipeEditorPage() {
 								cookedWeight={recipeQuery.data.cookedWeight}
 								rawTotal={calculations.totals.weight}
 								portionSize={recipeQuery.data.portionSize}
+								effectivePortionSize={calculations.portionSize}
 								effectiveCookedWeight={calculations.cookedWeight}
 								onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
 								onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
 								ingredients={isOwner ? ingredients : undefined}
+								instructions={isOwner ? instructions : undefined}
 							/>
 						</div>
 					</div>
