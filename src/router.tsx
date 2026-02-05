@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RootLayout } from '~/components/layout/RootLayout'
 import { IngredientListPage } from '~/features/ingredients/IngredientListPage'
+import { MealPlanListPage } from '~/features/mealPlans/MealPlanListPage'
+import { MealPlannerPage } from '~/features/mealPlans/MealPlannerPage'
 import { RecipeEditorPage } from '~/features/recipes/RecipeEditorPage'
 import { RecipeListPage } from '~/features/recipes/RecipeListPage'
 import { SettingsPage } from '~/features/settings/SettingsPage'
@@ -14,6 +16,8 @@ export const router = createBrowserRouter([
 			{ path: 'recipes/new', element: <RecipeEditorPage /> },
 			{ path: 'recipes/:id', element: <RecipeEditorPage /> },
 			{ path: 'ingredients', element: <IngredientListPage /> },
+			{ path: 'plans', element: <MealPlanListPage /> },
+			{ path: 'plans/:id', element: <MealPlannerPage /> },
 			{ path: 'settings', element: <SettingsPage /> }
 		]
 	}

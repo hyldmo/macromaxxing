@@ -53,20 +53,26 @@ export function getEffectiveCookedWeight(rawTotal: number, cookedWeight: number 
 	return cookedWeight ?? rawTotal
 }
 
+export function getEffectivePortionSize(cookedWeight: number, portionSize: number | null): number {
+	return portionSize ?? cookedWeight
+}
+
 export function calculatePortionMacros(
 	totalMacros: AbsoluteMacros,
 	cookedWeight: number,
-	portionSize: number
+	portionSize: number | null
 ): AbsoluteMacros {
 	if (cookedWeight === 0) return { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0, weight: 0 }
-	const factor = portionSize / cookedWeight
+	// null portionSize = entire dish is 1 portion
+	const effectivePortionSize = getEffectivePortionSize(cookedWeight, portionSize)
+	const factor = effectivePortionSize / cookedWeight
 	return {
 		protein: totalMacros.protein * factor,
 		carbs: totalMacros.carbs * factor,
 		fat: totalMacros.fat * factor,
 		kcal: totalMacros.kcal * factor,
 		fiber: totalMacros.fiber * factor,
-		weight: portionSize
+		weight: effectivePortionSize
 	}
 }
 
@@ -88,4 +94,54 @@ export function caloricRatio(protein: number, carbs: number, fat: number): Calor
 	const total = pCal + cCal + fCal
 	if (total === 0) return { protein: 0, carbs: 0, fat: 0 }
 	return { protein: pCal / total, carbs: cCal / total, fat: fCal / total }
+}
+
+// Calculate macros for allocated portions in a meal slot
+export function calculateSlotMacros(recipePortionMacros: AbsoluteMacros, allocatedPortions: number): AbsoluteMacros {
+	return {
+		protein: recipePortionMacros.protein * allocatedPortions,
+		carbs: recipePortionMacros.carbs * allocatedPortions,
+		fat: recipePortionMacros.fat * allocatedPortions,
+		kcal: recipePortionMacros.kcal * allocatedPortions,
+		fiber: recipePortionMacros.fiber * allocatedPortions,
+		weight: recipePortionMacros.weight * allocatedPortions
+	}
+}
+
+// Sum all slots for a day
+export function calculateDayTotals(slots: AbsoluteMacros[]): AbsoluteMacros {
+	return slots.reduce(
+		(acc, slot) => ({
+			protein: acc.protein + slot.protein,
+			carbs: acc.carbs + slot.carbs,
+			fat: acc.fat + slot.fat,
+			kcal: acc.kcal + slot.kcal,
+			fiber: acc.fiber + slot.fiber,
+			weight: acc.weight + slot.weight
+		}),
+		{ protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0, weight: 0 }
+	)
+}
+
+// Average across filled days (days with at least one meal)
+export function calculateWeeklyAverage(dayTotals: AbsoluteMacros[]): AbsoluteMacros {
+	const filledDays = dayTotals.filter(d => d.kcal > 0)
+	if (filledDays.length === 0) {
+		return { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0, weight: 0 }
+	}
+	const sum = calculateDayTotals(filledDays)
+	return {
+		protein: sum.protein / filledDays.length,
+		carbs: sum.carbs / filledDays.length,
+		fat: sum.fat / filledDays.length,
+		kcal: sum.kcal / filledDays.length,
+		fiber: sum.fiber / filledDays.length,
+		weight: sum.weight / filledDays.length
+	}
+}
+
+// Calculate remaining portions for inventory display
+export function calculateRemainingPortions(totalPortions: number, allocatedSlots: { portions: number }[]): number {
+	const used = allocatedSlots.reduce((sum, slot) => sum + slot.portions, 0)
+	return totalPortions - used
 }

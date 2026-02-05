@@ -10,9 +10,16 @@ export interface CookedWeightInputProps {
 	rawTotal: number
 	onChange?: (value: number | null) => void
 	ingredients?: Array<{ name: string; grams: number }>
+	instructions?: string
 }
 
-export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, rawTotal, onChange, ingredients }) => {
+export const CookedWeightInput: FC<CookedWeightInputProps> = ({
+	cookedWeight,
+	rawTotal,
+	onChange,
+	ingredients,
+	instructions
+}) => {
 	const readOnly = !onChange
 	const [value, setValue] = useState(cookedWeight?.toString() ?? '')
 	const estimateMutation = trpc.ai.estimateCookedWeight.useMutation({
@@ -63,7 +70,7 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({ cookedWeight, ra
 						variant="ghost"
 						size="icon"
 						className="size-8 shrink-0"
-						onClick={() => estimateMutation.mutate({ ingredients })}
+						onClick={() => estimateMutation.mutate({ ingredients, instructions })}
 						disabled={estimateMutation.isPending}
 						title="Estimate with AI"
 					>

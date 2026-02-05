@@ -1,13 +1,14 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
-import { type AiProvider, ingredients, type TypeIDString, zodTypeID } from '@macromaxxing/db'
+import { type AiProvider, ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { MODELS, macroSchema } from '../constants'
+import { ingredientAiSchema, MODELS } from '../constants'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
+import { toStartCase } from '../utils'
 import { getDecryptedApiKey } from './settings'
 
 function getModel(provider: AiProvider, apiKey: string) {
@@ -30,7 +31,13 @@ const NUTRIENT_IDS = {
 	fiber: 1079
 } as const
 
-type Macros = z.infer<typeof macroSchema>
+interface Macros {
+	protein: number
+	fat: number
+	carbs: number
+	kcal: number
+	fiber: number
+}
 
 async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macros | null> {
 	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
@@ -67,6 +74,17 @@ async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macro
 	}
 }
 
+const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
+
+Also provide common units for measuring this ingredient with their gram equivalents:
+- For liquids/powders: include tbsp, tsp, cup, dl
+- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
+- For supplements/protein powders: include scoop
+- Always include "g" as a unit with grams=1
+- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
+
+Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
+
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
 const createIngredientSchema = z.object({
@@ -77,6 +95,7 @@ const createIngredientSchema = z.object({
 	fat: z.number().nonnegative(),
 	kcal: z.number().nonnegative(),
 	fiber: z.number().nonnegative(),
+	density: z.number().nonnegative().nullable().optional(),
 	source: z.enum(['manual', 'ai', 'usda'])
 })
 
@@ -88,19 +107,36 @@ const updateIngredientSchema = z.object({
 	fat: z.number().nonnegative().optional(),
 	kcal: z.number().nonnegative().optional(),
 	fiber: z.number().nonnegative().optional(),
+	density: z.number().nonnegative().nullable().optional(),
 	source: z.enum(['manual', 'ai', 'usda']).optional()
+})
+
+const createUnitSchema = z.object({
+	ingredientId: z.custom<TypeIDString<'ing'>>(),
+	name: z.string().min(1),
+	grams: z.number().positive(),
+	isDefault: z.boolean().optional()
+})
+
+const updateUnitSchema = z.object({
+	id: z.custom<TypeIDString<'inu'>>(),
+	name: z.string().min(1).optional(),
+	grams: z.number().positive().optional(),
+	isDefault: z.boolean().optional()
 })
 
 export const ingredientsRouter = router({
 	list: protectedProcedure.query(async ({ ctx }) => {
 		return ctx.db.query.ingredients.findMany({
 			where: eq(ingredients.userId, ctx.user.id),
+			with: { units: true },
 			orderBy: (ingredients, { asc }) => [asc(ingredients.name)]
 		})
 	}),
 
 	listPublic: publicProcedure.query(async ({ ctx }) => {
 		return ctx.db.query.ingredients.findMany({
+			with: { units: true },
 			orderBy: (ingredients, { asc }) => [asc(ingredients.name)],
 			limit: 200
 		})
@@ -112,6 +148,7 @@ export const ingredientsRouter = router({
 			.values({
 				userId: ctx.user.id,
 				...input,
+				name: toStartCase(input.name),
 				createdAt: Date.now()
 			})
 			.returning()
@@ -133,9 +170,12 @@ export const ingredientsRouter = router({
 
 	/** Find existing ingredient by name (case-insensitive) or create via USDA/AI lookup */
 	findOrCreate: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {
+		const normalizedName = toStartCase(input.name)
+
 		// Check for existing ingredient (case-insensitive)
 		const existing = await ctx.db.query.ingredients.findFirst({
-			where: sql`lower(${ingredients.name}) = lower(${input.name})`
+			where: sql`lower(${ingredients.name}) = lower(${normalizedName})`,
+			with: { units: true }
 		})
 
 		if (existing) {
@@ -145,20 +185,35 @@ export const ingredientsRouter = router({
 		// Try USDA first (free, accurate, fast)
 		const usdaKey = ctx.env.USDA_API_KEY
 		if (usdaKey) {
-			const usdaResult = await lookupUSDA(input.name, usdaKey)
+			const usdaResult = await lookupUSDA(normalizedName, usdaKey)
 			if (usdaResult) {
 				const [ingredient] = await ctx.db
 					.insert(ingredients)
 					.values({
 						userId: ctx.user.id,
-						name: input.name,
+						name: normalizedName,
 						...usdaResult,
 						source: 'usda',
 						createdAt: Date.now()
 					})
 					.returning()
 
-				return { ingredient, source: 'usda' as const }
+				// Add default 'g' unit for USDA ingredients
+				await ctx.db.insert(ingredientUnits).values({
+					ingredientId: ingredient.id,
+					name: 'g',
+					grams: 1,
+					isDefault: 1,
+					source: 'usda',
+					createdAt: Date.now()
+				})
+
+				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
+					where: eq(ingredients.id, ingredient.id),
+					with: { units: true }
+				})
+
+				return { ingredient: ingredientWithUnits!, source: 'usda' as const }
 			}
 		}
 
@@ -176,23 +231,124 @@ export const ingredientsRouter = router({
 			})
 		}
 
-		const { output: macros } = await generateText({
+		const { output: aiResult } = await generateText({
 			model: getModel(settings.provider, settings.apiKey),
-			output: Output.object({ schema: macroSchema }),
-			prompt: `Return nutritional values per 100g raw weight for: ${input.name}. Use USDA data.`
+			output: Output.object({ schema: ingredientAiSchema }),
+			prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${normalizedName}`
 		})
 
+		const { units, ...macros } = aiResult
 		const [ingredient] = await ctx.db
 			.insert(ingredients)
 			.values({
 				userId: ctx.user.id,
-				name: input.name,
+				name: normalizedName,
 				...macros,
 				source: 'ai',
 				createdAt: Date.now()
 			})
 			.returning()
 
-		return { ingredient, source: 'ai' as const }
+		// Insert units from AI response
+		if (units.length > 0) {
+			await ctx.db.insert(ingredientUnits).values(
+				units.map(unit => ({
+					ingredientId: ingredient.id,
+					name: unit.name,
+					grams: unit.grams,
+					isDefault: unit.isDefault ? 1 : 0,
+					source: 'ai' as const,
+					createdAt: Date.now()
+				}))
+			)
+		}
+
+		const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
+			where: eq(ingredients.id, ingredient.id),
+			with: { units: true }
+		})
+
+		return { ingredient: ingredientWithUnits!, source: 'ai' as const }
+	}),
+
+	// Unit CRUD operations
+	listUnits: protectedProcedure.input(zodTypeID('ing')).query(async ({ ctx, input }) => {
+		return ctx.db.query.ingredientUnits.findMany({
+			where: eq(ingredientUnits.ingredientId, input),
+			orderBy: (units, { desc, asc }) => [desc(units.isDefault), asc(units.name)]
+		})
+	}),
+
+	createUnit: protectedProcedure.input(createUnitSchema).mutation(async ({ ctx, input }) => {
+		// Verify user owns the ingredient
+		const ingredient = await ctx.db.query.ingredients.findFirst({
+			where: and(eq(ingredients.id, input.ingredientId), eq(ingredients.userId, ctx.user.id))
+		})
+		if (!ingredient) {
+			throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
+		}
+
+		// If setting as default, unset other defaults first
+		if (input.isDefault) {
+			await ctx.db
+				.update(ingredientUnits)
+				.set({ isDefault: 0 })
+				.where(eq(ingredientUnits.ingredientId, input.ingredientId))
+		}
+
+		const [unit] = await ctx.db
+			.insert(ingredientUnits)
+			.values({
+				ingredientId: input.ingredientId,
+				name: input.name,
+				grams: input.grams,
+				isDefault: input.isDefault ? 1 : 0,
+				source: 'manual',
+				createdAt: Date.now()
+			})
+			.returning()
+
+		return unit
+	}),
+
+	updateUnit: protectedProcedure.input(updateUnitSchema).mutation(async ({ ctx, input }) => {
+		const { id, ...updates } = input
+
+		// Verify user owns the ingredient
+		const unit = await ctx.db.query.ingredientUnits.findFirst({
+			where: eq(ingredientUnits.id, id),
+			with: { ingredient: true }
+		})
+		if (!unit || unit.ingredient.userId !== ctx.user.id) {
+			throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' })
+		}
+
+		// If setting as default, unset other defaults first
+		if (updates.isDefault) {
+			await ctx.db
+				.update(ingredientUnits)
+				.set({ isDefault: 0 })
+				.where(eq(ingredientUnits.ingredientId, unit.ingredientId))
+		}
+
+		await ctx.db
+			.update(ingredientUnits)
+			.set({ ...updates, isDefault: updates.isDefault ? 1 : 0 })
+			.where(eq(ingredientUnits.id, id))
+
+		return ctx.db.query.ingredientUnits.findFirst({ where: eq(ingredientUnits.id, id) })
+	}),
+
+	deleteUnit: protectedProcedure.input(zodTypeID('inu')).mutation(async ({ ctx, input }) => {
+		// Verify user owns the ingredient
+		const unit = await ctx.db.query.ingredientUnits.findFirst({
+			where: eq(ingredientUnits.id, input),
+			with: { ingredient: true }
+		})
+		if (!unit || unit.ingredient.userId !== ctx.user.id) {
+			throw new TRPCError({ code: 'NOT_FOUND', message: 'Unit not found' })
+		}
+
+		await ctx.db.delete(ingredientUnits).where(eq(ingredientUnits.id, input))
 	})
 })

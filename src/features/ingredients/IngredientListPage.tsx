@@ -102,8 +102,8 @@ export function IngredientListPage() {
 					{search
 						? 'No ingredients match your search.'
 						: filter === 'mine'
-						? "You haven't added any ingredients yet."
-						: 'No ingredients yet.'}
+							? "You haven't added any ingredients yet."
+							: 'No ingredients yet.'}
 				</Card>
 			)}
 
@@ -128,6 +128,9 @@ export function IngredientListPage() {
 											</span>
 											{ingredient.source === 'ai' && (
 												<Sparkles className="size-3 shrink-0 text-accent" />
+											)}
+											{ingredient.source === 'usda' && (
+												<USDA className="size-3.5 shrink-0 text-accent" />
 											)}
 											{isMine && (
 												<span className="shrink-0 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">

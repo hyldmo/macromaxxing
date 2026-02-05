@@ -1,10 +1,11 @@
-import { ChefHat, CookingPot, Settings, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChefHat, CookingPot, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 
 const mainLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
-	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
+	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed },
+	{ to: '/plans', label: 'Plans', icon: CalendarDays }
 ] as const
 
 export function Nav() {
@@ -12,7 +13,7 @@ export function Nav() {
 		<>
 			{/* Desktop top nav */}
 			<nav className="border-edge border-b bg-surface-1">
-				<div className="mx-auto flex h-12 max-w-5xl items-center gap-6 px-4">
+				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-4">
 					<NavLink to="/" className="flex items-center gap-2 font-semibold text-accent">
 						<ChefHat className="size-5" />
 						<span className="tracking-tight">macromaxxing</span>

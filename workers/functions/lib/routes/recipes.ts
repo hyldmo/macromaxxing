@@ -6,25 +6,31 @@ import { protectedProcedure, publicProcedure, router } from '../trpc'
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
 const insertRecipeSchema = z.object({
-	name: z.string().min(1)
+	name: z.string().min(1),
+	instructions: z.string().optional()
 })
 
 const updateRecipeSchema = z.object({
 	id: z.custom<TypeIDString<'rcp'>>(),
 	name: z.string().min(1).optional(),
+	instructions: z.string().nullable().optional(),
 	cookedWeight: z.number().positive().nullable().optional(),
-	portionSize: z.number().positive().optional()
+	portionSize: z.number().positive().nullable().optional()
 })
 
 const addIngredientSchema = z.object({
 	recipeId: z.custom<TypeIDString<'rcp'>>(),
 	ingredientId: z.custom<TypeIDString<'ing'>>(),
-	amountGrams: z.number().positive()
+	amountGrams: z.number().positive(),
+	displayUnit: z.string().nullable().optional(),
+	displayAmount: z.number().positive().nullable().optional()
 })
 
 const updateIngredientSchema = z.object({
 	id: z.custom<TypeIDString<'rci'>>(),
 	amountGrams: z.number().positive().optional(),
+	displayUnit: z.string().nullable().optional(),
+	displayAmount: z.number().positive().nullable().optional(),
 	sortOrder: z.number().int().optional()
 })
 
@@ -32,7 +38,7 @@ export const recipesRouter = router({
 	list: protectedProcedure.query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
 			where: eq(recipes.userId, ctx.user.id),
-			with: { recipeIngredients: { with: { ingredient: true } } },
+			with: { recipeIngredients: { with: { ingredient: { with: { units: true } } } } },
 			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)]
 		})
 		return result
@@ -40,7 +46,7 @@ export const recipesRouter = router({
 
 	listPublic: publicProcedure.query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
-			with: { recipeIngredients: { with: { ingredient: true } } },
+			with: { recipeIngredients: { with: { ingredient: { with: { units: true } } } } },
 			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
 			limit: 50
 		})
@@ -52,7 +58,7 @@ export const recipesRouter = router({
 			where: and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)),
 			with: {
 				recipeIngredients: {
-					with: { ingredient: true },
+					with: { ingredient: { with: { units: true } } },
 					orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 				}
 			}
@@ -68,7 +74,7 @@ export const recipesRouter = router({
 				where: eq(recipes.id, input.id),
 				with: {
 					recipeIngredients: {
-						with: { ingredient: true },
+						with: { ingredient: { with: { units: true } } },
 						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 					}
 				}
@@ -84,6 +90,7 @@ export const recipesRouter = router({
 			.values({
 				userId: ctx.user.id,
 				name: input.name,
+				instructions: input.instructions,
 				createdAt: now,
 				updatedAt: now
 			})
@@ -128,6 +135,8 @@ export const recipesRouter = router({
 				recipeId: input.recipeId,
 				ingredientId: input.ingredientId,
 				amountGrams: input.amountGrams,
+				displayUnit: input.displayUnit ?? null,
+				displayAmount: input.displayAmount ?? null,
 				sortOrder
 			})
 			.returning()
@@ -137,7 +146,7 @@ export const recipesRouter = router({
 
 		return ctx.db.query.recipeIngredients.findFirst({
 			where: eq(recipeIngredients.id, newIngredient.id),
-			with: { ingredient: true }
+			with: { ingredient: { with: { units: true } } }
 		})
 	}),
 
@@ -153,7 +162,7 @@ export const recipesRouter = router({
 
 		return ctx.db.query.recipeIngredients.findFirst({
 			where: eq(recipeIngredients.id, id),
-			with: { ingredient: true }
+			with: { ingredient: { with: { units: true } } }
 		})
 	}),
 

@@ -5,7 +5,7 @@ import type { AiProvider } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
-import { cookedWeightSchema, MODELS, macroSchema } from '../constants'
+import { cookedWeightSchema, ingredientAiSchema, MODELS, type macroSchema } from '../constants'
 import { protectedProcedure, router } from '../trpc'
 import { getDecryptedApiKey } from './settings'
 
@@ -66,6 +66,17 @@ async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macro
 	}
 }
 
+const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
+
+Also provide common units for measuring this ingredient with their gram equivalents:
+- For liquids/powders: include tbsp, tsp, cup, dl
+- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
+- For supplements/protein powders: include scoop
+- Always include "g" as a unit with grams=1
+- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
+
+Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
+
 export const aiRouter = router({
 	lookup: protectedProcedure
 		.input(z.object({ ingredientName: z.string().min(1) }))
@@ -75,7 +86,7 @@ export const aiRouter = router({
 			if (usdaKey) {
 				const usdaResult = await lookupUSDA(input.ingredientName, usdaKey)
 				if (usdaResult) {
-					return { ...usdaResult, source: 'usda' as const }
+					return { ...usdaResult, density: null, units: [], source: 'usda' as const }
 				}
 			}
 
@@ -95,8 +106,8 @@ export const aiRouter = router({
 
 			const { output } = await generateText({
 				model: getModel(settings.provider, settings.apiKey),
-				output: Output.object({ schema: macroSchema }),
-				prompt: `Return nutritional values per 100g raw weight for: ${input.ingredientName}. Use USDA data.`
+				output: Output.object({ schema: ingredientAiSchema }),
+				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.ingredientName}`
 			})
 
 			return { ...output, source: 'ai' as const }
@@ -105,7 +116,8 @@ export const aiRouter = router({
 	estimateCookedWeight: protectedProcedure
 		.input(
 			z.object({
-				ingredients: z.array(z.object({ name: z.string(), grams: z.number() }))
+				ingredients: z.array(z.object({ name: z.string(), grams: z.number() })),
+				instructions: z.string().optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -123,11 +135,12 @@ export const aiRouter = router({
 			}
 
 			const ingredientList = input.ingredients.map(i => `${i.grams}g ${i.name}`).join(', ')
+			const instructionsContext = input.instructions ? `Instructions: ${input.instructions}. ` : ''
 
 			const { output } = await generateText({
 				model: getModel(settings.provider, settings.apiKey),
 				output: Output.object({ schema: cookedWeightSchema }),
-				prompt: `Estimate the cooked weight for a recipe with these raw ingredients: ${ingredientList}. Consider typical water loss/gain during cooking. Return weight in grams.`
+				prompt: `Estimate the cooked weight for a recipe with these raw ingredients: ${ingredientList}. ${instructionsContext}Consider typical water loss/gain during cooking. Return weight in grams.`
 			})
 
 			return output

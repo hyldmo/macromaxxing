@@ -88,6 +88,7 @@ trpc.recipe.addIngredient/updateIngredient/removeIngredient
 trpc.ingredient.list/listPublic/create/update/delete/findOrCreate
 trpc.settings.get/save
 trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, source } per 100g
+trpc.ai.estimateCookedWeight # Returns { cookedWeight } based on ingredients + instructions
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`.

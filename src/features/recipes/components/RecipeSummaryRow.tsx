@@ -19,7 +19,7 @@ export const RecipeSummaryRow: FC<RecipeSummaryRowProps> = ({ label, macros, cla
 			<MacroCell grams={macros.protein} weight={macros.weight} macro="protein" />
 			<MacroCell grams={macros.carbs} weight={macros.weight} macro="carbs" />
 			<MacroCell grams={macros.fat} weight={macros.weight} macro="fat" />
-			<MacroCell grams={macros.kcal} weight={macros.weight} macro="kcal" />
+			<MacroCell grams={macros.kcal} macro="kcal" />
 			<MacroCell grams={macros.fiber} weight={macros.weight} macro="fiber" />
 			<td />
 		</tr>
