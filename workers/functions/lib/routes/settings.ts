@@ -35,7 +35,9 @@ async function verifyKey(provider: AiProvider, apiKey: string) {
 
 const saveSettingsSchema = z.object({
 	provider: zAiProvider,
-	apiKey: z.string().min(1).optional()
+	apiKey: z.string().min(1).optional(),
+	batchLookups: z.boolean().optional(),
+	modelFallback: z.boolean().optional()
 })
 
 export const settingsRouter = router({
@@ -46,8 +48,9 @@ export const settingsRouter = router({
 		if (!settings) return null
 		return {
 			provider: settings.aiProvider,
-			apiKey: settings.aiApiKey,
-			hasKey: Boolean(settings.aiApiKey)
+			hasKey: Boolean(settings.aiApiKey),
+			batchLookups: Boolean(settings.batchLookups),
+			modelFallback: Boolean(settings.modelFallback)
 		}
 	}),
 
@@ -55,6 +58,11 @@ export const settingsRouter = router({
 		const existing = await ctx.db.query.userSettings.findFirst({
 			where: eq(userSettings.userId, ctx.user.id)
 		})
+
+		const toggleUpdates = {
+			...(input.batchLookups !== undefined && { batchLookups: input.batchLookups ? 1 : 0 }),
+			...(input.modelFallback !== undefined && { modelFallback: input.modelFallback ? 1 : 0 })
+		}
 
 		// If providing a new key, verify it first
 		if (input.apiKey) {
@@ -68,7 +76,7 @@ export const settingsRouter = router({
 			if (existing) {
 				await ctx.db
 					.update(userSettings)
-					.set({ aiProvider: input.provider, aiApiKey: ciphertext, aiKeyIv: iv })
+					.set({ aiProvider: input.provider, aiApiKey: ciphertext, aiKeyIv: iv, ...toggleUpdates })
 					.where(eq(userSettings.userId, ctx.user.id))
 			} else {
 				await ctx.db.insert(userSettings).values({
@@ -76,14 +84,15 @@ export const settingsRouter = router({
 					aiProvider: input.provider,
 					aiApiKey: ciphertext,
 					aiKeyIv: iv,
-					aiModel: ''
+					aiModel: '',
+					...toggleUpdates
 				})
 			}
 		} else if (existing) {
-			// Just update provider if no new key
+			// Just update provider/toggles if no new key
 			await ctx.db
 				.update(userSettings)
-				.set({ aiProvider: input.provider })
+				.set({ aiProvider: input.provider, ...toggleUpdates })
 				.where(eq(userSettings.userId, ctx.user.id))
 		} else {
 			throw new TRPCError({ code: 'BAD_REQUEST', message: 'API key required for initial setup' })
@@ -95,7 +104,7 @@ export async function getDecryptedApiKey(
 	db: any,
 	userId: string,
 	encryptionSecret: string
-): Promise<{ apiKey: string; provider: AiProvider } | null> {
+): Promise<{ apiKey: string; provider: AiProvider; batchLookups: boolean; modelFallback: boolean } | null> {
 	const settings = await db.query.userSettings.findFirst({
 		where: eq(userSettings.userId, userId)
 	})
@@ -104,6 +113,8 @@ export async function getDecryptedApiKey(
 	const apiKey = await decrypt(settings.aiApiKey, settings.aiKeyIv, encryptionSecret)
 	return {
 		apiKey,
-		provider: settings.aiProvider
+		provider: settings.aiProvider,
+		batchLookups: Boolean(settings.batchLookups),
+		modelFallback: Boolean(settings.modelFallback)
 	}
 }

@@ -14,7 +14,9 @@ export const userSettings = sqliteTable('user_settings', {
 	aiProvider: text('ai_provider').notNull().$type<AiProvider>(),
 	aiApiKey: text('ai_api_key').notNull(), // AES-GCM encrypted
 	aiKeyIv: text('ai_key_iv').notNull(), // IV for decryption
-	aiModel: text('ai_model').notNull()
+	aiModel: text('ai_model').notNull(),
+	batchLookups: integer('batch_lookups').notNull().default(0), // 0=off, 1=on
+	modelFallback: integer('model_fallback').notNull().default(0) // 0=off, 1=on
 })
 
 export const ingredients = sqliteTable('ingredients', {

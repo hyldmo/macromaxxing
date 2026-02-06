@@ -53,3 +53,22 @@ export const MODELS: Record<AiProvider, string> = {
 	openai: 'gpt-4o-mini',
 	anthropic: 'claude-3-5-haiku-20241022'
 }
+
+export const FALLBACK_MODELS: Record<AiProvider, string[]> = {
+	gemini: ['gemini-2.5-flash', 'gemini-2.5-flash-lite-preview', 'gemma-3-27b-it'],
+	openai: [],
+	anthropic: []
+}
+
+export const batchIngredientAiSchema = z.array(
+	z.object({
+		name: z.string().describe('Ingredient name exactly as provided in the input'),
+		protein: z.number().describe('Protein in grams per 100g'),
+		carbs: z.number().describe('Carbohydrates in grams per 100g'),
+		fat: z.number().describe('Fat in grams per 100g'),
+		kcal: z.number().describe('Calories per 100g'),
+		fiber: z.number().describe('Fiber in grams per 100g'),
+		density: z.number().nullable().describe('g/ml for liquids and powders, null for solid items'),
+		units: z.array(unitSchema).describe('Common units for measuring this ingredient with gram equivalents')
+	})
+)

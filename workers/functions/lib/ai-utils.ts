@@ -1,9 +1,11 @@
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
+import { APICallError } from '@ai-sdk/provider'
 import type { AiProvider } from '@macromaxxing/db'
+import { type GenerateTextResult, generateText, type Output } from 'ai'
 import type { z } from 'zod'
-import { MODELS, type macroSchema } from './constants'
+import { FALLBACK_MODELS, MODELS, type macroSchema } from './constants'
 
 // USDA nutrient IDs
 const NUTRIENT_IDS = {
@@ -25,6 +27,52 @@ export function getModel(provider: AiProvider, apiKey: string) {
 		case 'anthropic':
 			return createAnthropic({ apiKey })(MODELS.anthropic)
 	}
+}
+
+export function getModelByName(provider: AiProvider, apiKey: string, modelName: string) {
+	switch (provider) {
+		case 'gemini':
+			return createGoogleGenerativeAI({ apiKey })(modelName)
+		case 'openai':
+			return createOpenAI({ apiKey })(modelName)
+		case 'anthropic':
+			return createAnthropic({ apiKey })(modelName)
+	}
+}
+
+export async function generateTextWithFallback<T extends Output.Output>({
+	provider,
+	apiKey,
+	output,
+	prompt,
+	fallback
+}: {
+	provider: AiProvider
+	apiKey: string
+	output: T
+	prompt: string
+	fallback: boolean
+}): Promise<GenerateTextResult<any, T>> {
+	const models = [MODELS[provider], ...(fallback ? FALLBACK_MODELS[provider] : [])]
+
+	for (let i = 0; i < models.length; i++) {
+		try {
+			return await generateText({
+				model: getModelByName(provider, apiKey, models[i]),
+				output,
+				prompt
+			})
+		} catch (err) {
+			const isLast = i === models.length - 1
+			if (isLast || !APICallError.isInstance(err) || err.statusCode !== 429) {
+				throw err
+			}
+			// 429 and we have more models to try — continue
+		}
+	}
+
+	// Unreachable, but TypeScript needs it
+	throw new Error('No models available')
 }
 
 export type UsdaResult = Macros & { fdcId: number }
@@ -140,6 +188,19 @@ Also provide common units for measuring this ingredient with their gram equivale
 - Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
 
 Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
+
+export const BATCH_INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for each ingredient below.
+Return an array of objects in the SAME ORDER as the input ingredients.
+
+For each ingredient, provide:
+- Macros per 100g (protein, carbs, fat, kcal, fiber)
+- density in g/ml for liquids and powders (null for solid items)
+- Common measurement units with gram equivalents:
+  - For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
+  - For supplements/protein powders: include scoop
+  - Do NOT include volume units (tbsp, tsp, cup, dl, ml) - these are calculated from density
+  - Always include "g" as a unit with grams=1
+  - Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)`
 
 // --- Recipe parsing utilities ---
 

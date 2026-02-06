@@ -1,9 +1,9 @@
 import { TRPCError } from '@trpc/server'
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
 import { z } from 'zod'
 import {
 	extractJsonLdRecipe,
-	getModel,
+	generateTextWithFallback,
 	INGREDIENT_AI_PROMPT,
 	isVolumeUnit,
 	lookupUSDA,
@@ -50,10 +50,12 @@ export const aiRouter = router({
 				})
 			}
 
-			const { output } = await generateText({
-				model: getModel(settings.provider, settings.apiKey),
+			const { output } = await generateTextWithFallback({
+				provider: settings.provider,
+				apiKey: settings.apiKey,
 				output: Output.object({ schema: ingredientAiSchema }),
-				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.ingredientName}`
+				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.ingredientName}`,
+				fallback: settings.modelFallback
 			})
 
 			// Filter out volume units — they're derived from density on the frontend
@@ -86,10 +88,12 @@ export const aiRouter = router({
 			const ingredientList = input.ingredients.map(i => `${i.grams}g ${i.name}`).join(', ')
 			const instructionsContext = input.instructions ? `Instructions: ${input.instructions}. ` : ''
 
-			const { output } = await generateText({
-				model: getModel(settings.provider, settings.apiKey),
+			const { output } = await generateTextWithFallback({
+				provider: settings.provider,
+				apiKey: settings.apiKey,
 				output: Output.object({ schema: cookedWeightSchema }),
-				prompt: `Estimate the cooked weight for a recipe with these raw ingredients: ${ingredientList}. ${instructionsContext}Consider typical water loss/gain during cooking. Return weight in grams.`
+				prompt: `Estimate the cooked weight for a recipe with these raw ingredients: ${ingredientList}. ${instructionsContext}Consider typical water loss/gain during cooking. Return weight in grams.`,
+				fallback: settings.modelFallback
 			})
 
 			return output
@@ -160,10 +164,12 @@ export const aiRouter = router({
 				throw new TRPCError({ code: 'BAD_REQUEST', message: 'No content to parse' })
 			}
 
-			const { output } = await generateText({
-				model: getModel(settings.provider, settings.apiKey),
+			const { output } = await generateTextWithFallback({
+				provider: settings.provider,
+				apiKey: settings.apiKey,
 				output: Output.object({ schema: parsedRecipeSchema }),
-				prompt: `Parse this recipe into structured data. Extract the recipe name, all ingredients with numeric amounts and units (use metric where possible: g, ml, dl, tbsp, tsp, cup, pcs, large, medium, small), cooking instructions as numbered steps, and number of servings.\n\nRecipe text:\n${textContent}`
+				prompt: `Parse this recipe into structured data. Extract the recipe name, all ingredients with numeric amounts and units (use metric where possible: g, ml, dl, tbsp, tsp, cup, pcs, large, medium, small), cooking instructions as numbered steps, and number of servings.\n\nRecipe text:\n${textContent}`,
+				fallback: settings.modelFallback
 			})
 
 			return { ...output, source: 'ai' as const }

@@ -95,7 +95,7 @@ No shadows — borders-only depth strategy.
 ```
 trpc.recipe.list/listPublic/get/getPublic/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
-trpc.ingredient.list/listPublic/create/update/delete/findOrCreate
+trpc.ingredient.list/listPublic/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
@@ -107,6 +107,12 @@ trpc.ai.parseRecipe # Parses recipe from URL (JSON-LD → AI fallback) or text (
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
+
+`ingredient.batchFindOrCreate` - Same as `findOrCreate` but for multiple ingredients at once. DB lookup via `IN` clause, parallel USDA lookups, single AI call for all unknowns. Returns results in input order. Gated by `batchLookups` user setting.
+
+**Per-user AI settings** (both off by default):
+- `batchLookups` — batch N ingredient AI calls into 1 (fewer requests, may reduce accuracy)
+- `modelFallback` — retry with cheaper models on 429 (Gemini fallback chain: gemini-2.5-flash → gemini-2.5-flash-lite-preview → gemma-3-27b-it)
 
 **Meal Plans** - Template-based weekly meal planning with per-plan inventory:
 - Add recipes to plan's inventory with portion count → allocate portions to day slots (Mon-Sun)

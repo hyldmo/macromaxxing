@@ -182,8 +182,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const inputRef = useRef<HTMLInputElement>(null)
 	const utils = trpc.useUtils()
 
+	const settingsQuery = trpc.settings.get.useQuery()
 	const ingredientsQuery = trpc.ingredient.listPublic.useQuery()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation({
+		onSuccess: () => utils.ingredient.listPublic.invalidate()
+	})
+	const batchFindOrCreate = trpc.ingredient.batchFindOrCreate.useMutation({
 		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 	const addIngredient = trpc.recipe.addIngredient.useMutation({
@@ -263,10 +267,74 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		}
 	}
 
-	async function handleAddPastedIngredients(itemsToProcess?: ParsedIngredient[]) {
+	async function handleAddPastedIngredientsBatch(items: ParsedIngredient[]) {
 		setIsProcessingPaste(true)
 		setPasteError(null)
-		const updated = [...(itemsToProcess ?? pastedIngredients)]
+		const updated = [...items]
+
+		try {
+			const pendingItems = updated.filter(i => i.status !== 'added' && i.status !== 'error')
+			const results = await batchFindOrCreate.mutateAsync({
+				names: pendingItems.map(i => i.name)
+			})
+
+			let resultIdx = 0
+			for (let i = 0; i < updated.length; i++) {
+				if (updated[i].status === 'added' || updated[i].status === 'error') continue
+
+				const item = updated[i]
+				const { ingredient } = results[resultIdx++]
+
+				// Recalculate grams using unit info from the created ingredient
+				let finalGrams = item.grams
+				if (item.displayUnit && item.displayAmount && ingredient.units) {
+					const unitInfo = ingredient.units.find(
+						(u: { name: string; grams: number }) => u.name.toLowerCase() === item.displayUnit!.toLowerCase()
+					)
+					if (unitInfo) {
+						finalGrams = item.displayAmount * unitInfo.grams
+					}
+				}
+
+				addIngredient.mutate({
+					recipeId,
+					ingredientId: ingredient.id,
+					amountGrams: finalGrams,
+					displayUnit: item.displayUnit ?? null,
+					displayAmount: item.displayAmount ?? null
+				})
+				updated[i] = { ...item, status: 'added' }
+				setPastedIngredients([...updated])
+			}
+
+			setPastedIngredients([])
+			setIsProcessingPaste(false)
+			utils.recipe.getPublic.invalidate({ id: recipeId })
+		} catch (err) {
+			// Mark all pending items as error
+			for (let i = 0; i < updated.length; i++) {
+				if (updated[i].status !== 'added') {
+					const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+					updated[i] = { ...updated[i], status: 'error', error: errorMsg }
+				}
+			}
+			setPastedIngredients([...updated])
+			setPasteError(err as Error)
+			setIsProcessingPaste(false)
+		}
+	}
+
+	async function handleAddPastedIngredients(itemsToProcess?: ParsedIngredient[]) {
+		const items = itemsToProcess ?? pastedIngredients
+
+		// Use batch if setting is on
+		if (settingsQuery.data?.batchLookups) {
+			return handleAddPastedIngredientsBatch(items)
+		}
+
+		setIsProcessingPaste(true)
+		setPasteError(null)
+		const updated = [...items]
 
 		for (let i = 0; i < updated.length; i++) {
 			const item = updated[i]
@@ -349,7 +417,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					))}
 				</div>
 
-				{pasteError && <TRPCError error={findOrCreate.error} className="mb-3" />}
+				{pasteError && <TRPCError error={findOrCreate.error ?? batchFindOrCreate.error} className="mb-3" />}
 
 				<div className="flex gap-2">
 					{hasErrors ? (

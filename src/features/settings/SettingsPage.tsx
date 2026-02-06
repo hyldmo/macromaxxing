@@ -5,6 +5,7 @@ import { Spinner } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { Card, CardContent, CardHeader } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
+import { Switch } from '~/components/ui/Switch'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 
@@ -14,26 +15,38 @@ export function SettingsPage() {
 
 	const [provider, setProvider] = useState<AiProvider>('gemini')
 	const [apiKey, setApiKey] = useState('')
+	const [editingKey, setEditingKey] = useState(false)
+	const [batchLookups, setBatchLookups] = useState(false)
+	const [modelFallback, setModelFallback] = useState(false)
 
 	const savedProvider = settingsQuery.data?.provider
 	const providerChanged = savedProvider && provider !== savedProvider
+	const batchChanged =
+		settingsQuery.data?.batchLookups !== undefined && batchLookups !== settingsQuery.data.batchLookups
+	const fallbackChanged =
+		settingsQuery.data?.modelFallback !== undefined && modelFallback !== settingsQuery.data.modelFallback
 
 	useEffect(() => {
 		if (savedProvider) setProvider(savedProvider)
 	}, [savedProvider])
 	useEffect(() => {
-		if (settingsQuery.data?.apiKey) setApiKey(settingsQuery.data.apiKey)
-	}, [settingsQuery.data?.apiKey])
+		if (settingsQuery.data) {
+			setBatchLookups(settingsQuery.data.batchLookups)
+			setModelFallback(settingsQuery.data.modelFallback)
+		}
+	}, [settingsQuery.data])
 
 	function handleSave(e: React.FormEvent) {
 		e.preventDefault()
 		saveMutation.mutate({
 			provider,
-			apiKey: apiKey || undefined
+			apiKey: apiKey || undefined,
+			batchLookups,
+			modelFallback
 		})
 	}
 
-	const canSave = apiKey || providerChanged
+	const canSave = apiKey || providerChanged || batchChanged || fallbackChanged
 	const buttonText = saveMutation.isPending ? (apiKey ? 'Verifying...' : 'Saving...') : 'Save'
 
 	return (
@@ -71,18 +84,85 @@ export function SettingsPage() {
 							</div>
 						</fieldset>
 
-						<label className="block space-y-1">
+						<div className="space-y-1">
 							<span className="text-ink-muted text-sm">API Key</span>
-							<Input
-								type="password"
-								name="apiKey"
-								placeholder={'Enter API key'}
-								readOnly={settingsQuery.isLoading}
-								autoComplete="off"
-								value={apiKey}
-								onChange={e => setApiKey(e.target.value)}
-							/>
-						</label>
+							{settingsQuery.data?.hasKey ? (
+								<div className="flex items-center gap-2">
+									<Button
+										type="button"
+										variant="outline"
+										className="shrink-0"
+										onClick={() => {
+											setEditingKey(!editingKey)
+											setApiKey('')
+										}}
+									>
+										{editingKey ? 'Cancel' : 'Change'}
+									</Button>
+									{editingKey ? (
+										<Input
+											type="password"
+											name="apiKey"
+											placeholder="Enter new API key"
+											autoComplete="off"
+											value={apiKey}
+											onChange={e => setApiKey(e.target.value)}
+											className="min-w-0"
+										/>
+									) : (
+										<span className="text-ink-muted text-sm tracking-widest">••••••••••••••••</span>
+									)}
+								</div>
+							) : (
+								<Input
+									type="password"
+									name="apiKey"
+									placeholder="Enter API key"
+									readOnly={settingsQuery.isLoading}
+									autoComplete="off"
+									value={apiKey}
+									onChange={e => setApiKey(e.target.value)}
+								/>
+							)}
+						</div>
+
+						<fieldset className="space-y-2">
+							<legend className="mb-1.5 text-ink-muted text-sm">API Usage</legend>
+
+							<label className="flex items-start gap-3" htmlFor="batch-lookups">
+								<Switch
+									id="batch-lookups"
+									checked={batchLookups}
+									onChange={setBatchLookups}
+									disabled={!settingsQuery.data?.hasKey}
+									className="mt-0.5"
+								/>
+								<div>
+									<div className="text-ink text-sm">Batch ingredient lookups</div>
+									<div className="text-ink-faint text-xs">
+										Look up multiple ingredients in a single AI request. Uses fewer requests but may
+										reduce accuracy.
+									</div>
+								</div>
+							</label>
+
+							<label className="flex items-start gap-3" htmlFor="model-fallback">
+								<Switch
+									id="model-fallback"
+									checked={modelFallback}
+									onChange={setModelFallback}
+									disabled={!settingsQuery.data?.hasKey}
+									className="mt-0.5"
+								/>
+								<div>
+									<div className="text-ink text-sm">Model fallback</div>
+									<div className="text-ink-faint text-xs">
+										Automatically try cheaper models when rate-limited. Lower quality but won't fail
+										on quota limits.
+									</div>
+								</div>
+							</label>
+						</fieldset>
 
 						<div className="flex items-center gap-2">
 							<Button type="submit" disabled={!canSave || saveMutation.isPending}>

@@ -45,9 +45,11 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 	const navigate = useNavigate()
 	const utils = trpc.useUtils()
 
+	const settingsQuery = trpc.settings.get.useQuery()
 	const parseRecipe = trpc.ai.parseRecipe.useMutation()
 	const createRecipe = trpc.recipe.create.useMutation()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation()
+	const batchFindOrCreate = trpc.ingredient.batchFindOrCreate.useMutation()
 	const addIngredient = trpc.recipe.addIngredient.useMutation()
 
 	// Reset state when dialog closes
@@ -92,6 +94,33 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 		setStep('preview')
 	}
 
+	function resolveGrams(
+		ing: ParsedIngredient,
+		ingredientData: { units?: Array<{ name: string; grams: number }> | null; density?: number | null }
+	) {
+		let amountGrams: number
+		let displayUnit: string | null = null
+		let displayAmount: number | null = null
+
+		if (ing.unit === 'g') {
+			amountGrams = ing.amount
+		} else {
+			const allUnits = getAllUnits(ingredientData.units ?? [], ingredientData.density ?? null)
+			const unitInfo = allUnits.find(
+				(u: { name: string; grams: number }) => u.name.toLowerCase() === ing.unit.toLowerCase()
+			)
+			if (unitInfo) {
+				amountGrams = ing.amount * unitInfo.grams
+				displayUnit = ing.unit
+				displayAmount = ing.amount
+			} else {
+				amountGrams = ing.amount
+			}
+		}
+
+		return { amountGrams, displayUnit, displayAmount }
+	}
+
 	async function handleImport() {
 		setStep('importing')
 		setImportError(null)
@@ -105,41 +134,47 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 				sourceUrl: mode === 'url' ? url.trim() : null
 			})
 
-			// 2. Add each ingredient
-			for (let i = 0; i < ingredients.length; i++) {
-				const ing = ingredients[i]
-				setProgress({ current: i + 1, total: ingredients.length })
+			const useBatch = settingsQuery.data?.batchLookups
 
-				const { ingredient } = await findOrCreate.mutateAsync({ name: ing.name })
-
-				let amountGrams: number
-				let displayUnit: string | null = null
-				let displayAmount: number | null = null
-
-				if (ing.unit === 'g') {
-					amountGrams = ing.amount
-				} else {
-					const allUnits = getAllUnits(ingredient.units ?? [], ingredient.density)
-					const unitInfo = allUnits.find(
-						(u: { name: string; grams: number }) => u.name.toLowerCase() === ing.unit.toLowerCase()
-					)
-					if (unitInfo) {
-						amountGrams = ing.amount * unitInfo.grams
-						displayUnit = ing.unit
-						displayAmount = ing.amount
-					} else {
-						// Unit not found — store raw amount as grams
-						amountGrams = ing.amount
-					}
-				}
-
-				await addIngredient.mutateAsync({
-					recipeId: recipe.id,
-					ingredientId: ingredient.id,
-					amountGrams,
-					displayUnit,
-					displayAmount
+			if (useBatch) {
+				// Batch: single call for all ingredients
+				setProgress({ current: 0, total: ingredients.length })
+				const results = await batchFindOrCreate.mutateAsync({
+					names: ingredients.map(ing => ing.name)
 				})
+
+				for (let i = 0; i < ingredients.length; i++) {
+					const ing = ingredients[i]
+					const { ingredient } = results[i]
+					setProgress({ current: i + 1, total: ingredients.length })
+
+					const { amountGrams, displayUnit, displayAmount } = resolveGrams(ing, ingredient)
+
+					await addIngredient.mutateAsync({
+						recipeId: recipe.id,
+						ingredientId: ingredient.id,
+						amountGrams,
+						displayUnit,
+						displayAmount
+					})
+				}
+			} else {
+				// Sequential: one call per ingredient (current behavior)
+				for (let i = 0; i < ingredients.length; i++) {
+					const ing = ingredients[i]
+					setProgress({ current: i + 1, total: ingredients.length })
+
+					const { ingredient } = await findOrCreate.mutateAsync({ name: ing.name })
+					const { amountGrams, displayUnit, displayAmount } = resolveGrams(ing, ingredient)
+
+					await addIngredient.mutateAsync({
+						recipeId: recipe.id,
+						ingredientId: ingredient.id,
+						amountGrams,
+						displayUnit,
+						displayAmount
+					})
+				}
 			}
 
 			// 3. Navigate to the new recipe
@@ -302,7 +337,9 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 						<div className="flex flex-col items-center gap-3 py-8">
 							<Spinner />
 							<p className="text-ink-muted text-sm">
-								Adding ingredients... ({progress.current}/{progress.total})
+								{settingsQuery.data?.batchLookups
+									? `Looking up ingredients... (${progress.current}/${progress.total})`
+									: `Adding ingredients... (${progress.current}/${progress.total})`}
 							</p>
 						</div>
 					)}
