@@ -27,7 +27,9 @@ export function getModel(provider: AiProvider, apiKey: string) {
 	}
 }
 
-export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<Macros | null> {
+export type UsdaResult = Macros & { fdcId: number }
+
+export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<UsdaResult | null> {
 	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
 	url.searchParams.set('api_key', apiKey)
 	url.searchParams.set('query', ingredientName)
@@ -40,6 +42,7 @@ export async function lookupUSDA(ingredientName: string, apiKey: string): Promis
 
 	const data = (await res.json()) as {
 		foods?: Array<{
+			fdcId: number
 			description: string
 			foodNutrients?: Array<{ nutrientId: number; value: number }>
 		}>
@@ -54,6 +57,7 @@ export async function lookupUSDA(ingredientName: string, apiKey: string): Promis
 	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
 
 	return {
+		fdcId: food.fdcId,
 		protein: getNutrient(NUTRIENT_IDS.protein),
 		fat: getNutrient(NUTRIENT_IDS.fat),
 		carbs: getNutrient(NUTRIENT_IDS.carbs),

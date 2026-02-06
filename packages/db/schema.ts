@@ -31,6 +31,7 @@ export const ingredients = sqliteTable('ingredients', {
 	kcal: real('kcal').notNull(),
 	fiber: real('fiber').notNull(),
 	density: real('density'), // g/ml, for volume conversions (null for solids)
+	fdcId: integer('fdc_id'), // USDA FoodData Central ID
 	source: text('source').notNull(), // 'manual' | 'ai' | 'usda'
 	createdAt: integer('created_at').notNull()
 })

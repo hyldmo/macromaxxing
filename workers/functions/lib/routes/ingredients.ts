@@ -20,6 +20,7 @@ const createIngredientSchema = z.object({
 	kcal: z.number().nonnegative(),
 	fiber: z.number().nonnegative(),
 	density: z.number().nonnegative().nullable().optional(),
+	fdcId: z.number().int().nullable().optional(),
 	source: z.enum(['manual', 'ai', 'usda'])
 })
 
@@ -32,6 +33,7 @@ const updateIngredientSchema = z.object({
 	kcal: z.number().nonnegative().optional(),
 	fiber: z.number().nonnegative().optional(),
 	density: z.number().nonnegative().nullable().optional(),
+	fdcId: z.number().int().nullable().optional(),
 	source: z.enum(['manual', 'ai', 'usda']).optional()
 })
 
@@ -111,12 +113,14 @@ export const ingredientsRouter = router({
 		if (usdaKey) {
 			const usdaResult = await lookupUSDA(normalizedName, usdaKey)
 			if (usdaResult) {
+				const { fdcId, ...macros } = usdaResult
 				const [ingredient] = await ctx.db
 					.insert(ingredients)
 					.values({
 						userId: ctx.user.id,
 						name: normalizedName,
-						...usdaResult,
+						...macros,
+						fdcId,
 						source: 'usda',
 						createdAt: Date.now()
 					})

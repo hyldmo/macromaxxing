@@ -22,7 +22,8 @@ export const aiRouter = router({
 				if (usdaKey) {
 					const usdaResult = await lookupUSDA(input.ingredientName, usdaKey)
 					if (usdaResult) {
-						return { ...usdaResult, density: null, units: [], source: 'usda' as const }
+						const { fdcId, ...macros } = usdaResult
+						return { ...macros, fdcId, density: null, units: [], source: 'usda' as const }
 					}
 				}
 			}
