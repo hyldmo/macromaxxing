@@ -39,40 +39,46 @@ export function IngredientListPage() {
 			<div className="flex items-center justify-between">
 				<div className="flex items-center gap-2">
 					<h1 className="font-semibold text-ink">Ingredients</h1>
-					<div className="flex gap-1">
-						<button
-							type="button"
-							onClick={() => setFilter('all')}
-							className={cn(
-								'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-								filter === 'all' ? 'bg-accent text-white' : 'bg-surface-2 text-ink-muted hover:text-ink'
-							)}
-						>
-							All
-						</button>
-						<button
-							type="button"
-							onClick={() => setFilter('mine')}
-							className={cn(
-								'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-								filter === 'mine'
-									? 'bg-accent text-white'
-									: 'bg-surface-2 text-ink-muted hover:text-ink'
-							)}
-						>
-							Mine{myIngredientCount > 0 && ` (${myIngredientCount})`}
-						</button>
-					</div>
+					{user && (
+						<div className="flex gap-1">
+							<button
+								type="button"
+								onClick={() => setFilter('all')}
+								className={cn(
+									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
+									filter === 'all'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								All
+							</button>
+							<button
+								type="button"
+								onClick={() => setFilter('mine')}
+								className={cn(
+									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
+									filter === 'mine'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								Mine{myIngredientCount > 0 && ` (${myIngredientCount})`}
+							</button>
+						</div>
+					)}
 				</div>
-				<Button
-					onClick={() => {
-						setEditId(null)
-						setShowForm(true)
-					}}
-				>
-					<Plus className="size-4" />
-					Add Ingredient
-				</Button>
+				{user && (
+					<Button
+						onClick={() => {
+							setEditId(null)
+							setShowForm(true)
+						}}
+					>
+						<Plus className="size-4" />
+						Add Ingredient
+					</Button>
+				)}
 			</div>
 
 			{(showForm || editId) && (

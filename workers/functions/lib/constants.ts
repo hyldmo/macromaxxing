@@ -29,6 +29,25 @@ export const cookedWeightSchema = z.object({
 	cookedWeight: z.number().describe('Estimated cooked weight in grams after typical cooking')
 })
 
+export const parsedRecipeSchema = z.object({
+	name: z.string().describe('Recipe name/title'),
+	ingredients: z
+		.array(
+			z.object({
+				name: z.string().describe('Ingredient name, e.g. "flour", "chicken breast"'),
+				amount: z.number().describe('Numeric amount'),
+				unit: z
+					.string()
+					.describe(
+						'Unit: "g", "tbsp", "cup", "pcs", "large", "medium", "small", "ml", "dl", "tsp", "scoop", etc.'
+					)
+			})
+		)
+		.describe('List of ingredients with amounts'),
+	instructions: z.string().describe('Cooking instructions as plain text, preserving step numbering'),
+	servings: z.number().nullable().describe('Number of servings/portions, null if not specified')
+})
+
 export const MODELS: Record<AiProvider, string> = {
 	gemini: 'gemini-3-flash-preview',
 	openai: 'gpt-4o-mini',

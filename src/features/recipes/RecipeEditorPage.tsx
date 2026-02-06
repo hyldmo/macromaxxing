@@ -1,6 +1,7 @@
 import type { Recipe } from '@macromaxxing/db'
-import { ArrowLeft, Eye } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Eye } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
@@ -37,6 +38,7 @@ export function RecipeEditorPage() {
 	const [name, setName] = useState('')
 	const [instructions, setInstructions] = useState('')
 	const [hasLoadedRecipe, setHasLoadedRecipe] = useState(false)
+	const [showPublishWarning, setShowPublishWarning] = useState(false)
 	const handleReadonlyChange = () => undefined
 
 	useEffect(() => {
@@ -132,7 +134,13 @@ export function RecipeEditorPage() {
 						<Switch
 							id="public-toggle"
 							checked={!!recipeQuery.data?.isPublic}
-							onChange={checked => updateMutation.mutate({ id: id!, isPublic: checked })}
+							onChange={checked => {
+								if (checked && recipeQuery.data?.sourceUrl) {
+									setShowPublishWarning(true)
+								} else {
+									updateMutation.mutate({ id: id!, isPublic: checked })
+								}
+							}}
 						/>
 					</label>
 				)}
@@ -219,6 +227,36 @@ export function RecipeEditorPage() {
 					</div>
 				</div>
 			)}
+
+			{showPublishWarning &&
+				createPortal(
+					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+						<div className="w-full max-w-sm rounded-[--radius-md] border border-edge bg-surface-0 p-4">
+							<div className="mb-3 flex items-center gap-2">
+								<AlertTriangle className="size-5 text-warning" />
+								<h3 className="font-semibold text-ink">Publish imported recipe?</h3>
+							</div>
+							<p className="mb-4 text-ink-muted text-sm">
+								This recipe was imported from an external source. Make sure you have permission to share
+								it publicly.
+							</p>
+							<div className="flex justify-end gap-2">
+								<Button variant="ghost" onClick={() => setShowPublishWarning(false)}>
+									Cancel
+								</Button>
+								<Button
+									onClick={() => {
+										updateMutation.mutate({ id: id!, isPublic: true })
+										setShowPublishWarning(false)
+									}}
+								>
+									Publish anyway
+								</Button>
+							</div>
+						</div>
+					</div>,
+					document.body
+				)}
 		</div>
 	)
 }

@@ -7,10 +7,12 @@ import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
+import { useUser } from '~/lib/user'
 
 export const MealPlanListPage: FC = () => {
 	const [newPlanName, setNewPlanName] = useState('')
 	const [isCreating, setIsCreating] = useState(false)
+	const { user } = useUser()
 
 	const plansQuery = trpc.mealPlan.list.useQuery()
 	const utils = trpc.useUtils()
@@ -42,7 +44,7 @@ export const MealPlanListPage: FC = () => {
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
 				<h1 className="font-semibold text-ink">Meal Plans</h1>
-				{!isCreating && (
+				{user && !isCreating && (
 					<Button onClick={() => setIsCreating(true)}>
 						<Plus className="size-4" />
 						New Plan

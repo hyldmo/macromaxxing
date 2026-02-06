@@ -100,3 +100,165 @@ export function calculateVolumeUnits(density: number): VolumeUnit[] {
 		isDefault: false
 	}))
 }
+
+// --- Recipe parsing utilities ---
+
+const INGREDIENT_PATTERNS = [
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*tbsp\s+(.+)/i, unit: 'tbsp' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*tsp\s+(.+)/i, unit: 'tsp' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*cups?\s+(.+)/i, unit: 'cup' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*dl\s+(.+)/i, unit: 'dl' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*ml\s+(.+)/i, unit: 'ml' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*(?:pcs?|pieces?)\s+(.+)/i, unit: 'pcs' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*scoops?\s+(.+)/i, unit: 'scoop' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*small\s+(.+)/i, unit: 'small' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*medium\s+(.+)/i, unit: 'medium' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*large\s+(.+)/i, unit: 'large' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*(?:oz|ounces?)\s+(.+)/i, unit: 'oz' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*(?:lbs?|pounds?)\s+(.+)/i, unit: 'lb' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*kg\s+(.+)/i, unit: 'kg' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s*g(?:rams?)?\s+(.+)/i, unit: 'g' },
+	{ pattern: /(\d+(?:[.,/]\d+)?)\s+(.+)/i, unit: 'pcs' }
+]
+
+function parseFraction(str: string): number {
+	if (str.includes('/')) {
+		const [num, den] = str.split('/')
+		return Number(num) / Number(den)
+	}
+	return Number(str.replace(',', '.'))
+}
+
+/** Parse a single ingredient string like "2 tbsp sugar" or "1/2 cup flour" */
+export function parseIngredientString(text: string): { name: string; amount: number; unit: string } | null {
+	const trimmed = text
+		.trim()
+		.replace(/^[-*\u2022]\s*/, '') // strip bullet markers
+		.replace(/\(.*?\)/g, '') // strip parentheticals like "(about 2 cups)"
+		.trim()
+	if (!trimmed) return null
+
+	for (const { pattern, unit } of INGREDIENT_PATTERNS) {
+		const match = trimmed.match(pattern)
+		if (match) {
+			const amount = parseFraction(match[1])
+			const name = match[2]
+				.trim()
+				.replace(/,\s*$/, '')
+				.replace(/,\s*(divided|chopped|minced|diced|sliced|grated|peeled|crushed|melted|softened).*$/i, '')
+			if (!Number.isNaN(amount) && name) {
+				return { name, amount, unit }
+			}
+		}
+	}
+
+	// Reverse pattern: "flour 500g"
+	const reverseMatch = trimmed.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*g?$/i)
+	if (reverseMatch) {
+		const amount = Number(reverseMatch[2])
+		if (!Number.isNaN(amount)) {
+			return { name: reverseMatch[1].trim(), amount, unit: 'g' }
+		}
+	}
+
+	return null
+}
+
+export interface JsonLdRecipe {
+	name: string
+	ingredientStrings: string[]
+	instructions: string
+	servings: number | null
+}
+
+/** Extract Recipe structured data from JSON-LD script tags in HTML */
+export function extractJsonLdRecipe(html: string): JsonLdRecipe | null {
+	const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+
+	for (const match of html.matchAll(scriptRegex)) {
+		try {
+			const data = JSON.parse(match[1])
+			const recipe = findRecipeInJsonLd(data)
+			if (recipe) return recipe
+		} catch {
+			// Invalid JSON-LD block, skip
+		}
+	}
+	return null
+}
+
+function findRecipeInJsonLd(data: unknown): JsonLdRecipe | null {
+	if (Array.isArray(data)) {
+		for (const item of data) {
+			const found = findRecipeInJsonLd(item)
+			if (found) return found
+		}
+		return null
+	}
+
+	if (typeof data !== 'object' || data === null) return null
+
+	const obj = data as Record<string, unknown>
+
+	if (obj['@graph']) {
+		return findRecipeInJsonLd(obj['@graph'])
+	}
+
+	const type = obj['@type']
+	const isRecipe = type === 'Recipe' || (Array.isArray(type) && type.includes('Recipe'))
+
+	if (isRecipe) {
+		const ingredientStrings = Array.isArray(obj.recipeIngredient) ? (obj.recipeIngredient as string[]) : []
+		if (ingredientStrings.length === 0) return null
+
+		return {
+			name: (obj.name as string) || 'Untitled Recipe',
+			ingredientStrings,
+			instructions: normalizeInstructions(obj.recipeInstructions),
+			servings: parseServings(obj.recipeYield)
+		}
+	}
+
+	return null
+}
+
+function normalizeInstructions(instructions: unknown): string {
+	if (typeof instructions === 'string') return instructions
+	if (Array.isArray(instructions)) {
+		return instructions
+			.map(step => {
+				if (typeof step === 'string') return step
+				if (typeof step === 'object' && step !== null && 'text' in step) return (step as { text: string }).text
+				return ''
+			})
+			.filter(Boolean)
+			.join('\n')
+	}
+	return ''
+}
+
+function parseServings(yieldValue: unknown): number | null {
+	if (typeof yieldValue === 'number') return yieldValue
+	if (typeof yieldValue === 'string') {
+		const match = yieldValue.match(/(\d+)/)
+		return match ? Number(match[1]) : null
+	}
+	if (Array.isArray(yieldValue)) return parseServings(yieldValue[0])
+	return null
+}
+
+/** Strip HTML tags and collapse whitespace for AI fallback */
+export function stripHtml(html: string): string {
+	return html
+		.replace(/<script[\s\S]*?<\/script>/gi, '')
+		.replace(/<style[\s\S]*?<\/style>/gi, '')
+		.replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&nbsp;/g, ' ')
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&#?\w+;/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+}

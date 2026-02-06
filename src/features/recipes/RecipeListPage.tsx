@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { Import, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
@@ -9,6 +9,7 @@ import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useUser } from '~/lib/user'
 import { RecipeCard } from './components/RecipeCard'
+import { RecipeImportDialog } from './components/RecipeImportDialog'
 import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
@@ -29,6 +30,7 @@ const sortLabels: Record<Sort, string> = {
 export function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = useState<Sort>('recent')
+	const [showImport, setShowImport] = useState(false)
 	const { user } = useUser()
 	const recipesQuery = trpc.recipe.listPublic.useQuery()
 
@@ -69,30 +71,34 @@ export function RecipeListPage() {
 			<div className="flex items-center justify-between gap-2">
 				<div className="flex items-center gap-2">
 					<h1 className="font-semibold text-ink">Recipes</h1>
-					<div className="flex gap-1">
-						<button
-							type="button"
-							onClick={() => setFilter('all')}
-							className={cn(
-								'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-								filter === 'all' ? 'bg-accent text-white' : 'bg-surface-2 text-ink-muted hover:text-ink'
-							)}
-						>
-							All
-						</button>
-						<button
-							type="button"
-							onClick={() => setFilter('mine')}
-							className={cn(
-								'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-								filter === 'mine'
-									? 'bg-accent text-white'
-									: 'bg-surface-2 text-ink-muted hover:text-ink'
-							)}
-						>
-							Mine{myRecipeCount > 0 && ` (${myRecipeCount})`}
-						</button>
-					</div>
+					{user && (
+						<div className="flex gap-1">
+							<button
+								type="button"
+								onClick={() => setFilter('all')}
+								className={cn(
+									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
+									filter === 'all'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								All
+							</button>
+							<button
+								type="button"
+								onClick={() => setFilter('mine')}
+								className={cn(
+									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
+									filter === 'mine'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								Mine{myRecipeCount > 0 && ` (${myRecipeCount})`}
+							</button>
+						</div>
+					)}
 				</div>
 				<div className="flex items-center gap-2">
 					<select
@@ -106,12 +112,20 @@ export function RecipeListPage() {
 							</option>
 						))}
 					</select>
-					<Link to="/recipes/new">
-						<Button>
-							<Plus className="size-4" />
-							New Recipe
-						</Button>
-					</Link>
+					{user && (
+						<>
+							<Button variant="outline" onClick={() => setShowImport(true)}>
+								<Import className="size-4" />
+								Import
+							</Button>
+							<Link to="/recipes/new">
+								<Button>
+									<Plus className="size-4" />
+									New Recipe
+								</Button>
+							</Link>
+						</>
+					)}
 				</div>
 			</div>
 
@@ -144,6 +158,7 @@ export function RecipeListPage() {
 					/>
 				))}
 			</div>
+			<RecipeImportDialog open={showImport} onClose={() => setShowImport(false)} />
 		</div>
 	)
 }

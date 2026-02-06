@@ -103,6 +103,7 @@ trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.settings.get/save
 trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight # Returns { cookedWeight } based on ingredients + instructions
+trpc.ai.parseRecipe # Parses recipe from URL (JSON-LD → AI fallback) or text (AI). Returns { name, ingredients[], instructions, servings, source }
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.

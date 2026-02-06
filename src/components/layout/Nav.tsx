@@ -3,11 +3,12 @@ import { CalendarDays, ChefHat, CookingPot, LogIn, Settings, UtensilsCrossed } f
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 
-const mainLinks = [
+const publicLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
-	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed },
-	{ to: '/plans', label: 'Plans', icon: CalendarDays }
+	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
 ] as const
+
+const authLinks = [{ to: '/plans', label: 'Plans', icon: CalendarDays }] as const
 
 export function Nav() {
 	return (
@@ -20,7 +21,7 @@ export function Nav() {
 						<span className="tracking-tight">macromaxxing</span>
 					</NavLink>
 					<div className="hidden flex-1 gap-0.5 md:flex">
-						{mainLinks.map(({ to, label, icon: Icon }) => (
+						{publicLinks.map(({ to, label, icon: Icon }) => (
 							<NavLink
 								key={to}
 								to={to}
@@ -35,19 +36,40 @@ export function Nav() {
 								{label}
 							</NavLink>
 						))}
+						<SignedIn>
+							{authLinks.map(({ to, label, icon: Icon }) => (
+								<NavLink
+									key={to}
+									to={to}
+									className={({ isActive }) =>
+										cn(
+											'flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-sm transition-colors',
+											isActive
+												? 'bg-surface-2 font-medium text-ink'
+												: 'text-ink-muted hover:text-ink'
+										)
+									}
+								>
+									<Icon className="size-4" />
+									{label}
+								</NavLink>
+							))}
+						</SignedIn>
 					</div>
 					<div className="ml-auto hidden items-center gap-2 md:flex">
-						<NavLink
-							to="/settings"
-							className={({ isActive }) =>
-								cn(
-									'rounded-[--radius-sm] p-1.5 transition-colors',
-									isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
-								)
-							}
-						>
-							<Settings className="size-5" />
-						</NavLink>
+						<SignedIn>
+							<NavLink
+								to="/settings"
+								className={({ isActive }) =>
+									cn(
+										'rounded-[--radius-sm] p-1.5 transition-colors',
+										isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
+									)
+								}
+							>
+								<Settings className="size-5" />
+							</NavLink>
+						</SignedIn>
 						<SignedIn>
 							<UserButton />
 						</SignedIn>
@@ -69,8 +91,23 @@ export function Nav() {
 			{/* Mobile bottom tab bar */}
 			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
 				<div className="flex justify-around">
-					{[...mainLinks, { to: '/settings', label: 'Settings', icon: Settings }].map(
-						({ to, label, icon: Icon }) => (
+					{publicLinks.map(({ to, label, icon: Icon }) => (
+						<NavLink
+							key={to}
+							to={to}
+							className={({ isActive }) =>
+								cn(
+									'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
+									isActive ? 'font-medium text-accent' : 'text-ink-muted'
+								)
+							}
+						>
+							<Icon className="size-5" />
+							{label}
+						</NavLink>
+					))}
+					<SignedIn>
+						{authLinks.map(({ to, label, icon: Icon }) => (
 							<NavLink
 								key={to}
 								to={to}
@@ -84,8 +121,22 @@ export function Nav() {
 								<Icon className="size-5" />
 								{label}
 							</NavLink>
-						)
-					)}
+						))}
+					</SignedIn>
+					<SignedIn>
+						<NavLink
+							to="/settings"
+							className={({ isActive }) =>
+								cn(
+									'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
+									isActive ? 'font-medium text-accent' : 'text-ink-muted'
+								)
+							}
+						>
+							<Settings className="size-5" />
+							Settings
+						</NavLink>
+					</SignedIn>
 					<SignedIn>
 						<div className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2">
 							<UserButton />

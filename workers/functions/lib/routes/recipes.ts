@@ -7,7 +7,8 @@ import { protectedProcedure, publicProcedure, router } from '../trpc'
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
 const insertRecipeSchema = z.object({
 	name: z.string().min(1),
-	instructions: z.string().optional()
+	instructions: z.string().optional(),
+	sourceUrl: z.string().url().nullable().optional()
 })
 
 const updateRecipeSchema = z.object({
@@ -96,6 +97,7 @@ export const recipesRouter = router({
 				userId: ctx.user.id,
 				name: input.name,
 				instructions: input.instructions,
+				sourceUrl: input.sourceUrl ?? null,
 				createdAt: now,
 				updatedAt: now
 			})

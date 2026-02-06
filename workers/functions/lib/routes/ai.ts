@@ -1,8 +1,16 @@
 import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
-import { calculateVolumeUnits, getModel, INGREDIENT_AI_PROMPT, lookupUSDA } from '../ai-utils'
-import { cookedWeightSchema, ingredientAiSchema } from '../constants'
+import {
+	calculateVolumeUnits,
+	extractJsonLdRecipe,
+	getModel,
+	INGREDIENT_AI_PROMPT,
+	lookupUSDA,
+	parseIngredientString,
+	stripHtml
+} from '../ai-utils'
+import { cookedWeightSchema, ingredientAiSchema, parsedRecipeSchema } from '../constants'
 import { protectedProcedure, router } from '../trpc'
 import { getDecryptedApiKey } from './settings'
 
@@ -95,5 +103,79 @@ export const aiRouter = router({
 			})
 
 			return output
+		}),
+
+	parseRecipe: protectedProcedure
+		.input(
+			z
+				.object({
+					url: z.string().url().optional(),
+					text: z.string().optional()
+				})
+				.refine(data => data.url || data.text, { message: 'Either URL or text is required' })
+		)
+		.mutation(async ({ ctx, input }) => {
+			let htmlContent: string | null = null
+
+			// Step 1: If URL, fetch the page and try JSON-LD extraction
+			if (input.url) {
+				const response = await fetch(input.url, {
+					headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Macromaxxing/1.0)' }
+				})
+				if (!response.ok) {
+					throw new TRPCError({
+						code: 'BAD_REQUEST',
+						message: `Failed to fetch URL: ${response.status} ${response.statusText}`
+					})
+				}
+				htmlContent = await response.text()
+
+				// Try JSON-LD extraction (free, no AI needed)
+				const jsonLd = extractJsonLdRecipe(htmlContent)
+				if (jsonLd) {
+					const ingredients = jsonLd.ingredientStrings
+						.map(s => parseIngredientString(s))
+						.filter((x): x is NonNullable<typeof x> => x !== null)
+
+					return {
+						name: jsonLd.name,
+						ingredients,
+						instructions: jsonLd.instructions,
+						servings: jsonLd.servings,
+						source: 'structured' as const
+					}
+				}
+			}
+
+			// Step 2: AI fallback — need API key
+			const encryptionSecret = ctx.env.ENCRYPTION_SECRET
+			if (!encryptionSecret) {
+				throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
+			}
+
+			const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
+			if (!settings) {
+				throw new TRPCError({
+					code: 'PRECONDITION_FAILED',
+					message: 'No AI provider configured. Go to Settings to add your API key.'
+				})
+			}
+
+			let textContent: string
+			if (input.text) {
+				textContent = input.text.slice(0, 8000)
+			} else if (htmlContent) {
+				textContent = stripHtml(htmlContent).slice(0, 8000)
+			} else {
+				throw new TRPCError({ code: 'BAD_REQUEST', message: 'No content to parse' })
+			}
+
+			const { output } = await generateText({
+				model: getModel(settings.provider, settings.apiKey),
+				output: Output.object({ schema: parsedRecipeSchema }),
+				prompt: `Parse this recipe into structured data. Extract the recipe name, all ingredients with numeric amounts and units (use metric where possible: g, ml, dl, tbsp, tsp, cup, pcs, large, medium, small), cooking instructions as numbered steps, and number of servings.\n\nRecipe text:\n${textContent}`
+			})
+
+			return { ...output, source: 'ai' as const }
 		})
 })
