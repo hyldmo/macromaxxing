@@ -66,16 +66,44 @@ export async function lookupUSDA(ingredientName: string, apiKey: string): Promis
 	}
 }
 
-export const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
+// Known unit names we recognize from USDA portion modifiers
+const KNOWN_UNITS = new Set(['cup', 'tbsp', 'tsp', 'oz', 'lb', 'ml', 'dl', 'pcs', 'slice', 'large', 'medium', 'small'])
 
-Also provide common units for measuring this ingredient with their gram equivalents:
-- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
-- For supplements/protein powders: include scoop
-- Do NOT include volume units (tbsp, tsp, cup, dl, ml) - these are calculated from density
-- Always include "g" as a unit with grams=1
-- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
+export interface UsdaPortion {
+	name: string
+	grams: number
+}
 
-Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
+/** Fetch food portions from USDA detail endpoint and normalize to usable units */
+export async function fetchUsdaPortions(fdcId: number, apiKey: string): Promise<UsdaPortion[]> {
+	const res = await fetch(`https://api.nal.usda.gov/fdc/v1/food/${fdcId}?api_key=${apiKey}`)
+	if (!res.ok) return []
+
+	const data = (await res.json()) as {
+		foodPortions?: Array<{
+			modifier: string
+			gramWeight: number
+			amount: number
+		}>
+	}
+
+	if (!data.foodPortions?.length) return []
+
+	const units: UsdaPortion[] = []
+	const seen = new Set<string>()
+
+	for (const p of data.foodPortions) {
+		const name = p.modifier?.toLowerCase().trim()
+		if (!(name && p.gramWeight && p.amount)) continue
+		// Only keep recognized unit names, skip things like "package (10 oz)"
+		if (!KNOWN_UNITS.has(name)) continue
+		if (seen.has(name)) continue
+		seen.add(name)
+		units.push({ name, grams: Math.round((p.gramWeight / p.amount) * 100) / 100 })
+	}
+
+	return units
+}
 
 // Volume units with their ml equivalents - used to calculate gram weights from density
 export const VOLUME_UNITS = [
@@ -86,20 +114,32 @@ export const VOLUME_UNITS = [
 	{ name: 'cup', ml: 240 }
 ] as const
 
-export interface VolumeUnit {
-	name: string
-	grams: number
-	isDefault: boolean
+const VOLUME_ML: Map<string, number> = new Map(VOLUME_UNITS.map(u => [u.name, u.ml]))
+
+/** Calculate density (g/ml) from USDA portions that are volume-based */
+export function densityFromPortions(portions: UsdaPortion[]): number | null {
+	for (const p of portions) {
+		const ml = VOLUME_ML.get(p.name)
+		if (ml) return Math.round((p.grams / ml) * 1000) / 1000
+	}
+	return null
 }
 
-/** Calculate volume unit gram weights from density (g/ml) */
-export function calculateVolumeUnits(density: number): VolumeUnit[] {
-	return VOLUME_UNITS.map(unit => ({
-		name: unit.name,
-		grams: Math.round(unit.ml * density * 100) / 100, // Round to 2 decimal places
-		isDefault: false
-	}))
+/** Check if a unit name is a volume unit (derivable from density) */
+export function isVolumeUnit(name: string): boolean {
+	return VOLUME_ML.has(name.toLowerCase())
 }
+
+export const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
+
+Also provide common units for measuring this ingredient with their gram equivalents:
+- For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
+- For supplements/protein powders: include scoop
+- Do NOT include volume units (tbsp, tsp, cup, dl, ml) - these are calculated from density
+- Always include "g" as a unit with grams=1
+- Set isDefault=true for the most natural unit (e.g., "pcs" for eggs, "g" for flour, "scoop" for protein powder)
+
+Include density in g/ml for liquids and powders (null for solid items like fruits or vegetables).`
 
 // --- Recipe parsing utilities ---
 

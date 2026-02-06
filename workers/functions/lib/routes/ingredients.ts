@@ -3,7 +3,14 @@ import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { calculateVolumeUnits, getModel, INGREDIENT_AI_PROMPT, lookupUSDA } from '../ai-utils'
+import {
+	densityFromPortions,
+	fetchUsdaPortions,
+	getModel,
+	INGREDIENT_AI_PROMPT,
+	isVolumeUnit,
+	lookupUSDA
+} from '../ai-utils'
 import { ingredientAiSchema } from '../constants'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { toStartCase } from '../utils'
@@ -114,6 +121,49 @@ export const ingredientsRouter = router({
 			const usdaResult = await lookupUSDA(normalizedName, usdaKey)
 			if (usdaResult) {
 				const { fdcId, ...macros } = usdaResult
+
+				// Get units from USDA portions, derive density from volume portions
+				const usdaPortions = await fetchUsdaPortions(fdcId, usdaKey)
+				let density = densityFromPortions(usdaPortions)
+
+				// Non-volume USDA portions (pcs, large, small, oz, etc.) — store these
+				const nonVolumeUnits = usdaPortions
+					.filter(p => !isVolumeUnit(p.name))
+					.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+
+				// If no density from USDA, try AI for density + piece units
+				let aiPieceUnits: Array<{ name: string; grams: number; isDefault: boolean; source: 'ai' }> = []
+				if (!density || nonVolumeUnits.length === 0) {
+					const encSecret = ctx.env.ENCRYPTION_SECRET
+					if (encSecret) {
+						const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encSecret)
+						if (settings) {
+							try {
+								const { output } = await generateText({
+									model: getModel(settings.provider, settings.apiKey),
+									output: Output.object({ schema: ingredientAiSchema }),
+									prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${normalizedName}`
+								})
+								if (!density) density = output.density
+								// Only take non-volume units from AI that USDA doesn't already have
+								const existingNames = new Set(nonVolumeUnits.map(u => u.name.toLowerCase()))
+								aiPieceUnits = output.units
+									.filter(
+										u =>
+											!isVolumeUnit(u.name) &&
+											u.name.toLowerCase() !== 'g' &&
+											!existingNames.has(u.name.toLowerCase())
+									)
+									.map(u => ({ ...u, source: 'ai' as const }))
+							} catch {
+								// AI unavailable
+							}
+						}
+					}
+				}
+
+				const extraUnits = [...nonVolumeUnits, ...aiPieceUnits]
+
 				const [ingredient] = await ctx.db
 					.insert(ingredients)
 					.values({
@@ -121,20 +171,28 @@ export const ingredientsRouter = router({
 						name: normalizedName,
 						...macros,
 						fdcId,
+						density,
 						source: 'usda',
 						createdAt: Date.now()
 					})
 					.returning()
 
-				// Add default 'g' unit for USDA ingredients
-				await ctx.db.insert(ingredientUnits).values({
-					ingredientId: ingredient.id,
-					name: 'g',
-					grams: 1,
-					isDefault: 1,
-					source: 'usda',
-					createdAt: Date.now()
-				})
+				// Always include 'g', plus USDA or AI-derived units
+				const hasDefault = extraUnits.some(u => u.isDefault)
+				const unitRows = [
+					{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
+					...extraUnits.filter(u => u.name.toLowerCase() !== 'g')
+				]
+				await ctx.db.insert(ingredientUnits).values(
+					unitRows.map(unit => ({
+						ingredientId: ingredient.id,
+						name: unit.name,
+						grams: unit.grams,
+						isDefault: unit.isDefault ? 1 : 0,
+						source: unit.source,
+						createdAt: Date.now()
+					}))
+				)
 
 				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
 					where: eq(ingredients.id, ingredient.id),
@@ -177,23 +235,11 @@ export const ingredientsRouter = router({
 			})
 			.returning()
 
-		// Merge AI units with calculated volume units if density exists
-		const allUnits = [...units]
-		if (aiResult.density !== null) {
-			const volumeUnits = calculateVolumeUnits(aiResult.density)
-			// Add volume units that don't already exist (by name, case-insensitive)
-			const existingNames = new Set(allUnits.map(u => u.name.toLowerCase()))
-			for (const vu of volumeUnits) {
-				if (!existingNames.has(vu.name.toLowerCase())) {
-					allUnits.push(vu)
-				}
-			}
-		}
-
-		// Insert all units (AI + calculated volume units)
-		if (allUnits.length > 0) {
+		// Only store non-volume units (volume units are derived from density at read time)
+		const nonVolumeAiUnits = units.filter(u => !isVolumeUnit(u.name))
+		if (nonVolumeAiUnits.length > 0) {
 			await ctx.db.insert(ingredientUnits).values(
-				allUnits.map(unit => ({
+				nonVolumeAiUnits.map(unit => ({
 					ingredientId: ingredient.id,
 					name: unit.name,
 					grams: unit.grams,

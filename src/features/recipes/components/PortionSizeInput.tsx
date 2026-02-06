@@ -1,5 +1,5 @@
 import { type FC, useEffect, useState } from 'react'
-import { Input } from '~/components/ui/Input'
+import { NumberInput } from '~/components/ui'
 
 export interface PortionSizeInputProps {
 	portionSize: number | null
@@ -33,9 +33,8 @@ export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, onCha
 		<label className="flex flex-col gap-1">
 			<span className="text-ink-muted text-xs uppercase tracking-wider">Portion size</span>
 			<div className="flex items-center gap-2">
-				<Input
-					type="number"
-					className="h-8 w-full text-right font-mono"
+				<NumberInput
+					className="h-8 w-full"
 					value={value}
 					onChange={e => setValue(e.target.value)}
 					onBlur={handleBlur}

@@ -9,6 +9,7 @@ import { Textarea } from '~/components/ui/Textarea'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
+import { formatIngredientAmount, getAllUnits } from '../utils/format'
 
 export interface RecipeImportDialogProps {
 	open: boolean
@@ -118,7 +119,8 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 				if (ing.unit === 'g') {
 					amountGrams = ing.amount
 				} else {
-					const unitInfo = ingredient.units?.find(
+					const allUnits = getAllUnits(ingredient.units ?? [], ingredient.density)
+					const unitInfo = allUnits.find(
 						(u: { name: string; grams: number }) => u.name.toLowerCase() === ing.unit.toLowerCase()
 					)
 					if (unitInfo) {
@@ -268,7 +270,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 											className="flex items-center gap-2 py-0.5 text-sm"
 										>
 											<span className="w-20 text-right font-mono text-ink-muted tabular-nums">
-												{ing.amount} {ing.unit}
+												{formatIngredientAmount(ing.amount, ing.unit)}
 											</span>
 											<span className="text-ink">{ing.name}</span>
 										</div>

@@ -1,10 +1,9 @@
 import { Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Input } from '~/components/ui/Input'
+import { Button, NumberInput, TRPCError } from '~/components/ui'
 import { Select } from '~/components/ui/Select'
-import { TRPCError } from '~/components/ui/TRPCError'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { formatIngredientAmount, getAllUnits } from '../utils/format'
 import type { AbsoluteMacros } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 import { MacroCell } from './MacroCell'
@@ -17,7 +16,7 @@ export interface RecipeIngredientRowProps {
 }
 
 export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, recipeId, readOnly }) => {
-	const units = ri.ingredient.units ?? []
+	const units = getAllUnits(ri.ingredient.units ?? [], ri.ingredient.density)
 	const hasUnits = units.length > 0
 
 	// Determine initial display state
@@ -95,7 +94,7 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 		if (ri.displayUnit && ri.displayAmount) {
 			return (
 				<span className="font-mono text-ink-muted text-sm">
-					{ri.displayAmount} {ri.displayUnit}{' '}
+					{formatIngredientAmount(ri.displayAmount, ri.displayUnit)}{' '}
 					<span className="text-ink-faint">({Math.round(ri.amountGrams)}g)</span>
 				</span>
 			)
@@ -112,14 +111,11 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 						formatReadOnlyDisplay()
 					) : (
 						<div className="flex items-center gap-1">
-							<Input
-								type="number"
-								className="h-7 w-16 text-right font-mono text-sm"
+							<NumberInput
+								className="h-7 w-20 text-sm"
 								value={displayAmount}
 								onChange={e => setDisplayAmount(e.target.value)}
 								onBlur={handleAmountBlur}
-								min={0}
-								step={displayUnit === 'g' ? 1 : 0.1}
 							/>
 							{hasUnits ? (
 								<Select
@@ -131,7 +127,7 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 									{units
 										.filter(unit => unit.name !== 'g')
 										.map(unit => (
-											<option key={unit.id} value={unit.name}>
+											<option key={unit.name} value={unit.name}>
 												{unit.name}
 											</option>
 										))}

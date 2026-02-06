@@ -2660,6 +2660,7 @@ __metadata:
     drizzle-orm: "npm:^0.45.1"
     es-toolkit: "npm:*"
     typeid-js: "npm:^1.2.0"
+    typescript: "npm:*"
   peerDependencies:
     zod: "*"
   languageName: unknown

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --strict --noEmit --incremental"
   },
   "exports": {
     ".": "./index.ts",
@@ -20,6 +20,7 @@
     "zod": "*"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.8"
+    "drizzle-kit": "^0.31.8",
+    "typescript": "*"
   }
 }

@@ -1,8 +1,6 @@
 import { Sparkles } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Input } from '~/components/ui/Input'
-import { Spinner } from '~/components/ui/Spinner'
+import { Button, NumberInput, Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 
 export interface CookedWeightInputProps {
@@ -53,9 +51,8 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 		<label className="flex flex-col gap-1">
 			<span className="text-ink-muted text-xs uppercase tracking-wider">Cooked weight</span>
 			<div className="flex items-center gap-2">
-				<Input
-					type="number"
-					className="h-8 w-full text-right font-mono"
+				<NumberInput
+					className="h-8 w-full"
 					placeholder={rawTotal.toFixed(0)}
 					value={value}
 					onChange={e => setValue(e.target.value)}

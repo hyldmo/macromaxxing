@@ -2,10 +2,10 @@ import { TRPCError } from '@trpc/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import {
-	calculateVolumeUnits,
 	extractJsonLdRecipe,
 	getModel,
 	INGREDIENT_AI_PROMPT,
+	isVolumeUnit,
 	lookupUSDA,
 	parseIngredientString,
 	stripHtml
@@ -56,20 +56,10 @@ export const aiRouter = router({
 				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.ingredientName}`
 			})
 
-			// Merge AI units with calculated volume units if density exists
-			const allUnits = [...output.units]
-			if (output.density !== null) {
-				const volumeUnits = calculateVolumeUnits(output.density)
-				// Add volume units that don't already exist (by name, case-insensitive)
-				const existingNames = new Set(allUnits.map(u => u.name.toLowerCase()))
-				for (const vu of volumeUnits) {
-					if (!existingNames.has(vu.name.toLowerCase())) {
-						allUnits.push(vu)
-					}
-				}
-			}
+			// Filter out volume units — they're derived from density on the frontend
+			const nonVolumeUnits = output.units.filter(u => !isVolumeUnit(u.name))
 
-			return { ...output, units: allUnits, source: 'ai' as const }
+			return { ...output, units: nonVolumeUnits, source: 'ai' as const }
 		}),
 
 	estimateCookedWeight: protectedProcedure

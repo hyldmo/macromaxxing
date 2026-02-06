@@ -1,8 +1,6 @@
 import { Plus, Sparkles, Star, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Input } from '~/components/ui/Input'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Input, NumberInput, TRPCError } from '~/components/ui'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 export interface IngredientFormProps {
@@ -153,72 +151,34 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 			<div className="grid grid-cols-5 gap-2">
 				<label>
 					<span className="mb-1 block text-macro-protein text-xs">Protein</span>
-					<Input
-						type="number"
-						step="0.01"
-						value={protein}
-						onChange={e => setProtein(e.target.value)}
-						min={0}
-						className="font-mono"
-					/>
+					<NumberInput value={protein} onChange={e => setProtein(e.target.value)} />
 				</label>
 				<label>
 					<span className="mb-1 block text-macro-carbs text-xs">Carbs</span>
-					<Input
-						type="number"
-						step="0.01"
-						value={carbs}
-						onChange={e => setCarbs(e.target.value)}
-						min={0}
-						className="font-mono"
-					/>
+					<NumberInput value={carbs} onChange={e => setCarbs(e.target.value)} />
 				</label>
 				<label>
 					<span className="mb-1 block text-macro-fat text-xs">Fat</span>
-					<Input
-						type="number"
-						step="0.01"
-						value={fat}
-						onChange={e => setFat(e.target.value)}
-						min={0}
-						className="font-mono"
-					/>
+					<NumberInput value={fat} onChange={e => setFat(e.target.value)} />
 				</label>
 				<label>
 					<span className="mb-1 block text-macro-kcal text-xs">Kcal</span>
-					<Input
-						type="number"
-						step="1"
-						value={kcal}
-						onChange={e => setKcal(e.target.value)}
-						min={0}
-						className="font-mono"
-					/>
+					<NumberInput value={kcal} onChange={e => setKcal(e.target.value)} />
 				</label>
 				<label>
 					<span className="mb-1 block text-macro-fiber text-xs">Fiber</span>
-					<Input
-						type="number"
-						step="0.01"
-						value={fiber}
-						onChange={e => setFiber(e.target.value)}
-						min={0}
-						className="font-mono"
-					/>
+					<NumberInput value={fiber} onChange={e => setFiber(e.target.value)} />
 				</label>
 			</div>
 			<p className="text-ink-faint text-xs">Values per 100g raw weight</p>
 
 			<label className="block">
 				<span className="mb-1 block text-ink-muted text-xs">Density (g/ml, for volume conversions)</span>
-				<Input
-					type="number"
-					step="0.01"
+				<NumberInput
 					value={density}
 					onChange={e => setDensity(e.target.value)}
-					min={0}
 					placeholder="Optional - for liquids/powders"
-					className="w-48 font-mono"
+					className="w-48"
 				/>
 			</label>
 
@@ -290,14 +250,11 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 						</label>
 						<label className="w-24">
 							<span className="mb-1 block text-ink-faint text-xs">Grams</span>
-							<Input
-								type="number"
-								step="0.1"
-								min={0}
+							<NumberInput
 								placeholder="g"
 								value={newUnit.grams}
 								onChange={e => setNewUnit(u => ({ ...u, grams: e.target.value }))}
-								className="font-mono text-sm"
+								className="text-sm"
 							/>
 						</label>
 						<Button
