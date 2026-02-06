@@ -1,5 +1,5 @@
-import { NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
@@ -15,6 +15,8 @@ export function IngredientListPage() {
 	const [search, setSearch] = useState('')
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
+	const [sortKey, setSortKey] = useState<'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('name')
+	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 	const { user } = useUser()
 	const userId = user?.id
 	const utils = trpc.useUtils()
@@ -24,7 +26,23 @@ export function IngredientListPage() {
 		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 
-	const filtered = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
+	const toggleSort = (key: typeof sortKey) => {
+		if (sortKey === key) {
+			setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+		} else {
+			setSortKey(key)
+			setSortDir(key === 'name' ? 'asc' : 'desc')
+		}
+	}
+
+	const filtered = useMemo(() => {
+		const list = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
+		return [...list].sort((a, b) => {
+			const dir = sortDir === 'asc' ? 1 : -1
+			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
+			return dir * (a[sortKey] - b[sortKey])
+		})
+	}, [ingredientsQuery.data, search, sortKey, sortDir])
 
 	const editIngredient = editId ? ingredientsQuery.data?.find(i => i.id === editId) : undefined
 
@@ -148,12 +166,32 @@ export function IngredientListPage() {
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-edge border-b bg-surface-2/50 font-medium text-xs">
-								<th className="px-2 py-1.5 text-left text-ink-muted">Name</th>
-								<th className="px-2 py-1.5 text-right text-macro-protein">Prot</th>
-								<th className="px-2 py-1.5 text-right text-macro-carbs">Carbs</th>
-								<th className="px-2 py-1.5 text-right text-macro-fat">Fat</th>
-								<th className="px-2 py-1.5 text-right text-macro-kcal">Kcal</th>
-								<th className="px-2 py-1.5 text-right text-macro-fiber">Fiber</th>
+								{(
+									[
+										['name', 'Name', 'text-left text-ink-muted'],
+										['protein', 'Prot', 'text-right text-macro-protein'],
+										['carbs', 'Carbs', 'text-right text-macro-carbs'],
+										['fat', 'Fat', 'text-right text-macro-fat'],
+										['kcal', 'Kcal', 'text-right text-macro-kcal'],
+										['fiber', 'Fiber', 'text-right text-macro-fiber']
+									] as const
+								).map(([key, label, cls]) => (
+									<th key={key} className={`px-2 py-1.5 ${cls}`}>
+										<button
+											type="button"
+											className="inline-flex items-center gap-0.5"
+											onClick={() => toggleSort(key)}
+										>
+											{label}
+											{sortKey === key &&
+												(sortDir === 'asc' ? (
+													<ArrowUp className="size-3" />
+												) : (
+													<ArrowDown className="size-3" />
+												))}
+										</button>
+									</th>
+								))}
 								<th className="px-2 py-1.5 text-right text-ink-muted">Src</th>
 								<th className="w-16" />
 							</tr>
