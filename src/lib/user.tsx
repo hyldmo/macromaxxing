@@ -1,3 +1,4 @@
+import { useAuth } from '@clerk/clerk-react'
 import { createContext, type FC, type ReactNode, useContext } from 'react'
 import { trpc } from './trpc'
 
@@ -18,23 +19,20 @@ export interface UserProviderProps {
 }
 
 export const UserProvider: FC<UserProviderProps> = ({ children }) => {
+	const { isSignedIn, isLoaded } = useAuth()
 	const { data, isLoading } = trpc.user.me.useQuery(undefined, {
 		retry: false,
-		staleTime: 5 * 60 * 1000
+		staleTime: 5 * 60 * 1000,
+		enabled: isSignedIn === true
 	})
 
-	return <UserContext.Provider value={{ user: data ?? null, isLoading }}>{children}</UserContext.Provider>
+	return (
+		<UserContext.Provider
+			value={{ user: data ?? null, isLoading: !isLoaded || (isSignedIn === true && isLoading) }}
+		>
+			{children}
+		</UserContext.Provider>
+	)
 }
 
 export const useUser = () => useContext(UserContext)
-
-export const login = () => {
-	// Cloudflare Access login - redirects to the access login page
-	window.location.href = '/cdn-cgi/access/login'
-}
-
-export const logout = () => {
-	// Cloudflare Access logout - redirects to the access logout endpoint
-	// This clears the CF_Authorization cookie
-	window.location.href = '/cdn-cgi/access/logout'
-}

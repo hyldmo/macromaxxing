@@ -6,6 +6,8 @@ declare namespace Cloudflare {
 		DB: D1Database;
 		ENCRYPTION_SECRET: string;
 		USDA_API_KEY: string;
+		CLERK_PUBLISHABLE_KEY: string;
+		CLERK_SECRET_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

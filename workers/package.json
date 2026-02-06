@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hono/clerk-auth": "^3.1.0",
     "@hono/trpc-server": "^0.4.2",
     "@macromaxxing/db": "workspace:*",
     "@trpc/server": "*",

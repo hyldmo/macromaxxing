@@ -1,3 +1,4 @@
+import { clerkMiddleware } from '@hono/clerk-auth'
 import { trpcServer } from '@hono/trpc-server'
 import type { ExecutionContext as HonoExecutionContext } from 'hono'
 import { Hono } from 'hono'
@@ -11,21 +12,22 @@ type HonoEnv = { Bindings: Cloudflare.Env }
 const app = new Hono<HonoEnv>()
 
 app.use('*', cors())
+app.use('*', clerkMiddleware())
 
 app.use(
 	'/api/trpc/*',
 	trpcServer({
 		router: appRouter,
-		createContext: async ({ req }, c) => {
+		createContext: async (_opts, c) => {
 			const env = c.env
 			const db = createDb(env.DB)
 
 			// Check if running in local dev (wrangler sets CF-Connecting-IP to 127.0.0.1 in dev)
-			const isDev = req.headers.get('CF-Connecting-IP') === '127.0.0.1' || !req.headers.get('CF-Connecting-IP')
+			const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1' || !c.req.header('CF-Connecting-IP')
 
 			let user = null
 			try {
-				user = await authenticateRequest(req, db, isDev)
+				user = await authenticateRequest(c, db, isDev)
 			} catch {
 				// User remains null, protectedProcedure will throw
 			}

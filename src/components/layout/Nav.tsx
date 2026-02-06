@@ -1,7 +1,7 @@
-import { CalendarDays, ChefHat, CookingPot, LogIn, LogOut, Settings, UtensilsCrossed } from 'lucide-react'
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
+import { CalendarDays, ChefHat, CookingPot, LogIn, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
-import { login, logout, useUser } from '~/lib/user'
 
 const mainLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
@@ -10,8 +10,6 @@ const mainLinks = [
 ] as const
 
 export function Nav() {
-	const { user } = useUser()
-
 	return (
 		<>
 			{/* Desktop top nav */}
@@ -50,28 +48,20 @@ export function Nav() {
 						>
 							<Settings className="size-5" />
 						</NavLink>
-						{user ? (
-							<>
-								<span className="text-ink-muted text-sm">{user.email}</span>
+						<SignedIn>
+							<UserButton />
+						</SignedIn>
+						<SignedOut>
+							<SignInButton mode="modal">
 								<button
 									type="button"
-									onClick={logout}
-									className="rounded-[--radius-sm] p-1.5 text-ink-muted transition-colors hover:text-ink"
-									title="Sign out"
+									className="flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
 								>
-									<LogOut className="size-5" />
+									<LogIn className="size-4" />
+									Sign in
 								</button>
-							</>
-						) : (
-							<button
-								type="button"
-								onClick={login}
-								className="flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
-							>
-								<LogIn className="size-4" />
-								Sign in
-							</button>
-						)}
+							</SignInButton>
+						</SignedOut>
 					</div>
 				</div>
 			</nav>
@@ -96,25 +86,22 @@ export function Nav() {
 							</NavLink>
 						)
 					)}
-					{user ? (
-						<button
-							type="button"
-							onClick={logout}
-							className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
-						>
-							<LogOut className="size-5" />
-							<span>Sign out</span>
-						</button>
-					) : (
-						<button
-							type="button"
-							onClick={login}
-							className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
-						>
-							<LogIn className="size-5" />
-							<span>Sign in</span>
-						</button>
-					)}
+					<SignedIn>
+						<div className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2">
+							<UserButton />
+						</div>
+					</SignedIn>
+					<SignedOut>
+						<SignInButton mode="modal">
+							<button
+								type="button"
+								className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
+							>
+								<LogIn className="size-5" />
+								<span>Sign in</span>
+							</button>
+						</SignInButton>
+					</SignedOut>
 				</div>
 			</nav>
 		</>

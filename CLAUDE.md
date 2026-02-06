@@ -6,7 +6,7 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 
 - **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom
 - **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), Drizzle ORM
-- **Auth:** Cookie-based, user ID in context
+- **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
 
 ## Commands
@@ -34,6 +34,15 @@ Create `.dev.vars` for local secrets:
 ENCRYPTION_SECRET=your-32-byte-hex-secret
 # Get from https://fdc.nal.usda.gov/api-key-signup/
 USDA_API_KEY=your-usda-api-key
+# Get from Clerk dashboard
+CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+```
+
+Create `.env.local` for frontend:
+
+```bash
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
 ## Key Files
