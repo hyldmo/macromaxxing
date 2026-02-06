@@ -18,5 +18,6 @@
 		},
 		"types": ["vite/client", "react", "react-dom"]
 	},
+	"files": ["workers/worker-configuration.d.ts"],
 	"include": ["src"]
 }

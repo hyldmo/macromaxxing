@@ -469,13 +469,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cloudflare/workers-types@npm:^4.20260203.0":
-  version: 4.20260203.0
-  resolution: "@cloudflare/workers-types@npm:4.20260203.0"
-  checksum: 10c0/6e005e1fa2a2dd848eeca6b10febaf422df63be85adf7f8cf558a26ca11c37dd38e01c42a3cff13f93561a6e7ac4ff68f2d5c971e202b5e29cb7d7a9ab3f66ad
-  languageName: node
-  linkType: hard
-
 "@codemirror/autocomplete@npm:^6.0.0, @codemirror/autocomplete@npm:^6.3.2, @codemirror/autocomplete@npm:^6.4.0, @codemirror/autocomplete@npm:^6.7.1":
   version: 6.20.0
   resolution: "@codemirror/autocomplete@npm:6.20.0"
@@ -2598,12 +2591,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@macromaxxing/workers@workspace:workers"
   dependencies:
-    "@cloudflare/workers-types": "npm:^4.20260203.0"
     "@hono/trpc-server": "npm:^0.4.2"
     "@macromaxxing/db": "workspace:*"
     "@trpc/server": "npm:*"
     drizzle-orm: "npm:^0.45.1"
     hono: "npm:^4.11.7"
+    typescript: "npm:^5.9.3"
     wrangler: "npm:^4.62.0"
     zod: "npm:*"
   languageName: unknown
