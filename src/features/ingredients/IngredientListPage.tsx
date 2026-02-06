@@ -6,17 +6,13 @@ import { Input } from '~/components/ui/Input'
 import { USDA } from '~/components/ui/icons'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
-import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useUser } from '~/lib/user'
 import { MacroBar } from '../recipes/components/MacroBar'
 import { IngredientForm } from './components/IngredientForm'
 
-type Filter = 'all' | 'mine'
-
 export function IngredientListPage() {
 	const [search, setSearch] = useState('')
-	const [filter, setFilter] = useState<Filter>('all')
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
 	const { user } = useUser()
@@ -28,46 +24,14 @@ export function IngredientListPage() {
 		onSuccess: () => utils.ingredient.listPublic.invalidate()
 	})
 
-	const allFiltered = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
-	const filtered = filter === 'mine' ? allFiltered.filter(i => i.userId === userId) : allFiltered
-	const myIngredientCount = ingredientsQuery.data?.filter(i => i.userId === userId).length ?? 0
+	const filtered = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
 
 	const editIngredient = editId ? ingredientsQuery.data?.find(i => i.id === editId) : undefined
 
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-2">
-					<h1 className="font-semibold text-ink">Ingredients</h1>
-					{user && (
-						<div className="flex gap-1">
-							<button
-								type="button"
-								onClick={() => setFilter('all')}
-								className={cn(
-									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-									filter === 'all'
-										? 'bg-accent text-white'
-										: 'bg-surface-2 text-ink-muted hover:text-ink'
-								)}
-							>
-								All
-							</button>
-							<button
-								type="button"
-								onClick={() => setFilter('mine')}
-								className={cn(
-									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-									filter === 'mine'
-										? 'bg-accent text-white'
-										: 'bg-surface-2 text-ink-muted hover:text-ink'
-								)}
-							>
-								Mine{myIngredientCount > 0 && ` (${myIngredientCount})`}
-							</button>
-						</div>
-					)}
-				</div>
+				<h1 className="font-semibold text-ink">Ingredients</h1>
 				{user && (
 					<Button
 						onClick={() => {
@@ -106,11 +70,7 @@ export function IngredientListPage() {
 
 			{filtered.length === 0 && !ingredientsQuery.isLoading && (
 				<Card className="py-12 text-center text-ink-faint">
-					{search
-						? 'No ingredients match your search.'
-						: filter === 'mine'
-							? "You haven't added any ingredients yet."
-							: 'No ingredients yet.'}
+					{search ? 'No ingredients match your search.' : 'No ingredients yet.'}
 				</Card>
 			)}
 
@@ -122,10 +82,7 @@ export function IngredientListPage() {
 						return (
 							<div
 								key={ingredient.id}
-								className={cn(
-									'rounded-[--radius-md] border bg-surface-1 p-3',
-									isMine ? 'border-accent/30' : 'border-edge'
-								)}
+								className="rounded-[--radius-md] border border-edge bg-surface-1 p-3"
 							>
 								<div className="flex items-start justify-between gap-2">
 									<div className="min-w-0 flex-1">
@@ -138,11 +95,6 @@ export function IngredientListPage() {
 											)}
 											{ingredient.source === 'usda' && (
 												<USDA className="size-3.5 shrink-0 text-accent" />
-											)}
-											{isMine && (
-												<span className="shrink-0 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
-													yours
-												</span>
 											)}
 										</div>
 										<div className="mt-1 flex flex-wrap gap-2 font-mono text-xs">
@@ -213,21 +165,9 @@ export function IngredientListPage() {
 									<>
 										<tr
 											key={ingredient.id}
-											className={cn(
-												'border-edge/50 border-b transition-colors hover:bg-surface-2/50',
-												isMine && 'bg-accent/5'
-											)}
+											className="border-edge/50 border-b transition-colors hover:bg-surface-2/50"
 										>
-											<td className="px-2 py-1.5 font-medium text-ink">
-												<div className="flex items-center gap-1.5">
-													{ingredient.name}
-													{isMine && (
-														<span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
-															yours
-														</span>
-													)}
-												</div>
-											</td>
+											<td className="px-2 py-1.5 font-medium text-ink">{ingredient.name}</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-protein">
 												{ingredient.protein}
 											</td>

@@ -34,7 +34,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 				const current = Number.parseFloat(input.value) || 0
 				const s = step === 'auto' ? autoStep(current) : step
 				const decimals = s < 1 ? (String(s).split('.')[1]?.length ?? 1) : 0
-				const next = Math.max(min, current + s * direction)
+				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
+				const next = Math.max(min, snapped)
 				const formatted = decimals > 0 ? next.toFixed(decimals) : String(Math.round(next))
 				triggerChange(input, formatted)
 			},

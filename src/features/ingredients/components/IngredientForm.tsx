@@ -259,7 +259,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 						</label>
 						<Button
 							type="button"
-							variant="outline"
+							variant="secondary"
 							size="icon"
 							className="size-8"
 							onClick={handleAddUnit}
