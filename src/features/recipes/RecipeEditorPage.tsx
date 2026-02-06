@@ -58,7 +58,7 @@ export function RecipeEditorPage() {
 
 	function handleCreate() {
 		if (!name.trim()) return
-		createMutation.mutate({ name: name.trim() })
+		createMutation.mutate({ name: name.trim(), instructions: instructions.trim() || undefined })
 	}
 
 	function handleNameBlur() {
