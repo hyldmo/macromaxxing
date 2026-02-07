@@ -4586,6 +4586,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/node@npm:^25.2.1":
+  version: 25.2.1
+  resolution: "@types/node@npm:25.2.1"
+  dependencies:
+    undici-types: "npm:~7.16.0"
+  checksum: 10c0/ce42fa07495093c55b6398e3c4346d644a61b8c4f59d2e0c0ed152ea0e4327c60a41d5fdfa3e0fc4f4776eb925e2b783b6b942501fc044328a44980bc2de4dc6
+  languageName: node
+  linkType: hard
+
 "@types/normalize-package-data@npm:^2.4.3, @types/normalize-package-data@npm:^2.4.4":
   version: 2.4.4
   resolution: "@types/normalize-package-data@npm:2.4.4"
@@ -7700,6 +7709,7 @@ __metadata:
     "@trpc/client": "npm:^11.9.0"
     "@trpc/react-query": "npm:^11.9.0"
     "@trpc/server": "npm:^11.9.0"
+    "@types/node": "npm:^25.2.1"
     "@types/react": "npm:^19.2.10"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^5.1.3"
@@ -10625,6 +10635,13 @@ __metadata:
   bin:
     uglifyjs: bin/uglifyjs
   checksum: 10c0/83b0a90eca35f778e07cad9622b80c448b6aad457c9ff8e568afed978212b42930a95f9e1be943a1ffa4258a3340fbb899f41461131c05bb1d0a9c303aed8479
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~7.16.0":
+  version: 7.16.0
+  resolution: "undici-types@npm:7.16.0"
+  checksum: 10c0/3033e2f2b5c9f1504bdc5934646cb54e37ecaca0f9249c983f7b1fc2e87c6d18399ebb05dc7fd5419e02b2e915f734d872a65da2e3eeed1813951c427d33cc9a
   languageName: node
   linkType: hard
 

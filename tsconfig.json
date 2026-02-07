@@ -20,5 +20,7 @@
 		"types": ["vite/client", "react", "react-dom"]
 	},
 	"files": ["workers/worker-configuration.d.ts"],
-	"include": ["src"]
+	"include": ["src"],
+	"exclude": ["vite.config.ts"],
+	"references": [{ "path": "./tsconfig.node.json" }]
 }
