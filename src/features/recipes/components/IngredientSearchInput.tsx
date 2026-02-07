@@ -1,4 +1,4 @@
-import type { Ingredient } from '@macromaxxing/db'
+import { extractPreparation, type Ingredient } from '@macromaxxing/db'
 import { ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
 import { Button } from '~/components/ui/Button'
@@ -10,6 +10,8 @@ import { MacroBar } from './MacroBar'
 
 export interface IngredientSearchInputProps {
 	recipeId: RouterOutput['recipe']['get']['id']
+	onAddPending?: (name: string) => void
+	onRemovePending?: (name: string) => void
 }
 
 interface ParsedIngredient {
@@ -17,6 +19,7 @@ interface ParsedIngredient {
 	grams: number
 	displayUnit?: string
 	displayAmount?: number
+	preparation?: string | null
 	status: 'pending' | 'found' | 'added' | 'error'
 	error?: string
 }
@@ -46,6 +49,7 @@ interface ParsedSingleIngredient {
 	name: string
 	amount: number
 	unit: string | null
+	preparation: string | null
 }
 
 /** Parse a single ingredient string like "2 tbsp sugar" or "500g flour" */
@@ -56,10 +60,11 @@ function parseSingleIngredient(text: string): ParsedSingleIngredient | null {
 	for (const { pattern, unit } of UNIT_PATTERNS) {
 		const match = trimmed.match(pattern)
 		if (match) {
-			const [, amountStr, name] = match
+			const [, amountStr, rawName] = match
 			const amount = Number.parseFloat(amountStr)
-			if (!Number.isNaN(amount) && name.trim()) {
-				return { name: name.trim(), amount, unit }
+			if (!Number.isNaN(amount) && rawName.trim()) {
+				const { name, preparation } = extractPreparation(rawName.trim())
+				return { name, amount, unit, preparation }
 			}
 		}
 	}
@@ -67,10 +72,11 @@ function parseSingleIngredient(text: string): ParsedSingleIngredient | null {
 	// Try reverse pattern: "sugar 500g"
 	const reverseMatch = trimmed.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*g?$/i)
 	if (reverseMatch) {
-		const [, name, amountStr] = reverseMatch
+		const [, rawName, amountStr] = reverseMatch
 		const amount = Number.parseFloat(amountStr)
-		if (!Number.isNaN(amount) && name.trim()) {
-			return { name: name.trim(), amount, unit: 'g' }
+		if (!Number.isNaN(amount) && rawName.trim()) {
+			const { name, preparation } = extractPreparation(rawName.trim())
+			return { name, amount, unit: 'g', preparation }
 		}
 	}
 
@@ -91,12 +97,13 @@ function parseIngredientList(
 		for (const { pattern, unit } of UNIT_PATTERNS) {
 			const match = line.match(pattern)
 			if (match) {
-				const [, amountStr, name] = match
+				const [, amountStr, rawName] = match
 				const amount = Number.parseFloat(amountStr)
 
 				if (!Number.isNaN(amount)) {
+					const { name, preparation } = extractPreparation(rawName.trim())
 					// Find existing ingredient to lookup unit conversion
-					const existingIng = ingredients.find(i => i.name.toLowerCase() === name.trim().toLowerCase())
+					const existingIng = ingredients.find(i => i.name.toLowerCase() === name.toLowerCase())
 					const ingUnits = existingIng?.units ?? []
 
 					if (unit && unit !== 'g') {
@@ -105,25 +112,28 @@ function parseIngredientList(
 						if (unitInfo) {
 							results.push({
 								grams: amount * unitInfo.grams,
-								name: name.trim(),
+								name,
 								displayUnit: unit,
 								displayAmount: amount,
+								preparation,
 								status: existingIng ? 'found' : 'pending'
 							})
 						} else {
 							// Unit not found - store with estimated grams, will be updated after AI lookup
 							results.push({
 								grams: amount * 100, // Placeholder, will need unit info
-								name: name.trim(),
+								name,
 								displayUnit: unit,
 								displayAmount: amount,
+								preparation,
 								status: 'pending'
 							})
 						}
 					} else if (unit === 'g') {
 						results.push({
 							grams: amount,
-							name: name.trim(),
+							name,
+							preparation,
 							status: existingIng ? 'found' : 'pending'
 						})
 					} else {
@@ -132,16 +142,18 @@ function parseIngredientList(
 						if (defaultUnit) {
 							results.push({
 								grams: amount * defaultUnit.grams,
-								name: name.trim(),
+								name,
 								displayUnit: defaultUnit.name,
 								displayAmount: amount,
+								preparation,
 								status: 'found'
 							})
 						} else {
 							// Assume grams
 							results.push({
 								grams: amount,
-								name: name.trim(),
+								name,
+								preparation,
 								status: existingIng ? 'found' : 'pending'
 							})
 						}
@@ -156,13 +168,15 @@ function parseIngredientList(
 		if (!parsed) {
 			const reverseMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*g?$/i)
 			if (reverseMatch) {
-				const [, name, amountStr] = reverseMatch
+				const [, rawName, amountStr] = reverseMatch
 				const amount = Number.parseFloat(amountStr)
 				if (!Number.isNaN(amount)) {
-					const existingIng = ingredients.find(i => i.name.toLowerCase() === name.trim().toLowerCase())
+					const { name, preparation } = extractPreparation(rawName.trim())
+					const existingIng = ingredients.find(i => i.name.toLowerCase() === name.toLowerCase())
 					results.push({
 						grams: amount,
-						name: name.trim(),
+						name,
+						preparation,
 						status: existingIng ? 'found' : 'pending'
 					})
 				}
@@ -173,7 +187,7 @@ function parseIngredientList(
 	return results
 }
 
-export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId }) => {
+export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId, onAddPending, onRemovePending }) => {
 	const [search, setSearch] = useState('')
 	const [showDropdown, setShowDropdown] = useState(false)
 	const [pastedIngredients, setPastedIngredients] = useState<ParsedIngredient[]>([])
@@ -205,54 +219,71 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 
 	function handleSelectIngredient(
 		ingredientId: Ingredient['id'],
+		ingredientName: string,
 		amountGrams = 100,
 		displayUnit?: string,
-		displayAmount?: number
+		displayAmount?: number,
+		preparation?: string | null
 	) {
+		onAddPending?.(ingredientName)
 		addIngredient.mutate({
 			recipeId,
 			ingredientId,
 			amountGrams,
 			displayUnit: displayUnit ?? null,
-			displayAmount: displayAmount ?? null
+			displayAmount: displayAmount ?? null,
+			preparation: preparation ?? null
 		})
 		setSearch('')
 		setShowDropdown(false)
 	}
 
-	async function handleFindOrCreate(name?: string, grams?: number, displayUnit?: string, displayAmount?: number) {
+	async function handleFindOrCreate(
+		name?: string,
+		grams?: number,
+		displayUnit?: string,
+		displayAmount?: number,
+		preparation?: string | null
+	) {
 		const ingredientName = name ?? search.trim()
 		if (!ingredientName) return
 
-		const { ingredient } = await findOrCreate.mutateAsync({ name: ingredientName })
-
-		// If we had a display unit but no exact grams, recalculate using the new ingredient's units
-		let finalGrams = grams ?? 100
-		const finalDisplayUnit = displayUnit
-		const finalDisplayAmount = displayAmount
-
-		if (displayUnit && displayAmount && ingredient.units) {
-			const unitInfo = ingredient.units.find(
-				(u: { name: string; grams: number }) => u.name.toLowerCase() === displayUnit.toLowerCase()
-			)
-			if (unitInfo) {
-				finalGrams = displayAmount * unitInfo.grams
-			}
-		}
-
-		addIngredient.mutate({
-			recipeId,
-			ingredientId: ingredient.id,
-			amountGrams: finalGrams,
-			displayUnit: finalDisplayUnit ?? null,
-			displayAmount: finalDisplayAmount ?? null
-		})
-
+		onAddPending?.(ingredientName)
 		if (!name) {
 			setSearch('')
 			setShowDropdown(false)
 		}
-		return ingredient
+
+		try {
+			const { ingredient } = await findOrCreate.mutateAsync({ name: ingredientName })
+
+			// If we had a display unit but no exact grams, recalculate using the new ingredient's units
+			let finalGrams = grams ?? 100
+			const finalDisplayUnit = displayUnit
+			const finalDisplayAmount = displayAmount
+
+			if (displayUnit && displayAmount && ingredient.units) {
+				const unitInfo = ingredient.units.find(
+					(u: { name: string; grams: number }) => u.name.toLowerCase() === displayUnit.toLowerCase()
+				)
+				if (unitInfo) {
+					finalGrams = displayAmount * unitInfo.grams
+				}
+			}
+
+			addIngredient.mutate({
+				recipeId,
+				ingredientId: ingredient.id,
+				amountGrams: finalGrams,
+				displayUnit: finalDisplayUnit ?? null,
+				displayAmount: finalDisplayAmount ?? null,
+				preparation: preparation ?? null
+			})
+
+			return ingredient
+		} catch {
+			onRemovePending?.(ingredientName)
+		}
 	}
 
 	function handlePaste(e: React.ClipboardEvent) {
@@ -301,7 +332,8 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					ingredientId: ingredient.id,
 					amountGrams: finalGrams,
 					displayUnit: item.displayUnit ?? null,
-					displayAmount: item.displayAmount ?? null
+					displayAmount: item.displayAmount ?? null,
+					preparation: item.preparation ?? null
 				})
 				updated[i] = { ...item, status: 'added' }
 				setPastedIngredients([...updated])
@@ -342,7 +374,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 
 			try {
 				// Backend handles DB lookup + AI fallback
-				await handleFindOrCreate(item.name, item.grams, item.displayUnit, item.displayAmount)
+				await handleFindOrCreate(item.name, item.grams, item.displayUnit, item.displayAmount, item.preparation)
 				updated[i] = { ...item, status: 'added' }
 				setPastedIngredients([...updated])
 			} catch (err) {
@@ -518,7 +550,14 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 								type="button"
 								className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-surface-2"
 								onMouseDown={() =>
-									handleSelectIngredient(ingredient.id, amountGrams, displayUnit, displayAmount)
+									handleSelectIngredient(
+										ingredient.id,
+										ingredient.name,
+										amountGrams,
+										displayUnit,
+										displayAmount,
+										parsedSearch?.preparation
+									)
 								}
 							>
 								<div className="flex w-full items-center gap-2">
@@ -546,13 +585,14 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						className="flex w-full items-center gap-2 border-edge border-t px-3 py-2.5 text-left text-accent text-sm hover:bg-surface-2"
 						onMouseDown={() => {
 							if (parsedSearch) {
-								const { name, amount, unit } = parsedSearch
+								const { name, amount, unit, preparation } = parsedSearch
 								// Pass unit info - grams will be recalculated after AI lookup
 								handleFindOrCreate(
 									name,
 									unit === 'g' ? amount : amount * 100, // Placeholder grams if unit specified
 									unit && unit !== 'g' ? unit : undefined,
-									unit && unit !== 'g' ? amount : undefined
+									unit && unit !== 'g' ? amount : undefined,
+									preparation
 								)
 							} else {
 								handleFindOrCreate()

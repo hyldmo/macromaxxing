@@ -1,4 +1,5 @@
-import type { FC } from 'react'
+import { type FC, useCallback, useEffect, useState } from 'react'
+import { Spinner } from '~/components/ui/Spinner'
 import type { RouterOutput } from '~/lib/trpc'
 import type { AbsoluteMacros } from '../utils/macros'
 import { IngredientSearchInput } from './IngredientSearchInput'
@@ -20,9 +21,28 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 	ingredientMacros,
 	readOnly
 }) => {
+	const [pendingIngredients, setPendingIngredients] = useState<string[]>([])
+
+	const addPending = useCallback((name: string) => {
+		setPendingIngredients(prev => [...prev, name])
+	}, [])
+
+	const removePending = useCallback((name: string) => {
+		setPendingIngredients(prev => prev.filter(n => n.toLowerCase() !== name.toLowerCase()))
+	}, [])
+
+	// Auto-clear pending ingredients when they appear in real data
+	useEffect(() => {
+		if (pendingIngredients.length === 0) return
+		const currentNames = new Set(recipeIngredients.map(ri => ri.ingredient.name.toLowerCase()))
+		setPendingIngredients(prev => prev.filter(name => !currentNames.has(name.toLowerCase())))
+	}, [recipeIngredients, pendingIngredients.length])
+
 	return (
 		<div className="space-y-2">
-			{!readOnly && <IngredientSearchInput recipeId={recipeId} />}
+			{!readOnly && (
+				<IngredientSearchInput recipeId={recipeId} onAddPending={addPending} onRemovePending={removePending} />
+			)}
 			<div className="overflow-x-auto rounded-[--radius-md] border border-edge">
 				<table className="w-full text-sm">
 					<thead>
@@ -46,7 +66,23 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 								readOnly={readOnly}
 							/>
 						))}
-						{recipeIngredients.length === 0 && (
+						{pendingIngredients.map(name => (
+							<tr key={`pending-${name}`} className="border-edge/50 border-b">
+								<td className="px-2 py-1.5">
+									<div className="flex items-center gap-2">
+										<Spinner className="size-3" />
+										<span className="text-ink-muted text-sm">{name}</span>
+									</div>
+								</td>
+								<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
+								<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
+								<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
+								<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
+								<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
+								{!readOnly && <td className="w-8" />}
+							</tr>
+						))}
+						{recipeIngredients.length === 0 && pendingIngredients.length === 0 && (
 							<tr>
 								<td colSpan={readOnly ? 6 : 7} className="px-2 py-8 text-center text-ink-faint text-sm">
 									{readOnly
