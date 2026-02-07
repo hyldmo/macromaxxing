@@ -35,6 +35,8 @@ jobs:
 
       - name: Build
         run: yarn build
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
 
       - name: Deploy to Cloudflare Pages
         run: yarn workspace @macromaxxing/workers wrangler pages deploy --project-name=${{ github.event.repository.name }}
