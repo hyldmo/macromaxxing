@@ -63,7 +63,7 @@ export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange })
 				onBlur={() => setTimeout(() => commit(draft), 150)}
 				placeholder="prep..."
 				className={cn(
-					'h-5 w-32 border-0 bg-transparent px-0.5 font-normal text-ink-faint text-xs outline-none transition-colors placeholder:text-transparent focus:placeholder:text-ink-faint/50',
+					'h-5 [field-sizing:content] border-0 bg-transparent px-0.5 font-normal text-ink-faint text-xs outline-none transition-colors placeholder:text-transparent focus:min-w-24 focus:placeholder:text-ink-faint/50',
 					!(focused || draft) && 'opacity-0 group-hover:opacity-100 group-hover:placeholder:text-ink-faint/50'
 				)}
 			/>

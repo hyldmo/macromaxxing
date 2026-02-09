@@ -2,6 +2,10 @@
 
 Recipe nutrition tracker for meal preppers. Track macros per portion.
 
+## Code Style
+
+- Indentation: tabs (not spaces) in all files
+
 ## Stack
 
 - **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom
