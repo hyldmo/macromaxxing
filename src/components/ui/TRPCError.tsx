@@ -8,10 +8,11 @@ import type { AppRouter } from '../../../workers/functions/lib/router'
 export interface TRPCErrorProps {
 	error: TRPCClientErrorLike<AppRouter> | null
 	type?: 'error' | 'warning' | 'info'
+	raw?: boolean
 	className?: string
 }
 
-export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', className }) => {
+export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', raw, className }) => {
 	if (!error) return null
 
 	return (
@@ -40,7 +41,7 @@ export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', className
 					'text-info': type === 'info'
 				})}
 			>
-				{getFriendlyMessage(error)}
+				{raw ? error.message : getFriendlyMessage(error)}
 			</span>
 		</div>
 	)

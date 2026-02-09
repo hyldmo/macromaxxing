@@ -175,7 +175,7 @@ export function SettingsPage() {
 									<Check className="size-4" /> Saved
 								</span>
 							) : saveMutation.isError ? (
-								<TRPCError error={saveMutation.error} />
+								<TRPCError error={saveMutation.error} raw />
 							) : null}
 						</div>
 					</form>
