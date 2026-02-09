@@ -11,7 +11,10 @@ import { trpc } from '~/lib/trpc'
 
 export function SettingsPage() {
 	const settingsQuery = trpc.settings.get.useQuery()
-	const saveMutation = trpc.settings.save.useMutation()
+	const utils = trpc.useUtils()
+	const saveMutation = trpc.settings.save.useMutation({
+		onSuccess: () => utils.settings.get.invalidate()
+	})
 
 	const [provider, setProvider] = useState<AiProvider>('gemini')
 	const [apiKey, setApiKey] = useState('')
@@ -134,7 +137,6 @@ export function SettingsPage() {
 									id="batch-lookups"
 									checked={batchLookups}
 									onChange={setBatchLookups}
-									disabled={!settingsQuery.data?.hasKey}
 									className="mt-0.5"
 								/>
 								<div>
@@ -151,7 +153,6 @@ export function SettingsPage() {
 									id="model-fallback"
 									checked={modelFallback}
 									onChange={setModelFallback}
-									disabled={!settingsQuery.data?.hasKey}
 									className="mt-0.5"
 								/>
 								<div>
