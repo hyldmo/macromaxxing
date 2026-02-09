@@ -1,7 +1,8 @@
-import { Plus, Sparkles, Star, Trash2 } from 'lucide-react'
+import { Check, Plus, RefreshCw, Sparkles, Star, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, Input, NumberInput, TRPCError } from '~/components/ui'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { MacroInput } from './MacroInput'
 
 export interface IngredientFormProps {
 	onClose: () => void
@@ -56,6 +57,17 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 	})
 
 	const lookupMutation = trpc.ai.lookup.useMutation()
+
+	async function handleRelookup() {
+		if (!name.trim()) return
+		const result = await lookupMutation.mutateAsync({ ingredientName: name.trim() })
+		setProtein(result.protein.toString())
+		setCarbs(result.carbs.toString())
+		setFat(result.fat.toString())
+		setKcal(result.kcal.toString())
+		setFiber(result.fiber.toString())
+		if (result.density !== null) setDensity(result.density.toString())
+	}
 
 	async function handleEnrich() {
 		if (!editIngredient) return
@@ -148,27 +160,27 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 			{error && <TRPCError error={error} />}
 			<Input placeholder="Ingredient name" value={name} onChange={e => setName(e.target.value)} required />
 
-			<div className="grid grid-cols-5 gap-2">
-				<label>
-					<span className="mb-1 block text-macro-protein text-xs">Protein</span>
-					<NumberInput value={protein} onChange={e => setProtein(e.target.value)} />
-				</label>
-				<label>
-					<span className="mb-1 block text-macro-carbs text-xs">Carbs</span>
-					<NumberInput value={carbs} onChange={e => setCarbs(e.target.value)} />
-				</label>
-				<label>
-					<span className="mb-1 block text-macro-fat text-xs">Fat</span>
-					<NumberInput value={fat} onChange={e => setFat(e.target.value)} />
-				</label>
-				<label>
-					<span className="mb-1 block text-macro-kcal text-xs">Kcal</span>
-					<NumberInput value={kcal} onChange={e => setKcal(e.target.value)} />
-				</label>
-				<label>
-					<span className="mb-1 block text-macro-fiber text-xs">Fiber</span>
-					<NumberInput value={fiber} onChange={e => setFiber(e.target.value)} />
-				</label>
+			<div className="flex items-end gap-2">
+				{editIngredient && (
+					<Button
+						type="button"
+						variant="outline"
+						size="icon"
+						className="size-8 shrink-0"
+						onClick={handleRelookup}
+						disabled={lookupMutation.isPending || !name.trim()}
+						title="Re-lookup macros from USDA/AI"
+					>
+						<RefreshCw className={`size-3.5 ${lookupMutation.isPending ? 'animate-spin' : ''}`} />
+					</Button>
+				)}
+				<div className="grid flex-1 grid-cols-5 gap-2">
+					<MacroInput label="Protein" value={protein} onChange={setProtein} />
+					<MacroInput label="Carbs" value={carbs} onChange={setCarbs} />
+					<MacroInput label="Fat" value={fat} onChange={setFat} />
+					<MacroInput label="Kcal" value={kcal} onChange={setKcal} />
+					<MacroInput label="Fiber" value={fiber} onChange={setFiber} />
+				</div>
 			</div>
 			<p className="text-ink-faint text-xs">Values per 100g raw weight</p>
 
@@ -271,7 +283,12 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 				</div>
 			)}
 
-			<div className="flex justify-end gap-2 pt-2">
+			<div className="flex items-center justify-end gap-2 pt-2">
+				{updateMutation.isSuccess && (
+					<span className="flex items-center gap-1 text-sm text-success">
+						<Check className="size-4" /> Saved
+					</span>
+				)}
 				<Button type="button" variant="outline" onClick={onClose}>
 					{editIngredient ? 'Done' : 'Cancel'}
 				</Button>

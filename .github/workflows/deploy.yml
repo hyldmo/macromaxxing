@@ -19,6 +19,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: yarn lint
       - run: yarn typecheck
+      - run: yarn test
 
   deploy:
     runs-on: ubuntu-latest
