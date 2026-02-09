@@ -14,7 +14,7 @@ import {
 } from '../ai-utils'
 import { batchIngredientAiSchema, ingredientAiSchema } from '../constants'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
-import { toStartCase } from '../utils'
+import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
@@ -82,7 +82,7 @@ export const ingredientsRouter = router({
 			.values({
 				userId: ctx.user.id,
 				...input,
-				name: toStartCase(input.name),
+				name: normalizeIngredientName(input.name),
 				createdAt: Date.now()
 			})
 			.returning()
@@ -104,7 +104,7 @@ export const ingredientsRouter = router({
 
 	/** Find existing ingredient by name (case-insensitive) or create via USDA/AI lookup */
 	findOrCreate: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {
-		const normalizedName = toStartCase(input.name)
+		const normalizedName = normalizeIngredientName(input.name)
 
 		// Check for existing ingredient (case-insensitive)
 		const existing = await ctx.db.query.ingredients.findFirst({
@@ -267,7 +267,7 @@ export const ingredientsRouter = router({
 	batchFindOrCreate: protectedProcedure
 		.input(z.object({ names: z.array(z.string().min(1)).max(50) }))
 		.mutation(async ({ ctx, input }) => {
-			const normalizedNames = input.names.map(toStartCase)
+			const normalizedNames = input.names.map(normalizeIngredientName)
 
 			// 1. DB lookup all (case-insensitive)
 			const existingAll = await ctx.db.query.ingredients.findMany({

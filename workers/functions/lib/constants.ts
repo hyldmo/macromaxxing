@@ -34,12 +34,22 @@ export const parsedRecipeSchema = z.object({
 	ingredients: z
 		.array(
 			z.object({
-				name: z.string().describe('Ingredient name, e.g. "flour", "chicken breast"'),
+				name: z
+					.string()
+					.describe(
+						'Ingredient name without preparation descriptors, e.g. "flour", "chicken breast", "garlic cloves"'
+					),
 				amount: z.number().describe('Numeric amount'),
 				unit: z
 					.string()
 					.describe(
 						'Unit: "g", "tbsp", "cup", "pcs", "large", "medium", "small", "ml", "dl", "tsp", "scoop", etc.'
+					),
+				preparation: z
+					.string()
+					.nullable()
+					.describe(
+						'Preparation method stripped from name, e.g. "minced", "finely chopped", "diced". null if none'
 					)
 			})
 		)
