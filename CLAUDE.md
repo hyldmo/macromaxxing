@@ -49,17 +49,100 @@ Create `.env.local` for frontend:
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
 
-## Key Files
+## Source Tree
 
-| Task | Location |
-|------|----------|
-| DB schema & types | `packages/db/` (shared package `@macromaxxing/db`) |
-| tRPC routes | `workers/functions/lib/routes/*.ts` |
-| Macro calculations | `src/features/recipes/utils/macros.ts` |
-| Design tokens | `src/index.css` |
-| UI components | `src/components/ui/` |
-| Recipe components | `src/features/recipes/components/` |
-| Meal plan components | `src/features/mealPlans/components/` |
+```
+src/
+  main.tsx                                  # App entry (Clerk provider + RouterProvider)
+  router.tsx                                # All routes (see Routes below)
+  index.css                                 # Design tokens + Tailwind
+  lib/
+    trpc.ts                                 # tRPC react-query client
+    user.tsx                                # useUser() hook (Clerk)
+    cn.ts                                   # cn() utility (clsx + twMerge)
+  components/
+    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, etc.
+    layout/Nav.tsx                           # Top nav bar
+    layout/RootLayout.tsx                    # Shell: nav + <Outlet />
+    ErrorBoundary.tsx
+  features/
+    recipes/
+      RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
+      RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions)
+      components/                           # MacroRing, MacroBar, MacroReadout, MacroCell, RecipeIngredientTable,
+                                            #   RecipeIngredientRow, RecipeSummaryRow, RecipeTotalsBar, PortionPanel,
+                                            #   PortionSizeInput, CookedWeightInput, IngredientSearchInput,
+                                            #   PreparationInput, RecipeImportDialog, PremadeDialog, RecipeCard
+      hooks/useRecipeCalculations.ts        # Derives totals, per-portion, per-100g from ingredients + cooked weight
+      utils/macros.ts                       # Pure math: macro calculations
+      utils/format.ts                       # Number/unit formatting helpers
+    ingredients/
+      IngredientListPage.tsx                # List with All/Mine filter, inline edit form
+      components/IngredientForm.tsx          # Add/edit ingredient form
+    mealPlans/
+      MealPlanListPage.tsx                  # List/create/delete meal plans
+      MealPlannerPage.tsx                   # Weekly planner: inventory sidebar + 7-day grid
+      components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
+                                            #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
+                                            #   SlotPickerPopover, DayTotals, WeeklyAverages
+    settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles
+packages/db/                                # Shared package @macromaxxing/db
+  schema.ts                                 # All tables (see DB Schema below)
+  relations.ts                              # Drizzle relations
+  types.ts                                  # Inferred types (Recipe, Ingredient, etc.)
+  custom-types.ts                           # typeidCol, newId, AiProvider type
+  preparation.ts                            # Preparation options list
+workers/functions/
+  api/[[route]].ts                          # Hono entry: Clerk auth middleware → tRPC handler
+  lib/
+    trpc.ts                                 # TRPCContext { db, user, env }, publicProcedure, protectedProcedure
+    router.ts                               # Merges all route files into appRouter
+    auth.ts                                 # Clerk cookie verification → AuthUser { id, email }
+    db.ts                                   # Drizzle D1 setup → Database type
+    ai-utils.ts                             # Multi-provider AI client (Gemini/OpenAI/Anthropic), model fallback
+    crypto.ts                               # AES-GCM encrypt/decrypt for API keys
+    constants.ts                            # Shared constants
+    utils.ts                                # Shared backend helpers
+    routes/
+      recipes.ts                            # recipe.* endpoints
+      ingredients.ts                        # ingredient.* endpoints
+      mealPlans.ts                          # mealPlan.* endpoints
+      ai.ts                                 # ai.* endpoints
+      settings.ts                           # settings.* endpoints
+      user.ts                               # user.* endpoints
+```
+
+## Routes
+
+```
+/              → redirect to /recipes
+/recipes       → RecipeListPage
+/recipes/new   → RecipeEditorPage
+/recipes/:id   → RecipeEditorPage
+/ingredients   → IngredientListPage
+/plans         → MealPlanListPage
+/plans/:id     → MealPlannerPage
+/settings      → SettingsPage
+```
+
+## DB Schema
+
+```
+users(id PK clerk_user_id, email)
+  → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback)
+
+ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, fdcId?, source: manual|ai|usda|label)
+  → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
+
+recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?)
+  → recipeIngredients(id typeid:rci, recipeId, ingredientId, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
+
+mealPlans(id typeid:mpl, userId, name)
+  → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
+    → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
+```
+
+All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
 
 ## Design Tokens
 
