@@ -23,6 +23,7 @@ interface ParsedIngredient {
 	name: string
 	amount: number
 	unit: string
+	preparation?: string | null
 }
 
 export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose }) => {
@@ -155,7 +156,8 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 						ingredientId: ingredient.id,
 						amountGrams,
 						displayUnit,
-						displayAmount
+						displayAmount,
+						preparation: ing.preparation ?? null
 					})
 				}
 			} else {
@@ -172,7 +174,8 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 						ingredientId: ingredient.id,
 						amountGrams,
 						displayUnit,
-						displayAmount
+						displayAmount,
+						preparation: ing.preparation ?? null
 					})
 				}
 			}
@@ -308,6 +311,9 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 												{formatIngredientAmount(ing.amount, ing.unit)}
 											</span>
 											<span className="text-ink">{ing.name}</span>
+											{ing.preparation && (
+												<span className="text-ink-faint text-xs">{ing.preparation}</span>
+											)}
 										</div>
 									))}
 									{ingredients.length === 0 && (
@@ -355,7 +361,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 							<Button onClick={handleParse} disabled={!canParse || parseRecipe.isPending}>
 								{parseRecipe.isPending ? (
 									<>
-										<Spinner className="size-4" />
+										<Spinner className="size-4 text-current" />
 										Parsing...
 									</>
 								) : (

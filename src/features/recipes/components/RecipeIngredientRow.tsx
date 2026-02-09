@@ -7,6 +7,7 @@ import { formatIngredientAmount, getAllUnits } from '../utils/format'
 import type { AbsoluteMacros } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 import { MacroCell } from './MacroCell'
+import { PreparationInput } from './PreparationInput'
 
 export interface RecipeIngredientRowProps {
 	ri: RouterOutput['recipe']['get']['recipeIngredients'][number]
@@ -104,8 +105,20 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 
 	return (
 		<>
-			<tr className="border-edge/50 border-b transition-colors hover:bg-surface-2/50">
-				<td className="px-2 py-1.5 font-medium text-ink text-sm">{ri.ingredient.name}</td>
+			<tr className="group border-edge/50 border-b transition-colors hover:bg-surface-2/50">
+				<td className="px-2 py-1.5 font-medium text-sm">
+					<div className="flex items-baseline gap-1">
+						<span className="text-ink">{ri.ingredient.name}</span>
+						{readOnly ? (
+							ri.preparation && <span className="font-normal text-ink-faint">{ri.preparation}</span>
+						) : (
+							<PreparationInput
+								value={ri.preparation ?? ''}
+								onChange={preparation => updateMutation.mutate({ id: ri.id, preparation })}
+							/>
+						)}
+					</div>
+				</td>
 				<td className="px-2 py-1.5">
 					{readOnly ? (
 						formatReadOnlyDisplay()

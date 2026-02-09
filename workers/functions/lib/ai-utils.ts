@@ -6,6 +6,7 @@ import type { AiProvider } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
 import type { z } from 'zod'
 import { FALLBACK_MODELS, MODELS, type macroSchema } from './constants'
+import { extractPreparation } from './utils'
 
 // USDA nutrient IDs
 const NUTRIENT_IDS = {
@@ -60,7 +61,8 @@ export async function generateTextWithFallback<T extends Output.Output>({
 			return await generateText({
 				model: getModelByName(provider, apiKey, models[i]),
 				output,
-				prompt
+				prompt,
+				maxRetries: 0
 			})
 		} catch (err) {
 			const isLast = i === models.length - 1
@@ -231,7 +233,9 @@ function parseFraction(str: string): number {
 }
 
 /** Parse a single ingredient string like "2 tbsp sugar" or "1/2 cup flour" */
-export function parseIngredientString(text: string): { name: string; amount: number; unit: string } | null {
+export function parseIngredientString(
+	text: string
+): { name: string; amount: number; unit: string; preparation: string | null } | null {
 	const trimmed = text
 		.trim()
 		.replace(/^[-*\u2022]\s*/, '') // strip bullet markers
@@ -243,12 +247,10 @@ export function parseIngredientString(text: string): { name: string; amount: num
 		const match = trimmed.match(pattern)
 		if (match) {
 			const amount = parseFraction(match[1])
-			const name = match[2]
-				.trim()
-				.replace(/,\s*$/, '')
-				.replace(/,\s*(divided|chopped|minced|diced|sliced|grated|peeled|crushed|melted|softened).*$/i, '')
-			if (!Number.isNaN(amount) && name) {
-				return { name, amount, unit }
+			const rawName = match[2].trim().replace(/,\s*$/, '')
+			if (!Number.isNaN(amount) && rawName) {
+				const { name, preparation } = extractPreparation(rawName)
+				return { name, amount, unit, preparation }
 			}
 		}
 	}
@@ -258,7 +260,8 @@ export function parseIngredientString(text: string): { name: string; amount: num
 	if (reverseMatch) {
 		const amount = Number(reverseMatch[2])
 		if (!Number.isNaN(amount)) {
-			return { name: reverseMatch[1].trim(), amount, unit: 'g' }
+			const { name, preparation } = extractPreparation(reverseMatch[1].trim())
+			return { name, amount, unit: 'g', preparation }
 		}
 	}
 

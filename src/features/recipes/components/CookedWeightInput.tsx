@@ -71,7 +71,11 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 						disabled={estimateMutation.isPending}
 						title="Estimate with AI"
 					>
-						{estimateMutation.isPending ? <Spinner className="size-4" /> : <Sparkles className="size-4" />}
+						{estimateMutation.isPending ? (
+							<Spinner className="size-4 text-current" />
+						) : (
+							<Sparkles className="size-4 text-current" />
+						)}
 					</Button>
 				)}
 			</div>

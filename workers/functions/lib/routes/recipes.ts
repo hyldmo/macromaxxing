@@ -25,7 +25,8 @@ const addIngredientSchema = z.object({
 	ingredientId: z.custom<TypeIDString<'ing'>>(),
 	amountGrams: z.number().positive(),
 	displayUnit: z.string().nullable().optional(),
-	displayAmount: z.number().positive().nullable().optional()
+	displayAmount: z.number().positive().nullable().optional(),
+	preparation: z.string().nullable().optional()
 })
 
 const updateIngredientSchema = z.object({
@@ -33,6 +34,7 @@ const updateIngredientSchema = z.object({
 	amountGrams: z.number().positive().optional(),
 	displayUnit: z.string().nullable().optional(),
 	displayAmount: z.number().positive().nullable().optional(),
+	preparation: z.string().nullable().optional(),
 	sortOrder: z.number().int().optional()
 })
 
@@ -148,6 +150,7 @@ export const recipesRouter = router({
 				amountGrams: input.amountGrams,
 				displayUnit: input.displayUnit ?? null,
 				displayAmount: input.displayAmount ?? null,
+				preparation: input.preparation ?? null,
 				sortOrder
 			})
 			.returning()

@@ -82,6 +82,7 @@ export const recipeIngredients = sqliteTable('recipe_ingredients', {
 	amountGrams: real('amount_grams').notNull(),
 	displayUnit: text('display_unit'), // 'scoop' | 'tbsp' | NULL (grams)
 	displayAmount: real('display_amount'), // 2 | NULL
+	preparation: text('preparation'), // "minced", "finely chopped", etc.
 	sortOrder: integer('sort_order').notNull()
 })
 

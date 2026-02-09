@@ -70,7 +70,7 @@ export const MealPlanListPage: FC = () => {
 							className="flex-1"
 						/>
 						<Button onClick={handleCreate} disabled={!newPlanName.trim() || createMutation.isPending}>
-							{createMutation.isPending ? <Spinner className="size-4" /> : 'Create'}
+							{createMutation.isPending ? <Spinner className="size-4 text-current" /> : 'Create'}
 						</Button>
 						<Button
 							variant="ghost"

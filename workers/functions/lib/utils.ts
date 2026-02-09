@@ -1,3 +1,7 @@
+import { extractPreparation } from '@macromaxxing/db'
+
+export { extractPreparation } from '@macromaxxing/db'
+
 /**
  * Converts a string to Start Case (first letter of each word capitalized)
  * Examples:
@@ -10,3 +14,6 @@ export const toStartCase = (str: string): string =>
 		.trim()
 		.toLowerCase()
 		.replace(/\b\w/g, c => c.toUpperCase())
+
+/** Normalize an ingredient name: extract preparation (discard it) + Start Case */
+export const normalizeIngredientName = (name: string): string => toStartCase(extractPreparation(name).name)

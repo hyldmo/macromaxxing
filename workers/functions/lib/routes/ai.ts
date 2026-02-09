@@ -12,6 +12,7 @@ import {
 } from '../ai-utils'
 import { cookedWeightSchema, ingredientAiSchema, parsedRecipeSchema } from '../constants'
 import { protectedProcedure, router } from '../trpc'
+import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
 
 export const aiRouter = router({
@@ -23,12 +24,14 @@ export const aiRouter = router({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
+			const cleanName = normalizeIngredientName(input.ingredientName)
+
 			// If unitsOnly is true, skip USDA and go straight to AI for density + units
 			if (!input.unitsOnly) {
 				// Try USDA first (free, accurate, fast)
 				const usdaKey = ctx.env.USDA_API_KEY
 				if (usdaKey) {
-					const usdaResult = await lookupUSDA(input.ingredientName, usdaKey)
+					const usdaResult = await lookupUSDA(cleanName, usdaKey)
 					if (usdaResult) {
 						const { fdcId, ...macros } = usdaResult
 						return { ...macros, fdcId, density: null, units: [], source: 'usda' as const }
@@ -54,7 +57,7 @@ export const aiRouter = router({
 				provider: settings.provider,
 				apiKey: settings.apiKey,
 				output: Output.object({ schema: ingredientAiSchema }),
-				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.ingredientName}`,
+				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${cleanName}`,
 				fallback: settings.modelFallback
 			})
 
@@ -133,7 +136,7 @@ export const aiRouter = router({
 
 					return {
 						name: jsonLd.name,
-						ingredients,
+						ingredients: ingredients.map(i => ({ ...i, preparation: i.preparation ?? null })),
 						instructions: jsonLd.instructions,
 						servings: jsonLd.servings,
 						source: 'structured' as const
