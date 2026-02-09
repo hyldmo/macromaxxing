@@ -83,3 +83,4 @@ packages/scripts/.pi-cache
 
 apps/hub/bin/
 .wrangler/
+.migration-data.sql

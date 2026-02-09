@@ -21,6 +21,5 @@
 	},
 	"files": ["workers/worker-configuration.d.ts"],
 	"include": ["src"],
-	"exclude": ["vite.config.ts"],
-	"references": [{ "path": "./tsconfig.node.json" }]
+	"exclude": ["vite.config.ts", "scripts"]
 }

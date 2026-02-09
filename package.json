@@ -15,13 +15,19 @@
     "dev:web": "vite",
     "dev:api": "yarn workspace @macromaxxing/workers wrangler pages dev --d1=macromaxxing --port=8788 --live-reload",
     "build": "vite build",
-    "typecheck": "tsc && yarn workspaces foreach --all --parallel run typecheck",
+    "typecheck": "concurrently 'yarn:typecheck:*'",
+    "typecheck:app": "tsc",
+    "typecheck:scripts": "tsc -p tsconfig.node.json",
+    "typecheck:packages": "yarn workspaces foreach --all --exclude macromaxxing --parallel run typecheck",
     "codegen": "yarn workspace @macromaxxing/workers wrangler types",
     "fix": "biome check . --fix --unsafe",
     "lint": "biome check .",
     "format": "biome format --write .",
     "db:generate": "yarn workspace @macromaxxing/db drizzle-kit generate",
-    "db:migrate": "yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --local"
+    "db:migrate": "yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --local",
+    "db:seed": "yarn db:migrate && yarn workspace @macromaxxing/workers wrangler d1 execute macromaxxing --local --file=scripts/seed.sql",
+    "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
+    "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",
