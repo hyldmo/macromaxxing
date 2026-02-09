@@ -27,7 +27,8 @@
     "db:migrate": "yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --local",
     "db:seed": "yarn db:migrate && yarn workspace @macromaxxing/workers wrangler d1 execute macromaxxing --local --file=scripts/seed.sql",
     "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
-    "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts"
+    "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",
@@ -67,6 +68,7 @@
     "semantic-release": "^25.0.3",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }

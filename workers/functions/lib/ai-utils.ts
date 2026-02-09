@@ -77,15 +77,29 @@ export async function generateTextWithFallback<T extends Output.Output>({
 	throw new Error('No models available')
 }
 
+/** Score how well a USDA food description matches a search query */
+export function scoreUsdaMatch(query: string, description: string): number {
+	const queryWords = query.toLowerCase().split(/\s+/)
+	const descWords = description
+		.toLowerCase()
+		.split(/[\s,]+/)
+		.filter(Boolean)
+	const matched = queryWords.filter(qw => descWords.includes(qw)).length
+	if (matched === 0) return 0
+	const startsWithQuery = descWords[0] === queryWords[0] ? 100 : 0
+	const extraWords = descWords.length - matched
+	return matched * 100 + startsWithQuery - extraWords * 10 - description.length
+}
+
 export type UsdaResult = Macros & { fdcId: number }
 
 export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<UsdaResult | null> {
 	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
 	url.searchParams.set('api_key', apiKey)
 	url.searchParams.set('query', ingredientName)
-	url.searchParams.set('pageSize', '5')
-	// Prefer Foundation and SR Legacy (standard reference) for raw ingredients
-	url.searchParams.set('dataType', 'Foundation,SR Legacy')
+	url.searchParams.set('pageSize', '10')
+	// Foundation/SR Legacy for raw ingredients, FNDDS for common foods (milk, bread, etc.)
+	url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS)')
 
 	const res = await fetch(url.toString())
 	if (!res.ok) return null
@@ -100,8 +114,15 @@ export async function lookupUSDA(ingredientName: string, apiKey: string): Promis
 
 	if (!data.foods?.length) return null
 
-	// Use the first result
-	const food = data.foods[0]
+	// Pick the best match — USDA search often returns loosely related foods first
+	// (e.g. "Crackers, milk" for query "milk"). Score by relevance to the query.
+	const food = data.foods.reduce(
+		(best, candidate) =>
+			scoreUsdaMatch(ingredientName, candidate.description) > scoreUsdaMatch(ingredientName, best.description)
+				? candidate
+				: best,
+		data.foods[0]
+	)
 	const nutrients = food.foodNutrients ?? []
 
 	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
