@@ -18,7 +18,7 @@ import {
 	type IngredientWithAmount
 } from './utils/macros'
 
-type Filter = 'all' | 'mine'
+type Filter = 'all' | 'mine' | 'premade'
 type Sort = 'recent' | 'protein' | 'calories' | 'name'
 
 const sortLabels: Record<Sort, string> = {
@@ -52,7 +52,11 @@ export function RecipeListPage() {
 	}, [recipesQuery.data, user?.id])
 
 	const sortedRecipes = useMemo(() => {
-		const filtered = filter === 'mine' ? recipesWithMacros.filter(r => r.isMine) : recipesWithMacros
+		const filtered = recipesWithMacros.filter(r => {
+			if (filter === 'mine') return r.isMine && r.recipe.type !== 'premade'
+			if (filter === 'premade') return r.isMine && r.recipe.type === 'premade'
+			return r.recipe.type !== 'premade'
+		})
 		return [...filtered].sort((a, b) => {
 			switch (sort) {
 				case 'protein':
@@ -67,7 +71,8 @@ export function RecipeListPage() {
 		})
 	}, [recipesWithMacros, filter, sort])
 
-	const myRecipeCount = recipesWithMacros.filter(r => r.isMine).length
+	const myRecipeCount = recipesWithMacros.filter(r => r.isMine && r.recipe.type !== 'premade').length
+	const premadeCount = recipesWithMacros.filter(r => r.isMine && r.recipe.type === 'premade').length
 
 	return (
 		<div className="space-y-3">
@@ -99,6 +104,18 @@ export function RecipeListPage() {
 								)}
 							>
 								Mine{myRecipeCount > 0 && ` (${myRecipeCount})`}
+							</button>
+							<button
+								type="button"
+								onClick={() => setFilter('premade')}
+								className={cn(
+									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
+									filter === 'premade'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								Premade{premadeCount > 0 && ` (${premadeCount})`}
 							</button>
 						</div>
 					)}
@@ -146,9 +163,11 @@ export function RecipeListPage() {
 
 			{sortedRecipes.length === 0 && !recipesQuery.isLoading && (
 				<Card className="py-12 text-center text-ink-faint">
-					{filter === 'mine'
-						? "You haven't created any recipes yet."
-						: 'No recipes yet. Create the first one!'}
+					{filter === 'premade'
+						? "You haven't added any premade meals yet."
+						: filter === 'mine'
+							? "You haven't created any recipes yet."
+							: 'No recipes yet. Create the first one!'}
 				</Card>
 			)}
 
