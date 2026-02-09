@@ -1,4 +1,4 @@
-import { recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
+import { ingredients, ingredientUnits, recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
 import { and, eq, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
@@ -39,18 +39,11 @@ const updateIngredientSchema = z.object({
 })
 
 export const recipesRouter = router({
-	list: protectedProcedure.query(async ({ ctx }) => {
+	list: publicProcedure.query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
-			where: eq(recipes.userId, ctx.user.id),
-			with: { recipeIngredients: { with: { ingredient: { with: { units: true } } } } },
-			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)]
-		})
-		return result
-	}),
-
-	listPublic: publicProcedure.query(async ({ ctx }) => {
-		const result = await ctx.db.query.recipes.findMany({
-			where: ctx.user ? or(eq(recipes.isPublic, 1), eq(recipes.userId, ctx.user.id)) : eq(recipes.isPublic, 1),
+			where: ctx.user
+				? or(and(eq(recipes.isPublic, 1), eq(recipes.type, 'recipe')), eq(recipes.userId, ctx.user.id))
+				: and(eq(recipes.isPublic, 1), eq(recipes.type, 'recipe')),
 			with: { recipeIngredients: { with: { ingredient: { with: { units: true } } } } },
 			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
 			limit: 50
@@ -58,9 +51,9 @@ export const recipesRouter = router({
 		return result
 	}),
 
-	get: protectedProcedure.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() })).query(async ({ ctx, input }) => {
+	get: publicProcedure.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() })).query(async ({ ctx, input }) => {
 		const recipe = await ctx.db.query.recipes.findFirst({
-			where: and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)),
+			where: eq(recipes.id, input.id),
 			with: {
 				recipeIngredients: {
 					with: { ingredient: { with: { units: true } } },
@@ -69,27 +62,10 @@ export const recipesRouter = router({
 			}
 		})
 		if (!recipe) throw new Error('Recipe not found')
+		const isOwner = ctx.user && recipe.userId === ctx.user.id
+		if (!(recipe.isPublic || isOwner)) throw new Error('Recipe not found')
 		return recipe
 	}),
-
-	getPublic: publicProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
-		.query(async ({ ctx, input }) => {
-			const recipe = await ctx.db.query.recipes.findFirst({
-				where: eq(recipes.id, input.id),
-				with: {
-					recipeIngredients: {
-						with: { ingredient: { with: { units: true } } },
-						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
-					}
-				}
-			})
-			if (!recipe) throw new Error('Recipe not found')
-			// Allow access if public OR if user is authenticated and owns it
-			const isOwner = ctx.user && recipe.userId === ctx.user.id
-			if (!(recipe.isPublic || isOwner)) throw new Error('Recipe not found')
-			return recipe
-		}),
 
 	create: protectedProcedure.input(insertRecipeSchema).mutation(async ({ ctx, input }) => {
 		const now = Date.now()
@@ -188,5 +164,84 @@ export const recipesRouter = router({
 			if (ri) {
 				await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
 			}
+		}),
+
+	addPremade: protectedProcedure
+		.input(
+			z.object({
+				name: z.string().min(1),
+				servingSize: z.number().positive(),
+				servings: z.number().positive().default(1),
+				protein: z.number().nonnegative(),
+				carbs: z.number().nonnegative(),
+				fat: z.number().nonnegative(),
+				kcal: z.number().nonnegative(),
+				fiber: z.number().nonnegative().default(0),
+				sourceUrl: z.string().url().nullable().optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			const per100g = (value: number) => (value / input.servingSize) * 100
+
+			// 1. Create backing ingredient with per-100g macros
+			const [ingredient] = await ctx.db
+				.insert(ingredients)
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					protein: per100g(input.protein),
+					carbs: per100g(input.carbs),
+					fat: per100g(input.fat),
+					kcal: per100g(input.kcal),
+					fiber: per100g(input.fiber),
+					source: 'label',
+					createdAt: now
+				})
+				.returning()
+
+			// 2. Add 'g' unit
+			await ctx.db.insert(ingredientUnits).values({
+				ingredientId: ingredient.id,
+				name: 'g',
+				grams: 1,
+				isDefault: 1,
+				source: 'manual',
+				createdAt: now
+			})
+
+			// 3. Create premade recipe
+			const [recipe] = await ctx.db
+				.insert(recipes)
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					type: 'premade',
+					portionSize: input.servingSize,
+					isPublic: 0,
+					sourceUrl: input.sourceUrl ?? null,
+					createdAt: now,
+					updatedAt: now
+				})
+				.returning()
+
+			// 4. Link ingredient to recipe
+			await ctx.db.insert(recipeIngredients).values({
+				recipeId: recipe.id,
+				ingredientId: ingredient.id,
+				amountGrams: input.servingSize * input.servings,
+				sortOrder: 0
+			})
+
+			// 5. Return with populated relations
+			return ctx.db.query.recipes.findFirst({
+				where: eq(recipes.id, recipe.id),
+				with: {
+					recipeIngredients: {
+						with: { ingredient: { with: { units: true } } },
+						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
+					}
+				}
+			})
 		})
 })

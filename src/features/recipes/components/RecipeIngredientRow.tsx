@@ -35,10 +35,10 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 	}, [ri.displayAmount, ri.displayUnit, ri.amountGrams])
 
 	const updateMutation = trpc.recipe.updateIngredient.useMutation({
-		onSuccess: () => utils.recipe.getPublic.invalidate({ id: recipeId })
+		onSuccess: () => utils.recipe.get.invalidate({ id: recipeId })
 	})
 	const removeMutation = trpc.recipe.removeIngredient.useMutation({
-		onSuccess: () => utils.recipe.getPublic.invalidate({ id: recipeId })
+		onSuccess: () => utils.recipe.get.invalidate({ id: recipeId })
 	})
 
 	const error = updateMutation.error || removeMutation.error

@@ -11,13 +11,14 @@ type Recipe = RouterOutput['recipe']['list'][number]
 export interface RecipeCardProps {
 	id: Recipe['id']
 	name: Recipe['name']
+	type?: string
 	ingredientCount: number
 	portionSize: Recipe['portionSize']
 	portion: AbsoluteMacros
 	isMine?: boolean
 }
 
-export const RecipeCard: FC<RecipeCardProps> = ({ id, name, ingredientCount, portionSize, portion, isMine }) => (
+export const RecipeCard: FC<RecipeCardProps> = ({ id, name, type, ingredientCount, portionSize, portion, isMine }) => (
 	<Link to={`/recipes/${id}`}>
 		<div
 			className={cn(
@@ -48,7 +49,9 @@ export const RecipeCard: FC<RecipeCardProps> = ({ id, name, ingredientCount, por
 					</span>
 				</div>
 				<p className="text-ink-faint text-xs">
-					{ingredientCount} items / {portionSize ? `${portionSize}g portion` : 'whole dish'}
+					{type === 'premade'
+						? `premade / ${portionSize ? `${portionSize}g serving` : 'whole item'}`
+						: `${ingredientCount} items / ${portionSize ? `${portionSize}g portion` : 'whole dish'}`}
 				</p>
 				<div className="mt-1 flex items-center gap-3 font-mono text-xs">
 					<span className="text-macro-protein">P {portion.protein.toFixed(0)}g</span>

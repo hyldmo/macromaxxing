@@ -1,10 +1,12 @@
 import type { MealPlan } from '@macromaxxing/db'
-import { Search, X } from 'lucide-react'
+import { Package, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
+import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
+import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
@@ -13,7 +15,7 @@ import {
 } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
-type Recipe = RouterOutput['recipe']['listPublic'][number]
+type Recipe = RouterOutput['recipe']['list'][number]
 
 export interface AddToInventoryModalProps {
 	planId: MealPlan['id']
@@ -22,8 +24,9 @@ export interface AddToInventoryModalProps {
 
 export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onClose }) => {
 	const [search, setSearch] = useState('')
+	const [showPremade, setShowPremade] = useState(false)
 
-	const recipesQuery = trpc.recipe.listPublic.useQuery()
+	const recipesQuery = trpc.recipe.list.useQuery()
 	const utils = trpc.useUtils()
 
 	const addMutation = trpc.mealPlan.addToInventory.useMutation({
@@ -97,15 +100,21 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 				{/* Content */}
 				<div className="p-4">
 					{/* Search input */}
-					<div className="relative">
-						<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
-						<Input
-							placeholder="Search recipes..."
-							value={search}
-							onChange={e => setSearch(e.target.value)}
-							className="pl-8"
-							autoFocus
-						/>
+					<div className="flex gap-2">
+						<div className="relative flex-1">
+							<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
+							<Input
+								placeholder="Search recipes..."
+								value={search}
+								onChange={e => setSearch(e.target.value)}
+								className="pl-8"
+								autoFocus
+							/>
+						</div>
+						<Button variant="outline" className="shrink-0" onClick={() => setShowPremade(true)}>
+							<Package className="size-4" />
+							Premade
+						</Button>
 					</div>
 
 					{/* Recipe list */}
@@ -150,6 +159,17 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 					{addMutation.error && <TRPCError error={addMutation.error} className="mt-3" />}
 				</div>
 			</div>
+			<PremadeDialog
+				open={showPremade}
+				onClose={() => setShowPremade(false)}
+				onCreated={recipe => {
+					addMutation.mutate({
+						planId,
+						recipeId: recipe.id,
+						totalPortions: getDefaultPortions(recipe)
+					})
+				}}
+			/>
 		</div>
 	)
 }

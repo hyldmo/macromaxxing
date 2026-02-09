@@ -181,7 +181,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 			}
 
 			// 3. Navigate to the new recipe
-			utils.recipe.listPublic.invalidate()
+			utils.recipe.list.invalidate()
 			navigate(`/recipes/${recipe.id}`)
 			onClose()
 		} catch (err) {

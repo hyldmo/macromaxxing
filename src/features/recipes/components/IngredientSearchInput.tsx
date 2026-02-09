@@ -197,16 +197,16 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const utils = trpc.useUtils()
 
 	const settingsQuery = trpc.settings.get.useQuery()
-	const ingredientsQuery = trpc.ingredient.listPublic.useQuery()
+	const ingredientsQuery = trpc.ingredient.list.useQuery()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation({
-		onSuccess: () => utils.ingredient.listPublic.invalidate()
+		onSuccess: () => utils.ingredient.list.invalidate()
 	})
 	const batchFindOrCreate = trpc.ingredient.batchFindOrCreate.useMutation({
-		onSuccess: () => utils.ingredient.listPublic.invalidate()
+		onSuccess: () => utils.ingredient.list.invalidate()
 	})
 	const addIngredient = trpc.recipe.addIngredient.useMutation({
 		onSuccess: () => {
-			utils.recipe.getPublic.invalidate({ id: recipeId })
+			utils.recipe.get.invalidate({ id: recipeId })
 		}
 	})
 
@@ -341,7 +341,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 
 			setPastedIngredients([])
 			setIsProcessingPaste(false)
-			utils.recipe.getPublic.invalidate({ id: recipeId })
+			utils.recipe.get.invalidate({ id: recipeId })
 		} catch (err) {
 			// Mark all pending items as error
 			for (let i = 0; i < updated.length; i++) {
@@ -390,7 +390,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		// All done successfully
 		setPastedIngredients([])
 		setIsProcessingPaste(false)
-		utils.recipe.getPublic.invalidate({ id: recipeId })
+		utils.recipe.get.invalidate({ id: recipeId })
 	}
 
 	function cancelPaste() {

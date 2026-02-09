@@ -1,6 +1,6 @@
-import { Import, Plus } from 'lucide-react'
+import { Import, Package, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
 import { Spinner } from '~/components/ui/Spinner'
@@ -8,6 +8,7 @@ import { TRPCError } from '~/components/ui/TRPCError'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useUser } from '~/lib/user'
+import { PremadeDialog } from './components/PremadeDialog'
 import { RecipeCard } from './components/RecipeCard'
 import { RecipeImportDialog } from './components/RecipeImportDialog'
 import {
@@ -31,8 +32,10 @@ export function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = useState<Sort>('recent')
 	const [showImport, setShowImport] = useState(false)
+	const [showPremade, setShowPremade] = useState(false)
+	const navigate = useNavigate()
 	const { user } = useUser()
-	const recipesQuery = trpc.recipe.listPublic.useQuery()
+	const recipesQuery = trpc.recipe.list.useQuery()
 
 	const recipesWithMacros = useMemo(() => {
 		if (!recipesQuery.data) return []
@@ -118,6 +121,10 @@ export function RecipeListPage() {
 								<Import className="size-4" />
 								Import
 							</Button>
+							<Button variant="outline" onClick={() => setShowPremade(true)}>
+								<Package className="size-4" />
+								Premade
+							</Button>
 							<Link to="/recipes/new">
 								<Button>
 									<Plus className="size-4" />
@@ -151,6 +158,7 @@ export function RecipeListPage() {
 						key={recipe.id}
 						id={recipe.id}
 						name={recipe.name}
+						type={recipe.type}
 						ingredientCount={recipe.recipeIngredients.length}
 						portionSize={recipe.portionSize}
 						portion={portion}
@@ -159,6 +167,11 @@ export function RecipeListPage() {
 				))}
 			</div>
 			<RecipeImportDialog open={showImport} onClose={() => setShowImport(false)} />
+			<PremadeDialog
+				open={showPremade}
+				onClose={() => setShowPremade(false)}
+				onCreated={recipe => navigate(`/recipes/${recipe.id}`)}
+			/>
 		</div>
 	)
 }

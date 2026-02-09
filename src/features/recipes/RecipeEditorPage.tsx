@@ -23,7 +23,7 @@ export function RecipeEditorPage() {
 	const { user } = useUser()
 	const userId = user?.id
 
-	const recipeQuery = trpc.recipe.getPublic.useQuery({ id: id! }, { enabled: !!id })
+	const recipeQuery = trpc.recipe.get.useQuery({ id: id! }, { enabled: !!id })
 	const isOwner = recipeQuery.data?.userId === userId
 
 	const createMutation = trpc.recipe.create.useMutation({

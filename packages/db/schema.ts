@@ -60,6 +60,7 @@ export const recipes = sqliteTable('recipes', {
 		.notNull()
 		.references(() => users.id),
 	name: text('name').notNull(),
+	type: text('type').notNull().default('recipe'), // 'recipe' | 'premade'
 	instructions: text('instructions'),
 	cookedWeight: real('cooked_weight'), // nullable, null = use raw total
 	portionSize: real('portion_size'), // null = entire dish is 1 portion

@@ -70,6 +70,17 @@ export const FALLBACK_MODELS: Record<AiProvider, string[]> = {
 	anthropic: []
 }
 
+export const parsedProductSchema = z.object({
+	name: z.string(),
+	servingSize: z.number().describe('Serving size in grams (total product weight if single serving)'),
+	servings: z.number().nullable().describe('Servings per container, default 1 if not stated'),
+	protein: z.number().describe('Protein per serving in grams'),
+	carbs: z.number().describe('Carbs per serving in grams'),
+	fat: z.number().describe('Fat per serving in grams'),
+	kcal: z.number().describe('Calories per serving'),
+	fiber: z.number().describe('Fiber per serving in grams')
+})
+
 export const batchIngredientAiSchema = z.array(
 	z.object({
 		name: z.string().describe('Ingredient name exactly as provided in the input'),
@@ -82,3 +93,16 @@ export const batchIngredientAiSchema = z.array(
 		units: z.array(unitSchema).describe('Common units for measuring this ingredient with gram equivalents')
 	})
 )
+
+export const RECIPE_AI_PROMPT = `
+Parse this recipe into structured data.
+Extract the recipe name, all ingredients with numeric amounts and units (use metric where possible: g, ml, dl, tbsp, tsp, cup, pcs, large, medium, small),
+cooking instructions as numbered steps, and number of servings.`
+
+export const PREMADE_AI_PROMPT = `
+Extract product nutrition information from this page.
+Return the product name, serving size (total product weight in grams), servings per container, and macros per serving (protein, carbs, fat, kcal, fiber in grams).
+
+IMPORTANT: These are typically premade meals/dishes. If no explicit serving count is stated,
+assume the entire product is 1 serving and use the total weight as serving size.
+Do NOT default to "per 100g" — use the actual product weight.`

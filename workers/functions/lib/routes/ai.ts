@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { z } from 'zod'
 import {
+	extractJsonLdProduct,
 	extractJsonLdRecipe,
 	generateTextWithFallback,
 	INGREDIENT_AI_PROMPT,
@@ -10,7 +11,14 @@ import {
 	parseIngredientString,
 	stripHtml
 } from '../ai-utils'
-import { cookedWeightSchema, ingredientAiSchema, parsedRecipeSchema } from '../constants'
+import {
+	cookedWeightSchema,
+	ingredientAiSchema,
+	PREMADE_AI_PROMPT,
+	parsedProductSchema,
+	parsedRecipeSchema,
+	RECIPE_AI_PROMPT
+} from '../constants'
 import { protectedProcedure, router } from '../trpc'
 import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
@@ -171,10 +179,55 @@ export const aiRouter = router({
 				provider: settings.provider,
 				apiKey: settings.apiKey,
 				output: Output.object({ schema: parsedRecipeSchema }),
-				prompt: `Parse this recipe into structured data. Extract the recipe name, all ingredients with numeric amounts and units (use metric where possible: g, ml, dl, tbsp, tsp, cup, pcs, large, medium, small), cooking instructions as numbered steps, and number of servings.\n\nRecipe text:\n${textContent}`,
+				prompt: `${RECIPE_AI_PROMPT}\n\nRecipe text:\n${textContent}`,
 				fallback: settings.modelFallback
 			})
 
 			return { ...output, source: 'ai' as const }
+		}),
+
+	parseProduct: protectedProcedure.input(z.object({ url: z.string().url() })).mutation(async ({ ctx, input }) => {
+		const response = await fetch(input.url, {
+			headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Macromaxxing/1.0)' }
 		})
+		if (!response.ok) {
+			throw new TRPCError({
+				code: 'BAD_REQUEST',
+				message: `Failed to fetch URL: ${response.status} ${response.statusText}`
+			})
+		}
+		const html = await response.text()
+
+		// Try JSON-LD extraction first (free, no AI needed)
+		const jsonLd = extractJsonLdProduct(html)
+		if (jsonLd) {
+			return { ...jsonLd, source: 'structured' as const }
+		}
+
+		// AI fallback
+		const encryptionSecret = ctx.env.ENCRYPTION_SECRET
+		if (!encryptionSecret) {
+			throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
+		}
+
+		const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
+		if (!settings) {
+			throw new TRPCError({
+				code: 'PRECONDITION_FAILED',
+				message: 'No AI provider configured. Go to Settings to add your API key.'
+			})
+		}
+
+		const textContent = stripHtml(html).slice(0, 8000)
+
+		const { output } = await generateTextWithFallback({
+			provider: settings.provider,
+			apiKey: settings.apiKey,
+			output: Output.object({ schema: parsedProductSchema }),
+			prompt: `${PREMADE_AI_PROMPT}\n\nPage text:${textContent}`,
+			fallback: settings.modelFallback
+		})
+
+		return { ...output, source: 'ai' as const }
+	})
 })

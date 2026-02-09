@@ -1,0 +1,1 @@
+ALTER TABLE `recipes` ADD `type` text DEFAULT 'recipe' NOT NULL;

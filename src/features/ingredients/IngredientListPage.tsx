@@ -21,9 +21,9 @@ export function IngredientListPage() {
 	const userId = user?.id
 	const utils = trpc.useUtils()
 
-	const ingredientsQuery = trpc.ingredient.listPublic.useQuery()
+	const ingredientsQuery = trpc.ingredient.list.useQuery()
 	const deleteMutation = trpc.ingredient.delete.useMutation({
-		onSuccess: () => utils.ingredient.listPublic.invalidate()
+		onSuccess: () => utils.ingredient.list.invalidate()
 	})
 
 	const toggleSort = (key: typeof sortKey) => {

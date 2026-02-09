@@ -93,9 +93,10 @@ No shadows — borders-only depth strategy.
 ## API Structure
 
 ```
-trpc.recipe.list/listPublic/get/getPublic/create/update/delete
+trpc.recipe.list/get/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
-trpc.ingredient.list/listPublic/create/update/delete/findOrCreate/batchFindOrCreate
+trpc.recipe.addPremade  # Creates premade meal (ingredient source:'label' + recipe type:'premade') from nutrition label
+trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
@@ -104,6 +105,7 @@ trpc.settings.get/save
 trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight # Returns { cookedWeight } based on ingredients + instructions
 trpc.ai.parseRecipe # Parses recipe from URL (JSON-LD → AI fallback) or text (AI). Returns { name, ingredients[], instructions, servings, source }
+trpc.ai.parseProduct # Parses product nutrition from URL (JSON-LD Product → AI fallback). Returns { name, servingSize, servings, protein, carbs, fat, kcal, fiber, source }
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -121,7 +123,9 @@ trpc.ai.parseRecipe # Parses recipe from URL (JSON-LD → AI fallback) or text (
 
 **Nutrition lookup priority:** USDA FoodData Central API → AI (user's configured provider)
 
-**Public endpoints (no auth):** `recipe.listPublic`, `recipe.getPublic`, `ingredient.listPublic`
+**Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
+
+**Premade meals** — Tracked as `type: 'premade'` recipes backed by a single ingredient with `source: 'label'`. Premade recipes are always private (never shown to unauthenticated users). Backing ingredients are hidden from the ingredient list (`source != 'label'` filter).
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 

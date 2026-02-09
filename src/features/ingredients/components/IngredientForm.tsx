@@ -29,30 +29,30 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 
 	const createMutation = trpc.ingredient.create.useMutation({
 		onSuccess: () => {
-			utils.ingredient.listPublic.invalidate()
+			utils.ingredient.list.invalidate()
 			onClose()
 		}
 	})
 
 	const updateMutation = trpc.ingredient.update.useMutation({
 		onSuccess: () => {
-			utils.ingredient.listPublic.invalidate()
+			utils.ingredient.list.invalidate()
 		}
 	})
 
 	const createUnitMutation = trpc.ingredient.createUnit.useMutation({
 		onSuccess: () => {
-			utils.ingredient.listPublic.invalidate()
+			utils.ingredient.list.invalidate()
 			setNewUnit({ name: '', grams: '' })
 		}
 	})
 
 	const updateUnitMutation = trpc.ingredient.updateUnit.useMutation({
-		onSuccess: () => utils.ingredient.listPublic.invalidate()
+		onSuccess: () => utils.ingredient.list.invalidate()
 	})
 
 	const deleteUnitMutation = trpc.ingredient.deleteUnit.useMutation({
-		onSuccess: () => utils.ingredient.listPublic.invalidate()
+		onSuccess: () => utils.ingredient.list.invalidate()
 	})
 
 	const lookupMutation = trpc.ai.lookup.useMutation()
@@ -91,7 +91,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 				})
 			}
 
-			utils.ingredient.listPublic.invalidate()
+			utils.ingredient.list.invalidate()
 		} finally {
 			setIsEnriching(false)
 		}

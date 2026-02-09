@@ -1,7 +1,7 @@
 import { ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, ne, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import {
 	BATCH_INGREDIENT_AI_PROMPT,
@@ -29,7 +29,7 @@ const createIngredientSchema = z.object({
 	fiber: z.number().nonnegative(),
 	density: z.number().nonnegative().nullable().optional(),
 	fdcId: z.number().int().nullable().optional(),
-	source: z.enum(['manual', 'ai', 'usda'])
+	source: z.enum(['manual', 'ai', 'usda', 'label'])
 })
 
 const updateIngredientSchema = z.object({
@@ -60,16 +60,9 @@ const updateUnitSchema = z.object({
 })
 
 export const ingredientsRouter = router({
-	list: protectedProcedure.query(async ({ ctx }) => {
+	list: publicProcedure.query(async ({ ctx }) => {
 		return ctx.db.query.ingredients.findMany({
-			where: eq(ingredients.userId, ctx.user.id),
-			with: { units: true },
-			orderBy: (ingredients, { asc }) => [asc(ingredients.name)]
-		})
-	}),
-
-	listPublic: publicProcedure.query(async ({ ctx }) => {
-		return ctx.db.query.ingredients.findMany({
+			where: ne(ingredients.source, 'label'),
 			with: { units: true },
 			orderBy: (ingredients, { asc }) => [asc(ingredients.name)],
 			limit: 200

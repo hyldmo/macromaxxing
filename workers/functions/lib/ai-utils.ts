@@ -351,6 +351,83 @@ function parseServings(yieldValue: unknown): number | null {
 	return null
 }
 
+// --- Product parsing utilities ---
+
+export interface JsonLdProduct {
+	name: string
+	servingSize: number
+	servings: number | null
+	protein: number
+	carbs: number
+	fat: number
+	kcal: number
+	fiber: number
+}
+
+/** Parse nutrition strings like "21 g", "240 calories", "5g" → extract the number */
+function parseNutritionValue(value: unknown): number | null {
+	if (typeof value === 'number') return value
+	if (typeof value !== 'string') return null
+	const match = value.match(/([\d.]+)/)
+	return match ? Number(match[1]) : null
+}
+
+/** Extract Product structured data with NutritionInformation from JSON-LD script tags */
+export function extractJsonLdProduct(html: string): JsonLdProduct | null {
+	const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+
+	for (const match of html.matchAll(scriptRegex)) {
+		try {
+			const data = JSON.parse(match[1])
+			const product = findProductInJsonLd(data)
+			if (product) return product
+		} catch {
+			// Invalid JSON-LD block, skip
+		}
+	}
+	return null
+}
+
+function findProductInJsonLd(data: unknown): JsonLdProduct | null {
+	if (Array.isArray(data)) {
+		for (const item of data) {
+			const found = findProductInJsonLd(item)
+			if (found) return found
+		}
+		return null
+	}
+
+	if (typeof data !== 'object' || data === null) return null
+
+	const obj = data as Record<string, unknown>
+
+	if (obj['@graph']) {
+		return findProductInJsonLd(obj['@graph'])
+	}
+
+	const type = obj['@type']
+	const isProduct = type === 'Product' || (Array.isArray(type) && type.includes('Product'))
+
+	if (isProduct && obj.nutrition && typeof obj.nutrition === 'object') {
+		const nutrition = obj.nutrition as Record<string, unknown>
+		const servingSize = parseNutritionValue(nutrition.servingSize)
+		if (!servingSize) return null
+
+		return {
+			name: (obj.name as string) || 'Unknown Product',
+			servingSize,
+			servings: parseNutritionValue(nutrition.numberOfServings),
+			protein: parseNutritionValue(nutrition.proteinContent) ?? 0,
+			carbs: parseNutritionValue(nutrition.carbohydrateContent) ?? 0,
+			fat: parseNutritionValue(nutrition.fatContent) ?? 0,
+			kcal: parseNutritionValue(nutrition.calories) ?? 0,
+			fiber: parseNutritionValue(nutrition.fiberContent) ?? 0
+		}
+	}
+
+	return null
+}
+
 /** Strip HTML tags and collapse whitespace for AI fallback */
 export function stripHtml(html: string): string {
 	return html
