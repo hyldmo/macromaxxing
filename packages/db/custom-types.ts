@@ -42,6 +42,3 @@ export const MUSCLE_GROUPS = [
 ] as const
 
 export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
-
-export const WORKOUT_COLORS = ['macro-protein', 'macro-carbs', 'macro-fat', 'macro-kcal'] as const
-export type WorkoutColor = (typeof WORKOUT_COLORS)[number]

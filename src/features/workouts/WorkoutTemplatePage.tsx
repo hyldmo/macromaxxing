@@ -1,4 +1,4 @@
-import { type TypeIDString, WORKOUT_COLORS, type WorkoutColor } from '@macromaxxing/db'
+import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowLeft, GripVertical, Save, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -7,16 +7,8 @@ import { Input } from '~/components/ui/Input'
 import { NumberInput } from '~/components/ui/NumberInput'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
-import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { ExerciseSearch } from './components/ExerciseSearch'
-
-const COLOR_LABELS: Record<WorkoutColor, string> = {
-	'macro-protein': 'Teal',
-	'macro-carbs': 'Gold',
-	'macro-fat': 'Lime',
-	'macro-kcal': 'Orange'
-}
 
 interface TemplateExercise {
 	exerciseId: TypeIDString<'exc'>
@@ -39,13 +31,11 @@ export function WorkoutTemplatePage() {
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
 	const [name, setName] = useState('')
-	const [color, setColor] = useState<WorkoutColor>('macro-protein')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
 
 	useEffect(() => {
 		if (workoutQuery.data) {
 			setName(workoutQuery.data.name)
-			setColor(workoutQuery.data.color)
 			setExercises(
 				workoutQuery.data.exercises.map(e => ({
 					exerciseId: e.exerciseId,
@@ -83,7 +73,6 @@ export function WorkoutTemplatePage() {
 	function handleSave() {
 		const payload = {
 			name,
-			color,
 			exercises: exercises.map(e => ({
 				exerciseId: e.exerciseId,
 				targetSets: e.targetSets,
@@ -155,28 +144,6 @@ export function WorkoutTemplatePage() {
 						value={name}
 						onChange={e => setName(e.target.value)}
 					/>
-				</div>
-
-				<div className="space-y-1">
-					<span className="text-ink-muted text-sm">Color</span>
-					<div className="flex gap-2">
-						{WORKOUT_COLORS.map(c => (
-							<button
-								key={c}
-								type="button"
-								className={cn(
-									'size-8 rounded-full border-2 transition-all',
-									color === c
-										? 'scale-110 border-ink'
-										: 'border-transparent opacity-60 hover:opacity-100'
-								)}
-								onClick={() => setColor(c)}
-								title={COLOR_LABELS[c]}
-							>
-								<div className={cn('size-full rounded-full', `bg-${c}`)} />
-							</button>
-						))}
-					</div>
 				</div>
 			</div>
 
@@ -286,7 +253,7 @@ const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({ exercise, index, to
 		<span className="text-ink-faint text-xs">reps</span>
 		<span className="text-ink-faint text-xs">@</span>
 		<NumberInput
-			className="w-16"
+			className="w-20"
 			value={exercise.targetWeight ?? ''}
 			placeholder="kg"
 			onChange={e => {
@@ -294,7 +261,7 @@ const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({ exercise, index, to
 				onUpdate({ targetWeight: Number.isNaN(v) ? null : v })
 			}}
 			min={0}
-			step={2.5}
+			step={0.5}
 		/>
 		<Button variant="ghost" size="icon" className="size-6 text-ink-faint hover:text-destructive" onClick={onRemove}>
 			<Trash2 className="size-3" />

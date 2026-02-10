@@ -3,8 +3,6 @@ import {
 	exercises,
 	MUSCLE_GROUPS,
 	type TypeIDString,
-	WORKOUT_COLORS,
-	type WorkoutColor,
 	workoutExercises,
 	workoutLogs,
 	workoutSessions,
@@ -17,8 +15,6 @@ import { protectedProcedure, router } from '../trpc'
 const zExerciseType = z.enum(['compound', 'isolation'])
 const zSetType = z.enum(['warmup', 'working', 'backoff', 'backup'])
 const zMuscleGroup = z.enum(MUSCLE_GROUPS as unknown as [string, ...string[]])
-const zWorkoutColor = z.enum(WORKOUT_COLORS as unknown as [string, ...string[]])
-
 type InferredMuscle = { muscleGroup: (typeof MUSCLE_GROUPS)[number]; intensity: number }
 type InferredExercise = { type: 'compound' | 'isolation'; muscles: InferredMuscle[] }
 
@@ -241,7 +237,6 @@ export const workoutsRouter = router({
 		.input(
 			z.object({
 				name: z.string().min(1),
-				color: zWorkoutColor,
 				exercises: z.array(
 					z.object({
 						exerciseId: z.custom<TypeIDString<'exc'>>(),
@@ -267,7 +262,6 @@ export const workoutsRouter = router({
 				.values({
 					userId: ctx.user.id,
 					name: input.name,
-					color: input.color as WorkoutColor,
 					sortOrder,
 					createdAt: now,
 					updatedAt: now
@@ -307,7 +301,6 @@ export const workoutsRouter = router({
 			z.object({
 				id: z.custom<TypeIDString<'wkt'>>(),
 				name: z.string().min(1).optional(),
-				color: zWorkoutColor.optional(),
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
@@ -330,7 +323,6 @@ export const workoutsRouter = router({
 			const now = Date.now()
 			const set: Record<string, unknown> = { updatedAt: now }
 			if (input.name !== undefined) set.name = input.name
-			if (input.color !== undefined) set.color = input.color
 			if (input.sortOrder !== undefined) set.sortOrder = input.sortOrder
 
 			await ctx.db.update(workouts).set(set).where(eq(workouts.id, input.id))
@@ -826,7 +818,6 @@ export const workoutsRouter = router({
 			.where(eq(workouts.userId, ctx.user.id))
 		let sortOrder = existingCount[0]?.count ?? 0
 
-		const colors = WORKOUT_COLORS
 		let workoutsCreated = 0
 		let exercisesCreated = 0
 
@@ -877,7 +868,6 @@ export const workoutsRouter = router({
 				.values({
 					userId: ctx.user.id,
 					name: pw.name,
-					color: colors[workoutsCreated % colors.length] as WorkoutColor,
 					sortOrder: sortOrder++,
 					createdAt: now,
 					updatedAt: now
