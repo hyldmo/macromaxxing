@@ -24,6 +24,9 @@ export const AI_PROVIDER_OPTIONS = zAiProvider.options.map(p => ({ value: p, lab
 export const sex = z.enum(['male', 'female'])
 export type Sex = z.infer<typeof sex>
 
+export const setMode = z.enum(['working', 'warmup', 'backoff', 'full'])
+export type SetMode = z.infer<typeof setMode>
+
 export const MUSCLE_GROUPS = [
 	'chest',
 	'upper_back',

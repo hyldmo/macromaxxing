@@ -15,6 +15,12 @@ const SET_TYPE_STYLES = {
 	backup: 'bg-surface-2 text-ink-muted'
 } as const
 
+const CONFIRM_BORDER_STYLES = {
+	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',
+	working: 'border-macro-protein bg-macro-protein/20 text-macro-protein',
+	backoff: 'border-macro-fat bg-macro-fat/20 text-macro-fat'
+} as const
+
 export interface SetRowProps {
 	log: Log
 	onUpdate: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
@@ -80,6 +86,7 @@ export interface PlannedSetRowProps {
 	setNumber: number
 	weightKg: number | null
 	reps: number
+	setType?: 'warmup' | 'working' | 'backoff'
 	done: boolean
 	onConfirm: (weightKg: number, reps: number) => void
 	onWeightChange: (weight: number | null) => void
@@ -87,9 +94,10 @@ export interface PlannedSetRowProps {
 }
 
 export const PlannedSetRow: FC<PlannedSetRowProps> = ({
-	setNumber,
+	setNumber: _setNumber,
 	weightKg,
 	reps,
+	setType = 'working',
 	done,
 	onConfirm,
 	onWeightChange,
@@ -101,12 +109,23 @@ export const PlannedSetRow: FC<PlannedSetRowProps> = ({
 			done ? 'opacity-100' : 'opacity-50'
 		)}
 	>
+		{/* Type badge */}
+		<span
+			className={cn(
+				'w-7 shrink-0 rounded-full px-1 py-0.5 text-center font-mono text-[10px] sm:w-16 sm:px-1.5',
+				SET_TYPE_STYLES[setType]
+			)}
+		>
+			<span className="hidden sm:inline">{setType}</span>
+			<span className="sm:hidden">{setType[0].toUpperCase()}</span>
+		</span>
+		{/* Confirm button */}
 		<button
 			type="button"
 			className={cn(
 				'flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors',
 				done
-					? 'border-macro-protein bg-macro-protein/20 text-macro-protein'
+					? CONFIRM_BORDER_STYLES[setType]
 					: 'border-edge text-ink-faint hover:border-ink-muted hover:text-ink-muted'
 			)}
 			onClick={() => {
@@ -116,9 +135,6 @@ export const PlannedSetRow: FC<PlannedSetRowProps> = ({
 		>
 			{done ? <Check className="size-3.5" /> : <Circle className="size-3.5" />}
 		</button>
-		<span className="w-4 shrink-0 text-center font-mono text-ink-faint text-xs tabular-nums sm:w-6">
-			{setNumber}
-		</span>
 		<NumberInput
 			className="w-16 sm:w-20"
 			value={weightKg ?? ''}

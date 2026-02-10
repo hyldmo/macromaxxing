@@ -1,5 +1,5 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { type AiProvider, type MuscleGroup, newId, type Sex, typeidCol } from './custom-types'
+import { type AiProvider, type MuscleGroup, newId, type SetMode, type Sex, typeidCol } from './custom-types'
 
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(), // Clerk user ID (user_xxx)
@@ -182,6 +182,7 @@ export const workoutExercises = sqliteTable('workout_exercises', {
 	targetSets: integer('target_sets').notNull(),
 	targetReps: integer('target_reps').notNull(),
 	targetWeight: real('target_weight'), // null = find weight first session
+	setMode: text('set_mode').notNull().default('warmup').$type<SetMode>(),
 	createdAt: integer('created_at').notNull()
 })
 

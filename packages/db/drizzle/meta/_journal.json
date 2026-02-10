@@ -99,6 +99,13 @@
 			"when": 1770718155085,
 			"tag": "20260210100915_wide_tarot",
 			"breakpoints": true
+		},
+		{
+			"idx": 14,
+			"version": "6",
+			"when": 1770734513890,
+			"tag": "20260210144153_majestic_sasquatch",
+			"breakpoints": true
 		}
 	]
 }

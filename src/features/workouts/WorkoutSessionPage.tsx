@@ -1,4 +1,4 @@
-import type { TypeIDString } from '@macromaxxing/db'
+import type { SetMode, TypeIDString } from '@macromaxxing/db'
 import { ArrowLeft, Check, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -8,16 +8,18 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 import { ExerciseSearch } from './components/ExerciseSearch'
-import { ExerciseSetForm } from './components/ExerciseSetForm'
+import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { totalVolume } from './utils/formulas'
+import { generateBackoffSets, generateWarmupSets, shouldSkipWarmup } from './utils/sets'
 
 export function WorkoutSessionPage() {
 	const { sessionId, workoutId } = useParams<{ sessionId?: string; workoutId?: string }>()
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
+	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -74,12 +76,14 @@ export function WorkoutSessionPage() {
 	type ExerciseGroup = { exercise: SessionLog['exercise']; logs: SessionLog[] }
 
 	// Group logs by exercise, preserving template order
-	const { exerciseGroups, plannedSetsMap, extraExercises } = useMemo<{
+	const { exerciseGroups, plannedSetsMap, extraExercises, exerciseModes } = useMemo<{
 		exerciseGroups: ExerciseGroup[]
-		plannedSetsMap: Map<string, Array<{ setNumber: number; weightKg: number | null; reps: number }>>
+		plannedSetsMap: Map<string, PlannedSet[]>
 		extraExercises: ExerciseGroup[]
+		exerciseModes: Map<string, SetMode>
 	}>(() => {
-		if (!sessionQuery.data) return { exerciseGroups: [], plannedSetsMap: new Map(), extraExercises: [] }
+		if (!sessionQuery.data)
+			return { exerciseGroups: [], plannedSetsMap: new Map(), extraExercises: [], exerciseModes: new Map() }
 
 		const template = sessionQuery.data.workout
 		const logsByExercise = new Map<string, ExerciseGroup>()
@@ -93,17 +97,61 @@ export function WorkoutSessionPage() {
 			}
 		}
 
-		// Build planned sets from template
-		const planned = new Map<string, Array<{ setNumber: number; weightKg: number | null; reps: number }>>()
+		// Build planned sets from template with warmup/backoff auto-generation
+		const planned = new Map<string, PlannedSet[]>()
 		const templateExerciseIds = new Set<string>()
+		const modes = new Map<string, SetMode>()
+
+		// Track which muscles have been warmed up by preceding exercises
+		const warmedUpMuscles = new Map<string, number>()
 
 		if (template) {
 			for (const we of template.exercises) {
 				templateExerciseIds.add(we.exerciseId)
-				const sets = []
-				for (let i = 1; i <= we.targetSets; i++) {
-					sets.push({ setNumber: i, weightKg: we.targetWeight, reps: we.targetReps })
+				const templateMode = (we.setMode ?? 'working') as SetMode
+				const effectiveMode = modeOverrides.get(we.exerciseId) ?? templateMode
+				modes.set(we.exerciseId, effectiveMode)
+
+				const sets: PlannedSet[] = []
+				let setNum = 1
+				const hasWarmup = effectiveMode === 'warmup' || effectiveMode === 'full'
+				const hasBackoff = effectiveMode === 'backoff' || effectiveMode === 'full'
+
+				// Generate warmup sets
+				if (hasWarmup && we.targetWeight != null && we.targetWeight > 0) {
+					const skipWarmup = shouldSkipWarmup(we.exercise.muscles, warmedUpMuscles)
+					if (!skipWarmup) {
+						const warmups = generateWarmupSets(we.targetWeight, we.targetReps)
+						for (const wu of warmups) {
+							sets.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
+						}
+					}
+					// Track warmed-up muscles
+					for (const m of we.exercise.muscles) {
+						const existing = warmedUpMuscles.get(m.muscleGroup) ?? 0
+						warmedUpMuscles.set(m.muscleGroup, Math.max(existing, m.intensity))
+					}
 				}
+
+				// Generate working sets (subtract 1 if backoff)
+				const workingCount = hasBackoff ? Math.max(1, we.targetSets - 1) : we.targetSets
+				for (let i = 0; i < workingCount; i++) {
+					sets.push({
+						setNumber: setNum++,
+						weightKg: we.targetWeight,
+						reps: we.targetReps,
+						setType: 'working'
+					})
+				}
+
+				// Generate backoff set
+				if (hasBackoff && we.targetWeight != null && we.targetWeight > 0) {
+					const backoffs = generateBackoffSets(we.targetWeight, we.targetReps, 1)
+					for (const bo of backoffs) {
+						sets.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
+					}
+				}
+
 				planned.set(we.exerciseId, sets)
 			}
 		}
@@ -130,8 +178,8 @@ export function WorkoutSessionPage() {
 			}
 		}
 
-		return { exerciseGroups: groups, plannedSetsMap: planned, extraExercises: extras }
-	}, [sessionQuery.data])
+		return { exerciseGroups: groups, plannedSetsMap: planned, extraExercises: extras, exerciseModes: modes }
+	}, [sessionQuery.data, modeOverrides])
 
 	const session = sessionQuery.data
 	const vol = session ? totalVolume(session.logs) : 0
@@ -223,23 +271,26 @@ export function WorkoutSessionPage() {
 						exercise={exercise}
 						logs={logs}
 						plannedSets={plannedSetsMap.get(exercise.id)}
+						setMode={exerciseModes.get(exercise.id)}
+						onSetModeChange={mode => {
+							setModeOverrides(prev => {
+								const next = new Map(prev)
+								next.set(exercise.id, mode)
+								return next
+							})
+						}}
 						readOnly={isCompleted}
 						onAddSet={data =>
 							addSetMutation.mutate({
 								sessionId: session.id,
-								exerciseId: data.exerciseId as TypeIDString<'exc'>,
+								exerciseId: data.exerciseId,
 								weightKg: data.weightKg,
 								reps: data.reps,
 								setType: data.setType
 							})
 						}
-						onUpdateSet={(logId, updates) =>
-							updateSetMutation.mutate({
-								id: logId as TypeIDString<'wkl'>,
-								...updates
-							})
-						}
-						onRemoveSet={logId => removeSetMutation.mutate({ id: logId as TypeIDString<'wkl'> })}
+						onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
+						onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
 					/>
 				))}
 			</div>

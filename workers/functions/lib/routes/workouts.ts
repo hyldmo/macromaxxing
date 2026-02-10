@@ -14,6 +14,7 @@ import { protectedProcedure, router } from '../trpc'
 
 const zExerciseType = z.enum(['compound', 'isolation'])
 const zSetType = z.enum(['warmup', 'working', 'backoff', 'backup'])
+const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 const zMuscleGroup = z.enum(MUSCLE_GROUPS as unknown as [string, ...string[]])
 type InferredMuscle = { muscleGroup: (typeof MUSCLE_GROUPS)[number]; intensity: number }
 type InferredExercise = { type: 'compound' | 'isolation'; muscles: InferredMuscle[] }
@@ -242,7 +243,8 @@ export const workoutsRouter = router({
 						exerciseId: z.custom<TypeIDString<'exc'>>(),
 						targetSets: z.number().int().min(1),
 						targetReps: z.number().int().min(1),
-						targetWeight: z.number().min(0).nullable()
+						targetWeight: z.number().min(0).nullable(),
+						setMode: zSetMode.default('working')
 					})
 				)
 			})
@@ -279,6 +281,7 @@ export const workoutsRouter = router({
 							targetSets: e.targetSets,
 							targetReps: e.targetReps,
 							targetWeight: e.targetWeight,
+							setMode: e.setMode,
 							createdAt: now
 						}))
 					)
@@ -308,7 +311,8 @@ export const workoutsRouter = router({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
 							targetSets: z.number().int().min(1),
 							targetReps: z.number().int().min(1),
-							targetWeight: z.number().min(0).nullable()
+							targetWeight: z.number().min(0).nullable(),
+							setMode: zSetMode.default('working')
 						})
 					)
 					.optional()
@@ -340,6 +344,7 @@ export const workoutsRouter = router({
 								targetSets: e.targetSets,
 								targetReps: e.targetReps,
 								targetWeight: e.targetWeight,
+								setMode: e.setMode,
 								createdAt: now
 							}))
 						)
@@ -463,7 +468,8 @@ export const workoutsRouter = router({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
 							targetSets: z.number().int().min(1),
 							targetReps: z.number().int().min(1),
-							targetWeight: z.number().min(0).nullable()
+							targetWeight: z.number().min(0).nullable(),
+							setMode: zSetMode.default('working')
 						})
 					)
 					.optional()
@@ -523,6 +529,7 @@ export const workoutsRouter = router({
 							targetSets: ex.targetSets,
 							targetReps: ex.targetReps,
 							targetWeight: ex.targetWeight,
+							setMode: ex.setMode,
 							createdAt: now
 						})
 					}
@@ -834,6 +841,7 @@ export const workoutsRouter = router({
 				targetSets: number
 				targetReps: number
 				targetWeight: number | null
+				setMode: 'working' | 'warmup' | 'backoff' | 'full'
 			}> = []
 
 			for (const row of pw.rows) {
@@ -863,7 +871,8 @@ export const workoutsRouter = router({
 					exerciseId: exercise.id,
 					targetSets: isSpreadsheet ? setsPerExercise : 1,
 					targetReps: row.reps,
-					targetWeight: row.weightKg > 0 ? row.weightKg : null
+					targetWeight: row.weightKg > 0 ? row.weightKg : null,
+					setMode: exercise.type === 'compound' ? 'warmup' : 'working'
 				})
 			}
 
@@ -887,6 +896,7 @@ export const workoutsRouter = router({
 						targetSets: e.targetSets,
 						targetReps: e.targetReps,
 						targetWeight: e.targetWeight,
+						setMode: e.setMode,
 						createdAt: now
 					}))
 				)

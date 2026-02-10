@@ -1,33 +1,37 @@
-import { ChevronDown, ChevronRight, Plus, Zap } from 'lucide-react'
+import type { SetMode } from '@macromaxxing/db'
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { NumberInput } from '~/components/ui/NumberInput'
 import type { RouterOutput } from '~/lib/trpc'
 import { totalVolume } from '../utils/formulas'
-import { generateBackoffSets, generateWarmupSets } from '../utils/sets'
+import { WorkoutModes } from '../WorkoutMode'
 import { PlannedSetRow, SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
 type Exercise = Log['exercise']
 
-interface PlannedSet {
+export interface PlannedSet {
 	setNumber: number
 	weightKg: number | null
 	reps: number
+	setType: 'warmup' | 'working' | 'backoff'
 }
 
 export interface ExerciseSetFormProps {
 	exercise: Exercise
 	logs: Log[]
 	plannedSets?: PlannedSet[]
+	setMode?: SetMode
+	onSetModeChange?: (mode: SetMode) => void
 	onAddSet: (data: {
-		exerciseId: string
+		exerciseId: Exercise['id']
 		weightKg: number
 		reps: number
 		setType: 'warmup' | 'working' | 'backoff'
 	}) => void
-	onUpdateSet: (id: string, updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
-	onRemoveSet: (id: string) => void
+	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
+	onRemoveSet: (id: Log['id']) => void
 	readOnly?: boolean
 }
 
@@ -35,6 +39,8 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	exercise,
 	logs,
 	plannedSets,
+	setMode,
+	onSetModeChange,
 	onAddSet,
 	onUpdateSet,
 	onRemoveSet,
@@ -48,8 +54,22 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	)
 
 	const vol = totalVolume(logs.filter(l => l.setType !== 'warmup'))
-	const workingSets = logs.filter(l => l.setType === 'working')
-	const lastWorking = workingSets[workingSets.length - 1]
+
+	// Track fulfillment per set type
+	const warmupLogs = logs.filter(l => l.setType === 'warmup')
+	const workingLogs = logs.filter(l => l.setType === 'working')
+	const backoffLogs = logs.filter(l => l.setType === 'backoff')
+
+	const plannedWarmups = plannedSets?.filter(s => s.setType === 'warmup') ?? []
+	const plannedWorking = plannedSets?.filter(s => s.setType === 'working') ?? []
+	const plannedBackoffs = plannedSets?.filter(s => s.setType === 'backoff') ?? []
+
+	const remainingWarmups = plannedWarmups.slice(warmupLogs.length)
+	const remainingWorking = plannedWorking.slice(workingLogs.length)
+	const remainingBackoffs = plannedBackoffs.slice(backoffLogs.length)
+	const remainingPlanned = [...remainingWarmups, ...remainingWorking, ...remainingBackoffs]
+
+	const totalPlanned = plannedSets?.length ?? 0
 
 	function handleAddSet() {
 		const w = Number.parseFloat(newWeight)
@@ -66,28 +86,6 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 			handleAddSet()
 		}
 	}
-
-	function handleWarmup() {
-		const w = Number.parseFloat(newWeight)
-		const r = Number.parseInt(newReps, 10)
-		if (Number.isNaN(w) || w <= 0) return
-		const warmups = generateWarmupSets(w, r || 5)
-		for (const set of warmups) {
-			onAddSet({ exerciseId: exercise.id, weightKg: set.weightKg, reps: set.reps, setType: 'warmup' })
-		}
-	}
-
-	function handleBackoff() {
-		if (!lastWorking) return
-		const backoffs = generateBackoffSets(lastWorking.weightKg, lastWorking.reps)
-		for (const set of backoffs) {
-			onAddSet({ exerciseId: exercise.id, weightKg: set.weightKg, reps: set.reps, setType: 'backoff' })
-		}
-	}
-
-	// Determine which planned sets are fulfilled by actual logs
-	const fulfilledCount = plannedSets ? Math.min(workingSets.length, plannedSets.length) : 0
-	const remainingPlanned = plannedSets?.slice(fulfilledCount) ?? []
 
 	return (
 		<div className="rounded-[--radius-sm] border border-edge bg-surface-1">
@@ -107,13 +105,21 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 				</span>
 				<span className="ml-auto font-mono text-ink-muted text-xs tabular-nums">
 					{logs.length}
-					{plannedSets ? `/${plannedSets.length}` : ''} sets
+					{totalPlanned > 0 ? `/${totalPlanned}` : ''} sets
 					{vol > 0 && ` · ${(vol / 1000).toFixed(1)}k`}
 				</span>
 			</button>
 
 			{!collapsed && (
 				<div className="border-edge border-t px-3 py-2">
+					{/* Mode toggle (session-level override) */}
+					{!readOnly && setMode && onSetModeChange && (
+						<div className="mb-2 flex items-center gap-2">
+							<span className="text-[10px] text-ink-faint">Mode</span>
+							<WorkoutModes value={setMode} onChange={onSetModeChange} />
+						</div>
+					)}
+
 					{/* Logged sets */}
 					<div className="space-y-0.5">
 						{logs.map(log => (
@@ -128,17 +134,18 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 								const overrides = editableTargets.get(planned.setNumber)
 								return (
 									<PlannedSetRow
-										key={planned.setNumber}
+										key={`${planned.setType}-${planned.setNumber}`}
 										setNumber={planned.setNumber}
 										weightKg={overrides?.weight !== undefined ? overrides.weight : planned.weightKg}
 										reps={overrides?.reps !== undefined ? overrides.reps : planned.reps}
+										setType={planned.setType}
 										done={false}
 										onConfirm={(weight, reps) => {
 											onAddSet({
 												exerciseId: exercise.id,
 												weightKg: weight,
 												reps,
-												setType: 'working'
+												setType: planned.setType
 											})
 											// Clear overrides for this set
 											setEditableTargets(prev => {
@@ -204,15 +211,6 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 								<Plus className="size-3.5" />
 								Set
 							</Button>
-							<Button variant="outline" size="sm" onClick={handleWarmup} disabled={!newWeight}>
-								<Zap className="size-3.5" />
-								Warmup
-							</Button>
-							{lastWorking && (
-								<Button variant="outline" size="sm" onClick={handleBackoff}>
-									Backoff
-								</Button>
-							)}
 						</div>
 					)}
 				</div>

@@ -1,6 +1,5 @@
 import type { Sex } from '@macromaxxing/db'
 import { type FC, useEffect, useState } from 'react'
-import { Button } from '~/components/ui/Button'
 import { NumberInput } from '~/components/ui/NumberInput'
 import { SaveButton } from '~/components/ui/SaveButton'
 import { Select } from '~/components/ui/Select'

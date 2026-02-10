@@ -1,4 +1,4 @@
-import type { TypeIDString, Workout } from '@macromaxxing/db'
+import type { SetMode, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, GripVertical, SaveIcon, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -10,13 +10,16 @@ import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 import { ExerciseSearch } from './components/ExerciseSearch'
+import { WorkoutModes } from './WorkoutMode'
 
 interface TemplateExercise {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
+	exerciseType: 'compound' | 'isolation'
 	targetSets: number
 	targetReps: number
 	targetWeight: number | null
+	setMode: SetMode
 }
 
 export function WorkoutTemplatePage() {
@@ -41,9 +44,11 @@ export function WorkoutTemplatePage() {
 				workoutQuery.data.exercises.map(e => ({
 					exerciseId: e.exerciseId,
 					exerciseName: e.exercise.name,
+					exerciseType: e.exercise.type,
 					targetSets: e.targetSets,
 					targetReps: e.targetReps,
-					targetWeight: e.targetWeight
+					targetWeight: e.targetWeight,
+					setMode: e.setMode ?? 'working'
 				}))
 			)
 		}
@@ -76,7 +81,8 @@ export function WorkoutTemplatePage() {
 				exerciseId: e.exerciseId,
 				targetSets: e.targetSets,
 				targetReps: e.targetReps,
-				targetWeight: e.targetWeight
+				targetWeight: e.targetWeight,
+				setMode: e.setMode
 			}))
 		}
 		if (isEditing) {
@@ -169,9 +175,11 @@ export function WorkoutTemplatePage() {
 								{
 									exerciseId: exercise.id,
 									exerciseName: exercise.name,
+									exerciseType: exercise.type,
 									targetSets: 3,
 									targetReps: 8,
-									targetWeight: null
+									targetWeight: null,
+									setMode: exercise.type === 'compound' ? 'warmup' : 'working'
 								}
 							])
 						}}
@@ -226,12 +234,13 @@ const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({ exercise, index, to
 			</button>
 		</div>
 		<span className="min-w-0 flex-1 truncate text-ink text-sm">{exercise.exerciseName}</span>
+		<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
 		<NumberInput
 			className="w-14"
-			value={exercise.targetSets}
+			value={exercise.targetSets || ''}
 			onChange={e => {
 				const v = Number.parseInt(e.target.value, 10)
-				if (!Number.isNaN(v) && v > 0) onUpdate({ targetSets: v })
+				onUpdate({ targetSets: Number.isNaN(v) ? 0 : v })
 			}}
 			min={1}
 			step={1}
@@ -240,10 +249,10 @@ const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({ exercise, index, to
 		<span className="text-ink-faint text-xs">×</span>
 		<NumberInput
 			className="w-14"
-			value={exercise.targetReps}
+			value={exercise.targetReps || ''}
 			onChange={e => {
 				const v = Number.parseInt(e.target.value, 10)
-				if (!Number.isNaN(v) && v > 0) onUpdate({ targetReps: v })
+				onUpdate({ targetReps: Number.isNaN(v) ? 0 : v })
 			}}
 			min={1}
 			step={1}

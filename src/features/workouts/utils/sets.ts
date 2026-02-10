@@ -6,25 +6,49 @@ export interface GeneratedSet {
 	setType: 'warmup' | 'backoff'
 }
 
-export function generateWarmupSets(workingWeight: number, _workingReps: number): GeneratedSet[] {
-	const bar = 20
+export function generateWarmupSets(workingWeight: number, workingReps: number): GeneratedSet[] {
+	if (workingWeight <= 0) return []
 	const sets: GeneratedSet[] = []
 
-	if (workingWeight > bar * 2) {
-		sets.push({ weightKg: bar, reps: 10, setType: 'warmup' })
-	}
-
-	const pcts = [0.5, 0.7, 0.85] as const
-	for (const pct of pcts) {
-		const w = round(workingWeight * pct)
-		if (w <= bar) continue
-		if (workingWeight - w < 5) continue
-		if (sets.length > 0 && sets[sets.length - 1].weightKg === w) continue
-		const reps = pct <= 0.5 ? 8 : pct <= 0.7 ? 5 : 3
-		sets.push({ weightKg: w, reps, setType: 'warmup' })
+	// Heavy barbell lifts: bar → 50% → 75%
+	if (workingWeight > 60) {
+		sets.push({ weightKg: 20, reps: 10, setType: 'warmup' })
+		const half = round(workingWeight * 0.5)
+		if (half > 20) sets.push({ weightKg: half, reps: 5, setType: 'warmup' })
+		const three4 = round(workingWeight * 0.75)
+		if (three4 > half && workingWeight - three4 >= 5) {
+			sets.push({ weightKg: three4, reps: 3, setType: 'warmup' })
+		}
+	} else {
+		// Light/dumbbell: single set at ~60%
+		const w = round(workingWeight * 0.6)
+		if (w > 0) sets.push({ weightKg: w, reps: workingReps, setType: 'warmup' })
 	}
 
 	return sets
+}
+
+interface MuscleEntry {
+	muscleGroup: string
+	intensity: number
+}
+
+/**
+ * Returns true if enough of the current exercise's muscles have already
+ * been warmed up by preceding exercises (overlap >= 0.5).
+ */
+export function shouldSkipWarmup(currentMuscles: MuscleEntry[], warmedUpMuscles: Map<string, number>): boolean {
+	if (currentMuscles.length === 0) return false
+	const totalIntensity = currentMuscles.reduce((sum, m) => sum + m.intensity, 0)
+	if (totalIntensity === 0) return false
+	let coveredIntensity = 0
+	for (const m of currentMuscles) {
+		const warmedIntensity = warmedUpMuscles.get(m.muscleGroup) ?? 0
+		if (warmedIntensity > 0) {
+			coveredIntensity += Math.min(m.intensity, warmedIntensity)
+		}
+	}
+	return coveredIntensity / totalIntensity >= 0.5
 }
 
 export function generateBackoffSets(workingWeight: number, workingReps: number, count = 2): GeneratedSet[] {
