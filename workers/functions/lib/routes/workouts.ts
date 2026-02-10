@@ -481,49 +481,53 @@ export const workoutsRouter = router({
 				.where(eq(workoutSessions.id, input.id))
 
 			// Apply template updates if provided
-			if (input.templateUpdates?.length) {
-				const now = Date.now()
-				for (const update of input.templateUpdates) {
-					const set: Record<string, unknown> = {}
-					if (update.targetSets !== undefined) set.targetSets = update.targetSets
-					if (update.targetReps !== undefined) set.targetReps = update.targetReps
-					if (update.targetWeight !== undefined) set.targetWeight = update.targetWeight
-					if (Object.keys(set).length === 0) continue
+			if ((input.templateUpdates?.length || input.addExercises?.length) && session.workoutId) {
+				const workoutId = session.workoutId
 
-					await ctx.db
-						.update(workoutExercises)
-						.set(set)
-						.where(
-							and(
-								eq(workoutExercises.workoutId, session.workoutId),
-								eq(workoutExercises.exerciseId, update.exerciseId)
+				if (input.templateUpdates?.length) {
+					const now = Date.now()
+					for (const update of input.templateUpdates) {
+						const set: Record<string, unknown> = {}
+						if (update.targetSets !== undefined) set.targetSets = update.targetSets
+						if (update.targetReps !== undefined) set.targetReps = update.targetReps
+						if (update.targetWeight !== undefined) set.targetWeight = update.targetWeight
+						if (Object.keys(set).length === 0) continue
+
+						await ctx.db
+							.update(workoutExercises)
+							.set(set)
+							.where(
+								and(
+									eq(workoutExercises.workoutId, workoutId),
+									eq(workoutExercises.exerciseId, update.exerciseId)
+								)
 							)
-						)
+					}
+					await ctx.db.update(workouts).set({ updatedAt: now }).where(eq(workouts.id, workoutId))
 				}
-				await ctx.db.update(workouts).set({ updatedAt: now }).where(eq(workouts.id, session.workoutId))
-			}
 
-			// Add new exercises to template
-			if (input.addExercises?.length) {
-				const now = Date.now()
-				const existingCount = await ctx.db
-					.select({ count: sql<number>`count(*)` })
-					.from(workoutExercises)
-					.where(eq(workoutExercises.workoutId, session.workoutId))
-				let sortOrder = existingCount[0]?.count ?? 0
+				// Add new exercises to template
+				if (input.addExercises?.length) {
+					const now = Date.now()
+					const existingCount = await ctx.db
+						.select({ count: sql<number>`count(*)` })
+						.from(workoutExercises)
+						.where(eq(workoutExercises.workoutId, workoutId))
+					let sortOrder = existingCount[0]?.count ?? 0
 
-				for (const ex of input.addExercises) {
-					await ctx.db.insert(workoutExercises).values({
-						workoutId: session.workoutId,
-						exerciseId: ex.exerciseId,
-						sortOrder: sortOrder++,
-						targetSets: ex.targetSets,
-						targetReps: ex.targetReps,
-						targetWeight: ex.targetWeight,
-						createdAt: now
-					})
+					for (const ex of input.addExercises) {
+						await ctx.db.insert(workoutExercises).values({
+							workoutId,
+							exerciseId: ex.exerciseId,
+							sortOrder: sortOrder++,
+							targetSets: ex.targetSets,
+							targetReps: ex.targetReps,
+							targetWeight: ex.targetWeight,
+							createdAt: now
+						})
+					}
+					await ctx.db.update(workouts).set({ updatedAt: now }).where(eq(workouts.id, workoutId))
 				}
-				await ctx.db.update(workouts).set({ updatedAt: now }).where(eq(workouts.id, session.workoutId))
 			}
 		}),
 

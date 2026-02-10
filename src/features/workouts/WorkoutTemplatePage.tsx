@@ -1,10 +1,11 @@
 import type { TypeIDString, Workout } from '@macromaxxing/db'
-import { ArrowLeft, GripVertical, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, GripVertical, SaveIcon, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { NumberInput } from '~/components/ui/NumberInput'
+import { SaveButton } from '~/components/ui/SaveButton'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
@@ -182,16 +183,15 @@ export function WorkoutTemplatePage() {
 				<TRPCError error={createMutation.error ?? updateMutation.error!} />
 			)}
 
-			<Button onClick={handleSave} disabled={saving || !name || exercises.length === 0}>
-				{saving ? (
-					<Spinner className="size-4" />
-				) : (
-					<>
-						<Save className="size-4" />
-						{isEditing ? 'Save Changes' : 'Create Workout'}
-					</>
-				)}
-			</Button>
+			<SaveButton
+				mutation={isEditing ? updateMutation : createMutation}
+				disabled={!name || exercises.length === 0}
+				onClick={handleSave}
+				pendingText={isEditing ? 'Saving...' : 'Creating...'}
+				icon={SaveIcon}
+			>
+				{isEditing ? 'Save Changes' : 'Create Workout'}
+			</SaveButton>
 		</div>
 	)
 }

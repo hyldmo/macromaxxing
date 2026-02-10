@@ -1,11 +1,9 @@
 import type { Sex } from '@macromaxxing/db'
-import { Check } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { Spinner } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { NumberInput } from '~/components/ui/NumberInput'
+import { SaveButton } from '~/components/ui/SaveButton'
 import { Select } from '~/components/ui/Select'
-import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
 
 export const ProfileForm: FC = () => {
@@ -85,20 +83,7 @@ export const ProfileForm: FC = () => {
 				</div>
 			</div>
 			<p className="text-ink-faint text-xs">Used for workout validation and nutrition targets.</p>
-			<div className="flex items-center gap-2">
-				<Button type="submit" disabled={!hasChanges || saveMutation.isPending}>
-					{saveMutation.isPending ? 'Saving...' : 'Save'}
-				</Button>
-				{saveMutation.isPending ? (
-					<Spinner className="size-4" />
-				) : saveMutation.isSuccess ? (
-					<span className="flex items-center gap-1 text-sm text-success">
-						<Check className="size-4" /> Saved
-					</span>
-				) : saveMutation.isError ? (
-					<TRPCError error={saveMutation.error} raw />
-				) : null}
-			</div>
+			<SaveButton mutation={saveMutation} disabled={!hasChanges} />
 		</form>
 	)
 }

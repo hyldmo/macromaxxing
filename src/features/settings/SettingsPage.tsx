@@ -1,10 +1,9 @@
 import { AI_PROVIDER_OPTIONS, type AiProvider } from '@macromaxxing/db'
-import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Spinner } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { Card, CardContent, CardHeader } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
+import { SaveButton } from '~/components/ui/SaveButton'
 import { Switch } from '~/components/ui/Switch'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
@@ -51,7 +50,6 @@ export function SettingsPage() {
 	}
 
 	const canSave = apiKey || providerChanged || batchChanged || fallbackChanged
-	const buttonText = saveMutation.isPending ? (apiKey ? 'Verifying...' : 'Saving...') : 'Save'
 
 	return (
 		<div className="space-y-3">
@@ -178,20 +176,12 @@ export function SettingsPage() {
 							</label>
 						</fieldset>
 
-						<div className="flex items-center gap-2">
-							<Button type="submit" disabled={!canSave || saveMutation.isPending}>
-								{buttonText}
-							</Button>
-							{saveMutation.isPending ? (
-								<Spinner className="size-4" />
-							) : saveMutation.isSuccess ? (
-								<span className="flex items-center gap-1 text-sm text-success">
-									<Check className="size-4" /> Saved
-								</span>
-							) : saveMutation.isError ? (
-								<TRPCError error={saveMutation.error} raw />
-							) : null}
-						</div>
+						<SaveButton
+							mutation={saveMutation}
+							disabled={!canSave}
+							pendingText={apiKey ? 'Verifying...' : 'Saving...'}
+							rawError
+						/>
 					</form>
 				</CardContent>
 			</Card>
