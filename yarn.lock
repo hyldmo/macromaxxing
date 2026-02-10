@@ -7835,6 +7835,7 @@ __metadata:
     "@clerk/themes": "npm:^2.4.51"
     "@dnd-kit/core": "npm:^6.3.1"
     "@dnd-kit/sortable": "npm:^10.0.0"
+    "@dnd-kit/utilities": "npm:^3.2.2"
     "@j178/prek": "npm:^0.3.1"
     "@macromaxxing/db": "workspace:*"
     "@mdxeditor/editor": "npm:^3.52.3"

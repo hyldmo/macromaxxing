@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
 import { Switch } from '~/components/ui/Switch'
 import { TRPCError } from '~/components/ui/TRPCError'
+import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { trpc } from '~/lib/trpc'
 
 export function SettingsPage() {
@@ -57,6 +58,18 @@ export function SettingsPage() {
 			<h1 className="font-semibold text-ink">Settings</h1>
 
 			{settingsQuery.error && <TRPCError error={settingsQuery.error} />}
+
+			<Card>
+				<CardHeader>
+					<h2 className="font-medium text-ink text-sm">Body Profile</h2>
+					<p className="text-ink-muted text-xs">
+						Your body measurements for workout validation and nutrition targets.
+					</p>
+				</CardHeader>
+				<CardContent>
+					<ProfileForm />
+				</CardContent>
+			</Card>
 
 			<Card>
 				<CardHeader>

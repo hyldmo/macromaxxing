@@ -85,6 +85,20 @@
 			"when": 1770643601833,
 			"tag": "20260209132641_free_argent",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "6",
+			"when": 1770656900768,
+			"tag": "20260209170820_secret_satana",
+			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "6",
+			"when": 1770718155085,
+			"tag": "20260210100915_wide_tarot",
+			"breakpoints": true
 		}
 	]
 }

@@ -1,5 +1,5 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
-import { CalendarDays, ChefHat, CookingPot, LogIn, Settings, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChefHat, CookingPot, Dumbbell, LogIn, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 
@@ -8,7 +8,10 @@ const publicLinks = [
 	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
 ] as const
 
-const authLinks = [{ to: '/plans', label: 'Plans', icon: CalendarDays }] as const
+const authLinks = [
+	{ to: '/plans', label: 'Plans', icon: CalendarDays },
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+] as const
 
 export function Nav() {
 	return (

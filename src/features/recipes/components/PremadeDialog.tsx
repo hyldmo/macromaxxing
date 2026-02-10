@@ -6,6 +6,7 @@ import { Input } from '~/components/ui/Input'
 import { NumberInput } from '~/components/ui/NumberInput'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
+import { MacroInput } from '~/features/ingredients'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
@@ -167,26 +168,11 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 					<div className="space-y-1.5">
 						<span className="text-ink-muted text-xs">Per serving</span>
 						<div className="grid grid-cols-5 gap-2">
-							<label>
-								<span className="mb-1 block text-macro-protein text-xs">Protein</span>
-								<NumberInput value={protein} onChange={e => setProtein(e.target.value)} />
-							</label>
-							<label>
-								<span className="mb-1 block text-macro-carbs text-xs">Carbs</span>
-								<NumberInput value={carbs} onChange={e => setCarbs(e.target.value)} />
-							</label>
-							<label>
-								<span className="mb-1 block text-macro-fat text-xs">Fat</span>
-								<NumberInput value={fat} onChange={e => setFat(e.target.value)} />
-							</label>
-							<label>
-								<span className="mb-1 block text-macro-kcal text-xs">Kcal</span>
-								<NumberInput value={kcal} onChange={e => setKcal(e.target.value)} />
-							</label>
-							<label>
-								<span className="mb-1 block text-macro-fiber text-xs">Fiber</span>
-								<NumberInput value={fiber} onChange={e => setFiber(e.target.value)} />
-							</label>
+							<MacroInput label="Protein" value={protein} onChange={setProtein} />
+							<MacroInput label="Carbs" value={carbs} onChange={setCarbs} />
+							<MacroInput label="Fat" value={fat} onChange={setFat} />
+							<MacroInput label="Kcal" value={kcal} onChange={setKcal} />
+							<MacroInput label="Fiber" value={fiber} onChange={setFiber} />
 						</div>
 					</div>
 

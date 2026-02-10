@@ -4,6 +4,7 @@ import { mealPlansRouter } from './routes/mealPlans'
 import { recipesRouter } from './routes/recipes'
 import { settingsRouter } from './routes/settings'
 import { userRouter } from './routes/user'
+import { workoutsRouter } from './routes/workouts'
 import { router } from './trpc'
 
 export const appRouter = router({
@@ -12,7 +13,8 @@ export const appRouter = router({
 	settings: settingsRouter,
 	ai: aiRouter,
 	mealPlan: mealPlansRouter,
-	user: userRouter
+	user: userRouter,
+	workout: workoutsRouter
 })
 
 export type AppRouter = typeof appRouter

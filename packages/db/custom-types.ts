@@ -20,3 +20,28 @@ export const zodTypeID = <T extends string>(prefix: T) =>
 export type AiProvider = z.infer<typeof zAiProvider>
 export const zAiProvider = z.enum(['gemini', 'openai', 'anthropic'])
 export const AI_PROVIDER_OPTIONS = zAiProvider.options.map(p => ({ value: p, label: startCase(p) }))
+
+export const sex = z.enum(['male', 'female'])
+export type Sex = z.infer<typeof sex>
+
+export const MUSCLE_GROUPS = [
+	'chest',
+	'upper_back',
+	'lats',
+	'front_delts',
+	'side_delts',
+	'rear_delts',
+	'biceps',
+	'triceps',
+	'forearms',
+	'quads',
+	'hamstrings',
+	'glutes',
+	'calves',
+	'core'
+] as const
+
+export type MuscleGroup = (typeof MUSCLE_GROUPS)[number]
+
+export const WORKOUT_COLORS = ['macro-protein', 'macro-carbs', 'macro-fat', 'macro-kcal'] as const
+export type WorkoutColor = (typeof WORKOUT_COLORS)[number]

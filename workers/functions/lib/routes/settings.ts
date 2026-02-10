@@ -50,9 +50,55 @@ export const settingsRouter = router({
 			provider: settings.aiProvider,
 			hasKey: Boolean(settings.aiApiKey),
 			batchLookups: Boolean(settings.batchLookups),
-			modelFallback: Boolean(settings.modelFallback)
+			modelFallback: Boolean(settings.modelFallback),
+			heightCm: settings.heightCm,
+			weightKg: settings.weightKg,
+			sex: settings.sex
 		}
 	}),
+
+	getProfile: protectedProcedure.query(async ({ ctx }) => {
+		const settings = await ctx.db.query.userSettings.findFirst({
+			where: eq(userSettings.userId, ctx.user.id)
+		})
+		if (!settings) return null
+		return {
+			heightCm: settings.heightCm,
+			weightKg: settings.weightKg,
+			sex: settings.sex
+		}
+	}),
+
+	saveProfile: protectedProcedure
+		.input(
+			z.object({
+				heightCm: z.number().min(100).max(250).nullable(),
+				weightKg: z.number().min(30).max(300).nullable(),
+				sex: z.enum(['male', 'female'])
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.userSettings.findFirst({
+				where: eq(userSettings.userId, ctx.user.id)
+			})
+			if (existing) {
+				await ctx.db
+					.update(userSettings)
+					.set({ heightCm: input.heightCm, weightKg: input.weightKg, sex: input.sex })
+					.where(eq(userSettings.userId, ctx.user.id))
+			} else {
+				await ctx.db.insert(userSettings).values({
+					userId: ctx.user.id,
+					aiProvider: 'gemini',
+					aiApiKey: '',
+					aiKeyIv: '',
+					aiModel: '',
+					heightCm: input.heightCm,
+					weightKg: input.weightKg,
+					sex: input.sex
+				})
+			}
+		}),
 
 	save: protectedProcedure.input(saveSettingsSchema).mutation(async ({ ctx, input }) => {
 		const existing = await ctx.db.query.userSettings.findFirst({

@@ -1,0 +1,42 @@
+import type { Sex } from '@macromaxxing/db'
+import type { FC, SVGAttributes } from 'react'
+import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui/body'
+
+export interface BodyMapProps {
+	muscleColors: Map<string, string>
+	onHover: (muscleGroup: string | null) => void
+	sex: Sex
+}
+
+const BodyFigure: FC<{
+	SvgComponent: FC<BodySvgProps>
+	muscleColors: Map<string, string>
+	onHover: (muscle: string | null) => void
+	label: string
+}> = ({ SvgComponent, muscleColors, onHover, label }) => {
+	const gp = (muscle: string): SVGAttributes<SVGGElement> => ({
+		className: `cursor-pointer transition-colors hover:opacity-70 ${muscleColors.get(muscle) ?? 'text-ink-faint/20'}`,
+		onMouseEnter: () => onHover(muscle),
+		onMouseLeave: () => onHover(null)
+	})
+
+	return (
+		<div className="flex flex-col items-center gap-1">
+			<div className="h-52">
+				<SvgComponent gp={gp} />
+			</div>
+			<span className="font-mono text-[10px] text-ink-faint">{label}</span>
+		</div>
+	)
+}
+
+export const BodyMap: FC<BodyMapProps> = ({ muscleColors, onHover, sex }) => {
+	const Front = sex === 'female' ? BodyFrontFemale : BodyFrontMale
+	const Back = sex === 'female' ? BodyBackFemale : BodyBackMale
+	return (
+		<div className="flex gap-4">
+			<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={onHover} label="front" />
+			<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={onHover} label="back" />
+		</div>
+	)
+}

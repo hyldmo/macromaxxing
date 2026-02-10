@@ -1,5 +1,5 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { type AiProvider, newId, typeidCol } from './custom-types'
+import { type AiProvider, type MuscleGroup, newId, type Sex, typeidCol, type WorkoutColor } from './custom-types'
 
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(), // Clerk user ID (user_xxx)
@@ -16,7 +16,10 @@ export const userSettings = sqliteTable('user_settings', {
 	aiKeyIv: text('ai_key_iv').notNull(), // IV for decryption
 	aiModel: text('ai_model').notNull(),
 	batchLookups: integer('batch_lookups').notNull().default(0), // 0=off, 1=on
-	modelFallback: integer('model_fallback').notNull().default(0) // 0=off, 1=on
+	modelFallback: integer('model_fallback').notNull().default(0), // 0=off, 1=on
+	heightCm: real('height_cm'),
+	weightKg: real('weight_kg'),
+	sex: text('sex').notNull().default('male').$type<Sex>()
 })
 
 export const ingredients = sqliteTable('ingredients', {
@@ -126,5 +129,107 @@ export const mealPlanSlots = sqliteTable('meal_plan_slots', {
 	dayOfWeek: integer('day_of_week').notNull(), // 0=Mon, 6=Sun
 	slotIndex: integer('slot_index').notNull(), // 0, 1, 2, 3...
 	portions: real('portions').notNull().default(1), // Fractional allowed (0.5, 1.5)
+	createdAt: integer('created_at').notNull()
+})
+
+// ─── Workout Tracking ────────────────────────────────────────────────
+
+export const exercises = sqliteTable('exercises', {
+	id: typeidCol('exc')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('exc')),
+	userId: text('user_id').references(() => users.id), // null = system exercise
+	name: text('name').notNull(),
+	type: text('type').notNull().$type<'compound' | 'isolation'>(),
+	createdAt: integer('created_at').notNull()
+})
+
+export const exerciseMuscles = sqliteTable('exercise_muscles', {
+	id: typeidCol('exm')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('exm')),
+	exerciseId: typeidCol('exc')('exercise_id')
+		.notNull()
+		.references(() => exercises.id, { onDelete: 'cascade' }),
+	muscleGroup: text('muscle_group').notNull().$type<MuscleGroup>(),
+	intensity: real('intensity').notNull() // 0.0-1.0
+})
+
+export const workouts = sqliteTable('workouts', {
+	id: typeidCol('wkt')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('wkt')),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id),
+	name: text('name').notNull(),
+	color: text('color').notNull().$type<WorkoutColor>(),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: integer('created_at').notNull(),
+	updatedAt: integer('updated_at').notNull()
+})
+
+export const workoutExercises = sqliteTable('workout_exercises', {
+	id: typeidCol('wke')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('wke')),
+	workoutId: typeidCol('wkt')('workout_id')
+		.notNull()
+		.references(() => workouts.id, { onDelete: 'cascade' }),
+	exerciseId: typeidCol('exc')('exercise_id')
+		.notNull()
+		.references(() => exercises.id),
+	sortOrder: integer('sort_order').notNull(),
+	targetSets: integer('target_sets').notNull(),
+	targetReps: integer('target_reps').notNull(),
+	targetWeight: real('target_weight'), // null = find weight first session
+	createdAt: integer('created_at').notNull()
+})
+
+export const strengthStandards = sqliteTable('strength_standards', {
+	id: typeidCol('ssr')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('ssr')),
+	compoundId: typeidCol('exc')('compound_id')
+		.notNull()
+		.references(() => exercises.id),
+	isolationId: typeidCol('exc')('isolation_id')
+		.notNull()
+		.references(() => exercises.id),
+	maxRatio: real('max_ratio').notNull(),
+	createdAt: integer('created_at').notNull()
+})
+
+export const workoutSessions = sqliteTable('workout_sessions', {
+	id: typeidCol('wks')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('wks')),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id),
+	workoutId: typeidCol('wkt')('workout_id').references(() => workouts.id), // null = legacy session
+	name: text('name'),
+	startedAt: integer('started_at').notNull(),
+	completedAt: integer('completed_at'),
+	notes: text('notes'),
+	createdAt: integer('created_at').notNull()
+})
+
+export const workoutLogs = sqliteTable('workout_logs', {
+	id: typeidCol('wkl')('id')
+		.primaryKey()
+		.$defaultFn(() => newId('wkl')),
+	sessionId: typeidCol('wks')('session_id')
+		.notNull()
+		.references(() => workoutSessions.id, { onDelete: 'cascade' }),
+	exerciseId: typeidCol('exc')('exercise_id')
+		.notNull()
+		.references(() => exercises.id),
+	setNumber: integer('set_number').notNull(),
+	setType: text('set_type').notNull().default('working').$type<'warmup' | 'working' | 'backoff' | 'backup'>(),
+	weightKg: real('weight_kg').notNull(),
+	reps: integer('reps').notNull(),
+	rpe: real('rpe'), // 6-10
+	failureFlag: integer('failure_flag').notNull().default(0),
 	createdAt: integer('created_at').notNull()
 })
