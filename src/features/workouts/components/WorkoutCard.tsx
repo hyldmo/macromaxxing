@@ -23,7 +23,7 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ workout, onStartSession, isP
 	})
 
 	const style = {
-		transform: CSS.Transform.toString(transform),
+		transform: CSS.Translate.toString(transform),
 		transition
 	}
 
@@ -31,54 +31,51 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ workout, onStartSession, isP
 		<div
 			ref={setNodeRef}
 			style={style}
-			className={cn('rounded-[--radius-md] border border-edge bg-surface-1 p-3', isDragging && 'z-10 opacity-50')}
+			className={cn(
+				'flex items-stretch rounded-[--radius-md] border border-edge bg-surface-1',
+				isDragging && 'z-10 opacity-50'
+			)}
 		>
-			<div className="flex items-start justify-between gap-2">
-				<button
-					type="button"
-					className="mt-0.5 shrink-0 cursor-grab touch-none text-ink-faint hover:text-ink active:cursor-grabbing"
-					{...attributes}
-					{...listeners}
-				>
-					<GripVertical className="size-4" />
-				</button>
-				<div className="min-w-0 flex-1">
-					<h3 className="font-medium text-ink">{workout.name}</h3>
-					<div className="mt-0.5 font-mono text-ink-muted text-xs tabular-nums">
-						{workout.exercises.length} exercises
-					</div>
-				</div>
-				<div className="flex items-center gap-1">
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-7 text-ink-faint hover:text-ink"
-						onClick={() => navigate(`/workouts/${workout.id}`)}
-					>
-						<Pencil className="size-3.5" />
-					</Button>
-				</div>
-			</div>
+			<button
+				type="button"
+				className="mx-2 flex shrink-0 cursor-grab touch-none items-center text-ink-faint hover:text-ink active:cursor-grabbing"
+				{...attributes}
+				{...listeners}
+			>
+				<GripVertical className="size-4" />
+			</button>
 
-			<div className="mt-2 space-y-0.5">
-				{workout.exercises.slice(0, 6).map(we => (
-					<div key={we.id} className="flex items-center gap-2 font-mono text-xs tabular-nums">
-						<span className="min-w-0 flex-1 truncate text-ink-muted">{we.exercise.name}</span>
-						<span className="text-ink-faint">
-							{we.targetSets}×{we.targetReps}
-							{we.targetWeight != null && ` @${we.targetWeight}kg`}
+			<div className="min-w-0 flex-1 py-2">
+				<h3 className="font-medium text-ink">{workout.name}</h3>
+				<div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0 font-mono text-xs tabular-nums">
+					{workout.exercises.slice(0, 6).map(we => (
+						<span key={we.id} className="text-ink-muted">
+							{we.exercise.name}{' '}
+							<span className="text-ink-faint">
+								{we.targetSets}×{we.targetReps}
+							</span>
 						</span>
-					</div>
-				))}
-				{workout.exercises.length > 6 && (
-					<div className="text-ink-faint text-xs">+{workout.exercises.length - 6} more</div>
-				)}
+					))}
+					{workout.exercises.length > 6 && (
+						<span className="text-ink-faint">+{workout.exercises.length - 6} more</span>
+					)}
+				</div>
 			</div>
 
-			<Button className="mt-3 w-full" size="sm" onClick={() => onStartSession(workout.id)} disabled={isPending}>
-				<Play className="size-3.5" />
-				Start Session
-			</Button>
+			<div className="flex shrink-0 items-center gap-1 pr-2">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-7 text-ink-faint hover:text-ink"
+					onClick={() => navigate(`/workouts/${workout.id}`)}
+				>
+					<Pencil className="size-3.5" />
+				</Button>
+				<Button size="sm" onClick={() => onStartSession(workout.id)} disabled={isPending}>
+					<Play className="size-3.5" />
+					Start
+				</Button>
+			</div>
 		</div>
 	)
 }

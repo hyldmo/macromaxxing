@@ -685,9 +685,11 @@ export const workoutsRouter = router({
 			orderBy: [workouts.sortOrder]
 		})
 
-		// Sum Σ(targetSets × muscleIntensity) across ALL exercises in ALL templates
+		// Initialize all muscle groups to 0
 		const muscleVolume = new Map<string, number>()
+		for (const mg of MUSCLE_GROUPS) muscleVolume.set(mg, 0)
 
+		// Sum Σ(targetSets × muscleIntensity) across ALL exercises in ALL templates
 		for (const workout of userWorkouts) {
 			for (const wkExercise of workout.exercises) {
 				for (const muscle of wkExercise.exercise.muscles) {

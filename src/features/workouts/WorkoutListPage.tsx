@@ -1,5 +1,5 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { arrayMove, rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { TypeIDString } from '@macromaxxing/db'
 import { Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
@@ -86,8 +86,11 @@ export function WorkoutListPage() {
 					<TRPCError error={workoutsQuery.error} />
 				) : workoutsQuery.data && workoutsQuery.data.length > 0 ? (
 					<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-						<SortableContext items={workoutsQuery.data.map(w => w.id)} strategy={rectSortingStrategy}>
-							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<SortableContext
+							items={workoutsQuery.data.map(w => w.id)}
+							strategy={verticalListSortingStrategy}
+						>
+							<div className="space-y-1.5">
 								{workoutsQuery.data.map(workout => (
 									<WorkoutCard
 										key={workout.id}

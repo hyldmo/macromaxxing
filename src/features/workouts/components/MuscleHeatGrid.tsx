@@ -40,7 +40,7 @@ export const MuscleHeatGrid: FC = () => {
 			ref={containerRef}
 			role="img"
 			aria-label="Muscle coverage heatmap"
-			className="relative"
+			className="relative py-12"
 			onMouseMove={handleMouseMove}
 		>
 			<BodyMap muscleColors={muscleColors} onHover={setHoveredMuscle} sex={sex} />
