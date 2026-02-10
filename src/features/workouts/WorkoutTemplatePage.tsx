@@ -1,4 +1,4 @@
-import type { TypeIDString } from '@macromaxxing/db'
+import type { TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, GripVertical, Save, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -19,7 +19,7 @@ interface TemplateExercise {
 }
 
 export function WorkoutTemplatePage() {
-	const { workoutId } = useParams<{ workoutId: string }>()
+	const { workoutId } = useParams<{ workoutId: Workout['id'] | 'new' }>()
 	const navigate = useNavigate()
 	const isEditing = !!workoutId && workoutId !== 'new'
 	const utils = trpc.useUtils()
@@ -51,14 +51,12 @@ export function WorkoutTemplatePage() {
 	const createMutation = trpc.workout.createWorkout.useMutation({
 		onSuccess: () => {
 			utils.workout.listWorkouts.invalidate()
-			navigate('/workouts')
 		}
 	})
 	const updateMutation = trpc.workout.updateWorkout.useMutation({
 		onSuccess: () => {
 			utils.workout.listWorkouts.invalidate()
 			utils.workout.getWorkout.invalidate({ id: workoutId as TypeIDString<'wkt'> })
-			navigate('/workouts')
 		}
 	})
 	const deleteMutation = trpc.workout.deleteWorkout.useMutation({

@@ -4,7 +4,7 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '~/components/ui/Button'
+import { Button, LinkButton } from '~/components/ui/Button'
 import { Card } from '~/components/ui/Card'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -72,10 +72,10 @@ export function WorkoutListPage() {
 							<Upload className="size-4" />
 							Import
 						</Button>
-						<Button onClick={() => navigate('/workouts/new')}>
+						<LinkButton to="/workouts/new">
 							<Plus className="size-4" />
 							New Workout
-						</Button>
+						</LinkButton>
 					</div>
 				</div>
 

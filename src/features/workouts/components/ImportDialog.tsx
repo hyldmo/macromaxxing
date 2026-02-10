@@ -14,6 +14,7 @@ export interface ImportDialogProps {
 	/** Import as workout templates (default) or as sets into a session */
 	mode?: 'templates' | 'sets'
 	sessionId?: TypeIDString<'wks'>
+	workoutId?: TypeIDString<'wkt'>
 	onImported?: () => void
 }
 
@@ -78,7 +79,14 @@ function parsePreview(text: string): { rows: PreviewRow[]; setsPerExercise: numb
 	return { rows, setsPerExercise, totalSets: exerciseCount * setsPerExercise }
 }
 
-export const ImportDialog: FC<ImportDialogProps> = ({ open, onClose, mode = 'templates', sessionId, onImported }) => {
+export const ImportDialog: FC<ImportDialogProps> = ({
+	open,
+	onClose,
+	mode = 'templates',
+	sessionId,
+	workoutId,
+	onImported
+}) => {
 	const [text, setText] = useState('')
 	const utils = trpc.useUtils()
 
@@ -112,7 +120,7 @@ export const ImportDialog: FC<ImportDialogProps> = ({ open, onClose, mode = 'tem
 		if (mode === 'templates') {
 			importWorkouts.mutate({ text })
 		} else {
-			importSets.mutate({ sessionId, text })
+			importSets.mutate({ sessionId, workoutId: workoutId!, text })
 		}
 	}
 

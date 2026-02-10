@@ -481,7 +481,7 @@ export const workoutsRouter = router({
 				.where(eq(workoutSessions.id, input.id))
 
 			// Apply template updates if provided
-			if (session.workoutId && input.templateUpdates?.length) {
+			if (input.templateUpdates?.length) {
 				const now = Date.now()
 				for (const update of input.templateUpdates) {
 					const set: Record<string, unknown> = {}
@@ -504,7 +504,7 @@ export const workoutsRouter = router({
 			}
 
 			// Add new exercises to template
-			if (session.workoutId && input.addExercises?.length) {
+			if (input.addExercises?.length) {
 				const now = Date.now()
 				const existingCount = await ctx.db
 					.select({ count: sql<number>`count(*)` })
@@ -897,6 +897,7 @@ export const workoutsRouter = router({
 		.input(
 			z.object({
 				sessionId: z.custom<TypeIDString<'wks'>>().optional(),
+				workoutId: z.custom<TypeIDString<'wkt'>>(),
 				text: z.string().min(1)
 			})
 		)
@@ -984,7 +985,13 @@ export const workoutsRouter = router({
 					const now = Date.now()
 					const [created] = await ctx.db
 						.insert(workoutSessions)
-						.values({ userId: ctx.user.id, name: parsed.name, startedAt: now, createdAt: now })
+						.values({
+							userId: ctx.user.id,
+							workoutId: input.workoutId,
+							name: parsed.name,
+							startedAt: now,
+							createdAt: now
+						})
 						.returning()
 					sessionId = created.id
 				}

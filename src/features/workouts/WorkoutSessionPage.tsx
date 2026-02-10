@@ -255,6 +255,7 @@ export function WorkoutSessionPage() {
 				onClose={() => setShowImport(false)}
 				mode="sets"
 				sessionId={session.id}
+				workoutId={session.workoutId}
 				onImported={() => utils.workout.getSession.invalidate({ id: session.id })}
 			/>
 

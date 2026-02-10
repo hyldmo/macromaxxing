@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { FC } from 'react'
+import { Link, type LinkProps } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 
 const buttonVariants = cva(
@@ -33,4 +34,13 @@ export interface ButtonProps
 
 export const Button: FC<ButtonProps> = ({ className, variant, size, ...props }) => {
 	return <button className={cn(buttonVariants({ variant, size, className }))} {...props} />
+}
+
+export const LinkButton: FC<LinkProps & VariantProps<typeof buttonVariants>> = ({
+	className,
+	variant,
+	size,
+	...props
+}) => {
+	return <Link className={cn(buttonVariants({ variant, size, className }))} {...props} />
 }
