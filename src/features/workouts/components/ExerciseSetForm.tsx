@@ -1,4 +1,4 @@
-import type { SetMode } from '@macromaxxing/db'
+import type { SetMode, SetType } from '@macromaxxing/db'
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '~/components/ui/Button'
@@ -15,7 +15,7 @@ export interface PlannedSet {
 	setNumber: number
 	weightKg: number | null
 	reps: number
-	setType: 'warmup' | 'working' | 'backoff'
+	setType: SetType
 }
 
 export interface ExerciseSetFormProps {
@@ -24,12 +24,7 @@ export interface ExerciseSetFormProps {
 	plannedSets?: PlannedSet[]
 	setMode?: SetMode
 	onSetModeChange?: (mode: SetMode) => void
-	onAddSet: (data: {
-		exerciseId: Exercise['id']
-		weightKg: number
-		reps: number
-		setType: 'warmup' | 'working' | 'backoff'
-	}) => void
+	onAddSet: (data: { exerciseId: Exercise['id']; weightKg: number; reps: number; setType: SetType }) => void
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
 	readOnly?: boolean

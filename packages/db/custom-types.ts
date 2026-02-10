@@ -26,6 +26,7 @@ export type Sex = z.infer<typeof sex>
 
 export const setMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 export type SetMode = z.infer<typeof setMode>
+export type SetType = Exclude<SetMode, 'full'>
 
 export const MUSCLE_GROUPS = [
 	'chest',

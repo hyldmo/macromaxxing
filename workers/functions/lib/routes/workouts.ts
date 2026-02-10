@@ -2,6 +2,7 @@ import {
 	exerciseMuscles,
 	exercises,
 	MUSCLE_GROUPS,
+	type SetType,
 	type TypeIDString,
 	workoutExercises,
 	workoutLogs,
@@ -13,7 +14,7 @@ import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
 const zExerciseType = z.enum(['compound', 'isolation'])
-const zSetType = z.enum(['warmup', 'working', 'backoff', 'backup'])
+const zSetType = z.enum(['warmup', 'working', 'backoff'])
 const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 const zMuscleGroup = z.enum(MUSCLE_GROUPS as unknown as [string, ...string[]])
 type InferredMuscle = { muscleGroup: (typeof MUSCLE_GROUPS)[number]; intensity: number }
@@ -1015,7 +1016,7 @@ export const workoutsRouter = router({
 					sessionId: TypeIDString<'wks'>
 					exerciseId: TypeIDString<'exc'>
 					setNumber: number
-					setType: 'warmup' | 'working' | 'backoff' | 'backup'
+					setType: SetType
 					weightKg: number
 					reps: number
 					rpe: number | null

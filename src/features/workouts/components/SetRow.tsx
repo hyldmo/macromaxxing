@@ -1,3 +1,4 @@
+import type { SetType } from '@macromaxxing/db'
 import { Check, Circle, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '~/components/ui/Button'
@@ -11,15 +12,14 @@ type Log = RouterOutput['workout']['getSession']['logs'][number]
 const SET_TYPE_STYLES = {
 	warmup: 'bg-macro-carbs/15 text-macro-carbs',
 	working: 'bg-macro-protein/15 text-macro-protein',
-	backoff: 'bg-macro-fat/15 text-macro-fat',
-	backup: 'bg-surface-2 text-ink-muted'
-} as const
+	backoff: 'bg-macro-fat/15 text-macro-fat'
+} satisfies Record<SetType, string>
 
 const CONFIRM_BORDER_STYLES = {
 	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',
 	working: 'border-macro-protein bg-macro-protein/20 text-macro-protein',
 	backoff: 'border-macro-fat bg-macro-fat/20 text-macro-fat'
-} as const
+} satisfies Record<SetType, string>
 
 export interface SetRowProps {
 	log: Log
@@ -86,7 +86,7 @@ export interface PlannedSetRowProps {
 	setNumber: number
 	weightKg: number | null
 	reps: number
-	setType?: 'warmup' | 'working' | 'backoff'
+	setType?: SetType
 	done: boolean
 	onConfirm: (weightKg: number, reps: number) => void
 	onWeightChange: (weight: number | null) => void
