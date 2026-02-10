@@ -1,11 +1,11 @@
-import type { FC } from 'react'
+import { type FC, forwardRef } from 'react'
 import { cn } from '~/lib/cn'
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-export const Card: FC<CardProps> = ({ className, ...props }) => {
-	return <div className={cn('rounded-[--radius-md] border border-edge bg-surface-1', className)} {...props} />
-}
+export const Card = forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
+	<div ref={ref} className={cn('rounded-[--radius-md] border border-edge bg-surface-1', className)} {...props} />
+))
 
 export const CardHeader: FC<CardProps> = ({ className, ...props }) => {
 	return <div className={cn('border-edge border-b px-4 py-3', className)} {...props} />

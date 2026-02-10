@@ -1,4 +1,5 @@
 import type { FC } from 'react'
+import { Card } from '~/components/ui/Card'
 import {
 	type AbsoluteMacros,
 	calculateDayTotals,
@@ -48,7 +49,7 @@ export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory }) => {
 	}
 
 	return (
-		<div className="rounded-[--radius-md] border border-edge bg-surface-1 p-3">
+		<Card className="p-3">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<span className="font-medium text-ink-muted text-sm">
 					Weekly Average <span className="font-normal text-ink-faint">({filledDays} days)</span>
@@ -60,6 +61,6 @@ export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory }) => {
 					<span className="text-macro-fat">F {weeklyAvg.fat.toFixed(0)}g</span>
 				</div>
 			</div>
-		</div>
+		</Card>
 	)
 }

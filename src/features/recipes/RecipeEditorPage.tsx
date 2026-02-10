@@ -1,11 +1,11 @@
 import type { Recipe } from '@macromaxxing/db'
 import { AlertTriangle, ArrowLeft, Eye, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { MarkdownEditor } from '~/components/ui/MarkdownEditor'
+import { Modal } from '~/components/ui/Modal'
 import { Spinner } from '~/components/ui/Spinner'
 import { Switch } from '~/components/ui/Switch'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -238,64 +238,56 @@ export function RecipeEditorPage() {
 				</div>
 			)}
 
-			{showPublishWarning &&
-				createPortal(
-					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-						<div className="w-full max-w-sm rounded-[--radius-md] border border-edge bg-surface-0 p-4">
-							<div className="mb-3 flex items-center gap-2">
-								<AlertTriangle className="size-5 text-warning" />
-								<h3 className="font-semibold text-ink">Publish imported recipe?</h3>
-							</div>
-							<p className="mb-4 text-ink-muted text-sm">
-								This recipe was imported from an external source. Make sure you have permission to share
-								it publicly.
-							</p>
-							<div className="flex justify-end gap-2">
-								<Button variant="ghost" onClick={() => setShowPublishWarning(false)}>
-									Cancel
-								</Button>
-								<Button
-									onClick={() => {
-										updateMutation.mutate({ id: id!, isPublic: true })
-										setShowPublishWarning(false)
-									}}
-								>
-									Publish anyway
-								</Button>
-							</div>
-						</div>
-					</div>,
-					document.body
-				)}
+			{showPublishWarning && (
+				<Modal className="w-full max-w-sm p-4">
+					<div className="mb-3 flex items-center gap-2">
+						<AlertTriangle className="size-5 text-warning" />
+						<h3 className="font-semibold text-ink">Publish imported recipe?</h3>
+					</div>
+					<p className="mb-4 text-ink-muted text-sm">
+						This recipe was imported from an external source. Make sure you have permission to share it
+						publicly.
+					</p>
+					<div className="flex justify-end gap-2">
+						<Button variant="ghost" onClick={() => setShowPublishWarning(false)}>
+							Cancel
+						</Button>
+						<Button
+							onClick={() => {
+								updateMutation.mutate({ id: id!, isPublic: true })
+								setShowPublishWarning(false)
+							}}
+						>
+							Publish anyway
+						</Button>
+					</div>
+				</Modal>
+			)}
 
-			{showDeleteConfirm &&
-				createPortal(
-					<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-						<div className="w-full max-w-sm rounded-[--radius-md] border border-edge bg-surface-0 p-4">
-							<div className="mb-3 flex items-center gap-2">
-								<Trash2 className="size-5 text-destructive" />
-								<h3 className="font-semibold text-ink">Delete recipe?</h3>
-							</div>
-							<p className="mb-4 text-ink-muted text-sm">
-								This will permanently delete <strong>{recipeQuery.data?.name}</strong> and all its
-								ingredients. This action cannot be undone.
-							</p>
-							<div className="flex justify-end gap-2">
-								<Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
-									Cancel
-								</Button>
-								<Button
-									variant="destructive"
-									disabled={deleteMutation.isPending}
-									onClick={() => deleteMutation.mutate({ id: id! })}
-								>
-									{deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-								</Button>
-							</div>
-						</div>
-					</div>,
-					document.body
-				)}
+			{showDeleteConfirm && (
+				<Modal className="w-full max-w-sm p-4">
+					<div className="mb-3 flex items-center gap-2">
+						<Trash2 className="size-5 text-destructive" />
+						<h3 className="font-semibold text-ink">Delete recipe?</h3>
+					</div>
+					<p className="mb-4 text-ink-muted text-sm">
+						This will permanently delete <strong>{recipeQuery.data?.name}</strong> and all its ingredients.
+						This action cannot be undone.
+					</p>
+					<div className="flex justify-end gap-2">
+						<Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							disabled={deleteMutation.isPending}
+							onClick={() => deleteMutation.mutate({ id: id! })}
+						>
+							{deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+						</Button>
+					</div>
+				</Modal>
+			)}
 		</div>
 	)
 }

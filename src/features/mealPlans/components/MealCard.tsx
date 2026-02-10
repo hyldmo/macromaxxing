@@ -1,5 +1,6 @@
 import { ChevronRight, GripVertical, Minus, Plus } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
+import { Card } from '~/components/ui/Card'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import {
 	calculatePortionMacros,
@@ -59,7 +60,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 	return (
 		<div ref={cardRef} className="group/card relative">
 			{/* Card */}
-			<div className="rounded-[--radius-md] border border-edge bg-surface-1 p-2">
+			<Card className="p-2">
 				<span className="line-clamp-2 font-medium text-ink text-sm leading-tight">
 					{slot.inventory.recipe.name}
 				</span>
@@ -97,7 +98,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 				<div className="mt-1.5">
 					<MacroBar protein={macros.protein} carbs={macros.carbs} fat={macros.fat} />
 				</div>
-			</div>
+			</Card>
 
 			<div className="absolute top-0 left-[calc(100%-1px)] z-10 flex flex-col justify-center rounded-r-[--radius-md] border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100">
 				<div

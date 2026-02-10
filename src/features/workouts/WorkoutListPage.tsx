@@ -5,6 +5,7 @@ import { Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
+import { Card } from '~/components/ui/Card'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { trpc } from '~/lib/trpc'
@@ -103,18 +104,24 @@ export function WorkoutListPage() {
 						</SortableContext>
 					</DndContext>
 				) : (
-					<div className="rounded-[--radius-md] border border-edge bg-surface-1 py-12 text-center text-ink-faint">
+					<Card className="py-6 text-center text-ink-faint">
 						No workout templates yet. Create your first one!
-					</div>
+					</Card>
 				)}
 
-				{sessionsQuery.data && sessionsQuery.data.length > 0 && (
+				{sessionsQuery.data && (
 					<div className="space-y-2">
 						<h2 className="font-medium text-ink text-sm">Recent Sessions</h2>
 						<div className="space-y-1.5">
-							{sessionsQuery.data.slice(0, 5).map(session => (
-								<SessionCard key={session.id} session={session} />
-							))}
+							{sessionsQuery.data.length > 0 ? (
+								sessionsQuery.data
+									.slice(0, 5)
+									.map(session => <SessionCard key={session.id} session={session} />)
+							) : (
+								<Card className="py-6 text-center text-ink-faint">
+									No sessions yet. Start a new one!
+								</Card>
+							)}
 						</div>
 					</div>
 				)}

@@ -98,10 +98,7 @@ export function IngredientListPage() {
 					{filtered.map(ingredient => {
 						const isMine = ingredient.userId === userId
 						return (
-							<div
-								key={ingredient.id}
-								className="rounded-[--radius-md] border border-edge bg-surface-1 p-3"
-							>
+							<Card key={ingredient.id} className="p-3">
 								<div className="flex items-start justify-between gap-2">
 									<div className="min-w-0 flex-1">
 										<div className="flex items-center gap-2">
@@ -154,7 +151,7 @@ export function IngredientListPage() {
 										</div>
 									)}
 								</div>
-							</div>
+							</Card>
 						)
 					})}
 				</div>

@@ -2,6 +2,7 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button } from '~/components/ui/Button'
+import { Modal } from '~/components/ui/Modal'
 import { Spinner } from '~/components/ui/Spinner'
 import { Switch } from '~/components/ui/Switch'
 import { cn } from '~/lib/cn'
@@ -126,98 +127,96 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 	const hasDivergences = divergences.length > 0 || extraExercises.length > 0
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div className="mx-4 w-full max-w-lg rounded-[--radius-md] border border-edge bg-surface-1 p-4">
-				<div className="mb-3 flex items-center justify-between">
-					<h3 className="font-medium text-ink text-sm">Complete Session</h3>
-					<Button variant="ghost" size="icon" onClick={onClose}>
-						<X className="size-4" />
-					</Button>
-				</div>
-
-				{!hasDivergences ? (
-					<p className="mb-4 text-ink-muted text-sm">All sets matched the plan. Complete the session?</p>
-				) : (
-					<div className="mb-4 space-y-3">
-						{divergences.length > 0 && (
-							<div className="space-y-2">
-								<p className="text-ink-muted text-xs">Update template targets?</p>
-								{divergences.map(d => (
-									<div
-										key={d.exerciseId}
-										className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-0 px-3 py-2"
-									>
-										<Switch
-											checked={updates.get(d.exerciseId) ?? false}
-											onChange={(v: boolean) =>
-												setUpdates(prev => new Map(prev).set(d.exerciseId, v))
-											}
-										/>
-										<div className="min-w-0 flex-1">
-											<div className="text-ink text-sm">{d.exerciseName}</div>
-											<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
-												<span className="text-ink-faint">
-													{d.planned.sets}×{d.planned.reps}
-													{d.planned.weight != null && ` @${d.planned.weight}kg`}
-												</span>
-												<ArrowRight className="size-3 text-ink-faint" />
-												<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
-													{d.actual.sets}×{d.actual.avgReps}
-													{d.actual.avgWeight > 0 && ` @${d.actual.avgWeight}kg`}
-												</span>
-											</div>
-										</div>
-									</div>
-								))}
-							</div>
-						)}
-
-						{extraExercises.length > 0 && (
-							<div className="space-y-2">
-								<p className="text-ink-muted text-xs">Add to template?</p>
-								{extraExercises.map(e => (
-									<div
-										key={e.exerciseId}
-										className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-0 px-3 py-2"
-									>
-										<Switch
-											checked={addToTemplate.get(e.exerciseId) ?? false}
-											onChange={(v: boolean) =>
-												setAddToTemplate(prev => new Map(prev).set(e.exerciseId, v))
-											}
-										/>
-										<div className="min-w-0 flex-1">
-											<div className="text-ink text-sm">{e.exerciseName}</div>
-											<div className="font-mono text-[11px] text-ink-faint tabular-nums">
-												{e.logs.filter(l => l.setType === 'working').length} working sets
-											</div>
-										</div>
-									</div>
-								))}
-							</div>
-						)}
-					</div>
-				)}
-
-				<div className="flex gap-2">
-					<Button onClick={handleComplete} disabled={completeMutation.isPending}>
-						{completeMutation.isPending ? (
-							<>
-								<Spinner className="size-4" />
-								Completing...
-							</>
-						) : (
-							<>
-								<Check className="size-4" />
-								Complete Session
-							</>
-						)}
-					</Button>
-					<Button variant="ghost" onClick={onClose}>
-						Cancel
-					</Button>
-				</div>
+		<Modal className="w-full max-w-lg bg-surface-1 p-4">
+			<div className="mb-3 flex items-center justify-between">
+				<h3 className="font-medium text-ink text-sm">Complete Session</h3>
+				<Button variant="ghost" size="icon" onClick={onClose}>
+					<X className="size-4" />
+				</Button>
 			</div>
-		</div>
+
+			{!hasDivergences ? (
+				<p className="mb-4 text-ink-muted text-sm">All sets matched the plan. Complete the session?</p>
+			) : (
+				<div className="mb-4 space-y-3">
+					{divergences.length > 0 && (
+						<div className="space-y-2">
+							<p className="text-ink-muted text-xs">Update template targets?</p>
+							{divergences.map(d => (
+								<div
+									key={d.exerciseId}
+									className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-0 px-3 py-2"
+								>
+									<Switch
+										checked={updates.get(d.exerciseId) ?? false}
+										onChange={(v: boolean) =>
+											setUpdates(prev => new Map(prev).set(d.exerciseId, v))
+										}
+									/>
+									<div className="min-w-0 flex-1">
+										<div className="text-ink text-sm">{d.exerciseName}</div>
+										<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
+											<span className="text-ink-faint">
+												{d.planned.sets}×{d.planned.reps}
+												{d.planned.weight != null && ` @${d.planned.weight}kg`}
+											</span>
+											<ArrowRight className="size-3 text-ink-faint" />
+											<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
+												{d.actual.sets}×{d.actual.avgReps}
+												{d.actual.avgWeight > 0 && ` @${d.actual.avgWeight}kg`}
+											</span>
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+
+					{extraExercises.length > 0 && (
+						<div className="space-y-2">
+							<p className="text-ink-muted text-xs">Add to template?</p>
+							{extraExercises.map(e => (
+								<div
+									key={e.exerciseId}
+									className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-0 px-3 py-2"
+								>
+									<Switch
+										checked={addToTemplate.get(e.exerciseId) ?? false}
+										onChange={(v: boolean) =>
+											setAddToTemplate(prev => new Map(prev).set(e.exerciseId, v))
+										}
+									/>
+									<div className="min-w-0 flex-1">
+										<div className="text-ink text-sm">{e.exerciseName}</div>
+										<div className="font-mono text-[11px] text-ink-faint tabular-nums">
+											{e.logs.filter(l => l.setType === 'working').length} working sets
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+			)}
+
+			<div className="flex gap-2">
+				<Button onClick={handleComplete} disabled={completeMutation.isPending}>
+					{completeMutation.isPending ? (
+						<>
+							<Spinner className="size-4" />
+							Completing...
+						</>
+					) : (
+						<>
+							<Check className="size-4" />
+							Complete Session
+						</>
+					)}
+				</Button>
+				<Button variant="ghost" onClick={onClose}>
+					Cancel
+				</Button>
+			</div>
+		</Modal>
 	)
 }

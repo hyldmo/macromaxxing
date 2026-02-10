@@ -1,9 +1,9 @@
 import { ArrowLeft, FileText, Globe, X } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
+import { Modal } from '~/components/ui/Modal'
 import { Spinner } from '~/components/ui/Spinner'
 import { Textarea } from '~/components/ui/Textarea'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -194,190 +194,185 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 
 	const canParse = mode === 'url' ? url.trim().length > 0 : text.trim().length > 0
 
-	return createPortal(
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-			<div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-[--radius-md] border border-edge bg-surface-0">
-				{/* Header */}
-				<div className="flex items-center gap-3 border-edge border-b px-4 py-3">
-					{step === 'preview' && (
-						<Button variant="ghost" size="icon" onClick={() => setStep('input')}>
-							<ArrowLeft className="size-4" />
-						</Button>
-					)}
-					<h2 className="font-semibold text-ink">Import Recipe</h2>
-					{step === 'preview' && (
-						<span
-							className={cn(
-								'rounded-full px-2 py-0.5 text-xs',
-								source === 'structured'
-									? 'bg-emerald-500/10 text-emerald-500'
-									: 'bg-accent/10 text-accent'
-							)}
-						>
-							{source === 'structured' ? 'JSON-LD' : 'AI'}
-						</span>
-					)}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="ml-auto"
-						onClick={onClose}
-						disabled={step === 'importing'}
-					>
-						<X className="size-4" />
+	return (
+		<Modal className="flex max-h-[80vh] w-full max-w-lg flex-col">
+			{/* Header */}
+			<div className="flex items-center gap-3 border-edge border-b px-4 py-3">
+				{step === 'preview' && (
+					<Button variant="ghost" size="icon" onClick={() => setStep('input')}>
+						<ArrowLeft className="size-4" />
 					</Button>
-				</div>
-
-				{/* Content */}
-				<div className="flex-1 overflow-y-auto p-4">
-					{step === 'input' && (
-						<div className="space-y-3">
-							{/* Mode toggle */}
-							<div className="flex gap-1">
-								<button
-									type="button"
-									onClick={() => setMode('url')}
-									className={cn(
-										'flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors',
-										mode === 'url'
-											? 'bg-accent text-white'
-											: 'bg-surface-2 text-ink-muted hover:text-ink'
-									)}
-								>
-									<Globe className="size-3.5" />
-									URL
-								</button>
-								<button
-									type="button"
-									onClick={() => setMode('text')}
-									className={cn(
-										'flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors',
-										mode === 'text'
-											? 'bg-accent text-white'
-											: 'bg-surface-2 text-ink-muted hover:text-ink'
-									)}
-								>
-									<FileText className="size-3.5" />
-									Text
-								</button>
-							</div>
-
-							{mode === 'url' ? (
-								<Input
-									placeholder="https://example.com/recipe..."
-									value={url}
-									onChange={e => setUrl(e.target.value)}
-									onKeyDown={e => {
-										if (e.key === 'Enter' && canParse && !parseRecipe.isPending) handleParse()
-									}}
-									autoFocus
-								/>
-							) : (
-								<Textarea
-									placeholder="Paste recipe text here..."
-									value={text}
-									onChange={e => setText(e.target.value)}
-									rows={8}
-									autoFocus
-								/>
-							)}
-
-							{parseRecipe.error && <TRPCError error={parseRecipe.error} />}
-						</div>
-					)}
-
-					{step === 'preview' && (
-						<div className="space-y-3">
-							{importError && (
-								<div className="flex items-center gap-2 rounded-[--radius-md] bg-destructive/10 px-3 py-2 text-destructive text-sm">
-									{importError}
-								</div>
-							)}
-
-							<div className="space-y-1">
-								<span className="text-ink-muted text-xs">Name</span>
-								<Input value={recipeName} onChange={e => setRecipeName(e.target.value)} />
-							</div>
-
-							<div className="space-y-1">
-								<span className="text-ink-muted text-xs">Ingredients ({ingredients.length})</span>
-								<div className="max-h-48 overflow-y-auto rounded-[--radius-sm] border border-edge bg-surface-1 p-2">
-									{ingredients.map(ing => (
-										<div
-											key={`${ing.name}-${ing.amount}-${ing.unit}`}
-											className="flex items-center gap-2 py-0.5 text-sm"
-										>
-											<span className="w-20 text-right font-mono text-ink-muted tabular-nums">
-												{formatIngredientAmount(ing.amount, ing.unit)}
-											</span>
-											<span className="text-ink">{ing.name}</span>
-											{ing.preparation && (
-												<span className="text-ink-faint text-xs">{ing.preparation}</span>
-											)}
-										</div>
-									))}
-									{ingredients.length === 0 && (
-										<p className="py-2 text-center text-ink-faint text-sm">No ingredients parsed</p>
-									)}
-								</div>
-							</div>
-
-							{instructions && (
-								<div className="space-y-1">
-									<span className="text-ink-muted text-xs">Instructions</span>
-									<div className="max-h-24 overflow-y-auto whitespace-pre-line rounded-[--radius-sm] border border-edge bg-surface-1 p-2 text-ink-muted text-sm">
-										{instructions}
-									</div>
-								</div>
-							)}
-
-							{servings && (
-								<div className="text-ink-muted text-sm">
-									Servings: <span className="font-mono tabular-nums">{servings}</span>
-								</div>
-							)}
-						</div>
-					)}
-
-					{step === 'importing' && (
-						<div className="flex flex-col items-center gap-3 py-8">
-							<Spinner />
-							<p className="text-ink-muted text-sm">
-								{settingsQuery.data?.batchLookups
-									? `Looking up ingredients... (${progress.current}/${progress.total})`
-									: `Adding ingredients... (${progress.current}/${progress.total})`}
-							</p>
-						</div>
-					)}
-				</div>
-
-				{/* Footer */}
-				{step !== 'importing' && (
-					<div className="flex justify-end gap-2 border-edge border-t px-4 py-3">
-						<Button variant="ghost" onClick={onClose}>
-							Cancel
-						</Button>
-						{step === 'input' && (
-							<Button onClick={handleParse} disabled={!canParse || parseRecipe.isPending}>
-								{parseRecipe.isPending ? (
-									<>
-										<Spinner className="size-4 text-current" />
-										Parsing...
-									</>
-								) : (
-									'Parse'
-								)}
-							</Button>
+				)}
+				<h2 className="font-semibold text-ink">Import Recipe</h2>
+				{step === 'preview' && (
+					<span
+						className={cn(
+							'rounded-full px-2 py-0.5 text-xs',
+							source === 'structured' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-accent/10 text-accent'
 						)}
-						{step === 'preview' && (
-							<Button onClick={handleImport} disabled={!recipeName.trim()}>
-								Import Recipe
-							</Button>
+					>
+						{source === 'structured' ? 'JSON-LD' : 'AI'}
+					</span>
+				)}
+				<Button
+					variant="ghost"
+					size="icon"
+					className="ml-auto"
+					onClick={onClose}
+					disabled={step === 'importing'}
+				>
+					<X className="size-4" />
+				</Button>
+			</div>
+
+			{/* Content */}
+			<div className="flex-1 overflow-y-auto p-4">
+				{step === 'input' && (
+					<div className="space-y-3">
+						{/* Mode toggle */}
+						<div className="flex gap-1">
+							<button
+								type="button"
+								onClick={() => setMode('url')}
+								className={cn(
+									'flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors',
+									mode === 'url'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								<Globe className="size-3.5" />
+								URL
+							</button>
+							<button
+								type="button"
+								onClick={() => setMode('text')}
+								className={cn(
+									'flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors',
+									mode === 'text'
+										? 'bg-accent text-white'
+										: 'bg-surface-2 text-ink-muted hover:text-ink'
+								)}
+							>
+								<FileText className="size-3.5" />
+								Text
+							</button>
+						</div>
+
+						{mode === 'url' ? (
+							<Input
+								placeholder="https://example.com/recipe..."
+								value={url}
+								onChange={e => setUrl(e.target.value)}
+								onKeyDown={e => {
+									if (e.key === 'Enter' && canParse && !parseRecipe.isPending) handleParse()
+								}}
+								autoFocus
+							/>
+						) : (
+							<Textarea
+								placeholder="Paste recipe text here..."
+								value={text}
+								onChange={e => setText(e.target.value)}
+								rows={8}
+								autoFocus
+							/>
+						)}
+
+						{parseRecipe.error && <TRPCError error={parseRecipe.error} />}
+					</div>
+				)}
+
+				{step === 'preview' && (
+					<div className="space-y-3">
+						{importError && (
+							<div className="flex items-center gap-2 rounded-[--radius-md] bg-destructive/10 px-3 py-2 text-destructive text-sm">
+								{importError}
+							</div>
+						)}
+
+						<div className="space-y-1">
+							<span className="text-ink-muted text-xs">Name</span>
+							<Input value={recipeName} onChange={e => setRecipeName(e.target.value)} />
+						</div>
+
+						<div className="space-y-1">
+							<span className="text-ink-muted text-xs">Ingredients ({ingredients.length})</span>
+							<div className="max-h-48 overflow-y-auto rounded-[--radius-sm] border border-edge bg-surface-1 p-2">
+								{ingredients.map(ing => (
+									<div
+										key={`${ing.name}-${ing.amount}-${ing.unit}`}
+										className="flex items-center gap-2 py-0.5 text-sm"
+									>
+										<span className="w-20 text-right font-mono text-ink-muted tabular-nums">
+											{formatIngredientAmount(ing.amount, ing.unit)}
+										</span>
+										<span className="text-ink">{ing.name}</span>
+										{ing.preparation && (
+											<span className="text-ink-faint text-xs">{ing.preparation}</span>
+										)}
+									</div>
+								))}
+								{ingredients.length === 0 && (
+									<p className="py-2 text-center text-ink-faint text-sm">No ingredients parsed</p>
+								)}
+							</div>
+						</div>
+
+						{instructions && (
+							<div className="space-y-1">
+								<span className="text-ink-muted text-xs">Instructions</span>
+								<div className="max-h-24 overflow-y-auto whitespace-pre-line rounded-[--radius-sm] border border-edge bg-surface-1 p-2 text-ink-muted text-sm">
+									{instructions}
+								</div>
+							</div>
+						)}
+
+						{servings && (
+							<div className="text-ink-muted text-sm">
+								Servings: <span className="font-mono tabular-nums">{servings}</span>
+							</div>
 						)}
 					</div>
 				)}
+
+				{step === 'importing' && (
+					<div className="flex flex-col items-center gap-3 py-8">
+						<Spinner />
+						<p className="text-ink-muted text-sm">
+							{settingsQuery.data?.batchLookups
+								? `Looking up ingredients... (${progress.current}/${progress.total})`
+								: `Adding ingredients... (${progress.current}/${progress.total})`}
+						</p>
+					</div>
+				)}
 			</div>
-		</div>,
-		document.body
+
+			{/* Footer */}
+			{step !== 'importing' && (
+				<div className="flex justify-end gap-2 border-edge border-t px-4 py-3">
+					<Button variant="ghost" onClick={onClose}>
+						Cancel
+					</Button>
+					{step === 'input' && (
+						<Button onClick={handleParse} disabled={!canParse || parseRecipe.isPending}>
+							{parseRecipe.isPending ? (
+								<>
+									<Spinner className="size-4 text-current" />
+									Parsing...
+								</>
+							) : (
+								'Parse'
+							)}
+						</Button>
+					)}
+					{step === 'preview' && (
+						<Button onClick={handleImport} disabled={!recipeName.trim()}>
+							Import Recipe
+						</Button>
+					)}
+				</div>
+			)}
+		</Modal>
 	)
 }

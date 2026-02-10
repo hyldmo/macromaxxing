@@ -1,6 +1,7 @@
 import { extractPreparation, type Ingredient } from '@macromaxxing/db'
 import { ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
+import { Card } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
 import { Spinner } from '~/components/ui/Spinner'
@@ -416,7 +417,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		const allAdded = pastedIngredients.every(i => i.status === 'added')
 
 		return (
-			<div className="rounded-[--radius-md] border border-edge bg-surface-1 p-3">
+			<Card className="p-3">
 				<div className="mb-2 flex items-center gap-2 text-ink-muted text-sm">
 					<ClipboardPaste className="size-4" />
 					<span>
@@ -487,7 +488,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						</>
 					)}
 				</div>
-			</div>
+			</Card>
 		)
 	}
 
@@ -510,7 +511,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				/>
 			</div>
 			{showDropdown && search.length > 0 && (
-				<div className="absolute top-full z-10 mt-1 w-full rounded-[--radius-md] border border-edge bg-surface-1 shadow-black/30 shadow-lg">
+				<Card className="absolute top-full z-10 mt-1 w-full shadow-black/30 shadow-lg">
 					{filtered.map(ingredient => {
 						// If user typed amount/unit, use that. Otherwise use default unit or 100g
 						let amountGrams: number
@@ -609,7 +610,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					</button>
 					{findOrCreate.isError && <TRPCError error={findOrCreate.error} />}
 					{addIngredient.isError && <TRPCError error={addIngredient.error} />}
-				</div>
+				</Card>
 			)}
 		</div>
 	)

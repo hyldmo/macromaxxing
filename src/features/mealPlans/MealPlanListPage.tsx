@@ -101,7 +101,7 @@ export const MealPlanListPage: FC = () => {
 			<div className="grid gap-2">
 				{plansQuery.data?.map(plan => (
 					<Link key={plan.id} to={`/plans/${plan.id}`}>
-						<div className="flex items-center gap-4 rounded-[--radius-md] border border-edge bg-surface-1 p-3 transition-colors hover:bg-surface-2">
+						<Card className="flex items-center gap-4 p-3 transition-colors hover:bg-surface-2">
 							<div className="flex size-10 items-center justify-center rounded-[--radius-sm] bg-accent/10 text-accent">
 								<CalendarDays className="size-5" />
 							</div>
@@ -116,7 +116,7 @@ export const MealPlanListPage: FC = () => {
 							>
 								<Trash2 className="size-4" />
 							</button>
-						</div>
+						</Card>
 					</Link>
 				))}
 			</div>

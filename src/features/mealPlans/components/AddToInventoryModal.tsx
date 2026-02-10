@@ -3,6 +3,7 @@ import { Package, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
+import { Modal } from '~/components/ui/Modal'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
@@ -69,25 +70,11 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 	}
 
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-			onClick={onClose}
-			onKeyDown={e => e.key === 'Escape' && onClose()}
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="add-inventory-title"
-		>
-			{/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation for modal */}
-			<div
-				role="document"
-				className="mx-4 w-full max-w-md rounded-[--radius-md] border border-edge bg-surface-0 shadow-lg"
-				onClick={e => e.stopPropagation()}
-			>
+		<>
+			<Modal onClose={onClose} className="w-full max-w-md">
 				{/* Header */}
 				<div className="flex items-center justify-between border-edge border-b px-4 py-3">
-					<h2 id="add-inventory-title" className="font-semibold text-ink">
-						Add Recipe
-					</h2>
+					<h2 className="font-semibold text-ink">Add Recipe</h2>
 					<button
 						type="button"
 						onClick={onClose}
@@ -158,7 +145,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 
 					{addMutation.error && <TRPCError error={addMutation.error} className="mt-3" />}
 				</div>
-			</div>
+			</Modal>
 			<PremadeDialog
 				open={showPremade}
 				onClose={() => setShowPremade(false)}
@@ -170,6 +157,6 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 					})
 				}}
 			/>
-		</div>
+		</>
 	)
 }

@@ -1,8 +1,8 @@
 import { Globe, X } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
+import { Modal } from '~/components/ui/Modal'
 import { NumberInput } from '~/components/ui/NumberInput'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -104,98 +104,95 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 
 	if (!open) return null
 
-	return createPortal(
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-			<div className="w-full max-w-sm rounded-[--radius-md] border border-edge bg-surface-0">
-				{/* Header */}
-				<div className="flex items-center justify-between border-edge border-b px-4 py-3">
-					<h2 className="font-semibold text-ink">Add Premade</h2>
-					<Button variant="ghost" size="icon" onClick={onClose} disabled={addPremade.isPending}>
-						<X className="size-4" />
+	return (
+		<Modal className="w-full max-w-sm">
+			{/* Header */}
+			<div className="flex items-center justify-between border-edge border-b px-4 py-3">
+				<h2 className="font-semibold text-ink">Add Premade</h2>
+				<Button variant="ghost" size="icon" onClick={onClose} disabled={addPremade.isPending}>
+					<X className="size-4" />
+				</Button>
+			</div>
+
+			{/* Content */}
+			<form onSubmit={handleSubmit} className="space-y-3 p-4">
+				<div className="flex gap-2">
+					<Input
+						placeholder="https://example.com/product..."
+						value={url}
+						onChange={e => setUrl(e.target.value)}
+						autoFocus
+						className="flex-1"
+					/>
+					<Button
+						type="button"
+						variant="outline"
+						disabled={!url.trim() || parseProduct.isPending}
+						onClick={() => parseProduct.mutate({ url: url.trim() })}
+					>
+						{parseProduct.isPending ? (
+							<Spinner className="size-4 text-current" />
+						) : (
+							<Globe className="size-4" />
+						)}
+						Fetch
 					</Button>
 				</div>
 
-				{/* Content */}
-				<form onSubmit={handleSubmit} className="space-y-3 p-4">
-					<div className="flex gap-2">
-						<Input
-							placeholder="https://example.com/product..."
-							value={url}
-							onChange={e => setUrl(e.target.value)}
-							autoFocus
-							className="flex-1"
+				{parseProduct.error && <TRPCError error={parseProduct.error} />}
+
+				<div className="flex items-center gap-3">
+					<div className="h-px flex-1 bg-edge" />
+					<span className="text-ink-faint text-xs">or enter manually</span>
+					<div className="h-px flex-1 bg-edge" />
+				</div>
+
+				<Input placeholder="Product name" value={name} onChange={e => setName(e.target.value)} />
+
+				<div className="grid grid-cols-2 gap-2">
+					<label>
+						<span className="mb-1 block text-ink-muted text-xs">Serving size (g)</span>
+						<NumberInput
+							value={servingSize}
+							onChange={e => setServingSize(e.target.value)}
+							placeholder="e.g. 60"
 						/>
-						<Button
-							type="button"
-							variant="outline"
-							disabled={!url.trim() || parseProduct.isPending}
-							onClick={() => parseProduct.mutate({ url: url.trim() })}
-						>
-							{parseProduct.isPending ? (
+					</label>
+					<label>
+						<span className="mb-1 block text-ink-muted text-xs">Servings</span>
+						<NumberInput value={servings} onChange={e => setServings(e.target.value)} placeholder="1" />
+					</label>
+				</div>
+
+				<div className="space-y-1.5">
+					<span className="text-ink-muted text-xs">Per serving</span>
+					<div className="grid grid-cols-5 gap-2">
+						<MacroInput label="Protein" value={protein} onChange={setProtein} />
+						<MacroInput label="Carbs" value={carbs} onChange={setCarbs} />
+						<MacroInput label="Fat" value={fat} onChange={setFat} />
+						<MacroInput label="Kcal" value={kcal} onChange={setKcal} />
+						<MacroInput label="Fiber" value={fiber} onChange={setFiber} />
+					</div>
+				</div>
+
+				{addPremade.error && <TRPCError error={addPremade.error} />}
+
+				<div className="flex justify-end gap-2 pt-1">
+					<Button type="button" variant="ghost" onClick={onClose} disabled={addPremade.isPending}>
+						Cancel
+					</Button>
+					<Button type="submit" disabled={!canSubmit || addPremade.isPending}>
+						{addPremade.isPending ? (
+							<>
 								<Spinner className="size-4 text-current" />
-							) : (
-								<Globe className="size-4" />
-							)}
-							Fetch
-						</Button>
-					</div>
-
-					{parseProduct.error && <TRPCError error={parseProduct.error} />}
-
-					<div className="flex items-center gap-3">
-						<div className="h-px flex-1 bg-edge" />
-						<span className="text-ink-faint text-xs">or enter manually</span>
-						<div className="h-px flex-1 bg-edge" />
-					</div>
-
-					<Input placeholder="Product name" value={name} onChange={e => setName(e.target.value)} />
-
-					<div className="grid grid-cols-2 gap-2">
-						<label>
-							<span className="mb-1 block text-ink-muted text-xs">Serving size (g)</span>
-							<NumberInput
-								value={servingSize}
-								onChange={e => setServingSize(e.target.value)}
-								placeholder="e.g. 60"
-							/>
-						</label>
-						<label>
-							<span className="mb-1 block text-ink-muted text-xs">Servings</span>
-							<NumberInput value={servings} onChange={e => setServings(e.target.value)} placeholder="1" />
-						</label>
-					</div>
-
-					<div className="space-y-1.5">
-						<span className="text-ink-muted text-xs">Per serving</span>
-						<div className="grid grid-cols-5 gap-2">
-							<MacroInput label="Protein" value={protein} onChange={setProtein} />
-							<MacroInput label="Carbs" value={carbs} onChange={setCarbs} />
-							<MacroInput label="Fat" value={fat} onChange={setFat} />
-							<MacroInput label="Kcal" value={kcal} onChange={setKcal} />
-							<MacroInput label="Fiber" value={fiber} onChange={setFiber} />
-						</div>
-					</div>
-
-					{addPremade.error && <TRPCError error={addPremade.error} />}
-
-					<div className="flex justify-end gap-2 pt-1">
-						<Button type="button" variant="ghost" onClick={onClose} disabled={addPremade.isPending}>
-							Cancel
-						</Button>
-						<Button type="submit" disabled={!canSubmit || addPremade.isPending}>
-							{addPremade.isPending ? (
-								<>
-									<Spinner className="size-4 text-current" />
-									Adding...
-								</>
-							) : (
-								'Add'
-							)}
-						</Button>
-					</div>
-				</form>
-			</div>
-		</div>,
-		document.body
+								Adding...
+							</>
+						) : (
+							'Add'
+						)}
+					</Button>
+				</div>
+			</form>
+		</Modal>
 	)
 }

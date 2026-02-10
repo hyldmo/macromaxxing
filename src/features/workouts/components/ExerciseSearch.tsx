@@ -1,5 +1,6 @@
 import { Plus, Search } from 'lucide-react'
 import { type FC, useState } from 'react'
+import { Card } from '~/components/ui/Card'
 import { Input } from '~/components/ui/Input'
 import type { RouterOutput } from '~/lib/trpc'
 
@@ -38,7 +39,7 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 				/>
 			</div>
 			{showDropdown && search.length > 0 && (
-				<div className="absolute top-full z-10 mt-1 w-full rounded-[--radius-md] border border-edge bg-surface-1">
+				<Card className="absolute top-full z-10 mt-1 w-full">
 					{filtered.map(exercise => (
 						<button
 							key={exercise.id}
@@ -68,7 +69,7 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 					{filtered.length === 0 && (
 						<div className="px-3 py-2 text-ink-faint text-sm">No exercises found</div>
 					)}
-				</div>
+				</Card>
 			)}
 		</div>
 	)

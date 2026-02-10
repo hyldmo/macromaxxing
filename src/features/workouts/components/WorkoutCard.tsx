@@ -4,6 +4,7 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { GripVertical, Pencil, Play } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Card } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
@@ -28,14 +29,7 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ workout, onStartSession, isP
 	}
 
 	return (
-		<div
-			ref={setNodeRef}
-			style={style}
-			className={cn(
-				'flex items-stretch rounded-[--radius-md] border border-edge bg-surface-1',
-				isDragging && 'z-10 opacity-50'
-			)}
-		>
+		<Card ref={setNodeRef} style={style} className={cn('flex items-stretch', isDragging && 'z-10 opacity-50')}>
 			<button
 				type="button"
 				className="mx-2 flex shrink-0 cursor-grab touch-none items-center text-ink-faint hover:text-ink active:cursor-grabbing"
@@ -76,6 +70,6 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ workout, onStartSession, isP
 					Start
 				</Button>
 			</div>
-		</div>
+		</Card>
 	)
 }

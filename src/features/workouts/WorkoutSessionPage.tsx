@@ -2,6 +2,7 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowLeft, Check, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Card } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -244,9 +245,9 @@ export function WorkoutSessionPage() {
 			</div>
 
 			{session.logs.length === 0 && exerciseGroups.length === 0 && (
-				<div className="rounded-[--radius-md] border border-edge bg-surface-1 py-8 text-center text-ink-faint text-sm">
+				<Card className="py-8 text-center text-ink-faint text-sm">
 					Search and add exercises above to start logging sets.
-				</div>
+				</Card>
 			)}
 
 			<ImportDialog

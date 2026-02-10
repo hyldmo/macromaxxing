@@ -2,6 +2,7 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { Upload, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button } from '~/components/ui/Button'
+import { Modal } from '~/components/ui/Modal'
 import { Spinner } from '~/components/ui/Spinner'
 import { Textarea } from '~/components/ui/Textarea'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -119,78 +120,76 @@ export const ImportDialog: FC<ImportDialogProps> = ({ open, onClose, mode = 'tem
 	const buttonLabel = mode === 'templates' ? `Import ${exerciseCount} exercises` : `Import ${preview.totalSets} sets`
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div className="mx-4 w-full max-w-lg rounded-[--radius-md] border border-edge bg-surface-1 p-4">
-				<div className="mb-3 flex items-center justify-between">
-					<h3 className="font-medium text-ink text-sm">
-						{mode === 'templates' ? 'Import Workouts' : 'Import Workout Data'}
-					</h3>
-					<Button variant="ghost" size="icon" onClick={onClose}>
-						<X className="size-4" />
-					</Button>
-				</div>
-
-				<Textarea
-					rows={8}
-					placeholder={
-						'Paste spreadsheet or CSV data:\n\nExercise\tReps (3 sets)\tWeights\nSession 1\tGym\tPush\nBench Press\t8\t80 kg'
-					}
-					value={text}
-					onChange={e => setText(e.target.value)}
-					className="mb-3 font-mono text-xs"
-				/>
-
-				{preview.rows.length > 0 && (
-					<div className="mb-3 max-h-48 overflow-auto rounded-[--radius-sm] border border-edge bg-surface-0 p-2">
-						<div className="space-y-0.5">
-							{preview.rows.map(row =>
-								row.type === 'session' ? (
-									<div
-										key={row.label}
-										className="mt-1 border-edge border-b pb-1 font-medium text-accent text-xs first:mt-0"
-									>
-										{row.label}
-									</div>
-								) : (
-									<div key={row.label} className="flex gap-3 font-mono text-xs tabular-nums">
-										<span className="min-w-0 flex-1 truncate text-ink">{row.label}</span>
-										<span className="w-16 text-right text-ink-muted">{row.weight}</span>
-										<span className="w-10 text-right text-ink-muted">×{row.reps}</span>
-										{row.sets && row.sets > 1 && (
-											<span className="w-12 text-right text-ink-faint">{row.sets} sets</span>
-										)}
-									</div>
-								)
-							)}
-						</div>
-						<div className="mt-1 text-[10px] text-ink-faint">
-							{preview.totalSets} total sets
-							{preview.setsPerExercise > 1 && ` (${preview.setsPerExercise} per exercise)`}
-						</div>
-					</div>
-				)}
-
-				{mutation.isError && <TRPCError error={mutation.error} className="mb-3" />}
-
-				<div className="flex gap-2">
-					<Button onClick={handleImport} disabled={exerciseCount === 0 || mutation.isPending}>
-						{mutation.isPending ? (
-							<>
-								<Spinner className="size-4" />
-								Importing...
-							</>
-						) : (
-							<>
-								<Upload className="size-4" />
-								{buttonLabel}
-							</>
-						)}
-					</Button>
-					<Button variant="ghost" onClick={onClose}>
-						Cancel
-					</Button>
-				</div>
+		<Modal className="w-full max-w-lg bg-surface-1 p-4">
+			<div className="mb-3 flex items-center justify-between">
+				<h3 className="font-medium text-ink text-sm">
+					{mode === 'templates' ? 'Import Workouts' : 'Import Workout Data'}
+				</h3>
+				<Button variant="ghost" size="icon" onClick={onClose}>
+					<X className="size-4" />
+				</Button>
 			</div>
-		</div>
+
+			<Textarea
+				rows={8}
+				placeholder={
+					'Paste spreadsheet or CSV data:\n\nExercise\tReps (3 sets)\tWeights\nSession 1\tGym\tPush\nBench Press\t8\t80 kg'
+				}
+				value={text}
+				onChange={e => setText(e.target.value)}
+				className="mb-3 font-mono text-xs"
+			/>
+
+			{preview.rows.length > 0 && (
+				<div className="mb-3 max-h-48 overflow-auto rounded-[--radius-sm] border border-edge bg-surface-0 p-2">
+					<div className="space-y-0.5">
+						{preview.rows.map(row =>
+							row.type === 'session' ? (
+								<div
+									key={row.label}
+									className="mt-1 border-edge border-b pb-1 font-medium text-accent text-xs first:mt-0"
+								>
+									{row.label}
+								</div>
+							) : (
+								<div key={row.label} className="flex gap-3 font-mono text-xs tabular-nums">
+									<span className="min-w-0 flex-1 truncate text-ink">{row.label}</span>
+									<span className="w-16 text-right text-ink-muted">{row.weight}</span>
+									<span className="w-10 text-right text-ink-muted">×{row.reps}</span>
+									{row.sets && row.sets > 1 && (
+										<span className="w-12 text-right text-ink-faint">{row.sets} sets</span>
+									)}
+								</div>
+							)
+						)}
+					</div>
+					<div className="mt-1 text-[10px] text-ink-faint">
+						{preview.totalSets} total sets
+						{preview.setsPerExercise > 1 && ` (${preview.setsPerExercise} per exercise)`}
+					</div>
+				</div>
+			)}
+
+			{mutation.isError && <TRPCError error={mutation.error} className="mb-3" />}
+
+			<div className="flex gap-2">
+				<Button onClick={handleImport} disabled={exerciseCount === 0 || mutation.isPending}>
+					{mutation.isPending ? (
+						<>
+							<Spinner className="size-4" />
+							Importing...
+						</>
+					) : (
+						<>
+							<Upload className="size-4" />
+							{buttonLabel}
+						</>
+					)}
+				</Button>
+				<Button variant="ghost" onClick={onClose}>
+					Cancel
+				</Button>
+			</div>
+		</Modal>
 	)
 }
