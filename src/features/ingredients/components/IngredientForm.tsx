@@ -163,7 +163,6 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 			<div className="flex items-end gap-2">
 				{editIngredient && (
 					<Button
-						type="button"
 						variant="outline"
 						size="icon"
 						className="size-8 shrink-0"

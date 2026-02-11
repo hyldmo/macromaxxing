@@ -100,7 +100,6 @@ export function SettingsPage() {
 							{settingsQuery.data?.hasKey ? (
 								<div className="flex items-center gap-2">
 									<Button
-										type="button"
 										variant="outline"
 										className="shrink-0"
 										onClick={() => {
