@@ -13,6 +13,7 @@ export const PREP_DESCRIPTORS = [
 	'halved',
 	'quartered',
 	'beaten',
+	'crushed',
 	// Prep
 	'peeled',
 	'trimmed',
