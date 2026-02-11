@@ -16,6 +16,7 @@ import { protectedProcedure, router } from '../trpc'
 const zExerciseType = z.enum(['compound', 'isolation'])
 const zSetType = z.enum(['warmup', 'working', 'backoff'])
 const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
+const zTrainingGoal = z.enum(['hypertrophy', 'strength'])
 const zMuscleGroup = z.enum(MUSCLE_GROUPS as unknown as [string, ...string[]])
 type InferredMuscle = { muscleGroup: (typeof MUSCLE_GROUPS)[number]; intensity: number }
 type InferredExercise = { type: 'compound' | 'isolation'; muscles: InferredMuscle[] }
@@ -239,11 +240,12 @@ export const workoutsRouter = router({
 		.input(
 			z.object({
 				name: z.string().min(1),
+				trainingGoal: zTrainingGoal.default('hypertrophy'),
 				exercises: z.array(
 					z.object({
 						exerciseId: z.custom<TypeIDString<'exc'>>(),
-						targetSets: z.number().int().min(1),
-						targetReps: z.number().int().min(1),
+						targetSets: z.number().int().min(1).nullable(),
+						targetReps: z.number().int().min(1).nullable(),
 						targetWeight: z.number().min(0).nullable(),
 						setMode: zSetMode.default('working')
 					})
@@ -265,6 +267,7 @@ export const workoutsRouter = router({
 				.values({
 					userId: ctx.user.id,
 					name: input.name,
+					trainingGoal: input.trainingGoal,
 					sortOrder,
 					createdAt: now,
 					updatedAt: now
@@ -305,13 +308,14 @@ export const workoutsRouter = router({
 			z.object({
 				id: z.custom<TypeIDString<'wkt'>>(),
 				name: z.string().min(1).optional(),
+				trainingGoal: zTrainingGoal.optional(),
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
 						z.object({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
-							targetSets: z.number().int().min(1),
-							targetReps: z.number().int().min(1),
+							targetSets: z.number().int().min(1).nullable(),
+							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
 							setMode: zSetMode.default('working')
 						})
@@ -328,6 +332,7 @@ export const workoutsRouter = router({
 			const now = Date.now()
 			const set: Record<string, unknown> = { updatedAt: now }
 			if (input.name !== undefined) set.name = input.name
+			if (input.trainingGoal !== undefined) set.trainingGoal = input.trainingGoal
 			if (input.sortOrder !== undefined) set.sortOrder = input.sortOrder
 
 			await ctx.db.update(workouts).set(set).where(eq(workouts.id, input.id))
@@ -457,8 +462,8 @@ export const workoutsRouter = router({
 					.array(
 						z.object({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
-							targetSets: z.number().int().min(1).optional(),
-							targetReps: z.number().int().min(1).optional(),
+							targetSets: z.number().int().min(1).nullable().optional(),
+							targetReps: z.number().int().min(1).nullable().optional(),
 							targetWeight: z.number().min(0).nullable().optional()
 						})
 					)
@@ -467,8 +472,8 @@ export const workoutsRouter = router({
 					.array(
 						z.object({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
-							targetSets: z.number().int().min(1),
-							targetReps: z.number().int().min(1),
+							targetSets: z.number().int().min(1).nullable(),
+							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
 							setMode: zSetMode.default('working')
 						})
@@ -696,8 +701,9 @@ export const workoutsRouter = router({
 		// Sum Σ(targetSets × muscleIntensity) across ALL exercises in ALL templates
 		for (const workout of userWorkouts) {
 			for (const wkExercise of workout.exercises) {
+				const sets = wkExercise.targetSets ?? (workout.trainingGoal === 'strength' ? 5 : 3)
 				for (const muscle of wkExercise.exercise.muscles) {
-					const volume = wkExercise.targetSets * muscle.intensity
+					const volume = sets * muscle.intensity
 					muscleVolume.set(muscle.muscleGroup, (muscleVolume.get(muscle.muscleGroup) ?? 0) + volume)
 				}
 			}

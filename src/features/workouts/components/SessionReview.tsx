@@ -1,4 +1,4 @@
-import type { TypeIDString } from '@macromaxxing/db'
+import type { TrainingGoal, TypeIDString } from '@macromaxxing/db'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button } from '~/components/ui/Button'
@@ -8,6 +8,7 @@ import { Switch } from '~/components/ui/Switch'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { TRAINING_DEFAULTS } from '../utils/sets'
 
 type Session = RouterOutput['workout']['getSession']
 type Template = NonNullable<Session['workout']>
@@ -39,25 +40,30 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	const divergences = useMemo(() => {
 		const result: Divergence[] = []
+		const goal = (template.trainingGoal ?? 'hypertrophy') as TrainingGoal
+		const goalDefaults = TRAINING_DEFAULTS[goal]
 
 		for (const we of template.exercises) {
 			const logs = session.logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
 			if (logs.length === 0) continue
 
+			const effectiveSets = we.targetSets ?? goalDefaults.targetSets
+			const effectiveReps = we.targetReps ?? goalDefaults.targetReps
+
 			const avgWeight = logs.reduce((s, l) => s + l.weightKg, 0) / logs.length
 			const avgReps = logs.reduce((s, l) => s + l.reps, 0) / logs.length
 
 			const weightDiff = we.targetWeight != null ? Math.abs(avgWeight - we.targetWeight) : 0
-			const repsDiff = Math.abs(avgReps - we.targetReps)
-			const setsDiff = Math.abs(logs.length - we.targetSets)
+			const repsDiff = Math.abs(avgReps - effectiveReps)
+			const setsDiff = Math.abs(logs.length - effectiveSets)
 
 			if (weightDiff > 0.1 || repsDiff > 0.5 || setsDiff > 0) {
 				const improved =
-					avgWeight >= (we.targetWeight ?? 0) && avgReps >= we.targetReps && logs.length >= we.targetSets
+					avgWeight >= (we.targetWeight ?? 0) && avgReps >= effectiveReps && logs.length >= effectiveSets
 				result.push({
 					exerciseId: we.exerciseId,
 					exerciseName: we.exercise.name,
-					planned: { sets: we.targetSets, reps: we.targetReps, weight: we.targetWeight },
+					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
 					actual: {
 						sets: logs.length,
 						avgReps: Math.round(avgReps * 10) / 10,
@@ -69,7 +75,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 		}
 
 		return result
-	}, [session.logs, template.exercises])
+	}, [session.logs, template.exercises, template.trainingGoal])
 
 	// Toggle states: on for improvements, off for decreases by default
 	const [updates, setUpdates] = useState<Map<string, boolean>>(

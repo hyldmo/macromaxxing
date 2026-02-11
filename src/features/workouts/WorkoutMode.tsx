@@ -1,5 +1,5 @@
+import type { SetMode } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
-import type { SetMode } from 'packages/db'
 import type { FC } from 'react'
 import { cn } from '~/lib/cn'
 

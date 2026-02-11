@@ -7,6 +7,8 @@ export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInp
 	min?: number
 	/** Step for arrow key increment/decrement (default: 1) */
 	step?: number | 'auto'
+	/** Unit label shown in the arrow button area when not hovered/focused */
+	unit?: string
 }
 
 function triggerChange(input: HTMLInputElement, value: string) {
@@ -26,7 +28,7 @@ function autoStep(value: number): number {
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
-	({ className, min = 0, step = 'auto', onKeyDown, onBlur, ...props }, ref) => {
+	({ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, ...props }, ref) => {
 		const innerRef = useRef<HTMLInputElement | null>(null)
 
 		const bump = useCallback(
@@ -97,16 +99,25 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					}}
 					type="text"
 					inputMode="decimal"
-					className="min-w-0 flex-1 bg-transparent px-2 py-1 text-right font-mono text-ink text-sm tabular-nums shadow-none outline-none placeholder:text-ink-faint disabled:cursor-not-allowed"
+					className="min-w-0 flex-1 bg-transparent py-1 pr-1 pl-2 text-right font-mono text-ink text-sm tabular-nums shadow-none outline-none placeholder:text-ink-faint disabled:cursor-not-allowed"
 					onKeyDown={handleKeyDown}
 					onBlur={handleBlur}
 					{...props}
 				/>
-				<div className="flex w-5 shrink-0 flex-col border-edge border-l opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+				<div
+					className={cn(
+						'relative flex w-5 shrink-0 flex-col border-transparent border-l group-focus-within:border-edge group-hover:border-edge'
+					)}
+				>
+					{unit && (
+						<span className="absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity group-focus-within:opacity-0 group-hover:opacity-0">
+							{unit}
+						</span>
+					)}
 					<button
 						type="button"
 						tabIndex={-1}
-						className="flex flex-1 cursor-default items-center justify-center text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
+						className="flex flex-1 cursor-default items-center justify-center text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
 						onMouseDown={e => handleArrowClick(e, 1)}
 					>
 						<ChevronUp className="size-3" />
@@ -114,7 +125,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					<button
 						type="button"
 						tabIndex={-1}
-						className="flex flex-1 cursor-default items-center justify-center border-edge border-t text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
+						className="flex flex-1 cursor-default items-center justify-center border-edge border-t text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
 						onMouseDown={e => handleArrowClick(e, -1)}
 					>
 						<ChevronDown className="size-3" />

@@ -1,23 +1,23 @@
-import type { SetMode, TypeIDString, Workout } from '@macromaxxing/db'
-import { ArrowLeft, GripVertical, SaveIcon, Trash2 } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import type { SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import { ArrowLeft, SaveIcon, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
 import { Input } from '~/components/ui/Input'
-import { NumberInput } from '~/components/ui/NumberInput'
 import { SaveButton } from '~/components/ui/SaveButton'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
+import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { ExerciseSearch } from './components/ExerciseSearch'
-import { WorkoutModes } from './WorkoutMode'
+import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 
-interface TemplateExercise {
+export interface TemplateExercise {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	exerciseType: 'compound' | 'isolation'
-	targetSets: number
-	targetReps: number
+	targetSets: number | null
+	targetReps: number | null
 	targetWeight: number | null
 	setMode: SetMode
 }
@@ -35,11 +35,13 @@ export function WorkoutTemplatePage() {
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
 	const [name, setName] = useState('')
+	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
 
 	useEffect(() => {
 		if (workoutQuery.data) {
 			setName(workoutQuery.data.name)
+			setTrainingGoal(workoutQuery.data.trainingGoal as TrainingGoal)
 			setExercises(
 				workoutQuery.data.exercises.map(e => ({
 					exerciseId: e.exerciseId,
@@ -72,11 +74,10 @@ export function WorkoutTemplatePage() {
 		}
 	})
 
-	const saving = createMutation.isPending || updateMutation.isPending
-
 	function handleSave() {
 		const payload = {
 			name,
+			trainingGoal,
 			exercises: exercises.map(e => ({
 				exerciseId: e.exerciseId,
 				targetSets: e.targetSets,
@@ -150,6 +151,29 @@ export function WorkoutTemplatePage() {
 						onChange={e => setName(e.target.value)}
 					/>
 				</div>
+				<div className="space-y-1">
+					<span className="text-ink-muted text-sm">Training Goal</span>
+					<div className="flex">
+						{(['hypertrophy', 'strength'] as const).map(goal => (
+							<button
+								key={goal}
+								type="button"
+								className={cn(
+									'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-[--radius-sm] last:rounded-r-[--radius-sm]',
+									trainingGoal === goal
+										? 'bg-accent text-white'
+										: 'bg-surface-0 text-ink-faint hover:text-ink'
+								)}
+								onClick={() => setTrainingGoal(goal)}
+							>
+								{goal}
+							</button>
+						))}
+					</div>
+					<p className="text-ink-faint text-xs">
+						{trainingGoal === 'hypertrophy' ? 'Default 3×10, rest 90s' : 'Default 5×5, rest 180s'}
+					</p>
+				</div>
 			</div>
 
 			<div className="space-y-2">
@@ -160,6 +184,7 @@ export function WorkoutTemplatePage() {
 						exercise={ex}
 						index={idx}
 						total={exercises.length}
+						trainingGoal={trainingGoal}
 						onUpdate={updates => updateExercise(idx, updates)}
 						onRemove={() => removeExercise(idx)}
 						onMove={dir => moveExercise(idx, dir)}
@@ -176,8 +201,8 @@ export function WorkoutTemplatePage() {
 									exerciseId: exercise.id,
 									exerciseName: exercise.name,
 									exerciseType: exercise.type,
-									targetSets: 3,
-									targetReps: 8,
+									targetSets: null,
+									targetReps: null,
 									targetWeight: null,
 									setMode: exercise.type === 'compound' ? 'warmup' : 'working'
 								}
@@ -203,75 +228,3 @@ export function WorkoutTemplatePage() {
 		</div>
 	)
 }
-
-interface TemplateExerciseRowProps {
-	exercise: TemplateExercise
-	index: number
-	total: number
-	onUpdate: (updates: Partial<TemplateExercise>) => void
-	onRemove: () => void
-	onMove: (dir: -1 | 1) => void
-}
-
-const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({ exercise, index, total, onUpdate, onRemove, onMove }) => (
-	<div className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-1 px-2 py-1.5">
-		<div className="flex flex-col">
-			<button
-				type="button"
-				className="text-ink-faint hover:text-ink disabled:invisible"
-				disabled={index === 0}
-				onClick={() => onMove(-1)}
-			>
-				<GripVertical className="size-3" />
-			</button>
-			<button
-				type="button"
-				className="text-ink-faint hover:text-ink disabled:invisible"
-				disabled={index === total - 1}
-				onClick={() => onMove(1)}
-			>
-				<GripVertical className="size-3" />
-			</button>
-		</div>
-		<span className="min-w-0 flex-1 truncate text-ink text-sm">{exercise.exerciseName}</span>
-		<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
-		<NumberInput
-			className="w-14"
-			value={exercise.targetSets || ''}
-			onChange={e => {
-				const v = Number.parseInt(e.target.value, 10)
-				onUpdate({ targetSets: Number.isNaN(v) ? 0 : v })
-			}}
-			min={1}
-			step={1}
-		/>
-		<span className="text-ink-faint text-xs">sets</span>
-		<span className="text-ink-faint text-xs">×</span>
-		<NumberInput
-			className="w-14"
-			value={exercise.targetReps || ''}
-			onChange={e => {
-				const v = Number.parseInt(e.target.value, 10)
-				onUpdate({ targetReps: Number.isNaN(v) ? 0 : v })
-			}}
-			min={1}
-			step={1}
-		/>
-		<span className="text-ink-faint text-xs">reps</span>
-		<span className="text-ink-faint text-xs">@</span>
-		<NumberInput
-			className="w-20"
-			value={exercise.targetWeight ?? ''}
-			placeholder="kg"
-			onChange={e => {
-				const v = Number.parseFloat(e.target.value)
-				onUpdate({ targetWeight: Number.isNaN(v) ? null : v })
-			}}
-			min={0}
-			step={0.5}
-		/>
-		<Button variant="ghost" size="icon" className="size-6 text-ink-faint hover:text-destructive" onClick={onRemove}>
-			<Trash2 className="size-3" />
-		</Button>
-	</div>
-)

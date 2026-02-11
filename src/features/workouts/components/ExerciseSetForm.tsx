@@ -185,21 +185,21 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 						<div className="mt-2 flex items-center gap-2">
 							<NumberInput
 								className="w-20"
-								placeholder="kg"
-								value={newWeight}
-								onChange={e => setNewWeight(e.target.value)}
-								onKeyDown={handleKeyDown}
-								step={2.5}
-								min={0}
-							/>
-							<span className="text-ink-faint text-xs">×</span>
-							<NumberInput
-								className="w-16"
 								placeholder="reps"
 								value={newReps}
 								onChange={e => setNewReps(e.target.value)}
 								onKeyDown={handleKeyDown}
 								step={1}
+								min={0}
+							/>
+							<span className="text-ink-faint text-xs">×</span>
+							<NumberInput
+								className="w-20"
+								placeholder="kg"
+								value={newWeight}
+								onChange={e => setNewWeight(e.target.value)}
+								onKeyDown={handleKeyDown}
+								step={2.5}
 								min={0}
 							/>
 							<Button size="sm" onClick={handleAddSet} disabled={!(newWeight && newReps)}>

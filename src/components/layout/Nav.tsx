@@ -1,6 +1,7 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import { CalendarDays, ChefHat, CookingPot, Dumbbell, LogIn, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { cn } from '~/lib/cn'
 
 const publicLinks = [
@@ -23,20 +24,20 @@ export function Nav() {
 						<ChefHat className="size-5" />
 						<span className="tracking-tight">macromaxxing</span>
 					</NavLink>
-					<div className="hidden flex-1 gap-0.5 md:flex">
+					<div className="hidden flex-1 md:flex">
 						{publicLinks.map(({ to, label, icon: Icon }) => (
 							<NavLink
 								key={to}
 								to={to}
 								className={({ isActive }) =>
 									cn(
-										'flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-sm transition-colors',
+										'group flex items-center gap-1.5 rounded-[--radius-sm] px-3 py-1.5 text-sm transition-colors',
 										isActive ? 'bg-surface-2 font-medium text-ink' : 'text-ink-muted hover:text-ink'
 									)
 								}
 							>
 								<Icon className="size-4" />
-								{label}
+								<span className="group-hover:inline max-lg:hidden">{label}</span>
 							</NavLink>
 						))}
 						<SignedIn>
@@ -46,7 +47,7 @@ export function Nav() {
 									to={to}
 									className={({ isActive }) =>
 										cn(
-											'flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-sm transition-colors',
+											'group flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-sm transition-colors',
 											isActive
 												? 'bg-surface-2 font-medium text-ink'
 												: 'text-ink-muted hover:text-ink'
@@ -54,12 +55,15 @@ export function Nav() {
 									}
 								>
 									<Icon className="size-4" />
-									{label}
+									<span className="group-hover:inline max-lg:hidden">{label}</span>
 								</NavLink>
 							))}
 						</SignedIn>
 					</div>
-					<div className="ml-auto hidden items-center gap-2 md:flex">
+					<div className="ml-auto flex items-center gap-2">
+						<RestTimer />
+					</div>
+					<div className="hidden items-center gap-2 md:flex">
 						<SignedIn>
 							<NavLink
 								to="/settings"

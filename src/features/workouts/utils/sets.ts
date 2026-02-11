@@ -1,3 +1,25 @@
+import type { TrainingGoal } from '@macromaxxing/db'
+
+export const TRAINING_DEFAULTS: Record<
+	TrainingGoal,
+	{
+		rest: { warmup: number; working: number; backoff: number }
+		targetSets: number
+		targetReps: number
+	}
+> = {
+	hypertrophy: {
+		rest: { warmup: 45, working: 90, backoff: 60 },
+		targetSets: 3,
+		targetReps: 10
+	},
+	strength: {
+		rest: { warmup: 60, working: 180, backoff: 90 },
+		targetSets: 5,
+		targetReps: 5
+	}
+}
+
 const round = (w: number) => Math.round(w / 2.5) * 2.5
 
 export interface GeneratedSet {

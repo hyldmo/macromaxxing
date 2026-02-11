@@ -1,5 +1,14 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { type AiProvider, type MuscleGroup, newId, type SetMode, SetType, type Sex, typeidCol } from './custom-types'
+import {
+	type AiProvider,
+	type MuscleGroup,
+	newId,
+	type SetMode,
+	type SetType,
+	type Sex,
+	type TrainingGoal,
+	typeidCol
+} from './custom-types'
 
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(), // Clerk user ID (user_xxx)
@@ -163,6 +172,7 @@ export const workouts = sqliteTable('workouts', {
 		.notNull()
 		.references(() => users.id),
 	name: text('name').notNull(),
+	trainingGoal: text('training_goal').notNull().default('hypertrophy').$type<TrainingGoal>(),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: integer('created_at').notNull(),
 	updatedAt: integer('updated_at').notNull()
@@ -179,8 +189,8 @@ export const workoutExercises = sqliteTable('workout_exercises', {
 		.notNull()
 		.references(() => exercises.id),
 	sortOrder: integer('sort_order').notNull(),
-	targetSets: integer('target_sets').notNull(),
-	targetReps: integer('target_reps').notNull(),
+	targetSets: integer('target_sets'), // null = use training goal default
+	targetReps: integer('target_reps'), // null = use training goal default
 	targetWeight: real('target_weight'), // null = find weight first session
 	setMode: text('set_mode').notNull().default('warmup').$type<SetMode>(),
 	createdAt: integer('created_at').notNull()

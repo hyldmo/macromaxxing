@@ -1,4 +1,4 @@
-import type { SetMode, TypeIDString } from '@macromaxxing/db'
+import type { SetMode, TrainingGoal, TypeIDString } from '@macromaxxing/db'
 import { ArrowLeft, Check, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -11,8 +11,9 @@ import { ExerciseSearch } from './components/ExerciseSearch'
 import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
+import { useRestTimer } from './RestTimerContext'
 import { totalVolume } from './utils/formulas'
-import { generateBackoffSets, generateWarmupSets, shouldSkipWarmup } from './utils/sets'
+import { generateBackoffSets, generateWarmupSets, shouldSkipWarmup, TRAINING_DEFAULTS } from './utils/sets'
 
 export function WorkoutSessionPage() {
 	const { sessionId, workoutId } = useParams<{ sessionId?: string; workoutId?: string }>()
@@ -20,6 +21,7 @@ export function WorkoutSessionPage() {
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
+	const { setSessionGoal } = useRestTimer()
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -54,6 +56,17 @@ export function WorkoutSessionPage() {
 		{ id: effectiveSessionId! },
 		{ enabled: !!effectiveSessionId }
 	)
+
+	// Signal rest timer that a session is active
+	const sessionGoalValue = (sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy') as TrainingGoal
+	const isCompleteSession = !!sessionQuery.data?.completedAt
+	useEffect(() => {
+		if (sessionQuery.data && !isCompleteSession) {
+			setSessionGoal(sessionGoalValue)
+		}
+		return () => setSessionGoal(null)
+	}, [sessionQuery.data, sessionGoalValue, isCompleteSession, setSessionGoal])
+
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
 	const addSetMutation = trpc.workout.addSet.useMutation({
@@ -105,12 +118,18 @@ export function WorkoutSessionPage() {
 		// Track which muscles have been warmed up by preceding exercises
 		const warmedUpMuscles = new Map<string, number>()
 
+		const goal = (template?.trainingGoal ?? 'hypertrophy') as TrainingGoal
+		const goalDefaults = TRAINING_DEFAULTS[goal]
+
 		if (template) {
 			for (const we of template.exercises) {
 				templateExerciseIds.add(we.exerciseId)
 				const templateMode = (we.setMode ?? 'working') as SetMode
 				const effectiveMode = modeOverrides.get(we.exerciseId) ?? templateMode
 				modes.set(we.exerciseId, effectiveMode)
+
+				const effectiveSets = we.targetSets ?? goalDefaults.targetSets
+				const effectiveReps = we.targetReps ?? goalDefaults.targetReps
 
 				const sets: PlannedSet[] = []
 				let setNum = 1
@@ -121,7 +140,7 @@ export function WorkoutSessionPage() {
 				if (hasWarmup && we.targetWeight != null && we.targetWeight > 0) {
 					const skipWarmup = shouldSkipWarmup(we.exercise.muscles, warmedUpMuscles)
 					if (!skipWarmup) {
-						const warmups = generateWarmupSets(we.targetWeight, we.targetReps)
+						const warmups = generateWarmupSets(we.targetWeight, effectiveReps)
 						for (const wu of warmups) {
 							sets.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
 						}
@@ -134,19 +153,19 @@ export function WorkoutSessionPage() {
 				}
 
 				// Generate working sets (subtract 1 if backoff)
-				const workingCount = hasBackoff ? Math.max(1, we.targetSets - 1) : we.targetSets
+				const workingCount = hasBackoff ? Math.max(1, effectiveSets - 1) : effectiveSets
 				for (let i = 0; i < workingCount; i++) {
 					sets.push({
 						setNumber: setNum++,
 						weightKg: we.targetWeight,
-						reps: we.targetReps,
+						reps: effectiveReps,
 						setType: 'working'
 					})
 				}
 
 				// Generate backoff set
 				if (hasBackoff && we.targetWeight != null && we.targetWeight > 0) {
-					const backoffs = generateBackoffSets(we.targetWeight, we.targetReps, 1)
+					const backoffs = generateBackoffSets(we.targetWeight, effectiveReps, 1)
 					for (const bo of backoffs) {
 						sets.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
 					}
@@ -199,7 +218,7 @@ export function WorkoutSessionPage() {
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center gap-3">
+			<div className="flex flex-col gap-3 md:flex-row md:items-center">
 				<Link to="/workouts" className="text-ink-muted hover:text-ink">
 					<ArrowLeft className="size-5" />
 				</Link>
