@@ -10,7 +10,6 @@ export interface PortionPanelProps {
 	cookedWeight: number | null
 	rawTotal: number
 	portionSize: number | null
-	effectivePortionSize: number
 	effectiveCookedWeight: number
 	onCookedWeightChange?: (value: number | null) => void
 	onPortionSizeChange?: (value: number | null) => void
@@ -23,17 +22,12 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 	cookedWeight,
 	rawTotal,
 	portionSize,
-	effectivePortionSize,
 	effectiveCookedWeight,
 	onCookedWeightChange,
 	onPortionSizeChange,
 	ingredients,
 	instructions
 }) => {
-	// null portionSize = entire dish is 1 portion
-	const portions =
-		portionSize === null ? 1 : effectivePortionSize > 0 ? effectiveCookedWeight / effectivePortionSize : 0
-
 	return (
 		<div className="rounded-md border border-edge bg-gradient-to-b from-surface-1 to-surface-0 p-4">
 			<h3 className="mb-3 text-center font-semibold text-ink-muted text-xs uppercase tracking-wider">
@@ -66,11 +60,11 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 						ingredients={ingredients}
 						instructions={instructions}
 					/>
-					<PortionSizeInput portionSize={portionSize} onChange={onPortionSizeChange} />
-					<div className="text-center font-mono text-ink-muted text-sm">
-						= <span className="font-bold text-ink">{portions.toFixed(1)}</span>{' '}
-						{portions === 1 ? 'portion' : 'portions'}
-					</div>
+					<PortionSizeInput
+						portionSize={portionSize}
+						effectiveCookedWeight={effectiveCookedWeight}
+						onChange={onPortionSizeChange}
+					/>
 				</div>
 			</div>
 		</div>

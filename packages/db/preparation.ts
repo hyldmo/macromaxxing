@@ -1,5 +1,5 @@
 // Pure preparation descriptors — safe to strip (never product names)
-export const PREP_DESCRIPTORS = new Set([
+export const PREP_DESCRIPTORS = [
 	// Cutting
 	'chopped',
 	'minced',
@@ -12,6 +12,7 @@ export const PREP_DESCRIPTORS = new Set([
 	'torn',
 	'halved',
 	'quartered',
+	'beaten',
 	// Prep
 	'peeled',
 	'trimmed',
@@ -36,10 +37,12 @@ export const PREP_DESCRIPTORS = new Set([
 	'heaping',
 	'level',
 	'rounded'
-])
+] as const
 
+export type PrepDescriptor = (typeof PREP_DESCRIPTORS)[number]
 // Only stripped when followed by a descriptor
-export const PREP_ADVERBS = new Set(['finely', 'coarsely', 'roughly', 'thinly', 'thickly', 'freshly', 'lightly'])
+export const PREP_ADVERBS = ['finely', 'coarsely', 'roughly', 'thinly', 'thickly', 'freshly', 'lightly'] as const
+export type PrepAdverb = (typeof PREP_ADVERBS)[number]
 
 /**
  * Extract preparation descriptor from an ingredient name.
@@ -63,8 +66,10 @@ export function extractPreparation(input: string): { name: string; preparation: 
 		const firstWord = words[0]
 
 		if (
-			PREP_DESCRIPTORS.has(firstWord) ||
-			(PREP_ADVERBS.has(firstWord) && words.length > 1 && PREP_DESCRIPTORS.has(words[1]))
+			PREP_DESCRIPTORS.includes(firstWord as PrepDescriptor) ||
+			(PREP_ADVERBS.includes(firstWord as PrepAdverb) &&
+				words.length > 1 &&
+				PREP_DESCRIPTORS.includes(words[1] as PrepDescriptor))
 		) {
 			return { name: trimmed.slice(0, commaIdx).trim(), preparation: after }
 		}
@@ -76,15 +81,15 @@ export function extractPreparation(input: string): { name: string; preparation: 
 
 	for (let i = 0; i < words.length - 1; i++) {
 		const word = words[i].toLowerCase()
-		if (PREP_ADVERBS.has(word)) {
+		if (PREP_ADVERBS.includes(word as PrepAdverb)) {
 			// Adverb must be followed by a descriptor
-			if (i + 1 < words.length - 1 && PREP_DESCRIPTORS.has(words[i + 1].toLowerCase())) {
+			if (i + 1 < words.length - 1 && PREP_DESCRIPTORS.includes(words[i + 1].toLowerCase() as PrepDescriptor)) {
 				stripCount = i + 2
 				i++ // skip the descriptor too
 			} else {
 				break
 			}
-		} else if (PREP_DESCRIPTORS.has(word)) {
+		} else if (PREP_DESCRIPTORS.includes(word as PrepDescriptor)) {
 			stripCount = i + 1
 		} else {
 			break
