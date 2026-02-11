@@ -48,7 +48,6 @@ coverage/
 
 # IDE
 .idea/
-.claude/
 *.swp
 *.swo
 *~
