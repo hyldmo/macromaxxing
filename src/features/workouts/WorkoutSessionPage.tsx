@@ -115,7 +115,7 @@ export function WorkoutSessionPage() {
 							? (exercise.exercise.fatigueTier as FatigueTier)
 							: ((exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
 									.fatigueTier as FatigueTier) ?? 2)
-					const rest = calculateRest(variables.reps, tier, goal)
+					const rest = calculateRest(variables.reps, tier, goal, variables.setType ?? 'working')
 					startTimer(rest, variables.setType ?? 'working')
 				}
 			}

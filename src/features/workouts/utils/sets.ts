@@ -8,8 +8,14 @@ export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targe
 const GOAL_MULTIPLIER = { hypertrophy: 1.0, strength: 1.5 } as const
 const TIER_MODIFIER = { 1: 60, 2: 30, 3: 0, 4: -15 } as const
 
-export function calculateRest(reps: number, fatigueTier: FatigueTier, goal: TrainingGoal): number {
-	return Math.max(15, Math.round(reps * 4 * GOAL_MULTIPLIER[goal] + TIER_MODIFIER[fatigueTier]))
+export function calculateRest(
+	reps: number,
+	fatigueTier: FatigueTier,
+	goal: TrainingGoal,
+	setType: 'warmup' | 'working' | 'backoff' = 'working'
+): number {
+	const base = Math.round(reps * 4 * GOAL_MULTIPLIER[goal] + TIER_MODIFIER[fatigueTier])
+	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 
 const round = (w: number) => Math.round(w / 2.5) * 2.5
