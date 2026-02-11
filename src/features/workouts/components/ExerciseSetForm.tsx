@@ -6,7 +6,7 @@ import { NumberInput } from '~/components/ui/NumberInput'
 import type { RouterOutput } from '~/lib/trpc'
 import { totalVolume } from '../utils/formulas'
 import { WorkoutModes } from '../WorkoutMode'
-import { PlannedSetRow, SetRow } from './SetRow'
+import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
 type Exercise = Log['exercise']
@@ -118,31 +118,43 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 					{/* Logged sets */}
 					<div className="space-y-0.5">
 						{logs.map(log => (
-							<SetRow key={log.id} log={log} onUpdate={onUpdateSet} onRemove={onRemoveSet} />
+							<SetRow
+								key={log.id}
+								weightKg={log.weightKg}
+								reps={log.reps}
+								setType={log.setType}
+								rpe={log.rpe}
+								failureFlag={log.failureFlag}
+								done
+								onWeightChange={v => {
+									if (v != null) onUpdateSet(log.id, { weightKg: v })
+								}}
+								onRepsChange={v => onUpdateSet(log.id, { reps: v })}
+								onConfirm={() => onRemoveSet(log.id)}
+							/>
 						))}
 					</div>
 
 					{/* Remaining planned sets (not yet confirmed) */}
 					{!readOnly && remainingPlanned.length > 0 && (
 						<div className="mt-1 space-y-0.5">
-							{remainingPlanned.map((planned, _idx) => {
+							{remainingPlanned.map(planned => {
 								const overrides = editableTargets.get(planned.setNumber)
+								const weight = overrides?.weight !== undefined ? overrides.weight : planned.weightKg
+								const reps = overrides?.reps !== undefined ? overrides.reps : planned.reps
 								return (
-									<PlannedSetRow
+									<SetRow
 										key={`${planned.setType}-${planned.setNumber}`}
-										setNumber={planned.setNumber}
-										weightKg={overrides?.weight !== undefined ? overrides.weight : planned.weightKg}
-										reps={overrides?.reps !== undefined ? overrides.reps : planned.reps}
+										weightKg={weight}
+										reps={reps}
 										setType={planned.setType}
-										done={false}
-										onConfirm={(weight, reps) => {
+										onConfirm={() => {
 											onAddSet({
 												exerciseId: exercise.id,
-												weightKg: weight,
+												weightKg: weight ?? 0,
 												reps,
 												setType: planned.setType
 											})
-											// Clear overrides for this set
 											setEditableTargets(prev => {
 												const next = new Map(prev)
 												next.delete(planned.setNumber)

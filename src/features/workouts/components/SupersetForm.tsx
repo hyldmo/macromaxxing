@@ -7,7 +7,7 @@ import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { totalVolume } from '../utils/formulas'
 import type { PlannedSet } from './ExerciseSetForm'
-import { PlannedSetRow, SetRow } from './SetRow'
+import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
 type Exercise = Log['exercise']
@@ -185,9 +185,17 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 												<ExerciseLabel index={entry.exerciseIndex} />
 												<div className="min-w-0 flex-1">
 													<SetRow
-														log={entry.log}
-														onUpdate={onUpdateSet}
-														onRemove={onRemoveSet}
+														weightKg={entry.log.weightKg}
+														reps={entry.log.reps}
+														setType={entry.log.setType}
+														rpe={entry.log.rpe}
+														failureFlag={entry.log.failureFlag}
+														done
+														onWeightChange={v => {
+															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
+														}}
+														onRepsChange={v => onUpdateSet(entry.log!.id, { reps: v })}
+														onConfirm={() => onRemoveSet(entry.log!.id)}
 													/>
 												</div>
 											</div>
@@ -198,29 +206,22 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 
 									const key = `${entry.exerciseId}-${entry.planned.setType}-${entry.planned.setNumber}`
 									const overrides = editableTargets.get(key)
+									const weightKg =
+										overrides?.weight !== undefined ? overrides.weight : entry.planned.weightKg
+									const reps = overrides?.reps !== undefined ? overrides.reps : entry.planned.reps
 
 									return (
 										<div key={key} className="flex items-center gap-1.5">
 											<ExerciseLabel index={entry.exerciseIndex} />
 											<div className="min-w-0 flex-1">
-												<PlannedSetRow
-													setNumber={entry.planned.setNumber}
-													weightKg={
-														overrides?.weight !== undefined
-															? overrides.weight
-															: entry.planned.weightKg
-													}
-													reps={
-														overrides?.reps !== undefined
-															? overrides.reps
-															: entry.planned.reps
-													}
+												<SetRow
+													weightKg={weightKg}
+													reps={reps}
 													setType={entry.planned.setType}
-													done={false}
-													onConfirm={(weight, reps) => {
+													onConfirm={() => {
 														onAddSet({
 															exerciseId: entry.exerciseId,
-															weightKg: weight,
+															weightKg: weightKg ?? 0,
 															reps,
 															setType: entry.planned.setType,
 															transition: !isLastInRound
@@ -280,7 +281,19 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 											{exercise.name.slice(0, 1)}
 										</span>
 										<div className="min-w-0 flex-1">
-											<SetRow log={log} onUpdate={onUpdateSet} onRemove={onRemoveSet} />
+											<SetRow
+												weightKg={log.weightKg}
+												reps={log.reps}
+												setType={log.setType}
+												rpe={log.rpe}
+												failureFlag={log.failureFlag}
+												done
+												onWeightChange={v => {
+													if (v != null) onUpdateSet(log.id, { weightKg: v })
+												}}
+												onRepsChange={v => onUpdateSet(log.id, { reps: v })}
+												onConfirm={() => onRemoveSet(log.id)}
+											/>
 										</div>
 									</div>
 								))}
@@ -355,7 +368,7 @@ const AddSetRow: FC<{
 				))}
 			</div>
 			<NumberInput
-				className="w-12"
+				className="w-20"
 				placeholder="reps"
 				value={reps}
 				onChange={e => setReps(e.target.value)}
