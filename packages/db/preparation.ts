@@ -49,9 +49,25 @@ export type PrepAdverb = (typeof PREP_ADVERBS)[number]
 // Food modifiers that don't constitute a standalone ingredient name — prevent middle-pattern
 // from splitting "Canned Diced Tomatoes" into name:"Canned" + prep:"diced tomatoes"
 const FOOD_MODIFIERS = [
-	'canned', 'frozen', 'fresh', 'dried', 'organic', 'raw', 'cooked',
-	'smoked', 'pickled', 'roasted', 'toasted', 'blanched', 'marinated',
-	'seasoned', 'unsalted', 'salted', 'whole', 'boneless', 'skinless',
+	'canned',
+	'frozen',
+	'fresh',
+	'dried',
+	'organic',
+	'raw',
+	'cooked',
+	'smoked',
+	'pickled',
+	'roasted',
+	'toasted',
+	'blanched',
+	'marinated',
+	'seasoned',
+	'unsalted',
+	'salted',
+	'whole',
+	'boneless',
+	'skinless'
 ]
 
 // Serving instructions stripped before parsing: ", to serve", ", for garnish"
@@ -158,7 +174,7 @@ export function extractPreparation(input: string): { name: string; preparation: 
 			if (namePart.some(w => !FOOD_MODIFIERS.includes(w.toLowerCase()))) {
 				return {
 					name: namePart.join(' '),
-					preparation: words.slice(i).join(' ').toLowerCase(),
+					preparation: words.slice(i).join(' ').toLowerCase()
 				}
 			}
 		}

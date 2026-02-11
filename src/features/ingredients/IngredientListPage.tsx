@@ -37,7 +37,7 @@ export function IngredientListPage() {
 		['recent', 'Recent'],
 		['name', 'Name'],
 		['protein', 'Prot'],
-		['kcal', 'Kcal'],
+		['kcal', 'Kcal']
 	] as const
 
 	const filtered = useMemo(() => {
@@ -92,7 +92,8 @@ export function IngredientListPage() {
 							onClick={() => toggleSort(key)}
 						>
 							{label}
-							{sortKey === key && (sortDir === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+							{sortKey === key &&
+								(sortDir === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
 						</button>
 					))}
 				</div>

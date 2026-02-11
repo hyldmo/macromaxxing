@@ -644,11 +644,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 											</span>
 										</div>
 										<div className="ml-5.5">
-											<MacroBar
-												protein={totals.protein}
-												carbs={totals.carbs}
-												fat={totals.fat}
-											/>
+											<MacroBar protein={totals.protein} carbs={totals.carbs} fat={totals.fat} />
 										</div>
 									</button>
 								)

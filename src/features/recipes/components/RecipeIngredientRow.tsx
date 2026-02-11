@@ -157,7 +157,7 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 			<tr className="group border-edge/50 border-b transition-colors hover:bg-surface-2/50">
 				<td className="px-2 py-1.5 font-medium text-sm">
 					<div className="flex items-baseline gap-1">
-						{!readOnly && !isSubrecipe && (
+						{!(readOnly || isSubrecipe) && (
 							<button
 								type="button"
 								className="shrink-0 cursor-grab touch-none self-center text-ink-faint hover:text-ink active:cursor-grabbing"
@@ -181,25 +181,21 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 							</button>
 						)}
 						{isSubrecipe ? (
-							<Link
-								to={`/recipes/${ri.subrecipeId}`}
-								className="text-accent hover:underline"
-							>
+							<Link to={`/recipes/${ri.subrecipeId}`} className="text-accent hover:underline">
 								{itemName}
 							</Link>
 						) : (
 							<span className="text-ink">{itemName}</span>
 						)}
-						{!isSubrecipe && (
-							readOnly ? (
+						{!isSubrecipe &&
+							(readOnly ? (
 								ri.preparation && <span className="font-normal text-ink-faint">{ri.preparation}</span>
 							) : (
 								<PreparationInput
 									value={ri.preparation ?? ''}
 									onChange={preparation => updateMutation.mutate({ id: ri.id, preparation })}
 								/>
-							)
-						)}
+							))}
 					</div>
 				</td>
 				<td className="px-2 py-1.5">

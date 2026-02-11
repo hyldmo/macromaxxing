@@ -2661,6 +2661,7 @@ __metadata:
     es-toolkit: "npm:*"
     typeid-js: "npm:^1.2.0"
     typescript: "npm:*"
+    vitest: "npm:*"
   peerDependencies:
     zod: "*"
   languageName: unknown
@@ -11145,7 +11146,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:^4.0.18":
+"vitest@npm:*, vitest@npm:^4.0.18":
   version: 4.0.18
   resolution: "vitest@npm:4.0.18"
   dependencies:

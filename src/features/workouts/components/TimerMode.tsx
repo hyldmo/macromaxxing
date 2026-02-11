@@ -318,7 +318,7 @@ export const TimerMode: FC = () => {
 		[exerciseGroups, focusedItemIndex]
 	)
 	const nextSet = useMemo(() => findNextSet(exerciseGroups, currentSet), [exerciseGroups, currentSet])
-	const progress = useMemo(() => exerciseProgress(exerciseGroups), [exerciseGroups])
+	const _progress = useMemo(() => exerciseProgress(exerciseGroups), [exerciseGroups])
 
 	// Sync editable state when current set identity changes
 	const setIdentity = currentSet ? `${currentSet.exerciseId}-${currentSet.setNumber}-${currentSet.setType}` : null
@@ -464,7 +464,9 @@ export const TimerMode: FC = () => {
 						</>
 					) : (
 						<>
-							<h2 className="font-mono text-ink-muted text-sm tabular-nums">{currentSet.itemIndex + 1} / {exerciseGroups.length}</h2>
+							<h2 className="font-mono text-ink-muted text-sm tabular-nums">
+								{currentSet.itemIndex + 1} / {exerciseGroups.length}
+							</h2>
 							{/* Exercise name with nav arrows */}
 							<div className="flex w-full items-center justify-center gap-2">
 								<button

@@ -163,13 +163,16 @@ export function calculateSubrecipePer100g(subrecipe: {
 // Map a recipe ingredient (with possible subrecipe) to IngredientWithAmount
 export function toIngredientWithAmount(ri: {
 	ingredient: MacrosPer100g | null
-	subrecipe: { recipeIngredients: Array<{ ingredient: MacrosPer100g | null; amountGrams: number }>; cookedWeight: number | null } | null
+	subrecipe: {
+		recipeIngredients: Array<{ ingredient: MacrosPer100g | null; amountGrams: number }>
+		cookedWeight: number | null
+	} | null
 	amountGrams: number
 }): IngredientWithAmount {
 	return {
 		per100g: ri.subrecipe
 			? calculateSubrecipePer100g(ri.subrecipe)
-			: ri.ingredient ?? { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0 },
+			: (ri.ingredient ?? { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0 }),
 		amountGrams: ri.amountGrams
 	}
 }

@@ -177,7 +177,8 @@ export const recipesRouter = router({
 				})
 				for (const row of rows) {
 					if (row.subrecipeId === targetId) return true
-					if (row.subrecipeId && (await hasCycle(row.subrecipeId as TypeIDString<'rcp'>, targetId))) return true
+					if (row.subrecipeId && (await hasCycle(row.subrecipeId as TypeIDString<'rcp'>, targetId)))
+						return true
 				}
 				return false
 			}

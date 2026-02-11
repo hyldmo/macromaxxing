@@ -22,7 +22,10 @@ export const mealPlansRouter = router({
 						recipe: {
 							with: {
 								recipeIngredients: {
-									with: { ingredient: true, subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } } },
+									with: {
+										ingredient: true,
+										subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+									},
 									orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 								}
 							}
@@ -173,7 +176,10 @@ export const mealPlansRouter = router({
 					recipe: {
 						with: {
 							recipeIngredients: {
-								with: { ingredient: true, subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } } }
+								with: {
+									ingredient: true,
+									subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+								}
 							}
 						}
 					},
@@ -213,7 +219,10 @@ export const mealPlansRouter = router({
 					recipe: {
 						with: {
 							recipeIngredients: {
-								with: { ingredient: true, subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } } }
+								with: {
+									ingredient: true,
+									subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+								}
 							}
 						}
 					},

@@ -33,7 +33,9 @@ function highlightText(text: string, ingredients: RecipeIngredient[], keyPrefix:
 	let lastIndex = 0
 	let match: RegExpExecArray | null
 
-	while ((match = regex.exec(text)) !== null) {
+	while (true) {
+		match = regex.exec(text)
+		if (match === null) break
 		if (match.index > lastIndex) {
 			result.push(text.slice(lastIndex, match.index))
 		}
@@ -65,7 +67,9 @@ function renderInline(text: string, ingredients: RecipeIngredient[], keyPrefix: 
 	let match: RegExpExecArray | null
 	let key = 0
 
-	while ((match = regex.exec(text)) !== null) {
+	while (true) {
+		match = regex.exec(text)
+		if (match === null) break
 		if (match.index > lastIndex) {
 			segments.push(...highlightText(text.slice(lastIndex, match.index), ingredients, `${keyPrefix}-${key}`))
 		}
