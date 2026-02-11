@@ -100,7 +100,6 @@ export const SetRow: FC<SetRowProps> = ({
 							: 'border-edge text-ink-faint hover:border-ink-muted hover:text-ink-muted'
 					)}
 					onClick={onConfirm}
-					disabled={done}
 				>
 					{done ? <Check className="size-3.5" /> : <Circle className="size-3.5" />}
 				</button>

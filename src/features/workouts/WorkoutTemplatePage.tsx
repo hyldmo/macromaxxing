@@ -1,3 +1,5 @@
+import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -13,6 +15,7 @@ import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 
 export interface TemplateExercise {
+	uid: string
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	exerciseType: 'compound' | 'isolation'
@@ -45,6 +48,7 @@ export function WorkoutTemplatePage() {
 			setTrainingGoal(workoutQuery.data.trainingGoal as TrainingGoal)
 			setExercises(
 				workoutQuery.data.exercises.map(e => ({
+					uid: crypto.randomUUID(),
 					exerciseId: e.exerciseId,
 					exerciseName: e.exercise.name,
 					exerciseType: e.exercise.type,
@@ -104,13 +108,16 @@ export function WorkoutTemplatePage() {
 		setExercises(prev => prev.filter((_, i) => i !== idx))
 	}
 
-	function moveExercise(idx: number, dir: -1 | 1) {
-		const target = idx + dir
-		if (target < 0 || target >= exercises.length) return
+	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+	function handleDragEnd(event: DragEndEvent) {
+		const { active, over } = event
+		if (!over || active.id === over.id) return
 		setExercises(prev => {
-			const next = [...prev]
-			;[next[idx], next[target]] = [next[target], next[idx]]
-			return next
+			const oldIndex = prev.findIndex(e => e.uid === active.id)
+			const newIndex = prev.findIndex(e => e.uid === over.id)
+			if (oldIndex === -1 || newIndex === -1) return prev
+			return arrayMove(prev, oldIndex, newIndex)
 		})
 	}
 
@@ -239,96 +246,103 @@ export function WorkoutTemplatePage() {
 				</div>
 			</div>
 
-			<div className="space-y-0">
-				<h2 className="mb-2 font-medium text-ink text-sm">Exercises</h2>
-				{exercises.map((ex, idx) => {
-					const isLinkedAbove =
-						idx > 0 && ex.supersetGroup !== null && exercises[idx - 1].supersetGroup === ex.supersetGroup
-					const isLinkedBelow =
-						idx < exercises.length - 1 &&
-						ex.supersetGroup !== null &&
-						exercises[idx + 1].supersetGroup === ex.supersetGroup
-					const canLink = idx < exercises.length - 1
-					const isLinkedWithNext =
-						canLink && ex.supersetGroup !== null && exercises[idx + 1].supersetGroup === ex.supersetGroup
+			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+				<div className="space-y-0">
+					<h2 className="mb-2 font-medium text-ink text-sm">Exercises</h2>
+					<SortableContext items={exercises.map(e => e.uid)} strategy={verticalListSortingStrategy}>
+						{exercises.map((ex, idx) => {
+							const isLinkedAbove =
+								idx > 0 &&
+								ex.supersetGroup !== null &&
+								exercises[idx - 1].supersetGroup === ex.supersetGroup
+							const isLinkedBelow =
+								idx < exercises.length - 1 &&
+								ex.supersetGroup !== null &&
+								exercises[idx + 1].supersetGroup === ex.supersetGroup
+							const canLink = idx < exercises.length - 1
+							const isLinkedWithNext =
+								canLink &&
+								ex.supersetGroup !== null &&
+								exercises[idx + 1].supersetGroup === ex.supersetGroup
 
-					// Distinct groups get distinct label numbers
-					const groupLabels = [
-						...new Set(exercises.map(e => e.supersetGroup).filter((g): g is number => g !== null))
-					]
-					const groupLabel =
-						ex.supersetGroup !== null ? `SS${groupLabels.indexOf(ex.supersetGroup) + 1}` : null
+							// Distinct groups get distinct label numbers
+							const groupLabels = [
+								...new Set(exercises.map(e => e.supersetGroup).filter((g): g is number => g !== null))
+							]
+							const groupLabel =
+								ex.supersetGroup !== null ? `SS${groupLabels.indexOf(ex.supersetGroup) + 1}` : null
 
-					return (
-						<div key={`${ex.exerciseId}-${idx}`}>
-							<TemplateExerciseRow
-								exercise={ex}
-								index={idx}
-								total={exercises.length}
-								trainingGoal={trainingGoal}
-								supersetLabel={!isLinkedAbove ? groupLabel : null}
-								isSuperset={ex.supersetGroup !== null}
-								isFirstInGroup={!isLinkedAbove && ex.supersetGroup !== null}
-								isLastInGroup={!isLinkedBelow && ex.supersetGroup !== null}
-								onUpdate={updates => updateExercise(idx, updates)}
-								onRemove={() => removeExercise(idx)}
-								onMove={dir => moveExercise(idx, dir)}
-							/>
-							{canLink && (
-								<div className="flex justify-center py-0.5">
-									<button
-										type="button"
-										className={cn(
-											'group flex items-center gap-1 rounded-[--radius-sm] px-1.5 py-0.5 font-mono text-[10px] transition-colors',
-											isLinkedWithNext
-												? 'text-accent hover:text-destructive'
-												: 'text-ink-faint hover:text-accent'
-										)}
-										onClick={() => toggleSuperset(idx)}
-									>
-										{isLinkedWithNext ? (
-											<>
-												<Link2 className="size-3 group-hover:hidden" />
-												<Link2Off className="hidden size-3 group-hover:block" />
-												<span className="group-hover:hidden">superset</span>
-												<span className="hidden group-hover:inline">unlink</span>
-											</>
-										) : (
-											<>
-												<Link2Off className="size-3 group-hover:hidden" />
-												<Link2 className="hidden size-3 group-hover:block" />
-												<span className="group-hover:hidden">superset</span>
-												<span className="hidden group-hover:inline">link</span>
-											</>
-										)}
-									</button>
+							return (
+								<div key={ex.uid}>
+									<TemplateExerciseRow
+										id={ex.uid}
+										exercise={ex}
+										trainingGoal={trainingGoal}
+										supersetLabel={!isLinkedAbove ? groupLabel : null}
+										isSuperset={ex.supersetGroup !== null}
+										isFirstInGroup={!isLinkedAbove && ex.supersetGroup !== null}
+										isLastInGroup={!isLinkedBelow && ex.supersetGroup !== null}
+										onUpdate={updates => updateExercise(idx, updates)}
+										onRemove={() => removeExercise(idx)}
+									/>
+									{canLink && (
+										<div className="flex justify-center py-0.5">
+											<button
+												type="button"
+												className={cn(
+													'group flex items-center gap-1 rounded-[--radius-sm] px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+													isLinkedWithNext
+														? 'text-accent hover:text-destructive'
+														: 'text-ink-faint hover:text-accent'
+												)}
+												onClick={() => toggleSuperset(idx)}
+											>
+												{isLinkedWithNext ? (
+													<>
+														<Link2 className="size-3 group-hover:hidden" />
+														<Link2Off className="hidden size-3 group-hover:block" />
+														<span className="group-hover:hidden">superset</span>
+														<span className="hidden group-hover:inline">unlink</span>
+													</>
+												) : (
+													<>
+														<Link2Off className="size-3 group-hover:hidden" />
+														<Link2 className="hidden size-3 group-hover:block" />
+														<span className="group-hover:hidden">superset</span>
+														<span className="hidden group-hover:inline">link</span>
+													</>
+												)}
+											</button>
+										</div>
+									)}
 								</div>
-							)}
-						</div>
-					)
-				})}
+							)
+						})}
+					</SortableContext>
 
-				{exercisesQuery.data && (
-					<ExerciseSearch
-						exercises={exercisesQuery.data}
-						onSelect={exercise => {
-							setExercises(prev => [
-								...prev,
-								{
-									exerciseId: exercise.id,
-									exerciseName: exercise.name,
-									exerciseType: exercise.type,
-									targetSets: null,
-									targetReps: null,
-									targetWeight: null,
-									setMode: exercise.type === 'compound' ? 'warmup' : 'working',
-									supersetGroup: null
-								}
-							])
-						}}
-					/>
-				)}
-			</div>
+					{exercisesQuery.data && (
+						<ExerciseSearch
+							exercises={exercisesQuery.data}
+							onSelect={exercise => {
+								setExercises(prev => [
+									...prev,
+									{
+										uid: crypto.randomUUID(),
+										exerciseId: exercise.id,
+										exerciseName: exercise.name,
+										exerciseType: exercise.type,
+										targetSets: null,
+										targetReps: null,
+										targetWeight: null,
+										setMode: exercise.type === 'compound' ? 'warmup' : 'working',
+										supersetGroup: null
+									}
+								])
+							}}
+						/>
+					)}
+				</div>
+			</DndContext>
 
 			{(createMutation.isError || updateMutation.isError) && (
 				<TRPCError error={createMutation.error ?? updateMutation.error!} />

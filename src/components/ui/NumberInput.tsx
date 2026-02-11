@@ -83,11 +83,13 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 			[bump]
 		)
 
+		const enabled = !(props.readOnly || props.disabled)
+
 		return (
 			<div
 				className={cn(
 					'group flex h-8 items-stretch rounded-[--radius-sm] border border-edge bg-surface-1 transition-colors focus-within:ring-1 focus-within:ring-accent/50',
-					props.disabled && 'cursor-not-allowed opacity-40',
+					{ 'opacity-40': !enabled, 'cursor-not-allowed': props.disabled },
 					className
 				)}
 			>
@@ -105,31 +107,40 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					{...props}
 				/>
 				<div
-					className={cn(
-						'relative flex w-5 shrink-0 flex-col border-transparent border-l group-focus-within:border-edge group-hover:border-edge'
-					)}
+					className={cn('relative flex w-5 shrink-0 flex-col border-transparent border-l', {
+						'group-focus-within:border-edge group-hover:border-edge': enabled
+					})}
 				>
-					{unit && (
-						<span className="absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity group-focus-within:opacity-0 group-hover:opacity-0">
+					{unit && (props.placeholder === unit ? !!props.value : true) && (
+						<span
+							className={cn(
+								'absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',
+								{ 'group-focus-within:opacity-0 group-hover:opacity-0': enabled }
+							)}
+						>
 							{unit}
 						</span>
 					)}
-					<button
-						type="button"
-						tabIndex={-1}
-						className="flex flex-1 cursor-default items-center justify-center text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
-						onMouseDown={e => handleArrowClick(e, 1)}
-					>
-						<ChevronUp className="size-3" />
-					</button>
-					<button
-						type="button"
-						tabIndex={-1}
-						className="flex flex-1 cursor-default items-center justify-center border-edge border-t text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
-						onMouseDown={e => handleArrowClick(e, -1)}
-					>
-						<ChevronDown className="size-3" />
-					</button>
+					{enabled && (
+						<>
+							<button
+								type="button"
+								tabIndex={-1}
+								className="flex flex-1 cursor-default items-center justify-center text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
+								onMouseDown={e => handleArrowClick(e, 1)}
+							>
+								<ChevronUp className="size-3" />
+							</button>
+							<button
+								type="button"
+								tabIndex={-1}
+								className="flex flex-1 cursor-default items-center justify-center border-edge border-t text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
+								onMouseDown={e => handleArrowClick(e, -1)}
+							>
+								<ChevronDown className="size-3" />
+							</button>
+						</>
+					)}
 				</div>
 			</div>
 		)

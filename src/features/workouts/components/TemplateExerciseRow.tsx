@@ -1,3 +1,5 @@
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { TrainingGoal } from '@macromaxxing/db'
 import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
@@ -8,9 +10,8 @@ import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
 
 export interface TemplateExerciseRowProps {
+	id: string
 	exercise: TemplateExercise
-	index: number
-	total: number
 	trainingGoal: TrainingGoal
 	supersetLabel: string | null
 	isSuperset: boolean
@@ -18,51 +19,43 @@ export interface TemplateExerciseRowProps {
 	isLastInGroup: boolean
 	onUpdate: (updates: Partial<TemplateExercise>) => void
 	onRemove: () => void
-	onMove: (dir: -1 | 1) => void
 }
 
 export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
+	id,
 	exercise,
-	index,
-	total,
 	trainingGoal,
 	supersetLabel,
 	isSuperset,
 	isFirstInGroup,
 	isLastInGroup,
 	onUpdate,
-	onRemove,
-	onMove
+	onRemove
 }) => {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+	const style = { transform: CSS.Translate.toString(transform), transition }
 	const defaults = TRAINING_DEFAULTS[trainingGoal]
 	return (
 		<div
+			ref={setNodeRef}
+			style={style}
 			className={cn(
 				'flex items-center gap-2 border border-edge bg-surface-1 px-2 py-1.5',
 				isSuperset ? 'border-l-2 border-l-accent' : '',
 				isFirstInGroup ? 'rounded-t-[--radius-sm]' : '',
 				isLastInGroup ? 'rounded-b-[--radius-sm]' : '',
-				!isSuperset && 'rounded-[--radius-sm]'
+				!isSuperset && 'rounded-[--radius-sm]',
+				isDragging && 'z-10 opacity-50'
 			)}
 		>
-			<div className="flex flex-col">
-				<button
-					type="button"
-					className="text-ink-faint hover:text-ink disabled:invisible"
-					disabled={index === 0}
-					onClick={() => onMove(-1)}
-				>
-					<GripVertical className="size-3" />
-				</button>
-				<button
-					type="button"
-					className="text-ink-faint hover:text-ink disabled:invisible"
-					disabled={index === total - 1}
-					onClick={() => onMove(1)}
-				>
-					<GripVertical className="size-3" />
-				</button>
-			</div>
+			<button
+				type="button"
+				className="cursor-grab touch-none text-ink-faint hover:text-ink active:cursor-grabbing"
+				{...attributes}
+				{...listeners}
+			>
+				<GripVertical className="size-4" />
+			</button>
 			{supersetLabel && (
 				<span className="rounded-full bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
 					{supersetLabel}
