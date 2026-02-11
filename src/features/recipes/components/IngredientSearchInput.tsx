@@ -1,9 +1,10 @@
 import { extractPreparation, type Ingredient } from '@macromaxxing/db'
-import { ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
+import { BookOpen, ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { FuzzyHighlight, fuzzyMatch } from '~/lib/fuzzy'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { calculateRecipeTotals, getEffectiveCookedWeight, getEffectivePortionSize } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 
 export interface IngredientSearchInputProps {
@@ -197,6 +198,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 
 	const settingsQuery = trpc.settings.get.useQuery()
 	const ingredientsQuery = trpc.ingredient.list.useQuery()
+	const recipesQuery = trpc.recipe.list.useQuery()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation({
 		onSuccess: () => utils.ingredient.list.invalidate()
 	})
@@ -204,6 +206,11 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		onSuccess: () => utils.ingredient.list.invalidate()
 	})
 	const addIngredient = trpc.recipe.addIngredient.useMutation({
+		onSuccess: () => {
+			utils.recipe.get.invalidate({ id: recipeId })
+		}
+	})
+	const addSubrecipe = trpc.recipe.addSubrecipe.useMutation({
 		onSuccess: () => {
 			utils.recipe.get.invalidate({ id: recipeId })
 		}
@@ -221,6 +228,18 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				})
 				.sort((a, b) => b.match.score - a.match.score)
 				.slice(0, 10)
+		: []
+
+	// Recipe search: filter out self, premade, and already-added subrecipes
+	const recipeSearchResults = searchName.trim()
+		? (recipesQuery.data ?? [])
+				.filter(r => r.id !== recipeId && r.type === 'recipe')
+				.flatMap(r => {
+					const match = fuzzyMatch(searchName, r.name)
+					return match ? [{ recipe: r, match }] : []
+				})
+				.sort((a, b) => b.match.score - a.match.score)
+				.slice(0, 5)
 		: []
 
 	function handleSelectIngredient(
@@ -588,9 +607,55 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							</button>
 						)
 					})}
-					{searchResults.length === 0 && !findOrCreate.isPending && (
-						<div className="px-3 py-2 text-ink-faint text-sm">No ingredients found</div>
+					{searchResults.length === 0 && recipeSearchResults.length === 0 && !findOrCreate.isPending && (
+						<div className="px-3 py-2 text-ink-faint text-sm">No ingredients or recipes found</div>
 					)}
+					{recipeSearchResults.length > 0 && (
+						<>
+							<div className="border-edge border-t px-3 py-1.5 font-medium text-ink-faint text-xs uppercase tracking-wider">
+								Recipes
+							</div>
+							{recipeSearchResults.map(({ recipe, match }) => {
+								const items = recipe.recipeIngredients
+									.filter(ri => ri.ingredient != null)
+									.map(ri => ({ per100g: ri.ingredient!, amountGrams: ri.amountGrams }))
+								const totals = calculateRecipeTotals(items)
+								const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
+								const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
+								const portionCount = portionSize > 0 ? Math.round(cookedWeight / portionSize) : 1
+								return (
+									<button
+										key={recipe.id}
+										type="button"
+										className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-surface-2"
+										onMouseDown={() => {
+											addSubrecipe.mutate({ recipeId, subrecipeId: recipe.id })
+											setSearch('')
+											setShowDropdown(false)
+										}}
+									>
+										<div className="flex w-full items-center gap-2">
+											<BookOpen className="h-3.5 w-3.5 shrink-0 text-accent" />
+											<span className="text-ink text-sm">
+												<FuzzyHighlight text={recipe.name} positions={match.positions} />
+											</span>
+											<span className="ml-auto font-mono text-ink-faint text-xs">
+												{portionCount} {portionCount === 1 ? 'portion' : 'portions'}
+											</span>
+										</div>
+										<div className="ml-5.5">
+											<MacroBar
+												protein={totals.protein}
+												carbs={totals.carbs}
+												fat={totals.fat}
+											/>
+										</div>
+									</button>
+								)
+							})}
+						</>
+					)}
+					{addSubrecipe.isError && <TRPCError error={addSubrecipe.error} />}
 					<button
 						type="button"
 						className="flex w-full items-center gap-2 border-edge border-t px-3 py-2.5 text-left text-accent text-sm hover:bg-surface-2"

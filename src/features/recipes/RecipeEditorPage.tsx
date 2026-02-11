@@ -53,7 +53,7 @@ export function RecipeEditorPage() {
 	const calculations = useRecipeCalculations(recipeQuery.data)
 
 	const ingredients = recipeQuery.data?.recipeIngredients.map(ri => ({
-		name: ri.ingredient.name,
+		name: ri.subrecipe?.name ?? ri.ingredient?.name ?? '',
 		grams: ri.amountGrams
 	}))
 

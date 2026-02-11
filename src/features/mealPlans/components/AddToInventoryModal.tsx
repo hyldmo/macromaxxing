@@ -8,7 +8,8 @@ import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
@@ -37,20 +38,14 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		recipesQuery.data?.filter(r => r.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10) ?? []
 
 	function getRecipePortionMacros(recipe: Recipe) {
-		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-			per100g: ri.ingredient,
-			amountGrams: ri.amountGrams
-		}))
+		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 		const totals = calculateRecipeTotals(items)
 		const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 		return calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 	}
 
 	function getDefaultPortions(recipe: Recipe) {
-		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-			per100g: ri.ingredient,
-			amountGrams: ri.amountGrams
-		}))
+		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 		const totals = calculateRecipeTotals(items)
 		const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 		if (!recipe.portionSize) return 1

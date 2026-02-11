@@ -22,10 +22,11 @@ function formatTooltip(ri: RecipeIngredient): string {
 }
 
 function highlightText(text: string, ingredients: RecipeIngredient[], keyPrefix: string): ReactNode[] {
-	if (ingredients.length === 0) return [text]
+	const withIngredient = ingredients.filter(i => i.ingredient != null)
+	if (withIngredient.length === 0) return [text]
 
-	const sorted = [...ingredients].sort((a, b) => b.ingredient.name.length - a.ingredient.name.length)
-	const pattern = sorted.map(i => escapeRegex(i.ingredient.name)).join('|')
+	const sorted = [...withIngredient].sort((a, b) => b.ingredient!.name.length - a.ingredient!.name.length)
+	const pattern = sorted.map(i => escapeRegex(i.ingredient!.name)).join('|')
 	const regex = new RegExp(`\\b(${pattern})\\b`, 'gi')
 
 	const result: ReactNode[] = []
@@ -36,7 +37,7 @@ function highlightText(text: string, ingredients: RecipeIngredient[], keyPrefix:
 		if (match.index > lastIndex) {
 			result.push(text.slice(lastIndex, match.index))
 		}
-		const ri = sorted.find(i => i.ingredient.name.toLowerCase() === match![1].toLowerCase())
+		const ri = sorted.find(i => i.ingredient!.name.toLowerCase() === match![1].toLowerCase())
 		if (ri) {
 			result.push(
 				<Tooltip key={`${keyPrefix}-${match.index}`} content={formatTooltip(ri)}>
@@ -76,9 +77,7 @@ function renderInline(text: string, ingredients: RecipeIngredient[], keyPrefix: 
 			)
 		} else if (match[2] !== undefined) {
 			segments.push(
-				<em key={`${keyPrefix}-i${key}`}>
-					{highlightText(match[2], ingredients, `${keyPrefix}-i${key}`)}
-				</em>
+				<em key={`${keyPrefix}-i${key}`}>{highlightText(match[2], ingredients, `${keyPrefix}-i${key}`)}</em>
 			)
 		}
 		key++
@@ -137,9 +136,7 @@ export const HighlightedInstructions: FC<HighlightedInstructionsProps> = ({ mark
 				let itemKey = 0
 				while (i < lines.length && /^[-*]\s/.test(lines[i])) {
 					const content = lines[i].replace(/^[-*]\s+/, '')
-					items.push(
-						<li key={itemKey}>{renderInline(content, ingredients, `ul${blockKey}-${itemKey}`)}</li>
-					)
+					items.push(<li key={itemKey}>{renderInline(content, ingredients, `ul${blockKey}-${itemKey}`)}</li>)
 					itemKey++
 					i++
 				}
@@ -158,9 +155,7 @@ export const HighlightedInstructions: FC<HighlightedInstructionsProps> = ({ mark
 				let itemKey = 0
 				while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
 					const content = lines[i].replace(/^\d+\.\s+/, '')
-					items.push(
-						<li key={itemKey}>{renderInline(content, ingredients, `ol${blockKey}-${itemKey}`)}</li>
-					)
+					items.push(<li key={itemKey}>{renderInline(content, ingredients, `ol${blockKey}-${itemKey}`)}</li>)
 					itemKey++
 					i++
 				}
@@ -175,11 +170,7 @@ export const HighlightedInstructions: FC<HighlightedInstructionsProps> = ({ mark
 
 			// Paragraph — collect consecutive non-special lines
 			const paraLines: string[] = []
-			while (
-				i < lines.length &&
-				lines[i].trim() !== '' &&
-				!/^(#{1,6}\s|[-*]\s|\d+\.\s)/.test(lines[i])
-			) {
+			while (i < lines.length && lines[i].trim() !== '' && !/^(#{1,6}\s|[-*]\s|\d+\.\s)/.test(lines[i])) {
 				paraLines.push(lines[i])
 				i++
 			}

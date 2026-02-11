@@ -13,7 +13,8 @@ import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from './utils/macros'
 
 type Filter = 'all' | 'mine' | 'premade'
@@ -39,10 +40,7 @@ export function RecipeListPage() {
 	const recipesWithMacros = useMemo(() => {
 		if (!recipesQuery.data) return []
 		return recipesQuery.data.map(recipe => {
-			const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-				per100g: ri.ingredient,
-				amountGrams: ri.amountGrams
-			}))
+			const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 			const totals = calculateRecipeTotals(items)
 			const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 			const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)

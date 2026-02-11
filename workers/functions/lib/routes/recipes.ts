@@ -1,5 +1,5 @@
 import { ingredients, ingredientUnits, recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
-import { and, eq, or } from 'drizzle-orm'
+import { and, eq, isNotNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 
@@ -44,7 +44,14 @@ export const recipesRouter = router({
 			where: ctx.user
 				? or(and(eq(recipes.isPublic, 1), eq(recipes.type, 'recipe')), eq(recipes.userId, ctx.user.id))
 				: and(eq(recipes.isPublic, 1), eq(recipes.type, 'recipe')),
-			with: { recipeIngredients: { with: { ingredient: { with: { units: true } } } } },
+			with: {
+				recipeIngredients: {
+					with: {
+						ingredient: { with: { units: true } },
+						subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+					}
+				}
+			},
 			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
 			limit: 50
 		})
@@ -56,7 +63,10 @@ export const recipesRouter = router({
 			where: eq(recipes.id, input.id),
 			with: {
 				recipeIngredients: {
-					with: { ingredient: { with: { units: true } } },
+					with: {
+						ingredient: { with: { units: true } },
+						subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+					},
 					orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 				}
 			}
@@ -97,7 +107,10 @@ export const recipesRouter = router({
 			where: eq(recipes.id, id),
 			with: {
 				recipeIngredients: {
-					with: { ingredient: true },
+					with: {
+						ingredient: { with: { units: true } },
+						subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+					},
 					orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 				}
 			}
@@ -136,9 +149,86 @@ export const recipesRouter = router({
 
 		return ctx.db.query.recipeIngredients.findFirst({
 			where: eq(recipeIngredients.id, newIngredient.id),
-			with: { ingredient: { with: { units: true } } }
+			with: {
+				ingredient: { with: { units: true } },
+				subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+			}
 		})
 	}),
+
+	addSubrecipe: protectedProcedure
+		.input(
+			z.object({
+				recipeId: z.custom<TypeIDString<'rcp'>>(),
+				subrecipeId: z.custom<TypeIDString<'rcp'>>(),
+				portions: z.number().positive().default(1)
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			// Prevent self-reference
+			if (input.recipeId === input.subrecipeId) {
+				throw new Error('A recipe cannot contain itself as a subrecipe')
+			}
+
+			// Cycle detection: walk subrecipeId's own subrecipes recursively
+			async function hasCycle(currentId: TypeIDString<'rcp'>, targetId: TypeIDString<'rcp'>): Promise<boolean> {
+				const rows = await ctx.db.query.recipeIngredients.findMany({
+					where: and(eq(recipeIngredients.recipeId, currentId), isNotNull(recipeIngredients.subrecipeId))
+				})
+				for (const row of rows) {
+					if (row.subrecipeId === targetId) return true
+					if (row.subrecipeId && (await hasCycle(row.subrecipeId as TypeIDString<'rcp'>, targetId))) return true
+				}
+				return false
+			}
+
+			if (await hasCycle(input.subrecipeId, input.recipeId)) {
+				throw new Error('Adding this subrecipe would create a circular reference')
+			}
+
+			// Load subrecipe to compute effective portion size
+			const subrecipe = await ctx.db.query.recipes.findFirst({
+				where: eq(recipes.id, input.subrecipeId),
+				with: { recipeIngredients: { with: { ingredient: true } } }
+			})
+			if (!subrecipe) throw new Error('Subrecipe not found')
+
+			// Calculate effective portion size
+			const rawTotal = subrecipe.recipeIngredients.reduce((sum, ri) => sum + ri.amountGrams, 0)
+			const effectiveCookedWeight = subrecipe.cookedWeight ?? rawTotal
+			const effectivePortionSize = subrecipe.portionSize ?? effectiveCookedWeight
+			const amountGrams = input.portions * effectivePortionSize
+
+			// Get next sort order
+			const existing = await ctx.db
+				.select()
+				.from(recipeIngredients)
+				.where(eq(recipeIngredients.recipeId, input.recipeId))
+			const sortOrder = existing.length
+
+			const [newRow] = await ctx.db
+				.insert(recipeIngredients)
+				.values({
+					recipeId: input.recipeId,
+					ingredientId: null,
+					subrecipeId: input.subrecipeId,
+					amountGrams,
+					displayUnit: 'portions',
+					displayAmount: input.portions,
+					sortOrder
+				})
+				.returning()
+
+			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, input.recipeId))
+
+			return ctx.db.query.recipeIngredients.findFirst({
+				where: eq(recipeIngredients.id, newRow.id),
+				with: {
+					ingredient: { with: { units: true } },
+					subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+				}
+			})
+		}),
 
 	updateIngredient: protectedProcedure.input(updateIngredientSchema).mutation(async ({ ctx, input }) => {
 		const { id, ...updates } = input
@@ -152,7 +242,10 @@ export const recipesRouter = router({
 
 		return ctx.db.query.recipeIngredients.findFirst({
 			where: eq(recipeIngredients.id, id),
-			with: { ingredient: { with: { units: true } } }
+			with: {
+				ingredient: { with: { units: true } },
+				subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+			}
 		})
 	}),
 
@@ -238,7 +331,10 @@ export const recipesRouter = router({
 				where: eq(recipes.id, recipe.id),
 				with: {
 					recipeIngredients: {
-						with: { ingredient: { with: { units: true } } },
+						with: {
+							ingredient: { with: { units: true } },
+							subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+						},
 						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 					}
 				}

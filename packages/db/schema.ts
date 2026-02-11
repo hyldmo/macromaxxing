@@ -90,11 +90,10 @@ export const recipeIngredients = sqliteTable('recipe_ingredients', {
 	recipeId: typeidCol('rcp')('recipe_id')
 		.notNull()
 		.references(() => recipes.id, { onDelete: 'cascade' }),
-	ingredientId: typeidCol('ing')('ingredient_id')
-		.notNull()
-		.references(() => ingredients.id),
+	ingredientId: typeidCol('ing')('ingredient_id').references(() => ingredients.id), // null when subrecipe
+	subrecipeId: typeidCol('rcp')('subrecipe_id').references(() => recipes.id), // null when ingredient
 	amountGrams: real('amount_grams').notNull(),
-	displayUnit: text('display_unit'), // 'scoop' | 'tbsp' | NULL (grams)
+	displayUnit: text('display_unit'), // 'scoop' | 'tbsp' | 'portions' | NULL (grams)
 	displayAmount: real('display_amount'), // 2 | NULL
 	preparation: text('preparation'), // "minced", "finely chopped", etc.
 	sortOrder: integer('sort_order').notNull()

@@ -6,7 +6,8 @@ import {
 	calculateRecipeTotals,
 	calculateRemainingPortions,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { cn } from '~/lib/cn'
 import { type RouterOutput, trpc } from '~/lib/trpc'
@@ -32,10 +33,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 	const isOverAllocated = remaining < 0
 
 	const recipe = inventory.recipe
-	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-		per100g: ri.ingredient,
-		amountGrams: ri.amountGrams
-	}))
+	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 	const totals = calculateRecipeTotals(items)
 	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 	const portionSize = recipe.portionSize ?? cookedWeight

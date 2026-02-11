@@ -5,7 +5,8 @@ import {
 	calculateRecipeTotals,
 	calculateSlotMacros,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayTotals } from './DayTotals'
@@ -42,10 +43,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 	const slotMacros = slotArray.map(slot => {
 		if (!slot) return null
 		const recipe = slot.inventory.recipe
-		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-			per100g: ri.ingredient,
-			amountGrams: ri.amountGrams
-		}))
+		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 		const totals = calculateRecipeTotals(items)
 		const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 		const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)

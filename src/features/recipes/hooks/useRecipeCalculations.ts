@@ -7,7 +7,8 @@ import {
 	calculateRecipeTotals,
 	getEffectiveCookedWeight,
 	getEffectivePortionSize,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '../utils/macros'
 
 type Recipe = RouterOutput['recipe']['get']
@@ -24,10 +25,7 @@ export function useRecipeCalculations(recipe: Recipe | undefined): RecipeCalcula
 	return useMemo(() => {
 		if (!recipe) return null
 
-		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-			per100g: ri.ingredient,
-			amountGrams: ri.amountGrams
-		}))
+		const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 
 		const ingredientMacros = items.map(item => calculateIngredientMacros(item.per100g, item.amountGrams))
 		const totals = calculateRecipeTotals(items)

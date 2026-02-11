@@ -7,7 +7,8 @@ import {
 	calculateRecipeTotals,
 	calculateSlotMacros,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { MealPopover } from './MealPopover'
@@ -30,10 +31,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 
 	// Calculate macros based on current portions
 	const recipe = slot.inventory.recipe
-	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-		per100g: ri.ingredient,
-		amountGrams: ri.amountGrams
-	}))
+	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 	const totals = calculateRecipeTotals(items)
 	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 	const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)

@@ -7,6 +7,7 @@ import type { AbsoluteMacros } from '../utils/macros'
 import { IngredientSearchInput } from './IngredientSearchInput'
 import { MacroHeader } from './MacroCell'
 import { RecipeIngredientRow } from './RecipeIngredientRow'
+import { SubrecipeExpandedRows } from './SubrecipeExpandedRows'
 
 type RecipeIngredient = RouterOutput['recipe']['get']['recipeIngredients'][number]
 
@@ -24,6 +25,7 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 	readOnly
 }) => {
 	const [pendingIngredients, setPendingIngredients] = useState<string[]>([])
+	const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 	const utils = trpc.useUtils()
 	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -67,10 +69,21 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 		setPendingIngredients(prev => prev.filter(n => n.toLowerCase() !== name.toLowerCase()))
 	}, [])
 
+	function toggleExpand(id: string) {
+		setExpandedIds(prev => {
+			const next = new Set(prev)
+			if (next.has(id)) next.delete(id)
+			else next.add(id)
+			return next
+		})
+	}
+
 	// Auto-clear pending ingredients when they appear in real data
 	useEffect(() => {
 		if (pendingIngredients.length === 0) return
-		const currentNames = new Set(recipeIngredients.map(ri => ri.ingredient.name.toLowerCase()))
+		const currentNames = new Set(
+			recipeIngredients.filter(ri => ri.ingredient != null).map(ri => ri.ingredient!.name.toLowerCase())
+		)
 		setPendingIngredients(prev => prev.filter(name => !currentNames.has(name.toLowerCase())))
 	}, [recipeIngredients, pendingIngredients.length])
 
@@ -86,7 +99,7 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 							<thead>
 								<tr className="border-edge border-b bg-surface-2/50">
 									<th className="px-2 py-1.5 text-left font-medium text-ink-muted text-xs">Item</th>
-									<th className="px-2 py-1.5 text-right font-medium text-ink-muted text-xs">g</th>
+									<th className="px-2 py-1.5 text-left font-medium text-ink-muted text-xs">Amount</th>
 									<MacroHeader macro="protein" label="Prot" />
 									<MacroHeader macro="carbs" label="Carbs" />
 									<MacroHeader macro="fat" label="Fat" />
@@ -94,15 +107,37 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 									{!readOnly && <th className="w-8" />}
 								</tr>
 							</thead>
-							{recipeIngredients.map((ri, i) => (
-								<RecipeIngredientRow
-									key={ri.id}
-									ri={ri}
-									macros={ingredientMacros[i]}
-									recipeId={recipeId}
-									readOnly={readOnly}
-								/>
-							))}
+							{recipeIngredients.map((ri, i) => {
+								const isExpanded = expandedIds.has(ri.id)
+								return (
+									<RecipeIngredientRow
+										key={ri.id}
+										ri={ri}
+										macros={ingredientMacros[i]}
+										recipeId={recipeId}
+										readOnly={readOnly}
+										expanded={isExpanded}
+										onToggleExpand={() => toggleExpand(ri.id)}
+									/>
+								)
+							})}
+							{recipeIngredients.map(ri => {
+								if (!(ri.subrecipe && expandedIds.has(ri.id))) return null
+								const rawTotal = ri.subrecipe.recipeIngredients.reduce(
+									(sum, sri) => sum + sri.amountGrams,
+									0
+								)
+								const effectiveWeight = ri.subrecipe.cookedWeight ?? rawTotal
+								const scaleFactor = effectiveWeight > 0 ? ri.amountGrams / effectiveWeight : 0
+								return (
+									<SubrecipeExpandedRows
+										key={`expanded-${ri.id}`}
+										subrecipeIngredients={ri.subrecipe.recipeIngredients}
+										scaleFactor={scaleFactor}
+										readOnly={readOnly}
+									/>
+								)
+							})}
 							{pendingIngredients.length > 0 && (
 								<tbody>
 									{pendingIngredients.map(name => (
@@ -113,11 +148,21 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 													<span className="text-ink-muted text-sm">{name}</span>
 												</div>
 											</td>
-											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
-											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
-											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
-											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
-											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">&mdash;</td>
+											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
+												&mdash;
+											</td>
+											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
+												&mdash;
+											</td>
+											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
+												&mdash;
+											</td>
+											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
+												&mdash;
+											</td>
+											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
+												&mdash;
+											</td>
 											{!readOnly && <td className="w-8" />}
 										</tr>
 									))}
@@ -126,7 +171,10 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 							{recipeIngredients.length === 0 && pendingIngredients.length === 0 && (
 								<tbody>
 									<tr>
-										<td colSpan={readOnly ? 6 : 7} className="px-2 py-8 text-center text-ink-faint text-sm">
+										<td
+											colSpan={readOnly ? 6 : 7}
+											className="px-2 py-8 text-center text-ink-faint text-sm"
+										>
 											{readOnly
 												? 'No ingredients in this recipe.'
 												: 'No ingredients yet. Search above to add some.'}

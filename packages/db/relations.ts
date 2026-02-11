@@ -34,7 +34,8 @@ export const userSettingsRelations = relations(userSettings, ({ one }) => ({
 
 export const recipesRelations = relations(recipes, ({ one, many }) => ({
 	user: one(users, { fields: [recipes.userId], references: [users.id] }),
-	recipeIngredients: many(recipeIngredients)
+	recipeIngredients: many(recipeIngredients, { relationName: 'parentRecipe' }),
+	usedAsSubrecipeIn: many(recipeIngredients, { relationName: 'subrecipe' })
 }))
 
 export const ingredientsRelations = relations(ingredients, ({ one, many }) => ({
@@ -47,8 +48,9 @@ export const ingredientUnitsRelations = relations(ingredientUnits, ({ one }) => 
 }))
 
 export const recipeIngredientsRelations = relations(recipeIngredients, ({ one }) => ({
-	recipe: one(recipes, { fields: [recipeIngredients.recipeId], references: [recipes.id] }),
-	ingredient: one(ingredients, { fields: [recipeIngredients.ingredientId], references: [ingredients.id] })
+	recipe: one(recipes, { fields: [recipeIngredients.recipeId], references: [recipes.id], relationName: 'parentRecipe' }),
+	ingredient: one(ingredients, { fields: [recipeIngredients.ingredientId], references: [ingredients.id] }),
+	subrecipe: one(recipes, { fields: [recipeIngredients.subrecipeId], references: [recipes.id], relationName: 'subrecipe' })
 }))
 
 export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({

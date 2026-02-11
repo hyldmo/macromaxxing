@@ -140,6 +140,40 @@ export function calculateWeeklyAverage(dayTotals: AbsoluteMacros[]): AbsoluteMac
 	}
 }
 
+// Calculate per-100g macros for a subrecipe based on its ingredients and cooked weight
+export function calculateSubrecipePer100g(subrecipe: {
+	recipeIngredients: Array<{ ingredient: MacrosPer100g | null; amountGrams: number }>
+	cookedWeight: number | null
+}): MacrosPer100g {
+	const items: IngredientWithAmount[] = subrecipe.recipeIngredients
+		.filter(ri => ri.ingredient != null)
+		.map(ri => ({ per100g: ri.ingredient!, amountGrams: ri.amountGrams }))
+	const totals = calculateRecipeTotals(items)
+	const effectiveWeight = subrecipe.cookedWeight ?? totals.weight
+	if (effectiveWeight === 0) return { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0 }
+	return {
+		protein: (totals.protein / effectiveWeight) * 100,
+		carbs: (totals.carbs / effectiveWeight) * 100,
+		fat: (totals.fat / effectiveWeight) * 100,
+		kcal: (totals.kcal / effectiveWeight) * 100,
+		fiber: (totals.fiber / effectiveWeight) * 100
+	}
+}
+
+// Map a recipe ingredient (with possible subrecipe) to IngredientWithAmount
+export function toIngredientWithAmount(ri: {
+	ingredient: MacrosPer100g | null
+	subrecipe: { recipeIngredients: Array<{ ingredient: MacrosPer100g | null; amountGrams: number }>; cookedWeight: number | null } | null
+	amountGrams: number
+}): IngredientWithAmount {
+	return {
+		per100g: ri.subrecipe
+			? calculateSubrecipePer100g(ri.subrecipe)
+			: ri.ingredient ?? { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0 },
+		amountGrams: ri.amountGrams
+	}
+}
+
 // Calculate remaining portions for inventory display
 export function calculateRemainingPortions(totalPortions: number, allocatedSlots: { portions: number }[]): number {
 	const used = allocatedSlots.reduce((sum, slot) => sum + slot.portions, 0)

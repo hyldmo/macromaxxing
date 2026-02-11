@@ -8,7 +8,8 @@ import {
 	calculateSlotMacros,
 	calculateWeeklyAverage,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import type { RouterOutput } from '~/lib/trpc'
 
@@ -28,10 +29,7 @@ export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory }) => {
 				.filter(s => s.dayOfWeek === day)
 				.map(slot => {
 					const recipe = inv.recipe
-					const items: IngredientWithAmount[] = recipe.recipeIngredients.map(ri => ({
-						per100g: ri.ingredient,
-						amountGrams: ri.amountGrams
-					}))
+					const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 					const totals = calculateRecipeTotals(items)
 					const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 					const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)

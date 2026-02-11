@@ -5,7 +5,8 @@ import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
 	getEffectiveCookedWeight,
-	type IngredientWithAmount
+	type IngredientWithAmount,
+	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
@@ -38,10 +39,7 @@ export const SlotPickerPopover: FC<SlotPickerPopoverProps> = ({ dayOfWeek, slotI
 	}
 
 	function getPortionMacros(inv: InventoryItem) {
-		const items: IngredientWithAmount[] = inv.recipe.recipeIngredients.map(ri => ({
-			per100g: ri.ingredient,
-			amountGrams: ri.amountGrams
-		}))
+		const items: IngredientWithAmount[] = inv.recipe.recipeIngredients.map(toIngredientWithAmount)
 		const totals = calculateRecipeTotals(items)
 		const cookedWeight = getEffectiveCookedWeight(totals.weight, inv.recipe.cookedWeight)
 		return calculatePortionMacros(totals, cookedWeight, inv.recipe.portionSize)
