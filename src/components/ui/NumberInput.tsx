@@ -35,10 +35,10 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 			(direction: 1 | -1, input: HTMLInputElement) => {
 				const current = Number.parseFloat(input.value) || 0
 				const s = step === 'auto' ? autoStep(current) : step
-				const decimals = s < 1 ? (String(s).split('.')[1]?.length ?? 1) : 0
+				const stepDecimals = String(s).split('.')[1]?.length ?? 0
 				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
 				const next = Math.max(min, snapped)
-				const formatted = decimals > 0 ? next.toFixed(decimals) : String(Math.round(next))
+				const formatted = stepDecimals > 0 ? next.toFixed(stepDecimals) : String(Math.round(next))
 				triggerChange(input, formatted)
 			},
 			[step, min]
@@ -114,7 +114,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					{unit && (props.placeholder === unit ? !!props.value : true) && (
 						<span
 							className={cn(
-								'absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',
+								'pointer-events-none absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',
 								{ 'group-focus-within:opacity-0 group-hover:opacity-0': enabled }
 							)}
 						>
@@ -126,7 +126,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 							<button
 								type="button"
 								tabIndex={-1}
-								className="flex flex-1 cursor-default items-center justify-center text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
+								className="flex flex-1 cursor-pointer items-center justify-center text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
 								onMouseDown={e => handleArrowClick(e, 1)}
 							>
 								<ChevronUp className="size-3" />
@@ -134,7 +134,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 							<button
 								type="button"
 								tabIndex={-1}
-								className="flex flex-1 cursor-default items-center justify-center border-edge border-t text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
+								className="flex flex-1 cursor-pointer items-center justify-center border-edge border-t text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-focus-within:opacity-100 group-hover:opacity-100"
 								onMouseDown={e => handleArrowClick(e, -1)}
 							>
 								<ChevronDown className="size-3" />
