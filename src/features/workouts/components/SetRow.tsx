@@ -108,12 +108,7 @@ export const PlannedSetRow: FC<PlannedSetRowProps> = ({
 	onWeightChange,
 	onRepsChange
 }) => (
-	<div
-		className={cn(
-			'flex items-center gap-1.5 rounded-[--radius-sm] py-1 sm:gap-2',
-			done ? 'opacity-100' : 'opacity-50'
-		)}
-	>
+	<div className="flex items-center gap-1.5 rounded-[--radius-sm] py-1 sm:gap-2">
 		{/* Type badge */}
 		<span
 			className={cn(

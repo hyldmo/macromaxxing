@@ -46,6 +46,7 @@ export function WorkoutSessionPage() {
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
 	const { setSessionId, start: startTimer } = useRestTimer()
+	const transitionRef = useRef(false)
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -99,18 +100,24 @@ export function WorkoutSessionPage() {
 			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 			// Auto-start rest timer
 			if (!isCompleteSession) {
-				// Find the exercise to get its fatigue tier
-				const exercise = exerciseGroups.find(g => {
-					if (g.type === 'standalone') return g.exerciseId === variables.exerciseId
-					return g.exercises.some(e => e.exerciseId === variables.exerciseId)
-				})
-				const tier: FatigueTier =
-					exercise?.type === 'standalone'
-						? (exercise.exercise.fatigueTier as FatigueTier)
-						: ((exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
-								.fatigueTier as FatigueTier) ?? 2)
-				const rest = calculateRest(variables.reps, tier, goal)
-				startTimer(rest, variables.setType ?? 'working')
+				if (transitionRef.current) {
+					// Mid-superset round: short transition timer
+					startTimer(15, variables.setType ?? 'working', true)
+					transitionRef.current = false
+				} else {
+					// Standalone set or last exercise in superset round: full rest
+					const exercise = exerciseGroups.find(g => {
+						if (g.type === 'standalone') return g.exerciseId === variables.exerciseId
+						return g.exercises.some(e => e.exerciseId === variables.exerciseId)
+					})
+					const tier: FatigueTier =
+						exercise?.type === 'standalone'
+							? (exercise.exercise.fatigueTier as FatigueTier)
+							: ((exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
+									.fatigueTier as FatigueTier) ?? 2)
+					const rest = calculateRest(variables.reps, tier, goal)
+					startTimer(rest, variables.setType ?? 'working')
+				}
 			}
 		}
 	})
@@ -389,7 +396,8 @@ export function WorkoutSessionPage() {
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
-								onAddSet={data =>
+								onAddSet={data => {
+									transitionRef.current = data.transition ?? false
 									addSetMutation.mutate({
 										sessionId: session.id,
 										exerciseId: data.exerciseId,
@@ -397,7 +405,7 @@ export function WorkoutSessionPage() {
 										reps: data.reps,
 										setType: data.setType
 									})
-								}
+								}}
 								onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
 								onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
 							/>
