@@ -3,11 +3,13 @@ import { useMemo, useState } from 'react'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
 import { MacroBar } from '../recipes/components/MacroBar'
 import { IngredientForm } from './components/IngredientForm'
 
 export function IngredientListPage() {
+	useDocumentTitle('Ingredients')
 	const [search, setSearch] = useState('')
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
@@ -195,7 +197,7 @@ export function IngredientListPage() {
 								return (
 									<>
 										<tr
-											key={ingredient.id}
+											key={ingredient.id + ingredient.name}
 											className="border-edge/50 border-b transition-colors hover:bg-surface-2/50"
 										>
 											<td className="px-2 py-1.5 font-medium text-ink">{ingredient.name}</td>

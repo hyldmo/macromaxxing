@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react'
 import { Button, Card, CardContent, CardHeader, Input, SaveButton, Switch, TRPCError } from '~/components/ui'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 
 export function SettingsPage() {
+	useDocumentTitle('Settings')
 	const settingsQuery = trpc.settings.get.useQuery()
 	const utils = trpc.useUtils()
 	const saveMutation = trpc.settings.save.useMutation({

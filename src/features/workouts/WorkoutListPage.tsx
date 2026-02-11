@@ -6,12 +6,14 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { ImportDialog } from './components/ImportDialog'
 import { MuscleHeatGrid } from './components/MuscleHeatGrid'
 import { SessionCard } from './components/SessionCard'
 import { WorkoutCard } from './components/WorkoutCard'
 
 export function WorkoutListPage() {
+	useDocumentTitle('Workouts')
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const workoutsQuery = trpc.workout.listWorkouts.useQuery()

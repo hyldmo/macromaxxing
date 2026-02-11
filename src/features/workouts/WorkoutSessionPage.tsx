@@ -1,15 +1,17 @@
 import type { FatigueTier, SetMode, TrainingGoal, TypeIDString } from '@macromaxxing/db'
-import { ArrowLeft, Check, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, CopyButton, Spinner, TRPCError } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { SupersetForm } from './components/SupersetForm'
+import { TimerMode } from './components/TimerMode'
 import { useRestTimer } from './RestTimerContext'
 import { formatSession } from './utils/export'
 import { totalVolume } from './utils/formulas'
@@ -42,6 +44,7 @@ export function WorkoutSessionPage() {
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
+	const [timerMode, setTimerMode] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
 	const { setSessionId, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
@@ -349,6 +352,7 @@ export function WorkoutSessionPage() {
 	}, [])
 
 	const session = sessionQuery.data
+	useDocumentTitle(session?.name ?? 'Workout Session')
 	const vol = session ? totalVolume(session.logs) : 0
 	const isCompleted = !!session?.completedAt
 
@@ -388,6 +392,10 @@ export function WorkoutSessionPage() {
 					<CopyButton className="text-ink-faint hover:text-ink" getText={() => formatSession(session)} />
 					{!isCompleted && (
 						<>
+							<Button variant="outline" size="sm" onClick={() => setTimerMode(true)}>
+								<Timer className="size-3.5" />
+								Timer
+							</Button>
 							<Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
 								<Upload className="size-3.5" />
 								Import
@@ -502,6 +510,26 @@ export function WorkoutSessionPage() {
 				<Card className="py-8 text-center text-ink-faint text-sm">
 					Search and add exercises above to start logging sets.
 				</Card>
+			)}
+
+			{timerMode && !isCompleted && (
+				<TimerMode
+					open
+					onClose={() => setTimerMode(false)}
+					exerciseGroups={exerciseGroups}
+					setActiveExerciseId={setActiveExerciseId}
+					session={{ startedAt: session.startedAt, name: session.name ?? null }}
+					onConfirmSet={data => {
+						transitionRef.current = data.transition ?? false
+						addSetMutation.mutate({
+							sessionId: session.id,
+							exerciseId: data.exerciseId,
+							weightKg: data.weightKg,
+							reps: data.reps,
+							setType: data.setType
+						})
+					}}
+				/>
 			)}
 
 			<ImportDialog

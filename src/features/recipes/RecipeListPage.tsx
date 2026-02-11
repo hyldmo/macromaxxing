@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
 import { PremadeDialog } from './components/PremadeDialog'
 import { RecipeCard } from './components/RecipeCard'
@@ -26,6 +27,7 @@ const sortLabels: Record<Sort, string> = {
 }
 
 export function RecipeListPage() {
+	useDocumentTitle('Recipes')
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = useState<Sort>('recent')
 	const [showImport, setShowImport] = useState(false)

@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 import { formatTemplate } from './utils/export'
@@ -36,6 +37,7 @@ export function WorkoutTemplatePage() {
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
 	const [name, setName] = useState('')
+	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
 

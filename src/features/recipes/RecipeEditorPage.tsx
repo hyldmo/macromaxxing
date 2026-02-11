@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
+import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
 import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'
@@ -37,6 +38,7 @@ export function RecipeEditorPage() {
 	const [name, setName] = useState('')
 	const [instructions, setInstructions] = useState('')
 	const [hasLoadedRecipe, setHasLoadedRecipe] = useState(false)
+	useDocumentTitle(name || (isNew ? 'New Recipe' : 'Recipe'))
 	const [showPublishWarning, setShowPublishWarning] = useState(false)
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -170,7 +172,6 @@ export function RecipeEditorPage() {
 							cookedWeight={recipeQuery.data.cookedWeight}
 							rawTotal={calculations.totals.weight}
 							portionSize={recipeQuery.data.portionSize}
-							effectivePortionSize={calculations.portionSize}
 							effectiveCookedWeight={calculations.cookedWeight}
 							onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
 							onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
@@ -218,7 +219,6 @@ export function RecipeEditorPage() {
 								cookedWeight={recipeQuery.data.cookedWeight}
 								rawTotal={calculations.totals.weight}
 								portionSize={recipeQuery.data.portionSize}
-								effectivePortionSize={calculations.portionSize}
 								effectiveCookedWeight={calculations.cookedWeight}
 								onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
 								onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
