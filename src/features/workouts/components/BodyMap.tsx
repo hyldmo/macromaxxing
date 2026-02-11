@@ -36,7 +36,7 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleColors, onHover, sex }) => {
 	const Front = sex === 'female' ? BodyFrontFemale : BodyFrontMale
 	const Back = sex === 'female' ? BodyBackFemale : BodyBackMale
 	return (
-		<div className="flex gap-4">
+		<div className="flex justify-center gap-4">
 			<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={onHover} label="front" />
 			<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={onHover} label="back" />
 		</div>
