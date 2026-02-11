@@ -23,7 +23,7 @@ export const WorkoutModes: FC<WorkoutModesProps> = ({ value, onChange }) => {
 					key={opt.value}
 					type="button"
 					className={cn(
-						'group border border-edge px-1.5 py-0.5 text-[10px] first:rounded-l-[--radius-sm] last:rounded-r-[--radius-sm]',
+						'group border border-edge px-1.5 py-0.5 text-[10px] first:rounded-l-sm last:rounded-r-sm',
 						{
 							'bg-accent text-white': value === opt.value,
 							'bg-surface-0 text-ink-faint hover:text-ink': value !== opt.value

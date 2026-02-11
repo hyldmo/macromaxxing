@@ -8,7 +8,7 @@ export interface RecipeTotalsBarProps {
 
 export const RecipeTotalsBar: FC<RecipeTotalsBarProps> = ({ totals }) => {
 	return (
-		<div className="rounded-[--radius-md] bg-surface-2/60 px-3 py-2">
+		<div className="rounded-md bg-surface-2/60 px-3 py-2">
 			<div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-sm">
 				<span className="font-semibold text-ink-muted">{totals.weight.toFixed(0)}g raw</span>
 				<span className="text-macro-protein">P {totals.protein.toFixed(0)}</span>

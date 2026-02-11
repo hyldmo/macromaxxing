@@ -52,7 +52,7 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 				onDragLeave={handleDragLeave}
 				onDrop={handleDrop}
 				className={cn(
-					'flex min-h-16 items-center justify-center rounded-[--radius-sm] border border-dashed transition-colors',
+					'flex min-h-16 items-center justify-center rounded-sm border border-dashed transition-colors',
 					isDragOver ? 'border-accent bg-accent/10' : 'border-edge hover:border-ink-faint hover:bg-surface-1'
 				)}
 			>

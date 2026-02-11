@@ -78,7 +78,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-[--radius-sm] p-1 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
+						className="rounded-sm p-1 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
 					>
 						<X className="size-5" />
 					</button>
@@ -120,7 +120,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 									type="button"
 									onClick={() => handleAdd(recipe)}
 									disabled={addMutation.isPending}
-									className="flex w-full flex-col gap-1 rounded-[--radius-sm] p-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
+									className="flex w-full flex-col gap-1 rounded-sm p-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
 								>
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate font-medium text-ink text-sm">{recipe.name}</span>

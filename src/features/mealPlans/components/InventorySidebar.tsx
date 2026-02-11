@@ -27,7 +27,7 @@ export const InventorySidebar: FC<InventorySidebarProps> = ({ planId, inventory 
 			</div>
 
 			{inventory.length === 0 && (
-				<div className="rounded-[--radius-md] border border-edge border-dashed p-4 text-center text-ink-faint text-sm">
+				<div className="rounded-md border border-edge border-dashed p-4 text-center text-ink-faint text-sm">
 					No recipes added yet. Add recipes to your inventory to start planning.
 				</div>
 			)}

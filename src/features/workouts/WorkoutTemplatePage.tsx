@@ -227,7 +227,7 @@ export function WorkoutTemplatePage() {
 								key={goal}
 								type="button"
 								className={cn(
-									'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-[--radius-sm] last:rounded-r-[--radius-sm]',
+									'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
 									trainingGoal === goal
 										? 'bg-accent text-white'
 										: 'bg-surface-0 text-ink-faint hover:text-ink'
@@ -290,7 +290,7 @@ export function WorkoutTemplatePage() {
 											<button
 												type="button"
 												className={cn(
-													'group flex items-center gap-1 rounded-[--radius-sm] px-1.5 py-0.5 font-mono text-[10px] transition-colors',
+													'group flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] transition-colors',
 													isLinkedWithNext
 														? 'text-accent hover:text-destructive'
 														: 'text-ink-faint hover:text-accent'

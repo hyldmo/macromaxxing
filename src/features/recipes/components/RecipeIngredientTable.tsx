@@ -43,7 +43,7 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 			{!readOnly && (
 				<IngredientSearchInput recipeId={recipeId} onAddPending={addPending} onRemovePending={removePending} />
 			)}
-			<div className="overflow-x-auto rounded-[--radius-md] border border-edge">
+			<div className="overflow-x-auto rounded-md border border-edge">
 				<table className="w-full text-sm">
 					<thead>
 						<tr className="border-edge border-b bg-surface-2/50">

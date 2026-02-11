@@ -31,7 +31,7 @@ export function Nav() {
 								to={to}
 								className={({ isActive }) =>
 									cn(
-										'group flex items-center gap-1.5 rounded-[--radius-sm] px-3 py-1.5 text-sm transition-colors',
+										'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
 										isActive ? 'bg-surface-2 font-medium text-ink' : 'text-ink-muted hover:text-ink'
 									)
 								}
@@ -47,7 +47,7 @@ export function Nav() {
 									to={to}
 									className={({ isActive }) =>
 										cn(
-											'group flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-sm transition-colors',
+											'group flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm transition-colors',
 											isActive
 												? 'bg-surface-2 font-medium text-ink'
 												: 'text-ink-muted hover:text-ink'
@@ -69,7 +69,7 @@ export function Nav() {
 								to="/settings"
 								className={({ isActive }) =>
 									cn(
-										'rounded-[--radius-sm] p-1.5 transition-colors',
+										'rounded-sm p-1.5 transition-colors',
 										isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
 									)
 								}
@@ -84,7 +84,7 @@ export function Nav() {
 							<SignInButton mode="modal">
 								<button
 									type="button"
-									className="flex items-center gap-1.5 rounded-[--radius-sm] px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
+									className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
 								>
 									<LogIn className="size-4" />
 									Sign in

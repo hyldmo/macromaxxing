@@ -224,7 +224,7 @@ src/features/mealPlans/
 ### InventoryCard (sidebar)
 ```tsx
 <div className={cn(
-  "rounded-[--radius-md] border bg-surface-1 p-2 cursor-grab",
+  "rounded-md border bg-surface-1 p-2 cursor-grab",
   remaining < 0 && "border-destructive/50"  // Red when over-allocated
 )}>
   <div className="flex items-center justify-between">
@@ -242,7 +242,7 @@ src/features/mealPlans/
 
 ### MealCard (in day slot)
 ```tsx
-<div className="rounded-[--radius-md] border border-edge bg-surface-1 p-2">
+<div className="rounded-md border border-edge bg-surface-1 p-2">
   <div className="flex items-center justify-between">
     <span className="truncate font-medium text-ink text-sm">{recipeName}</span>
     <button><MoreVertical /></button> {/* triggers MealPopover */}

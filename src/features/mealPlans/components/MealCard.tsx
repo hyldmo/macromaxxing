@@ -70,7 +70,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 							type="button"
 							onClick={() => updatePortions(slot.portions - 0.5)}
 							disabled={slot.portions <= 0.5 || updateMutation.isPending}
-							className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+							className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 						>
 							<Minus className="size-3" />
 						</button>
@@ -81,7 +81,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 							type="button"
 							onClick={() => updatePortions(slot.portions + 0.5)}
 							disabled={updateMutation.isPending}
-							className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+							className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 						>
 							<Plus className="size-3" />
 						</button>
@@ -100,7 +100,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 				</div>
 			</Card>
 
-			<div className="absolute top-0 left-[calc(100%-1px)] z-10 flex flex-col justify-center rounded-r-[--radius-md] border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100">
+			<div className="absolute top-0 left-[calc(100%-1px)] z-10 flex flex-col justify-center rounded-r-md border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100">
 				<div
 					role="group"
 					aria-label="Drag handle"

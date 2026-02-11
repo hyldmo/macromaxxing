@@ -151,7 +151,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 							{divergences.map(d => (
 								<div
 									key={d.exerciseId}
-									className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-0 px-3 py-2"
+									className="flex items-center gap-2 rounded-sm border border-edge bg-surface-0 px-3 py-2"
 								>
 									<Switch
 										checked={updates.get(d.exerciseId) ?? false}
@@ -184,7 +184,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 							{extraExercises.map(e => (
 								<div
 									key={e.exerciseId}
-									className="flex items-center gap-2 rounded-[--radius-sm] border border-edge bg-surface-0 px-3 py-2"
+									className="flex items-center gap-2 rounded-sm border border-edge bg-surface-0 px-3 py-2"
 								>
 									<Switch
 										checked={addToTemplate.get(e.exerciseId) ?? false}

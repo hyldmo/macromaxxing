@@ -153,7 +153,7 @@ Use these Tailwind classes (defined in `src/index.css`):
 **Border:** `border-edge`
 **Macro colors:** `text-macro-protein`, `text-macro-carbs`, `text-macro-fat`, `text-macro-kcal`, `text-macro-fiber`
 **Accent:** `bg-accent`, `text-accent`, `hover:bg-accent-hover`
-**Radius:** `rounded-[--radius-sm]` (4px), `rounded-[--radius-md]` (6px)
+**Radius:** `rounded-sm` (4px), `rounded-md` (6px)
 **Sizing:** Use `size-4` instead of `size-4`
 
 No shadows — borders-only depth strategy.

@@ -286,7 +286,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 				{step === 'preview' && (
 					<div className="space-y-3">
 						{importError && (
-							<div className="flex items-center gap-2 rounded-[--radius-md] bg-destructive/10 px-3 py-2 text-destructive text-sm">
+							<div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
 								{importError}
 							</div>
 						)}
@@ -298,7 +298,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 
 						<div className="space-y-1">
 							<span className="text-ink-muted text-xs">Ingredients ({ingredients.length})</span>
-							<div className="max-h-48 overflow-y-auto rounded-[--radius-sm] border border-edge bg-surface-1 p-2">
+							<div className="max-h-48 overflow-y-auto rounded-sm border border-edge bg-surface-1 p-2">
 								{ingredients.map(ing => (
 									<div
 										key={`${ing.name}-${ing.amount}-${ing.unit}`}
@@ -322,7 +322,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 						{instructions && (
 							<div className="space-y-1">
 								<span className="text-ink-muted text-xs">Instructions</span>
-								<div className="max-h-24 overflow-y-auto whitespace-pre-line rounded-[--radius-sm] border border-edge bg-surface-1 p-2 text-ink-muted text-sm">
+								<div className="max-h-24 overflow-y-auto whitespace-pre-line rounded-sm border border-edge bg-surface-1 p-2 text-ink-muted text-sm">
 									{instructions}
 								</div>
 							</div>

@@ -134,7 +134,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	}, [exercises])
 
 	return (
-		<div className="rounded-[--radius-sm] border-2 border-edge border-l-accent bg-surface-1">
+		<div className="rounded-sm border-2 border-edge border-l-accent bg-surface-1">
 			<button
 				type="button"
 				className="flex w-full items-center gap-2 px-3 py-2 text-left"
@@ -355,8 +355,8 @@ const AddSetRow: FC<{
 						type="button"
 						className={cn(
 							'px-3 py-1 font-medium font-mono transition-colors',
-							i === 0 && 'rounded-l-[--radius-sm]',
-							i === exercises.length - 1 && 'rounded-r-[--radius-sm]',
+							i === 0 && 'rounded-l-sm',
+							i === exercises.length - 1 && 'rounded-r-sm',
 							selectedIdx === i
 								? 'bg-accent text-white'
 								: 'bg-surface-2 text-ink-faint hover:text-ink-muted'

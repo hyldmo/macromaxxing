@@ -29,7 +29,7 @@ export const RestTimer: FC = () => {
 		return (
 			<div
 				className={cn(
-					'flex items-center gap-1.5 rounded-[--radius-sm] border border-edge px-2 py-1',
+					'flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1',
 					overshot && 'animate-pulse'
 				)}
 			>
@@ -59,7 +59,7 @@ export const RestTimer: FC = () => {
 		return (
 			<button
 				type="button"
-				className="rounded-[--radius-sm] border border-edge p-1.5 text-ink-faint hover:text-accent"
+				className="rounded-sm border border-edge p-1.5 text-ink-faint hover:text-accent"
 				onClick={goToSession}
 			>
 				<Dumbbell className="size-4" />

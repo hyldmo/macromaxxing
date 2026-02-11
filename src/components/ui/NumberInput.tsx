@@ -88,7 +88,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		return (
 			<div
 				className={cn(
-					'group flex h-8 items-stretch rounded-[--radius-sm] border border-edge bg-surface-1 transition-colors focus-within:ring-1 focus-within:ring-accent/50',
+					'group flex h-8 items-stretch rounded-sm border border-edge bg-surface-1 transition-colors focus-within:ring-1 focus-within:ring-accent/50',
 					{ 'opacity-40': !enabled, 'cursor-not-allowed': props.disabled },
 					className
 				)}

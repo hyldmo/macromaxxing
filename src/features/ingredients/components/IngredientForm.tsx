@@ -213,10 +213,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 					</div>
 					<div className="space-y-1">
 						{units.map(unit => (
-							<div
-								key={unit.id}
-								className="flex items-center gap-2 rounded-[--radius-sm] bg-surface-2 px-2 py-1"
-							>
+							<div key={unit.id} className="flex items-center gap-2 rounded-sm bg-surface-2 px-2 py-1">
 								<span className="font-mono text-sm">{unit.name}</span>
 								<span className="text-ink-faint text-xs">= {unit.grams}g</span>
 								{unit.isDefault ? (

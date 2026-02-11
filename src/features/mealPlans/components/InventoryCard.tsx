@@ -66,7 +66,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 			draggable
 			onDragStart={handleDragStart}
 			className={cn(
-				'cursor-grab rounded-[--radius-md] border bg-surface-1 p-2 active:cursor-grabbing',
+				'cursor-grab rounded-md border bg-surface-1 p-2 active:cursor-grabbing',
 				isOverAllocated ? 'border-destructive/50' : 'border-edge'
 			)}
 		>
@@ -80,7 +80,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 						<button
 							type="button"
 							onClick={() => removeMutation.mutate({ inventoryId: inventory.id })}
-							className="shrink-0 cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-destructive"
+							className="shrink-0 cursor-pointer rounded-sm p-0.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-destructive"
 						>
 							<X className="size-3.5" />
 						</button>
@@ -93,7 +93,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 								type="button"
 								onClick={() => updatePortions(inventory.totalPortions - 0.5)}
 								disabled={inventory.totalPortions <= 0.5 || updateMutation.isPending}
-								className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+								className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 							>
 								<Minus className="size-3" />
 							</button>
@@ -109,7 +109,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 								type="button"
 								onClick={() => updatePortions(inventory.totalPortions + 0.5)}
 								disabled={updateMutation.isPending}
-								className="cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+								className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 							>
 								<Plus className="size-3" />
 							</button>
@@ -118,7 +118,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 								onClick={resetToDefault}
 								disabled={isAtDefault || updateMutation.isPending}
 								title={`Reset to ${defaultPortions} portions`}
-								className="ml-1 cursor-pointer rounded-[--radius-sm] p-0.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+								className="ml-1 cursor-pointer rounded-sm p-0.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 							>
 								<RotateCcw className="size-3" />
 							</button>

@@ -16,7 +16,7 @@ export const ErrorBoundary: FC = () => {
 			</div>
 			<Link
 				to="/"
-				className="inline-flex h-8 items-center gap-2 rounded-[--radius-sm] border border-edge bg-transparent px-3 font-medium text-ink text-sm transition-colors hover:bg-surface-2"
+				className="inline-flex h-8 items-center gap-2 rounded-sm border border-edge bg-transparent px-3 font-medium text-ink text-sm transition-colors hover:bg-surface-2"
 			>
 				<Home className="size-4" />
 				Go home

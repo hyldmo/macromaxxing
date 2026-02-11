@@ -149,7 +149,7 @@ export const ImportDialog: FC<ImportDialogProps> = ({
 			/>
 
 			{preview.rows.length > 0 && (
-				<div className="mb-3 max-h-48 overflow-auto rounded-[--radius-sm] border border-edge bg-surface-0 p-2">
+				<div className="mb-3 max-h-48 overflow-auto rounded-sm border border-edge bg-surface-0 p-2">
 					<div className="space-y-0.5">
 						{preview.rows.map(row =>
 							row.type === 'session' ? (

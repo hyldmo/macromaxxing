@@ -18,7 +18,7 @@ export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', raw, clas
 	return (
 		<div
 			className={cn(
-				'flex h-8 items-center gap-2 rounded-[--radius-md] px-3',
+				'flex h-8 items-center gap-2 rounded-md px-3',
 				{
 					'bg-destructive/10': type === 'error',
 					'bg-warning/10': type === 'warning',

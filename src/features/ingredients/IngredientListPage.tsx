@@ -159,7 +159,7 @@ export function IngredientListPage() {
 
 			{/* Desktop table layout */}
 			{filtered.length > 0 && (
-				<div className="hidden overflow-x-auto rounded-[--radius-md] border border-edge md:block">
+				<div className="hidden overflow-x-auto rounded-md border border-edge md:block">
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-edge border-b bg-surface-2/50 font-medium text-xs">

@@ -22,7 +22,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ id, name, type, ingredientCoun
 	<Link to={`/recipes/${id}`}>
 		<div
 			className={cn(
-				'flex items-center gap-4 rounded-[--radius-md] border bg-surface-1 p-3 transition-colors hover:bg-surface-2',
+				'flex items-center gap-4 rounded-md border bg-surface-1 p-3 transition-colors hover:bg-surface-2',
 				isMine ? 'border-accent/30' : 'border-edge'
 			)}
 		>

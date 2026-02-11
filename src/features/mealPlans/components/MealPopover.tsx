@@ -92,7 +92,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 			<div
 				role="document"
 				style={{ top: position.top, left: position.left }}
-				className="fixed w-64 rounded-[--radius-md] border border-edge bg-surface-0 shadow-lg"
+				className="fixed w-64 rounded-md border border-edge bg-surface-0 shadow-lg"
 				onClick={e => e.stopPropagation()}
 			>
 				{/* Header */}
@@ -101,7 +101,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
+						className="rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
 					>
 						<X className="size-4" />
 					</button>
@@ -121,7 +121,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 							</Button>
 							<Link
 								to={`/recipes/${recipe.id}`}
-								className="inline-flex h-7 items-center gap-2 rounded-[--radius-sm] px-2.5 text-ink-muted text-xs transition-colors hover:bg-surface-2 hover:text-ink"
+								className="inline-flex h-7 items-center gap-2 rounded-sm px-2.5 text-ink-muted text-xs transition-colors hover:bg-surface-2 hover:text-ink"
 							>
 								<ExternalLink className="size-4" />
 								View Recipe
@@ -151,7 +151,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 										onClick={() => toggleDay(i)}
 										disabled={i === slot.dayOfWeek}
 										className={cn(
-											'rounded-[--radius-sm] px-2 py-1 text-xs transition-colors',
+											'rounded-sm px-2 py-1 text-xs transition-colors',
 											i === slot.dayOfWeek
 												? 'cursor-not-allowed bg-surface-2 text-ink-faint'
 												: selectedDays.includes(i)
@@ -190,7 +190,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 											key={inv.id}
 											type="button"
 											onClick={() => handleSwap(inv.id)}
-											className="flex w-full items-center gap-2 rounded-[--radius-sm] p-2 text-left transition-colors hover:bg-surface-2"
+											className="flex w-full items-center gap-2 rounded-sm p-2 text-left transition-colors hover:bg-surface-2"
 										>
 											<span className="truncate text-ink text-sm">{inv.recipe.name}</span>
 										</button>

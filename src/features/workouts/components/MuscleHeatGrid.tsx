@@ -46,7 +46,7 @@ export const MuscleHeatGrid: FC = () => {
 			<BodyMap muscleColors={muscleColors} onHover={setHoveredMuscle} sex={sex} />
 			{hovered && hoveredMuscle && (
 				<div
-					className="pointer-events-none absolute z-10 w-36 rounded-[--radius-sm] border border-edge bg-surface-1 p-2"
+					className="pointer-events-none absolute z-10 w-36 rounded-sm border border-edge bg-surface-1 p-2"
 					style={{ left: mousePos.x - 144, top: mousePos.y + 16 }}
 				>
 					<div className="font-medium text-ink text-xs">{MUSCLE_LABELS[hoveredMuscle] ?? hoveredMuscle}</div>

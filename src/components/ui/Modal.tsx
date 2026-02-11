@@ -18,7 +18,7 @@ export const Modal: FC<ModalProps> = ({ children, onClose, className, ...props }
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation for modal */}
 			<div
 				role="document"
-				className={cn('rounded-[--radius-md] border border-edge bg-surface-0', className)}
+				className={cn('rounded-md border border-edge bg-surface-0', className)}
 				onClick={e => e.stopPropagation()}
 				{...props}
 			>

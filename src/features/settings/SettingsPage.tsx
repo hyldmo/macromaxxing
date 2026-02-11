@@ -86,7 +86,7 @@ export function SettingsPage() {
 										key={p.value}
 										type="button"
 										onClick={() => setProvider(p.value)}
-										className={`rounded-[--radius-sm] border px-3 py-1 text-sm transition-colors ${
+										className={`rounded-sm border px-3 py-1 text-sm transition-colors ${
 											provider === p.value
 												? 'border-accent bg-accent text-surface-0'
 												: 'border-edge text-ink-muted hover:bg-surface-2 hover:text-ink'

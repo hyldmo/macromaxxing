@@ -35,7 +35,7 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 		portionSize === null ? 1 : effectivePortionSize > 0 ? effectiveCookedWeight / effectivePortionSize : 0
 
 	return (
-		<div className="rounded-[--radius-md] border border-edge bg-gradient-to-b from-surface-1 to-surface-0 p-4">
+		<div className="rounded-md border border-edge bg-gradient-to-b from-surface-1 to-surface-0 p-4">
 			<h3 className="mb-3 text-center font-semibold text-ink-muted text-xs uppercase tracking-wider">
 				Per Portion
 			</h3>

@@ -8,7 +8,7 @@ action: warn
 
 **Remember to save session learnings!**
 
-Before committing, check if there are any key learnings from this session worth saving to the memory file at `~/.claude/projects/-Users-hyldmo-dev-hyldmo-macromaxxing/memory/MEMORY.md`.
+Before committing, check if there are any key learnings from this session worth saving to the Claude memory file
 
 Consider:
 - Mistakes made and their root causes

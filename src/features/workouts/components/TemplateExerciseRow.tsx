@@ -42,9 +42,9 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			className={cn(
 				'flex items-center gap-2 border border-edge bg-surface-1 px-2 py-1.5',
 				isSuperset ? 'border-l-2 border-l-accent' : '',
-				isFirstInGroup ? 'rounded-t-[--radius-sm]' : '',
-				isLastInGroup ? 'rounded-b-[--radius-sm]' : '',
-				!isSuperset && 'rounded-[--radius-sm]',
+				isFirstInGroup ? 'rounded-t-sm' : '',
+				isLastInGroup ? 'rounded-b-sm' : '',
+				!isSuperset && 'rounded-sm',
 				isDragging && 'z-10 opacity-50'
 			)}
 		>

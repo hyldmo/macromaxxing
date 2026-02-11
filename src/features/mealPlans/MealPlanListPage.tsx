@@ -102,7 +102,7 @@ export const MealPlanListPage: FC = () => {
 				{plansQuery.data?.map(plan => (
 					<Link key={plan.id} to={`/plans/${plan.id}`}>
 						<Card className="flex items-center gap-4 p-3 transition-colors hover:bg-surface-2">
-							<div className="flex size-10 items-center justify-center rounded-[--radius-sm] bg-accent/10 text-accent">
+							<div className="flex size-10 items-center justify-center rounded-sm bg-accent/10 text-accent">
 								<CalendarDays className="size-5" />
 							</div>
 							<div className="min-w-0 flex-1">
@@ -112,7 +112,7 @@ export const MealPlanListPage: FC = () => {
 							<button
 								type="button"
 								onClick={e => handleDelete(e, plan.id)}
-								className="rounded-[--radius-sm] p-1.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-destructive"
+								className="rounded-sm p-1.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-destructive"
 							>
 								<Trash2 className="size-4" />
 							</button>

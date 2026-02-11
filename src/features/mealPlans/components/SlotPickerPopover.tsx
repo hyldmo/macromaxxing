@@ -59,7 +59,7 @@ export const SlotPickerPopover: FC<SlotPickerPopoverProps> = ({ dayOfWeek, slotI
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation for modal */}
 			<div
 				role="document"
-				className="absolute top-1/2 left-1/2 w-64 -translate-x-1/2 -translate-y-1/2 rounded-[--radius-md] border border-edge bg-surface-0 shadow-lg"
+				className="absolute top-1/2 left-1/2 w-64 -translate-x-1/2 -translate-y-1/2 rounded-md border border-edge bg-surface-0 shadow-lg"
 				onClick={e => e.stopPropagation()}
 			>
 				{/* Header */}
@@ -68,7 +68,7 @@ export const SlotPickerPopover: FC<SlotPickerPopoverProps> = ({ dayOfWeek, slotI
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-[--radius-sm] p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
+						className="rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
 					>
 						<X className="size-4" />
 					</button>
@@ -89,7 +89,7 @@ export const SlotPickerPopover: FC<SlotPickerPopoverProps> = ({ dayOfWeek, slotI
 								type="button"
 								onClick={() => handleSelect(inv)}
 								disabled={allocateMutation.isPending}
-								className="flex w-full flex-col gap-0.5 rounded-[--radius-sm] p-2 text-left transition-colors hover:bg-surface-2"
+								className="flex w-full flex-col gap-0.5 rounded-sm p-2 text-left transition-colors hover:bg-surface-2"
 							>
 								<span className="truncate font-medium text-ink text-sm">{inv.recipe.name}</span>
 								<div className="flex items-center gap-2 font-mono text-ink-muted text-xs">

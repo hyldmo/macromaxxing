@@ -4,7 +4,7 @@ import { cn } from '~/lib/cn'
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
-	<div ref={ref} className={cn('rounded-[--radius-md] border border-edge bg-surface-1', className)} {...props} />
+	<div ref={ref} className={cn('rounded-md border border-edge bg-surface-1', className)} {...props} />
 ))
 
 export const CardHeader: FC<CardProps> = ({ className, ...props }) => {

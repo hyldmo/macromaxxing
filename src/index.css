@@ -32,8 +32,8 @@
 	--color-success: oklch(0.65 0.15 155);
 
 	/* Radius — sharp, instrument-grade */
-	--radius-sm: 4px;
-	--radius-md: 6px;
+	--radius-sm: 0px;
+	--radius-md: 0px;
 
 	/* Font */
 	--font-mono:

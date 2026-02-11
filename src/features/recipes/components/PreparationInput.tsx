@@ -70,7 +70,7 @@ export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange })
 			{showDropdown &&
 				createPortal(
 					<div
-						className="fixed z-50 max-h-32 w-36 overflow-y-auto rounded-[--radius-sm] border border-edge bg-surface-1 py-0.5"
+						className="fixed z-50 max-h-32 w-36 overflow-y-auto rounded-sm border border-edge bg-surface-1 py-0.5"
 						style={{ top: pos.top, left: pos.left }}
 					>
 						{filteredSuggestions.map(s => (
