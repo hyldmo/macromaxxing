@@ -26,6 +26,9 @@
 		"[typescript]": {
 			"editor.defaultFormatter": "biomejs.biome"
 		},
+		"[typescriptreact]": {
+			"editor.defaultFormatter": "biomejs.biome"
+		},
 		"yaml.format.printWidth": 120
 	}
 }
