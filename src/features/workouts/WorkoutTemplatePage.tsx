@@ -5,6 +5,7 @@ import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button } from '~/components/ui/Button'
+import { CopyButton } from '~/components/ui/CopyButton'
 import { Input } from '~/components/ui/Input'
 import { SaveButton } from '~/components/ui/SaveButton'
 import { Spinner } from '~/components/ui/Spinner'
@@ -13,6 +14,7 @@ import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
+import { formatTemplate } from './utils/export'
 
 export interface TemplateExercise {
 	uid: string
@@ -195,15 +197,21 @@ export function WorkoutTemplatePage() {
 					<ArrowLeft className="size-5" />
 				</Link>
 				<h1 className="font-semibold text-ink">{isEditing ? 'Edit Workout' : 'New Workout'}</h1>
-				{isEditing && (
-					<Button
-						variant="ghost"
-						size="icon"
-						className="ml-auto text-ink-faint hover:text-destructive"
-						onClick={() => deleteMutation.mutate({ id: workoutId as TypeIDString<'wkt'> })}
-					>
-						<Trash2 className="size-4" />
-					</Button>
+				{isEditing && workoutQuery.data && (
+					<div className="ml-auto flex items-center gap-1">
+						<CopyButton
+							className="text-ink-faint hover:text-ink"
+							getText={() => formatTemplate(workoutQuery.data)}
+						/>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="text-ink-faint hover:text-destructive"
+							onClick={() => deleteMutation.mutate({ id: workoutId as TypeIDString<'wkt'> })}
+						>
+							<Trash2 className="size-4" />
+						</Button>
+					</div>
 				)}
 			</div>
 

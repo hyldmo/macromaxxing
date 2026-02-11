@@ -2,7 +2,7 @@ import type { FatigueTier, SetMode, TrainingGoal, TypeIDString } from '@macromax
 import { ArrowLeft, Check, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Card } from '~/components/ui'
+import { Card, CopyButton } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
 import { Spinner } from '~/components/ui/Spinner'
 import { TRPCError } from '~/components/ui/TRPCError'
@@ -14,6 +14,7 @@ import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { SupersetForm } from './components/SupersetForm'
 import { useRestTimer } from './RestTimerContext'
+import { formatSession } from './utils/export'
 import { totalVolume } from './utils/formulas'
 import {
 	calculateRest,
@@ -387,6 +388,7 @@ export function WorkoutSessionPage() {
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
+					<CopyButton className="text-ink-faint hover:text-ink" getText={() => formatSession(session)} />
 					{!isCompleted && (
 						<>
 							<Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
