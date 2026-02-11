@@ -22,6 +22,7 @@ export interface SetRowProps {
 	reps: number
 	setType?: SetType
 	done?: boolean
+	active?: boolean
 	rpe?: number | null
 	failureFlag?: number | null
 	onWeightChange?: (weight: number | null) => void
@@ -34,6 +35,7 @@ export const SetRow: FC<SetRowProps> = ({
 	reps,
 	setType = 'working',
 	done,
+	active,
 	rpe,
 	failureFlag,
 	onWeightChange,
@@ -43,7 +45,7 @@ export const SetRow: FC<SetRowProps> = ({
 	const e1rm = done && reps > 0 ? estimated1RM(weightKg ?? 0, reps) : 0
 
 	return (
-		<div className="flex items-center gap-1.5 py-0.5 sm:gap-2">
+		<div className={cn('flex items-center gap-1.5 rounded-sm py-0.5 sm:gap-2', active && 'bg-surface-2')}>
 			<span
 				className={cn(
 					'w-7 shrink-0 rounded-full px-1 py-0.5 text-center font-mono text-[10px] sm:w-16 sm:px-1.5',
@@ -100,6 +102,7 @@ export const SetRow: FC<SetRowProps> = ({
 							: 'border-edge text-ink-faint hover:border-ink-muted hover:text-ink-muted'
 					)}
 					onClick={onConfirm}
+					data-confirm-pending={done ? undefined : ''}
 				>
 					{done ? <Check className="size-3.5" /> : <Circle className="size-3.5" />}
 				</button>

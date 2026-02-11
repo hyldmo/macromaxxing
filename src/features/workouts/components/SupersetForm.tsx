@@ -35,6 +35,7 @@ export interface SupersetFormProps {
 	}>
 	goal: TrainingGoal
 	readOnly?: boolean
+	active?: boolean
 	onAddSet: (data: {
 		exerciseId: Exercise['id']
 		weightKg: number
@@ -50,6 +51,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	group,
 	exercises,
 	readOnly,
+	active,
 	onAddSet,
 	onUpdateSet,
 	onRemoveSet
@@ -133,8 +135,14 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 		return { rounds, extraLogs }
 	}, [exercises])
 
+	// Find the first pending set across all rounds for active highlight
+	let firstPendingFound = false
+
 	return (
-		<div className="rounded-sm border-2 border-edge border-l-accent bg-surface-1">
+		<div
+			className="rounded-sm border-2 border-edge border-l-accent bg-surface-1"
+			data-exercise-id={exercises.map(e => e.exercise.id).join(',')}
+		>
 			<button
 				type="button"
 				className="flex w-full items-center gap-2 px-3 py-2 text-left"
@@ -204,6 +212,9 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 
 									if (readOnly) return null
 
+									const isFirstPending = !firstPendingFound
+									if (isFirstPending) firstPendingFound = true
+
 									const key = `${entry.exerciseId}-${entry.planned.setType}-${entry.planned.setNumber}`
 									const overrides = editableTargets.get(key)
 									const weightKg =
@@ -218,6 +229,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 													weightKg={weightKg}
 													reps={reps}
 													setType={entry.planned.setType}
+													active={active && isFirstPending}
 													onConfirm={() => {
 														onAddSet({
 															exerciseId: entry.exerciseId,

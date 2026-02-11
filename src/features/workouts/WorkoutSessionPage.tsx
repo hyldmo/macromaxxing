@@ -1,6 +1,6 @@
 import type { FatigueTier, SetMode, TrainingGoal, TypeIDString } from '@macromaxxing/db'
 import { ArrowLeft, Check, Trash2, Upload } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Card } from '~/components/ui'
 import { Button } from '~/components/ui/Button'
@@ -47,6 +47,7 @@ export function WorkoutSessionPage() {
 	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
 	const { setSessionId, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
+	const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -98,6 +99,7 @@ export function WorkoutSessionPage() {
 	const addSetMutation = trpc.workout.addSet.useMutation({
 		onSuccess: (_data, variables) => {
 			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
+			setActiveExerciseId(variables.exerciseId)
 			// Auto-start rest timer
 			if (!isCompleteSession) {
 				if (transitionRef.current) {
@@ -296,6 +298,58 @@ export function WorkoutSessionPage() {
 		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes }
 	}, [sessionQuery.data, modeOverrides, goal])
 
+	// Helper: check if a render item contains a given exerciseId
+	const itemContainsExercise = useCallback(
+		(item: RenderItem, id: string) =>
+			item.type === 'standalone' ? item.exerciseId === id : item.exercises.some(e => e.exerciseId === id),
+		[]
+	)
+
+	// Helper: check if a render item has pending (unlogged) planned sets
+	const itemHasPending = useCallback((item: RenderItem) => {
+		if (item.type === 'standalone') {
+			return item.planned.length > item.logs.length
+		}
+		return item.exercises.some(e => e.planned.length > e.logs.length)
+	}, [])
+
+	// Auto-advance: if active exercise has no pending sets, move to next
+	useEffect(() => {
+		if (!activeExerciseId || exerciseGroups.length === 0) return
+		const current = exerciseGroups.find(g => itemContainsExercise(g, activeExerciseId))
+		if (current && !itemHasPending(current)) {
+			const currentIdx = exerciseGroups.indexOf(current)
+			const next = exerciseGroups.slice(currentIdx + 1).find(itemHasPending)
+			setActiveExerciseId(
+				next ? (next.type === 'standalone' ? next.exerciseId : next.exercises[0].exerciseId) : null
+			)
+		}
+	}, [activeExerciseId, exerciseGroups, itemContainsExercise, itemHasPending])
+
+	// Page-level keyboard handler: Enter/Space confirms the active pending set
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if (e.key !== 'Enter' && e.key !== ' ') return
+			const el = document.activeElement
+			if (
+				el &&
+				el !== document.body &&
+				(el.tagName === 'INPUT' ||
+					el.tagName === 'TEXTAREA' ||
+					el.tagName === 'SELECT' ||
+					el.tagName === 'BUTTON')
+			)
+				return
+			const btn = document.querySelector<HTMLButtonElement>('[data-confirm-pending]')
+			if (btn) {
+				e.preventDefault()
+				btn.click()
+			}
+		}
+		document.addEventListener('keydown', handler)
+		return () => document.removeEventListener('keydown', handler)
+	}, [])
+
 	const session = sessionQuery.data
 	const vol = session ? totalVolume(session.logs) : 0
 	const isCompleted = !!session?.completedAt
@@ -396,6 +450,7 @@ export function WorkoutSessionPage() {
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
+								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
 								onAddSet={data => {
 									transitionRef.current = data.transition ?? false
 									addSetMutation.mutate({
@@ -419,6 +474,7 @@ export function WorkoutSessionPage() {
 							logs={item.logs}
 							plannedSets={item.planned.length > 0 ? item.planned : undefined}
 							setMode={exerciseModes.get(item.exerciseId)}
+							active={activeExerciseId === item.exerciseId}
 							onSetModeChange={mode => {
 								setModeOverrides(prev => {
 									const next = new Map(prev)

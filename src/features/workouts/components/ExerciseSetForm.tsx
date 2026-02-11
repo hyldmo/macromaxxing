@@ -28,6 +28,7 @@ export interface ExerciseSetFormProps {
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
 	readOnly?: boolean
+	active?: boolean
 }
 
 export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
@@ -39,7 +40,8 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	onAddSet,
 	onUpdateSet,
 	onRemoveSet,
-	readOnly
+	readOnly,
+	active
 }) => {
 	const [collapsed, setCollapsed] = useState(false)
 	const [newWeight, setNewWeight] = useState('')
@@ -83,7 +85,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	}
 
 	return (
-		<div className="rounded-sm border border-edge bg-surface-1">
+		<div className="rounded-sm border border-edge bg-surface-1" data-exercise-id={exercise.id}>
 			<button
 				type="button"
 				className="flex w-full items-center gap-2 px-3 py-2 text-left"
@@ -138,7 +140,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 					{/* Remaining planned sets (not yet confirmed) */}
 					{!readOnly && remainingPlanned.length > 0 && (
 						<div className="mt-1 space-y-0.5">
-							{remainingPlanned.map(planned => {
+							{remainingPlanned.map((planned, idx) => {
 								const overrides = editableTargets.get(planned.setNumber)
 								const weight = overrides?.weight !== undefined ? overrides.weight : planned.weightKg
 								const reps = overrides?.reps !== undefined ? overrides.reps : planned.reps
@@ -148,6 +150,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 										weightKg={weight}
 										reps={reps}
 										setType={planned.setType}
+										active={active && idx === 0}
 										onConfirm={() => {
 											onAddSet({
 												exerciseId: exercise.id,
