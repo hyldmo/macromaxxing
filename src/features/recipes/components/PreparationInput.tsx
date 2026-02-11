@@ -2,19 +2,19 @@ import { PREP_ADVERBS, PREP_DESCRIPTORS } from '@macromaxxing/db'
 import { type FC, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '~/lib/cn'
+import { FuzzyHighlight, type FuzzyResult, fuzzyMatch } from '~/lib/fuzzy'
 
 export interface PreparationInputProps {
 	value: string
 	onChange: (value: string | null) => void
 }
 
-const DESCRIPTORS = [...PREP_DESCRIPTORS]
-const ADVERBS = [...PREP_ADVERBS]
-
 // Build suggestions: plain descriptors + common adverb+descriptor combos
 const PREP_SUGGESTIONS = [
-	...DESCRIPTORS,
-	...ADVERBS.flatMap(adv => DESCRIPTORS.slice(0, 6).map(desc => `${adv} ${desc}`))
+	...PREP_DESCRIPTORS,
+	...PREP_ADVERBS.flatMap(adv =>
+		PREP_DESCRIPTORS.slice(0, PREP_DESCRIPTORS.indexOf('peeled')).map(desc => `${adv} ${desc}`)
+	)
 ]
 
 export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange }) => {
@@ -24,8 +24,14 @@ export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange })
 	const inputRef = useRef<HTMLInputElement>(null)
 
 	const filteredSuggestions = draft
-		? PREP_SUGGESTIONS.filter(s => s.includes(draft.toLowerCase()) && s !== draft.toLowerCase()).slice(0, 12)
-		: DESCRIPTORS.slice(0, 12)
+		? PREP_SUGGESTIONS.flatMap(s => {
+				if (s === draft.toLowerCase()) return []
+				const match = fuzzyMatch(draft, s)
+				return match ? [{ text: s, match }] : []
+			})
+				.sort((a, b) => b.match.score - a.match.score)
+				.slice(0, 12)
+		: PREP_DESCRIPTORS.slice(0, 12).map(s => ({ text: s, match: null as FuzzyResult | null }))
 
 	function getPos() {
 		if (!inputRef.current) return null
@@ -44,7 +50,7 @@ export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange })
 	}
 
 	const pos = showSuggestions && focused ? getPos() : null
-	const showDropdown = showSuggestions && focused && filteredSuggestions.length > 0 && pos
+	const showDropdown = showSuggestions && focused && pos
 
 	return (
 		<div className="relative">
@@ -73,19 +79,23 @@ export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange })
 						className="fixed z-50 max-h-32 w-36 overflow-y-auto rounded-sm border border-edge bg-surface-1 py-0.5"
 						style={{ top: pos.top, left: pos.left }}
 					>
-						{filteredSuggestions.map(s => (
-							<button
-								key={s}
-								type="button"
-								className="w-full px-2 py-0.5 text-left text-ink-muted text-xs hover:bg-surface-2 hover:text-ink"
-								onMouseDown={e => {
-									e.preventDefault()
-									commit(s)
-								}}
-							>
-								{s}
-							</button>
-						))}
+						{filteredSuggestions.length > 0 ? (
+							filteredSuggestions.map(({ text, match }) => (
+								<button
+									key={text}
+									type="button"
+									className="w-full px-2 py-0.5 text-left text-ink-muted text-xs hover:bg-surface-2 hover:text-ink"
+									onMouseDown={e => {
+										e.preventDefault()
+										commit(text)
+									}}
+								>
+									{match ? <FuzzyHighlight text={text} positions={match.positions} /> : text}
+								</button>
+							))
+						) : (
+							<div className="px-2 py-1 text-ink-faint text-xs">No results</div>
+						)}
 					</div>,
 					document.body
 				)}

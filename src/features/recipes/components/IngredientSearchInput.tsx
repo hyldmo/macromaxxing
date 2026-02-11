@@ -2,6 +2,7 @@ import { extractPreparation, type Ingredient } from '@macromaxxing/db'
 import { ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import { FuzzyHighlight, fuzzyMatch } from '~/lib/fuzzy'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { MacroBar } from './MacroBar'
 
@@ -191,6 +192,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const [isProcessingPaste, setIsProcessingPaste] = useState(false)
 	const [pasteError, setPasteError] = useState<Error | null>(null)
 	const inputRef = useRef<HTMLInputElement>(null)
+	const containerRef = useRef<HTMLDivElement>(null)
 	const utils = trpc.useUtils()
 
 	const settingsQuery = trpc.settings.get.useQuery()
@@ -211,8 +213,15 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const parsedSearch = parseSingleIngredient(search)
 	const searchName = parsedSearch?.name ?? search
 
-	const filtered =
-		ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(searchName.toLowerCase())).slice(0, 10) ?? []
+	const searchResults = searchName.trim()
+		? (ingredientsQuery.data ?? [])
+				.flatMap(i => {
+					const match = fuzzyMatch(searchName, i.name)
+					return match ? [{ ingredient: i, match }] : []
+				})
+				.sort((a, b) => b.match.score - a.match.score)
+				.slice(0, 10)
+		: []
 
 	function handleSelectIngredient(
 		ingredientId: Ingredient['id'],
@@ -489,7 +498,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	}
 
 	return (
-		<div className="relative">
+		<div className="relative" ref={containerRef}>
 			<div className="relative">
 				<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
 				<Input
@@ -501,14 +510,17 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						setShowDropdown(true)
 					}}
 					onFocus={() => setShowDropdown(true)}
-					onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+					onBlur={e => {
+						if (containerRef.current?.contains(e.relatedTarget as Node)) return
+						setShowDropdown(false)
+					}}
 					onPaste={handlePaste}
 					className="pl-8"
 				/>
 			</div>
 			{showDropdown && search.length > 0 && (
 				<Card className="absolute top-full z-10 mt-1 w-full shadow-black/30 shadow-lg">
-					{filtered.map(ingredient => {
+					{searchResults.map(({ ingredient, match }) => {
 						// If user typed amount/unit, use that. Otherwise use default unit or 100g
 						let amountGrams: number
 						let displayUnit: string | undefined
@@ -559,7 +571,9 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							>
 								<div className="flex w-full items-center gap-2">
 									<Plus className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-									<span className="text-ink text-sm">{ingredient.name}</span>
+									<span className="text-ink text-sm">
+										<FuzzyHighlight text={ingredient.name} positions={match.positions} />
+									</span>
 									<span className="ml-auto font-mono text-ink-faint text-xs">
 										{ingredient.protein}p {ingredient.carbs}c {ingredient.fat}f
 									</span>
@@ -574,7 +588,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							</button>
 						)
 					})}
-					{filtered.length === 0 && !findOrCreate.isPending && (
+					{searchResults.length === 0 && !findOrCreate.isPending && (
 						<div className="px-3 py-2 text-ink-faint text-sm">No ingredients found</div>
 					)}
 					<button

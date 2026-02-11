@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useUser } from '~/lib/user'
+import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
 import { RecipeTotalsBar } from './components/RecipeTotalsBar'
@@ -38,7 +39,6 @@ export function RecipeEditorPage() {
 	const [hasLoadedRecipe, setHasLoadedRecipe] = useState(false)
 	const [showPublishWarning, setShowPublishWarning] = useState(false)
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-	const handleReadonlyChange = () => undefined
 
 	useEffect(() => {
 		if (recipeQuery.data) {
@@ -202,11 +202,9 @@ export function RecipeEditorPage() {
 									placeholder="Add cooking instructions..."
 								/>
 							) : (
-								<MarkdownEditor
-									value={instructions || 'No instructions provided.'}
-									onChange={handleReadonlyChange}
-									readOnly
-									className="min-h-[150px]"
+								<HighlightedInstructions
+									markdown={instructions}
+									ingredients={recipeQuery.data.recipeIngredients}
 								/>
 							)}
 						</div>
