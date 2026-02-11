@@ -18,7 +18,7 @@ export function Nav() {
 	return (
 		<>
 			{/* Desktop top nav */}
-			<nav className="border-edge border-b bg-surface-1">
+			<nav className="sticky top-0 z-50 border-edge border-b bg-surface-1">
 				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-4">
 					<NavLink to="/" className="flex items-center gap-2 font-semibold text-accent">
 						<ChefHat className="size-5" />
