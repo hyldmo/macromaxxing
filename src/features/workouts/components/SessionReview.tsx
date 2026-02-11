@@ -47,7 +47,10 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			const logs = session.logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
 			if (logs.length === 0) continue
 
-			const effectiveSets = we.targetSets ?? goalDefaults.targetSets
+			const templateMode = we.setMode ?? 'working'
+			const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
+			const totalSets = we.targetSets ?? goalDefaults.targetSets
+			const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
 			const effectiveReps = we.targetReps ?? goalDefaults.targetReps
 
 			const avgWeight = logs.reduce((s, l) => s + l.weightKg, 0) / logs.length
@@ -188,9 +191,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 								>
 									<Switch
 										checked={addToTemplate.get(e.exerciseId) ?? false}
-										onChange={(v: boolean) =>
-											setAddToTemplate(prev => new Map(prev).set(e.exerciseId, v))
-										}
+										onChange={v => setAddToTemplate(prev => new Map(prev).set(e.exerciseId, v))}
 									/>
 									<div className="min-w-0 flex-1">
 										<div className="text-ink text-sm">{e.exerciseName}</div>
