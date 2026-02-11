@@ -20,7 +20,7 @@ import {
 	RECIPE_AI_PROMPT
 } from '../constants'
 import { protectedProcedure, router } from '../trpc'
-import { normalizeIngredientName } from '../utils'
+import { extractPreparation, normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
 
 export const aiRouter = router({
@@ -183,7 +183,15 @@ export const aiRouter = router({
 				fallback: settings.modelFallback
 			})
 
-			return { ...output, source: 'ai' as const }
+			return {
+				...output,
+				ingredients: output.ingredients.map(ing => {
+					if (ing.preparation) return ing
+					const { name, preparation } = extractPreparation(ing.name)
+					return { ...ing, name, preparation }
+				}),
+				source: 'ai' as const
+			}
 		}),
 
 	parseProduct: protectedProcedure.input(z.object({ url: z.string().url() })).mutation(async ({ ctx, input }) => {

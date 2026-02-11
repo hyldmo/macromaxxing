@@ -25,6 +25,7 @@ yarn preview      # Preview build with local D1
 yarn fix          # Lint + format (Biome)
 yarn db:generate  # Generate migration from schema
 yarn db:migrate   # Apply migrations to local D1
+yarn test         # Run tests (Vitest)
 ```
 
 Set `API_URL` env var to override the API proxy target (defaults to `http://localhost:8788`).
@@ -62,7 +63,7 @@ src/
     cn.ts                                   # cn() utility (clsx + twMerge)
   components/
     ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, etc.
-    layout/Nav.tsx                           # Top nav bar
+    layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
     layout/RootLayout.tsx                    # Shell: nav + <Outlet />
     ErrorBoundary.tsx
   features/
@@ -72,7 +73,8 @@ src/
       components/                           # MacroRing, MacroBar, MacroReadout, MacroCell, RecipeIngredientTable,
                                             #   RecipeIngredientRow, RecipeSummaryRow, RecipeTotalsBar, PortionPanel,
                                             #   PortionSizeInput, CookedWeightInput, IngredientSearchInput,
-                                            #   PreparationInput, RecipeImportDialog, PremadeDialog, RecipeCard
+                                            #   PreparationInput, RecipeImportDialog, PremadeDialog, RecipeCard,
+                                            #   SubrecipeExpandedRows, HighlightedInstructions
       hooks/useRecipeCalculations.ts        # Derives totals, per-portion, per-100g from ingredients + cooked weight
       utils/macros.ts                       # Pure math: macro calculations
       utils/format.ts                       # Number/unit formatting helpers
@@ -85,13 +87,39 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
-    settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles
+    workouts/
+      WorkoutListPage.tsx                   # Workout templates list + body map + recent sessions
+      WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets)
+      WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets
+      WorkoutMode.tsx                       # Workout execution mode
+      RestTimerContext.tsx                   # Global rest timer + session state (persists across pages)
+      components/
+        BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
+        MuscleHeatGrid.tsx                  # Muscle group volume/frequency stats grid
+        WorkoutCard.tsx                     # Workout template card with exercise count + last session
+        SessionCard.tsx                     # Session history card (date, exercises, volume)
+        TemplateExerciseRow.tsx             # Exercise row in template editor (targets, mode, superset links)
+        ExerciseSetForm.tsx                 # Per-exercise set form in session (planned + actual sets)
+        SetRow.tsx                          # Single set row: weight, reps, RPE, type badge, confirm
+        SupersetForm.tsx                    # Interleaved superset card (rounds with transition timers)
+        ExerciseSearch.tsx                  # Exercise typeahead (system + custom, shows type + muscles)
+        SessionReview.tsx                   # Post-workout divergence review (update template targets)
+        TimerMode.tsx                       # Full-screen timer overlay (child route)
+        TimerRing.tsx                       # SVG circular timer progress ring
+        RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
+        ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
+        ProfileForm.tsx                     # Body profile inputs (height/weight/sex)
+      utils/
+        formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE
+        sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
+        export.ts                           # Workout data export
+    settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile
 packages/db/                                # Shared package @macromaxxing/db
   schema.ts                                 # All tables (see DB Schema below)
   relations.ts                              # Drizzle relations
-  types.ts                                  # Inferred types (Recipe, Ingredient, etc.)
-  custom-types.ts                           # typeidCol, newId, AiProvider type
-  preparation.ts                            # Preparation options list
+  types.ts                                  # Inferred types (Recipe, Ingredient, Exercise, Workout, etc.)
+  custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
+  preparation.ts                            # Preparation descriptor extraction (extractPreparation)
 workers/functions/
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → tRPC handler
   lib/
@@ -101,48 +129,72 @@ workers/functions/
     db.ts                                   # Drizzle D1 setup → Database type
     ai-utils.ts                             # Multi-provider AI client (Gemini/OpenAI/Anthropic), model fallback
     crypto.ts                               # AES-GCM encrypt/decrypt for API keys
-    constants.ts                            # Shared constants
-    utils.ts                                # Shared backend helpers
+    constants.ts                            # Shared constants + Zod schemas
+    utils.ts                                # Shared backend helpers (toStartCase, etc.)
     routes/
       recipes.ts                            # recipe.* endpoints
       ingredients.ts                        # ingredient.* endpoints
       mealPlans.ts                          # mealPlan.* endpoints
+      workouts.ts                           # workout.* endpoints
       ai.ts                                 # ai.* endpoints
       settings.ts                           # settings.* endpoints
       user.ts                               # user.* endpoints
+scripts/
+  seed-exercises.ts                         # System exercises with muscle group mappings + strength standards
 ```
 
 ## Routes
 
 ```
-/              → redirect to /recipes
-/recipes       → RecipeListPage
-/recipes/new   → RecipeEditorPage
-/recipes/:id   → RecipeEditorPage
-/ingredients   → IngredientListPage
-/plans         → MealPlanListPage
-/plans/:id     → MealPlannerPage
-/settings      → SettingsPage
+/                                    → redirect to /recipes
+/recipes                             → RecipeListPage
+/recipes/new                         → RecipeEditorPage
+/recipes/:id                         → RecipeEditorPage
+/ingredients                         → IngredientListPage
+/plans                               → MealPlanListPage
+/plans/:id                           → MealPlannerPage
+/workouts                            → WorkoutListPage
+/workouts/new                        → WorkoutTemplatePage
+/workouts/:workoutId                 → WorkoutTemplatePage
+/workouts/:workoutId/session         → WorkoutSessionPage (new session from template)
+/workouts/sessions/:sessionId        → WorkoutSessionPage (existing session)
+/workouts/sessions/:sessionId/timer  → TimerMode (nested child route)
+/settings                            → SettingsPage
 ```
 
 ## DB Schema
 
 ```
 users(id PK clerk_user_id, email)
-  → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback)
+  → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
+                 heightCm?, weightKg?, sex: male|female)
 
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, fdcId?, source: manual|ai|usda|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
 
 recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?)
-  → recipeIngredients(id typeid:rci, recipeId, ingredientId, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
+  → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
 mealPlans(id typeid:mpl, userId, name)
   → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
     → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
+
+exercises(id typeid:exc, userId?, name, type: compound|isolation, fatigueTier: 1-4)
+  → exerciseMuscles(id typeid:exm, exerciseId, muscleGroup, intensity 0.0-1.0)
+
+strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
+
+workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOrder)
+  → workoutExercises(id typeid:wke, workoutId, exerciseId, sortOrder, targetSets?, targetReps?, targetWeight?,
+                     setMode: working|warmup|backoff|full, supersetGroup?)
+
+workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
+  → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
+                weightKg, reps, rpe?, failureFlag)
 ```
 
 All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
+Muscle groups (fixed set): chest, upper_back, lats, front_delts, side_delts, rear_delts, biceps, triceps, forearms, quads, hamstrings, glutes, calves, core.
 
 ## Design Tokens
 
@@ -182,17 +234,28 @@ No shadows — borders-only depth strategy.
 ```
 trpc.recipe.list/get/create/update/delete
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
-trpc.recipe.addPremade  # Creates premade meal (ingredient source:'label' + recipe type:'premade') from nutrition label
+trpc.recipe.addSubrecipe                    # Add recipe as subrecipe component (with cycle detection)
+trpc.recipe.addPremade                      # Creates premade meal (ingredient source:'label' + recipe type:'premade') from nutrition label
 trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
+trpc.workout.listExercises/createExercise   # System + user exercises with muscle mappings
+trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
+trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
+trpc.workout.addSet/updateSet/removeSet
+trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
+trpc.workout.coverageStats                  # Template muscle coverage for body map
+trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
+trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
+trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
+trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
 trpc.settings.get/save
-trpc.ai.lookup  # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
-trpc.ai.estimateCookedWeight # Returns { cookedWeight } based on ingredients + instructions
-trpc.ai.parseRecipe # Parses recipe from URL (JSON-LD → AI fallback) or text (AI). Returns { name, ingredients[], instructions, servings, source }
-trpc.ai.parseProduct # Parses product nutrition from URL (JSON-LD Product → AI fallback). Returns { name, servingSize, servings, protein, carbs, fat, kcal, fiber, source }
+trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
+trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions
+trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI)
+trpc.ai.parseProduct                        # Parses product nutrition from URL (JSON-LD Product → AI fallback)
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -213,6 +276,19 @@ trpc.ai.parseProduct # Parses product nutrition from URL (JSON-LD Product → AI
 **Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
 
 **Premade meals** — Tracked as `type: 'premade'` recipes backed by a single ingredient with `source: 'label'`. Premade recipes are always private (never shown to unauthenticated users). Backing ingredients are hidden from the ingredient list (`source != 'label'` filter).
+
+**Subrecipes** — Recipes can be added as components of other recipes. `recipeIngredients` rows have either `ingredientId` or `subrecipeId` set (never both). Subrecipe macros are derived from the child recipe's ingredients and scale with portions. Cycle detection prevents circular references.
+
+**Workouts** — Template-based training with checklist-driven session logging:
+- **Templates** define exercises with target sets/reps/weight and set modes (working/warmup/backoff/full)
+- **Sessions** are instances of templates with pre-filled planned sets — tap to confirm each set
+- **Supersets** group exercises via `supersetGroup` integer — rendered as interleaved rounds with transition timers
+- **Fatigue tiers** (1-4) on exercises drive dynamic rest duration: `reps × 4 × goalMultiplier + tierModifier`
+- **Body map** shows muscle coverage per workout template using exercise-muscle intensity mappings
+- **Session review** on completion compares actual vs. planned, offers to update template targets
+- **Rest timer** persists globally (nav widget) — shows countdown, overshot time, or session elapsed
+- **Timer route** (`/workouts/sessions/:id/timer`) renders as full-screen child route via `<Outlet>`
+- Body profile (height/weight/sex) stored in `userSettings`, used for workout validation
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 

@@ -1,12 +1,19 @@
 # macromaxxing
 
-A recipe nutrition tracker for fitness enthusiasts who meal prep. Track macros per portion with precision.
+A recipe nutrition tracker and workout logger for fitness enthusiasts who meal prep. Track macros per portion, plan weekly meals, and log workouts with biomechanical validation.
 
 ## Features
 
-- **Recipe Management** — Create recipes with ingredients, track cooked weight vs raw weight, define portion sizes
+- **Recipe Management** — Create recipes with ingredients, track cooked weight vs raw weight, define portion sizes. Supports subrecipes (recipes as components of other recipes)
+- **Recipe Import** — Import recipes from URLs (JSON-LD structured data → AI fallback) or pasted text
+- **Premade Meals** — Add pre-made products via nutrition label data or URL parsing
 - **Macro Visualization** — MacroRing (donut chart showing P/C/F caloric ratio), MacroBar (stacked horizontal bar), per-portion readouts
-- **AI-Powered Ingredient Lookup** — Look up nutritional data using Gemini, OpenAI, or Anthropic APIs (BYOK)
+- **Ingredient Units** — AI-populated unit conversions (tbsp, scoop, pcs) with gram equivalents; density-based volume calculations
+- **Preparation Tracking** — Auto-extracts preparation descriptors ("minced", "finely chopped") from ingredient names
+- **AI-Powered Ingredient Lookup** — USDA FoodData Central API priority, AI fallback (Gemini/OpenAI/Anthropic BYOK). Batch lookups and model fallback configurable per user
+- **Weekly Meal Planning** — Template-based weekly planner with per-plan recipe inventory and portion tracking
+- **Workout Tracking** — Template-based training with checklist-driven session logging, supersets, auto-generated warmup/backoff sets, fatigue-tier-based rest timers, and interactive body map
+- **Auth** — Google/GitHub OAuth via Clerk
 - **Responsive Design** — Two-column editor on desktop, mobile-first with bottom tab navigation
 
 ## Tech Stack
@@ -16,10 +23,12 @@ A recipe nutrition tracker for fitness enthusiasts who meal prep. Track macros p
 - Vite 7 + Tailwind CSS 4
 - tRPC + TanStack Query for data fetching
 - react-router-dom for routing
+- @dnd-kit for drag-and-drop (ingredient reordering, meal plan allocation)
 
 **Backend:**
 - Cloudflare Pages Functions (Hono + tRPC)
 - Cloudflare D1 (SQLite) with Drizzle ORM
+- Clerk for authentication (cookie-based sessions)
 - AES-GCM encrypted API key storage
 
 ## Project Structure
@@ -27,61 +36,92 @@ A recipe nutrition tracker for fitness enthusiasts who meal prep. Track macros p
 ```
 src/
 ├── components/
-│   ├── layout/           # RootLayout, Nav (desktop top + mobile bottom tabs)
-│   └── ui/               # Button, Card, Input, Spinner, TRPCError
+│   ├── layout/              # RootLayout, Nav (desktop top + mobile bottom tabs + RestTimer)
+│   └── ui/                  # Button, Card, Input, NumberInput, Select, Switch, Spinner, etc.
 ├── features/
 │   ├── recipes/
-│   │   ├── components/   # MacroRing, MacroBar, MacroReadout, PortionPanel, etc.
-│   │   ├── hooks/        # useRecipeCalculations
-│   │   ├── utils/        # macros.ts (caloricRatio, calculatePortionMacros, etc.)
+│   │   ├── components/      # MacroRing, MacroBar, MacroReadout, PortionPanel, RecipeImportDialog,
+│   │   │                    #   PremadeDialog, SubrecipeExpandedRows, IngredientSearchInput, etc.
+│   │   ├── hooks/           # useRecipeCalculations
+│   │   ├── utils/           # macros.ts, format.ts
 │   │   ├── RecipeListPage.tsx
 │   │   └── RecipeEditorPage.tsx
 │   ├── ingredients/
-│   │   ├── components/   # IngredientForm
+│   │   ├── components/      # IngredientForm
 │   │   └── IngredientListPage.tsx
+│   ├── mealPlans/
+│   │   ├── components/      # InventorySidebar, WeekGrid, DayColumn, MealCard, DayTotals,
+│   │   │                    #   WeeklyAverages, SlotPickerPopover, etc.
+│   │   ├── MealPlanListPage.tsx
+│   │   └── MealPlannerPage.tsx
+│   ├── workouts/
+│   │   ├── components/      # BodyMap, ExerciseSetForm, SetRow, SupersetForm, SessionReview,
+│   │   │                    #   TimerMode, TimerRing, RestTimer, ExerciseSearch, ImportDialog, etc.
+│   │   ├── utils/           # formulas.ts, sets.ts, export.ts
+│   │   ├── RestTimerContext.tsx
+│   │   ├── WorkoutListPage.tsx
+│   │   ├── WorkoutTemplatePage.tsx
+│   │   └── WorkoutSessionPage.tsx
 │   └── settings/
-│       └── SettingsPage.tsx   # AI provider configuration
+│       └── SettingsPage.tsx
 ├── lib/
-│   ├── trpc.ts           # tRPC client setup
-│   └── cn.ts             # clsx + tailwind-merge utility
-└── index.css             # Design tokens (surfaces, ink, macro colors, etc.)
+│   ├── trpc.ts              # tRPC client setup
+│   ├── user.tsx             # useUser() hook (Clerk)
+│   └── cn.ts                # clsx + tailwind-merge utility
+└── index.css                # Design tokens (surfaces, ink, macro colors, etc.)
 
-functions/
-├── api/[[route]].ts      # Cloudflare Pages function entry
+packages/db/                 # Shared package @macromaxxing/db
+├── schema.ts                # All tables (users, ingredients, recipes, mealPlans, workouts, etc.)
+├── relations.ts             # Drizzle relations
+├── types.ts                 # Inferred types
+├── custom-types.ts          # TypeID helpers, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
+└── preparation.ts           # Preparation descriptor extraction
+
+workers/functions/
+├── api/[[route]].ts         # Hono entry: Clerk auth middleware → tRPC handler
 └── lib/
-    ├── schema.ts         # Drizzle schema (users, ingredients, recipes, etc.)
-    ├── relations.ts      # Drizzle relations
-    ├── router.ts         # tRPC app router
-    ├── trpc.ts           # tRPC context + procedures
-    ├── auth.ts           # Cookie-based auth
-    ├── crypto.ts         # AES-GCM encryption helpers
+    ├── router.ts            # tRPC app router (recipe, ingredient, mealPlan, workout, ai, settings, user)
+    ├── trpc.ts              # tRPC context + procedures
+    ├── auth.ts              # Clerk cookie verification
+    ├── db.ts                # Drizzle D1 setup
+    ├── ai-utils.ts          # Multi-provider AI client, model fallback, JSON-LD extraction
+    ├── crypto.ts            # AES-GCM encryption helpers
+    ├── constants.ts         # Shared constants + Zod schemas
+    ├── utils.ts             # toStartCase, extractPreparation, etc.
     └── routes/
-        ├── recipes.ts    # CRUD + ingredient management
-        ├── ingredients.ts
-        ├── settings.ts   # AI provider config (encrypted keys)
-        └── ai.ts         # Multi-provider AI lookup
+        ├── recipes.ts       # CRUD + ingredients + subrecipes + premade meals
+        ├── ingredients.ts   # CRUD + findOrCreate + batchFindOrCreate + units
+        ├── mealPlans.ts     # CRUD + inventory + slot allocation
+        ├── workouts.ts      # Exercises, templates, sessions, sets, muscle stats, import
+        ├── ai.ts            # lookup, estimateCookedWeight, parseRecipe, parseProduct
+        ├── settings.ts      # AI config + body profile
+        └── user.ts          # User endpoints
+
+scripts/
+└── seed-exercises.ts        # System exercises with muscle group mappings + strength standards
 ```
 
 ## AI Features
 
-The app supports three AI providers for ingredient nutritional data lookup:
+**Nutrition lookup priority:** USDA FoodData Central API → AI (user's configured provider)
 
-| Provider | Default Model | API Endpoint |
-|----------|---------------|--------------|
-| Gemini | `gemini-2.0-flash` | Google AI Generative Language API |
-| OpenAI | `gpt-4o-mini` | OpenAI Chat Completions |
-| Anthropic | `claude-sonnet-4-20250514` | Anthropic Messages API |
+| Provider | Default Model | Fallback Chain |
+|----------|---------------|----------------|
+| Gemini | `gemini-2.5-flash` | → `gemini-2.5-flash-lite-preview` → `gemma-3-27b-it` |
+| OpenAI | `gpt-4o-mini` | — |
+| Anthropic | `claude-sonnet-4-20250514` | — |
 
-**How it works:**
-1. User configures their API key in Settings (encrypted with AES-GCM before storage)
-2. When adding an ingredient, user can click "AI Lookup" with an ingredient name
-3. Backend decrypts the key, calls the selected provider with a system prompt requesting USDA-style JSON
-4. Response is validated with Zod schema and returned to the client
+**Capabilities:**
+- Ingredient nutritional data lookup (macros, density, units per 100g raw)
+- Recipe parsing from URLs (JSON-LD structured data) or text (AI)
+- Product nutrition parsing from URLs (JSON-LD Product → AI fallback)
+- Cooked weight estimation from ingredients + instructions
+- Batch ingredient lookups (single AI call for multiple ingredients)
+- Model fallback on rate limits (429 → next model in chain)
 
-**System prompt used:**
-```
-You are a nutrition database. Given a food ingredient name, return nutritional values per 100g raw weight as JSON: { "protein": number, "carbs": number, "fat": number, "kcal": number, "fiber": number }. Use USDA data. Return ONLY the JSON object, no markdown, no explanation.
-```
+**Per-user settings** (both off by default):
+- `batchLookups` — batch N ingredient AI calls into 1
+- `modelFallback` — retry with cheaper models on 429
 
 ## Design System
 
@@ -107,18 +147,26 @@ yarn dev
 yarn build
 
 # Lint/format
-yarn lint
 yarn fix
 
 # Database migrations
 yarn db:generate   # Generate migration from schema changes
 yarn db:migrate    # Apply migrations to local D1
+
+# Run tests
+yarn test
 ```
 
 ## Environment Variables
 
-Required in Cloudflare Pages:
+**Frontend** (`.env.local`):
+- `VITE_CLERK_PUBLISHABLE_KEY` — Clerk publishable key
+
+**Workers** (`.dev.vars` locally, Cloudflare dashboard for production):
 - `ENCRYPTION_SECRET` — 32-byte hex string for AES-GCM key encryption
+- `USDA_API_KEY` — USDA FoodData Central API key
+- `CLERK_PUBLISHABLE_KEY` — Clerk publishable key
+- `CLERK_SECRET_KEY` — Clerk secret key
 
 ## License
 

@@ -97,7 +97,14 @@ export const batchIngredientAiSchema = z.array(
 export const RECIPE_AI_PROMPT = `
 Parse this recipe into structured data.
 Extract the recipe name, all ingredients with numeric amounts and units (use metric where possible: g, ml, dl, tbsp, tsp, cup, pcs, large, medium, small),
-cooking instructions as numbered steps, and number of servings.`
+cooking instructions as numbered steps, and number of servings.
+
+For each ingredient, separate the base ingredient name from any preparation method:
+- "1 red onion, finely chopped" → name: "Red Onion", amount: 1, unit: "pcs", preparation: "finely chopped"
+- "3 garlic cloves, crushed" → name: "Garlic Cloves", amount: 3, unit: "pcs", preparation: "crushed"
+- "200g bag of spinach" → name: "Spinach", amount: 200, unit: "g", preparation: null
+- "400g sweet potatoes, cut into chunks" → name: "Sweet Potatoes", amount: 400, unit: "g", preparation: "cut into chunks"
+Do not include preparation words, serving instructions, or package descriptions in the ingredient name.`
 
 export const PREMADE_AI_PROMPT = `
 Extract product nutrition information from this page.

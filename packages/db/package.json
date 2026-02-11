@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.31.8",
-    "typescript": "*"
+    "typescript": "*",
+    "vitest": "*"
   }
 }

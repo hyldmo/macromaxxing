@@ -7,6 +7,7 @@ export const PREP_DESCRIPTORS = [
 	'sliced',
 	'julienned',
 	'cubed',
+	'cut',
 	'shredded',
 	'grated',
 	'torn',
@@ -45,6 +46,17 @@ export type PrepDescriptor = (typeof PREP_DESCRIPTORS)[number]
 export const PREP_ADVERBS = ['finely', 'coarsely', 'roughly', 'thinly', 'thickly', 'freshly', 'lightly'] as const
 export type PrepAdverb = (typeof PREP_ADVERBS)[number]
 
+// Food modifiers that don't constitute a standalone ingredient name — prevent middle-pattern
+// from splitting "Canned Diced Tomatoes" into name:"Canned" + prep:"diced tomatoes"
+const FOOD_MODIFIERS = [
+	'canned', 'frozen', 'fresh', 'dried', 'organic', 'raw', 'cooked',
+	'smoked', 'pickled', 'roasted', 'toasted', 'blanched', 'marinated',
+	'seasoned', 'unsalted', 'salted', 'whole', 'boneless', 'skinless',
+]
+
+// Serving instructions stripped before parsing: ", to serve", ", for garnish"
+const SERVING_SUFFIXES = [', to serve', ', for serving', ', to garnish', ', for garnish']
+
 /**
  * Extract preparation descriptor from an ingredient name.
  *
@@ -53,8 +65,17 @@ export type PrepAdverb = (typeof PREP_ADVERBS)[number]
  * "Ground Beef" → { name: "Ground Beef", preparation: null }
  */
 export function extractPreparation(input: string): { name: string; preparation: string | null } {
-	const trimmed = input.trim()
+	let trimmed = input.trim()
 	if (!trimmed) return { name: trimmed, preparation: null }
+
+	// 0. Strip serving suffixes: "Spring Onions Sliced, To Serve" → "Spring Onions Sliced"
+	const lower = trimmed.toLowerCase()
+	for (const suffix of SERVING_SUFFIXES) {
+		if (lower.endsWith(suffix)) {
+			trimmed = trimmed.slice(0, -suffix.length).trim()
+			break
+		}
+	}
 
 	// 1. Trailing comma pattern: "Garlic Cloves, Minced" or "Onion, Finely Chopped"
 	const commaIdx = trimmed.indexOf(',')
@@ -101,6 +122,46 @@ export function extractPreparation(input: string): { name: string; preparation: 
 		const preparation = words.slice(0, stripCount).join(' ').toLowerCase()
 		const name = words.slice(stripCount).join(' ')
 		return { name, preparation }
+	}
+
+	// 3. Trailing pattern (no comma): "Red Onion Finely Chopped", "Garlic Clove Crushed"
+	let trailStart = words.length
+	for (let i = words.length - 1; i > 0; i--) {
+		const word = words[i].toLowerCase()
+		if (PREP_DESCRIPTORS.includes(word as PrepDescriptor)) {
+			trailStart = i
+		} else if (PREP_ADVERBS.includes(word as PrepAdverb) && trailStart === i + 1) {
+			trailStart = i
+		} else {
+			break
+		}
+	}
+
+	if (trailStart > 0 && trailStart < words.length) {
+		const preparation = words.slice(trailStart).join(' ').toLowerCase()
+		const name = words.slice(0, trailStart).join(' ')
+		return { name, preparation }
+	}
+
+	// 4. Middle pattern: "Spring Onions Sliced On The Diagonal", "Sweet Potatoes Cut Into Chunks"
+	// First descriptor (or adverb+descriptor) splits into name + preparation,
+	// but only if the name portion contains a real ingredient word (not just food modifiers)
+	for (let i = 1; i < words.length; i++) {
+		const word = words[i].toLowerCase()
+		if (
+			PREP_DESCRIPTORS.includes(word as PrepDescriptor) ||
+			(PREP_ADVERBS.includes(word as PrepAdverb) &&
+				i + 1 < words.length &&
+				PREP_DESCRIPTORS.includes(words[i + 1].toLowerCase() as PrepDescriptor))
+		) {
+			const namePart = words.slice(0, i)
+			if (namePart.some(w => !FOOD_MODIFIERS.includes(w.toLowerCase()))) {
+				return {
+					name: namePart.join(' '),
+					preparation: words.slice(i).join(' ').toLowerCase(),
+				}
+			}
+		}
 	}
 
 	return { name: trimmed, preparation: null }
