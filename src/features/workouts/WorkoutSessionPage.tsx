@@ -1,8 +1,8 @@
 import type { FatigueTier, SetMode, TrainingGoal, TypeIDString } from '@macromaxxing/db'
 import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Card, CopyButton, Spinner, TRPCError } from '~/components/ui'
+import { Link, Outlet, useNavigate, useParams } from 'react-router-dom'
+import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
@@ -11,7 +11,6 @@ import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { SupersetForm } from './components/SupersetForm'
-import { TimerMode } from './components/TimerMode'
 import { useRestTimer } from './RestTimerContext'
 import { formatSession } from './utils/export'
 import { totalVolume } from './utils/formulas'
@@ -44,9 +43,8 @@ export function WorkoutSessionPage() {
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
-	const [timerMode, setTimerMode] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
-	const { setSessionId, start: startTimer } = useRestTimer()
+	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
 	const utils = trpc.useUtils()
@@ -61,7 +59,7 @@ export function WorkoutSessionPage() {
 
 	const completeSession = trpc.workout.completeSession.useMutation({
 		onSuccess: () => {
-			setSessionId(null)
+			setSession(null)
 			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 			utils.workout.listSessions.invalidate()
 		}
@@ -85,13 +83,13 @@ export function WorkoutSessionPage() {
 		{ enabled: !!effectiveSessionId }
 	)
 
-	// Signal rest timer that a session is active
+	// Signal rest timer that a session is active (sessionId only — elapsed activates from TimerMode)
 	const isCompleteSession = !!sessionQuery.data?.completedAt
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
-			setSessionId(sessionQuery.data.id)
+			setSession({ id: sessionQuery.data.id })
 		}
-	}, [sessionQuery.data, isCompleteSession, setSessionId])
+	}, [sessionQuery.data, isCompleteSession, setSession])
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
@@ -132,6 +130,7 @@ export function WorkoutSessionPage() {
 	})
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
 		onSuccess: () => {
+			setSession(null)
 			utils.workout.listSessions.invalidate()
 			navigate('/workouts')
 		}
@@ -392,16 +391,17 @@ export function WorkoutSessionPage() {
 					<CopyButton className="text-ink-faint hover:text-ink" getText={() => formatSession(session)} />
 					{!isCompleted && (
 						<>
-							<Button variant="outline" size="sm" onClick={() => setTimerMode(true)}>
+							<LinkButton to="timer" size="sm">
 								<Timer className="size-3.5" />
-								Timer
-							</Button>
+								{timerActive ? 'Timer' : 'Start Timer'}
+							</LinkButton>
 							<Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
 								<Upload className="size-3.5" />
 								Import
 							</Button>
 							<Button
 								size="sm"
+								variant="secondary"
 								onClick={() => {
 									if (session.workout) {
 										setShowReview(true)
@@ -512,14 +512,18 @@ export function WorkoutSessionPage() {
 				</Card>
 			)}
 
-			{timerMode && !isCompleted && (
-				<TimerMode
-					open
-					onClose={() => setTimerMode(false)}
-					exerciseGroups={exerciseGroups}
-					setActiveExerciseId={setActiveExerciseId}
-					session={{ startedAt: session.startedAt, name: session.name ?? null }}
-					onConfirmSet={data => {
+			<Outlet
+				context={{
+					exerciseGroups,
+					session: { startedAt: session.startedAt, name: session.name ?? null },
+					setActiveExerciseId,
+					onConfirmSet: (data: {
+						exerciseId: import('@macromaxxing/db').Exercise['id']
+						weightKg: number
+						reps: number
+						setType: import('@macromaxxing/db').SetType
+						transition?: boolean
+					}) => {
 						transitionRef.current = data.transition ?? false
 						addSetMutation.mutate({
 							sessionId: session.id,
@@ -528,9 +532,9 @@ export function WorkoutSessionPage() {
 							reps: data.reps,
 							setType: data.setType
 						})
-					}}
-				/>
-			)}
+					}
+				}}
+			/>
 
 			<ImportDialog
 				open={showImport}

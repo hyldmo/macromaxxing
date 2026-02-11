@@ -13,11 +13,13 @@ import {
 interface RestTimerState {
 	remaining: number // positive = counting down, negative = overshot
 	total: number
+	endAt: number | null // absolute timestamp when timer reaches 0
 	setType: SetType | null
 	isRunning: boolean // true while timer is active (even when negative)
 	isTransition: boolean
 	sessionId: string | null
-	setSessionId: (id: string | null) => void
+	startedAt: number | null
+	setSession: (session: { id: string; startedAt?: number } | null) => void
 	start: (durationSec: number, setType: SetType, transition?: boolean) => void
 	dismiss: () => void
 }
@@ -36,6 +38,7 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 	const [setType, setSetType] = useState<SetType | null>(null)
 	const [remaining, setRemaining] = useState(0)
 	const [sessionId, setSessionId] = useState<string | null>(null)
+	const [startedAt, setStartedAt] = useState<number | null>(null)
 	const [isTransition, setIsTransition] = useState(false)
 	const completedRef = useRef(false)
 
@@ -50,6 +53,15 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		setRemaining(durationSec)
 		setIsTransition(transition)
 		completedRef.current = false
+	}, [])
+
+	const setSession = useCallback((session: { id: string; startedAt?: number } | null) => {
+		setSessionId(session?.id ?? null)
+		if (session === null) {
+			setStartedAt(null)
+		} else if (session.startedAt !== undefined) {
+			setStartedAt(session.startedAt)
+		}
 	}, [])
 
 	const dismiss = useCallback(() => {
@@ -85,11 +97,13 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 			value={{
 				remaining,
 				total,
+				endAt,
 				setType,
 				isRunning: endAt !== null,
 				isTransition,
 				sessionId,
-				setSessionId,
+				startedAt,
+				setSession,
 				start,
 				dismiss
 			}}

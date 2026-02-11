@@ -1,5 +1,5 @@
 import { Dumbbell } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '~/lib/cn'
 import { useRestTimer } from '../RestTimerContext'
@@ -10,13 +10,32 @@ const SET_TYPE_COLORS = {
 	backoff: 'bg-macro-fat/15 text-macro-fat'
 } as const
 
-export const RestTimer: FC = () => {
-	const { remaining, setType, isRunning, isTransition, sessionId, dismiss } = useRestTimer()
-	const navigate = useNavigate()
+function formatElapsed(ms: number): string {
+	const totalSeconds = Math.floor(ms / 1000)
+	const hours = Math.floor(totalSeconds / 3600)
+	const minutes = Math.floor((totalSeconds % 3600) / 60)
+	const seconds = totalSeconds % 60
+	if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+	return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
 
-	const goToSession = () => {
-		if (sessionId) navigate(`/workouts/sessions/${sessionId}`)
+export const RestTimer: FC = () => {
+	const { remaining, setType, isRunning, isTransition, sessionId, startedAt, dismiss } = useRestTimer()
+	const navigate = useNavigate()
+	const [elapsed, setElapsed] = useState(0)
+
+	const goToTimer = () => {
+		if (sessionId) navigate(`/workouts/sessions/${sessionId}/timer`)
 	}
+
+	// Tick elapsed every second when session active but no rest timer
+	useEffect(() => {
+		if (!startedAt || isRunning) return
+		const tick = () => setElapsed(Date.now() - startedAt)
+		tick()
+		const id = setInterval(tick, 1000)
+		return () => clearInterval(id)
+	}, [startedAt, isRunning])
 
 	// Active timer (counting down or overshot)
 	if (isRunning && setType) {
@@ -43,7 +62,7 @@ export const RestTimer: FC = () => {
 						overshot ? 'text-destructive' : 'text-ink',
 						sessionId && 'hover:text-accent'
 					)}
-					onClick={goToSession}
+					onClick={goToTimer}
 				>
 					{display}
 				</button>
@@ -54,13 +73,27 @@ export const RestTimer: FC = () => {
 		)
 	}
 
-	// No timer, but session active — show nav link
+	// Session active with timer activated — show elapsed time
+	if (sessionId && startedAt) {
+		return (
+			<button
+				type="button"
+				className="flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1 text-ink-faint hover:text-accent"
+				onClick={goToTimer}
+			>
+				<Dumbbell className="size-3.5" />
+				<span className="font-mono text-sm tabular-nums">{formatElapsed(elapsed)}</span>
+			</button>
+		)
+	}
+
+	// Session active but timer not yet activated — dumbbell only
 	if (sessionId) {
 		return (
 			<button
 				type="button"
 				className="rounded-sm border border-edge p-1.5 text-ink-faint hover:text-accent"
-				onClick={goToSession}
+				onClick={() => navigate(`/workouts/sessions/${sessionId}`)}
 			>
 				<Dumbbell className="size-4" />
 			</button>

@@ -7,6 +7,7 @@ import { MealPlannerPage } from '~/features/mealPlans/MealPlannerPage'
 import { RecipeEditorPage } from '~/features/recipes/RecipeEditorPage'
 import { RecipeListPage } from '~/features/recipes/RecipeListPage'
 import { SettingsPage } from '~/features/settings/SettingsPage'
+import { TimerMode } from '~/features/workouts/components/TimerMode'
 import { WorkoutListPage } from '~/features/workouts/WorkoutListPage'
 import { WorkoutSessionPage } from '~/features/workouts/WorkoutSessionPage'
 import { WorkoutTemplatePage } from '~/features/workouts/WorkoutTemplatePage'
@@ -27,7 +28,11 @@ export const router = createBrowserRouter([
 			{ path: 'workouts/new', element: <WorkoutTemplatePage /> },
 			{ path: 'workouts/:workoutId', element: <WorkoutTemplatePage /> },
 			{ path: 'workouts/:workoutId/session', element: <WorkoutSessionPage /> },
-			{ path: 'workouts/sessions/:sessionId', element: <WorkoutSessionPage /> },
+			{
+				path: 'workouts/sessions/:sessionId',
+				element: <WorkoutSessionPage />,
+				children: [{ path: 'timer', element: <TimerMode /> }]
+			},
 			{ path: 'settings', element: <SettingsPage /> }
 		]
 	}
