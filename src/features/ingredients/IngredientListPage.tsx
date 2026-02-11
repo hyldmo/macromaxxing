@@ -13,8 +13,8 @@ export function IngredientListPage() {
 	const [search, setSearch] = useState('')
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
-	const [sortKey, setSortKey] = useState<'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('name')
-	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+	const [sortKey, setSortKey] = useState<'recent' | 'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('recent')
+	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 	const { user } = useUser()
 	const userId = user?.id
 	const utils = trpc.useUtils()
@@ -33,10 +33,18 @@ export function IngredientListPage() {
 		}
 	}
 
+	const sortOptions = [
+		['recent', 'Recent'],
+		['name', 'Name'],
+		['protein', 'Prot'],
+		['kcal', 'Kcal'],
+	] as const
+
 	const filtered = useMemo(() => {
 		const list = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
 		return [...list].sort((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
+			if (sortKey === 'recent') return dir * (a.createdAt - b.createdAt)
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
 			return dir * (a[sortKey] - b[sortKey])
 		})
@@ -73,7 +81,22 @@ export function IngredientListPage() {
 				</Card>
 			)}
 
-			<Input placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
+			<div className="flex items-center gap-2">
+				<Input placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
+				<div className="flex shrink-0 gap-1">
+					{sortOptions.map(([key, label]) => (
+						<button
+							key={key}
+							type="button"
+							className={`inline-flex items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors ${sortKey === key ? 'border-accent bg-accent/10 text-accent' : 'border-edge text-ink-muted hover:bg-surface-2'}`}
+							onClick={() => toggleSort(key)}
+						>
+							{label}
+							{sortKey === key && (sortDir === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
+						</button>
+					))}
+				</div>
+			</div>
 
 			{ingredientsQuery.error && <TRPCError error={ingredientsQuery.error} />}
 			{deleteMutation.error && <TRPCError error={deleteMutation.error} />}
