@@ -1,6 +1,7 @@
 import {
 	exerciseMuscles,
 	exercises,
+	type FatigueTier,
 	MUSCLE_GROUPS,
 	type SetType,
 	type TypeIDString,
@@ -19,7 +20,7 @@ const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 const zTrainingGoal = z.enum(['hypertrophy', 'strength'])
 const zMuscleGroup = z.enum(MUSCLE_GROUPS as unknown as [string, ...string[]])
 type InferredMuscle = { muscleGroup: (typeof MUSCLE_GROUPS)[number]; intensity: number }
-type InferredExercise = { type: 'compound' | 'isolation'; muscles: InferredMuscle[] }
+type InferredExercise = { type: 'compound' | 'isolation'; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
 
 /** Keyword-based muscle group inference from exercise name */
 function inferExercise(name: string): InferredExercise {
@@ -27,54 +28,63 @@ function inferExercise(name: string): InferredExercise {
 
 	// Core / abs
 	if (/\b(crunch|sit\s*-?up|ab\b|plank|core)/i.test(n))
-		return { type: 'isolation', muscles: [{ muscleGroup: 'core', intensity: 1.0 }] }
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'core', intensity: 1.0 }] }
 
 	// Calves
-	if (/\bcalf|calves/i.test(n)) return { type: 'isolation', muscles: [{ muscleGroup: 'calves', intensity: 1.0 }] }
+	if (/\bcalf|calves/i.test(n))
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'calves', intensity: 1.0 }] }
 
 	// Rear delts
 	if (/\b(face\s*pull|rear\s*delt|reverse\s*(pec|fly|deck))/i.test(n))
-		return { type: 'isolation', muscles: [{ muscleGroup: 'rear_delts', intensity: 1.0 }] }
+		return {
+			type: 'isolation',
+			fatigueTier: /face\s*pull/i.test(n) ? 3 : 4,
+			muscles: [{ muscleGroup: 'rear_delts', intensity: 1.0 }]
+		}
 
 	// Lateral raise
 	if (/\blateral\s*raise/i.test(n))
-		return { type: 'isolation', muscles: [{ muscleGroup: 'side_delts', intensity: 1.0 }] }
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'side_delts', intensity: 1.0 }] }
 
 	// Leg curl
-	if (/\bleg\s*curl/i.test(n)) return { type: 'isolation', muscles: [{ muscleGroup: 'hamstrings', intensity: 1.0 }] }
+	if (/\bleg\s*curl/i.test(n))
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'hamstrings', intensity: 1.0 }] }
 
 	// Leg extension
-	if (/\bleg\s*ext/i.test(n)) return { type: 'isolation', muscles: [{ muscleGroup: 'quads', intensity: 1.0 }] }
+	if (/\bleg\s*ext/i.test(n))
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'quads', intensity: 1.0 }] }
 
 	// Tricep isolation (pushdown, extension, kickback)
 	if (/\b(pushdown|tricep|skull\s*crush|overhead.*ext)/i.test(n))
-		return { type: 'isolation', muscles: [{ muscleGroup: 'triceps', intensity: 1.0 }] }
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'triceps', intensity: 1.0 }] }
 
 	// Bicep isolation (curl variants)
 	if (/\b(curl|preacher)/i.test(n)) {
 		if (/\bhammer/i.test(n))
 			return {
 				type: 'isolation',
+				fatigueTier: 3,
 				muscles: [
 					{ muscleGroup: 'biceps', intensity: 0.7 },
 					{ muscleGroup: 'forearms', intensity: 0.5 }
 				]
 			}
-		return { type: 'isolation', muscles: [{ muscleGroup: 'biceps', intensity: 1.0 }] }
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'biceps', intensity: 1.0 }] }
 	}
 
 	// Chest fly / pec deck
 	if (/\b(fly|pec\s*deck|cable\s*cross)/i.test(n))
-		return { type: 'isolation', muscles: [{ muscleGroup: 'chest', intensity: 1.0 }] }
+		return { type: 'isolation', fatigueTier: 3, muscles: [{ muscleGroup: 'chest', intensity: 1.0 }] }
 
 	// Wrist / forearm
 	if (/\b(wrist|forearm)/i.test(n))
-		return { type: 'isolation', muscles: [{ muscleGroup: 'forearms', intensity: 1.0 }] }
+		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'forearms', intensity: 1.0 }] }
 
 	// Shoulder / overhead press (before generic press)
 	if (/\b(shoulder|overhead|ohp|military)\b.*press/i.test(n) || /\bpress.*\b(shoulder|overhead)/i.test(n))
 		return {
 			type: 'compound',
+			fatigueTier: 2,
 			muscles: [
 				{ muscleGroup: 'front_delts', intensity: 1.0 },
 				{ muscleGroup: 'side_delts', intensity: 0.5 },
@@ -86,6 +96,7 @@ function inferExercise(name: string): InferredExercise {
 	if (/\b(squat|leg\s*press|hack\s*squat|goblet)/i.test(n))
 		return {
 			type: 'compound',
+			fatigueTier: /\bsquat\b/i.test(n) && !/hack|goblet/i.test(n) ? 1 : 2,
 			muscles: [
 				{ muscleGroup: 'quads', intensity: 1.0 },
 				{ muscleGroup: 'glutes', intensity: 0.7 },
@@ -101,6 +112,7 @@ function inferExercise(name: string): InferredExercise {
 	)
 		return {
 			type: 'compound',
+			fatigueTier: 2,
 			muscles: [
 				{ muscleGroup: 'chest', intensity: 1.0 },
 				{ muscleGroup: 'triceps', intensity: 0.5 },
@@ -112,6 +124,7 @@ function inferExercise(name: string): InferredExercise {
 	if (/\bdeadlift|rdl\b/i.test(n))
 		return {
 			type: 'compound',
+			fatigueTier: /\brdl\b|romanian/i.test(n) ? 2 : 1,
 			muscles: [
 				{ muscleGroup: 'hamstrings', intensity: 0.8 },
 				{ muscleGroup: 'glutes', intensity: 0.8 },
@@ -124,6 +137,7 @@ function inferExercise(name: string): InferredExercise {
 	if (/\brow/i.test(n))
 		return {
 			type: 'compound',
+			fatigueTier: 2,
 			muscles: [
 				{ muscleGroup: 'upper_back', intensity: 0.8 },
 				{ muscleGroup: 'lats', intensity: 0.8 },
@@ -135,6 +149,7 @@ function inferExercise(name: string): InferredExercise {
 	if (/\b(pulldown|pull\s*-?\s*down|pull\s*-?\s*up|chin\s*-?\s*up|lat\s*pull)/i.test(n))
 		return {
 			type: 'compound',
+			fatigueTier: 2,
 			muscles: [
 				{ muscleGroup: 'lats', intensity: 1.0 },
 				{ muscleGroup: 'upper_back', intensity: 0.6 },
@@ -146,6 +161,7 @@ function inferExercise(name: string): InferredExercise {
 	if (/\bpress/i.test(n))
 		return {
 			type: 'compound',
+			fatigueTier: 2,
 			muscles: [
 				{ muscleGroup: 'chest', intensity: 0.8 },
 				{ muscleGroup: 'triceps', intensity: 0.5 },
@@ -154,7 +170,7 @@ function inferExercise(name: string): InferredExercise {
 		}
 
 	// Unknown — default to compound with empty muscles
-	return { type: 'compound', muscles: [] }
+	return { type: 'compound', fatigueTier: 2, muscles: [] }
 }
 
 export const workoutsRouter = router({
@@ -179,14 +195,16 @@ export const workoutsRouter = router({
 			z.object({
 				name: z.string().min(1),
 				type: zExerciseType,
+				fatigueTier: z.number().int().min(1).max(4).optional(),
 				muscles: z.array(z.object({ muscleGroup: zMuscleGroup, intensity: z.number().min(0).max(1) }))
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
+			const tier = (input.fatigueTier ?? (input.type === 'compound' ? 2 : 4)) as FatigueTier
 			const [exercise] = await ctx.db
 				.insert(exercises)
-				.values({ userId: ctx.user.id, name: input.name, type: input.type, createdAt: now })
+				.values({ userId: ctx.user.id, name: input.name, type: input.type, fatigueTier: tier, createdAt: now })
 				.returning()
 
 			if (input.muscles.length > 0) {
@@ -247,7 +265,8 @@ export const workoutsRouter = router({
 						targetSets: z.number().int().min(1).nullable(),
 						targetReps: z.number().int().min(1).nullable(),
 						targetWeight: z.number().min(0).nullable(),
-						setMode: zSetMode.default('working')
+						setMode: zSetMode.default('working'),
+						supersetGroup: z.number().int().nullable().default(null)
 					})
 				)
 			})
@@ -275,10 +294,10 @@ export const workoutsRouter = router({
 				.returning()
 
 			if (input.exercises.length > 0) {
-				// D1 limits to 100 bound params per query (8 cols → max 12 rows per insert)
-				for (let i = 0; i < input.exercises.length; i += 12) {
+				// D1 limits to 100 bound params per query (9 cols → max 11 rows per insert)
+				for (let i = 0; i < input.exercises.length; i += 11) {
 					await ctx.db.insert(workoutExercises).values(
-						input.exercises.slice(i, i + 12).map((e, idx) => ({
+						input.exercises.slice(i, i + 11).map((e, idx) => ({
 							workoutId: workout.id,
 							exerciseId: e.exerciseId,
 							sortOrder: i + idx,
@@ -286,6 +305,7 @@ export const workoutsRouter = router({
 							targetReps: e.targetReps,
 							targetWeight: e.targetWeight,
 							setMode: e.setMode,
+							supersetGroup: e.supersetGroup,
 							createdAt: now
 						}))
 					)
@@ -317,7 +337,8 @@ export const workoutsRouter = router({
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
-							setMode: zSetMode.default('working')
+							setMode: zSetMode.default('working'),
+							supersetGroup: z.number().int().nullable().default(null)
 						})
 					)
 					.optional()
@@ -341,9 +362,9 @@ export const workoutsRouter = router({
 				// Replace all exercises
 				await ctx.db.delete(workoutExercises).where(eq(workoutExercises.workoutId, input.id))
 				if (input.exercises.length > 0) {
-					for (let i = 0; i < input.exercises.length; i += 12) {
+					for (let i = 0; i < input.exercises.length; i += 11) {
 						await ctx.db.insert(workoutExercises).values(
-							input.exercises.slice(i, i + 12).map((e, idx) => ({
+							input.exercises.slice(i, i + 11).map((e, idx) => ({
 								workoutId: input.id,
 								exerciseId: e.exerciseId,
 								sortOrder: i + idx,
@@ -351,6 +372,7 @@ export const workoutsRouter = router({
 								targetReps: e.targetReps,
 								targetWeight: e.targetWeight,
 								setMode: e.setMode,
+								supersetGroup: e.supersetGroup,
 								createdAt: now
 							}))
 						)
@@ -857,7 +879,13 @@ export const workoutsRouter = router({
 					const inferred = inferExercise(row.exerciseName)
 					const [created] = await ctx.db
 						.insert(exercises)
-						.values({ userId: ctx.user.id, name: row.exerciseName, type: inferred.type, createdAt: now })
+						.values({
+							userId: ctx.user.id,
+							name: row.exerciseName,
+							type: inferred.type,
+							fatigueTier: inferred.fatigueTier,
+							createdAt: now
+						})
 						.returning()
 
 					if (inferred.muscles.length > 0) {
@@ -1043,6 +1071,7 @@ export const workoutsRouter = router({
 								userId: ctx.user.id,
 								name: row.exerciseName,
 								type: inferred.type,
+								fatigueTier: inferred.fatigueTier,
 								createdAt: now
 							})
 							.returning()

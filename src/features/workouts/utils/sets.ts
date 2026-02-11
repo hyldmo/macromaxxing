@@ -1,23 +1,15 @@
-import type { TrainingGoal } from '@macromaxxing/db'
+import type { FatigueTier, TrainingGoal } from '@macromaxxing/db'
 
-export const TRAINING_DEFAULTS: Record<
-	TrainingGoal,
-	{
-		rest: { warmup: number; working: number; backoff: number }
-		targetSets: number
-		targetReps: number
-	}
-> = {
-	hypertrophy: {
-		rest: { warmup: 45, working: 90, backoff: 60 },
-		targetSets: 3,
-		targetReps: 10
-	},
-	strength: {
-		rest: { warmup: 60, working: 180, backoff: 90 },
-		targetSets: 5,
-		targetReps: 5
-	}
+export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
+	hypertrophy: { targetSets: 3, targetReps: 10 },
+	strength: { targetSets: 5, targetReps: 5 }
+}
+
+const GOAL_MULTIPLIER = { hypertrophy: 1.0, strength: 1.5 } as const
+const TIER_MODIFIER = { 1: 60, 2: 30, 3: 0, 4: -15 } as const
+
+export function calculateRest(reps: number, fatigueTier: FatigueTier, goal: TrainingGoal): number {
+	return Math.max(15, Math.round(reps * 4 * GOAL_MULTIPLIER[goal] + TIER_MODIFIER[fatigueTier]))
 }
 
 const round = (w: number) => Math.round(w / 2.5) * 2.5

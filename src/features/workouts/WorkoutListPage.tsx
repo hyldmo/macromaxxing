@@ -92,9 +92,10 @@ export function WorkoutListPage() {
 							strategy={verticalListSortingStrategy}
 						>
 							<div className="space-y-1.5">
-								{workoutsQuery.data.map(workout => (
+								{workoutsQuery.data.map((workout, i) => (
 									<WorkoutCard
 										key={workout.id}
+										label={`${i + 1}. ${workout.name}`}
 										workout={workout}
 										onStartSession={handleStartSession}
 										isPending={createSession.isPending}

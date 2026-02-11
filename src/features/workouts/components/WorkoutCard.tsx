@@ -12,12 +12,13 @@ import type { RouterOutput } from '~/lib/trpc'
 type Workout = RouterOutput['workout']['listWorkouts'][number]
 
 export interface WorkoutCardProps {
+	label?: string
 	workout: Workout
 	onStartSession: (workoutId: TypeIDString<'wkt'>) => void
 	isPending?: boolean
 }
 
-export const WorkoutCard: FC<WorkoutCardProps> = ({ workout, onStartSession, isPending }) => {
+export const WorkoutCard: FC<WorkoutCardProps> = ({ label, workout, onStartSession, isPending }) => {
 	const navigate = useNavigate()
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
 		id: workout.id
@@ -40,7 +41,7 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ workout, onStartSession, isP
 			</button>
 
 			<div className="min-w-0 flex-1 py-2">
-				<h3 className="font-medium text-ink">{workout.name}</h3>
+				<h3 className="font-medium text-ink">{label ?? workout.name}</h3>
 				<div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0 font-mono text-xs tabular-nums">
 					{workout.exercises.slice(0, 6).map(we => (
 						<span key={we.id} className="text-ink-muted">

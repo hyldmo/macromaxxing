@@ -1,6 +1,7 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
+	type FatigueTier,
 	type MuscleGroup,
 	newId,
 	type SetMode,
@@ -150,6 +151,7 @@ export const exercises = sqliteTable('exercises', {
 	userId: text('user_id').references(() => users.id), // null = system exercise
 	name: text('name').notNull(),
 	type: text('type').notNull().$type<'compound' | 'isolation'>(),
+	fatigueTier: integer('fatigue_tier').notNull().default(2).$type<FatigueTier>(),
 	createdAt: integer('created_at').notNull()
 })
 
@@ -193,6 +195,7 @@ export const workoutExercises = sqliteTable('workout_exercises', {
 	targetReps: integer('target_reps'), // null = use training goal default
 	targetWeight: real('target_weight'), // null = find weight first session
 	setMode: text('set_mode').notNull().default('warmup').$type<SetMode>(),
+	supersetGroup: integer('superset_group'), // null = standalone, same int = grouped
 	createdAt: integer('created_at').notNull()
 })
 

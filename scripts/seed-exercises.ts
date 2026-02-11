@@ -16,6 +16,7 @@ function exec(sql: string) {
 interface ExerciseDef {
 	name: string
 	type: 'compound' | 'isolation'
+	fatigueTier: 1 | 2 | 3 | 4
 	muscles: Array<{ group: MuscleGroup; intensity: number }>
 }
 
@@ -23,6 +24,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Bench Press',
 		type: 'compound',
+		fatigueTier: 2,
 		muscles: [
 			{ group: 'chest', intensity: 1.0 },
 			{ group: 'triceps', intensity: 0.5 },
@@ -32,6 +34,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Incline Bench Press',
 		type: 'compound',
+		fatigueTier: 2,
 		muscles: [
 			{ group: 'chest', intensity: 0.8 },
 			{ group: 'front_delts', intensity: 0.5 },
@@ -41,6 +44,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Overhead Press',
 		type: 'compound',
+		fatigueTier: 2,
 		muscles: [
 			{ group: 'front_delts', intensity: 1.0 },
 			{ group: 'side_delts', intensity: 0.5 },
@@ -50,6 +54,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Barbell Row',
 		type: 'compound',
+		fatigueTier: 2,
 		muscles: [
 			{ group: 'upper_back', intensity: 0.8 },
 			{ group: 'lats', intensity: 0.8 },
@@ -60,6 +65,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Pull-Up',
 		type: 'compound',
+		fatigueTier: 2,
 		muscles: [
 			{ group: 'lats', intensity: 1.0 },
 			{ group: 'upper_back', intensity: 0.6 },
@@ -69,6 +75,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Squat',
 		type: 'compound',
+		fatigueTier: 1,
 		muscles: [
 			{ group: 'quads', intensity: 1.0 },
 			{ group: 'glutes', intensity: 0.7 },
@@ -79,6 +86,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Deadlift',
 		type: 'compound',
+		fatigueTier: 1,
 		muscles: [
 			{ group: 'hamstrings', intensity: 0.8 },
 			{ group: 'glutes', intensity: 0.8 },
@@ -90,6 +98,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Romanian Deadlift',
 		type: 'compound',
+		fatigueTier: 2,
 		muscles: [
 			{ group: 'hamstrings', intensity: 1.0 },
 			{ group: 'glutes', intensity: 0.7 },
@@ -99,41 +108,49 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Lateral Raise',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'side_delts', intensity: 1.0 }]
 	},
 	{
 		name: 'Bicep Curl',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'biceps', intensity: 1.0 }]
 	},
 	{
 		name: 'Tricep Extension',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'triceps', intensity: 1.0 }]
 	},
 	{
 		name: 'Leg Curl',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'hamstrings', intensity: 1.0 }]
 	},
 	{
 		name: 'Leg Extension',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'quads', intensity: 1.0 }]
 	},
 	{
 		name: 'Calf Raise',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'calves', intensity: 1.0 }]
 	},
 	{
 		name: 'Rear Delt Fly',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'rear_delts', intensity: 1.0 }]
 	},
 	{
 		name: 'Face Pull',
 		type: 'isolation',
+		fatigueTier: 3,
 		muscles: [
 			{ group: 'rear_delts', intensity: 0.7 },
 			{ group: 'upper_back', intensity: 0.3 }
@@ -142,16 +159,19 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Cable Fly',
 		type: 'isolation',
+		fatigueTier: 3,
 		muscles: [{ group: 'chest', intensity: 1.0 }]
 	},
 	{
 		name: 'Preacher Curl',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'biceps', intensity: 1.0 }]
 	},
 	{
 		name: 'Hammer Curl',
 		type: 'isolation',
+		fatigueTier: 3,
 		muscles: [
 			{ group: 'biceps', intensity: 0.7 },
 			{ group: 'forearms', intensity: 0.5 }
@@ -160,6 +180,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Wrist Curl',
 		type: 'isolation',
+		fatigueTier: 4,
 		muscles: [{ group: 'forearms', intensity: 1.0 }]
 	}
 ]
@@ -189,7 +210,7 @@ for (const ex of EXERCISES) {
 		.replace(/[^a-z0-9]+/g, '_')
 		.replace(/_+$/, '')}`
 	exec(
-		`INSERT OR IGNORE INTO exercises (id, user_id, name, type, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${now})`
+		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${now})`
 	)
 	for (const m of ex.muscles) {
 		const mid = `exm_${id.slice(4)}_${m.group}`
