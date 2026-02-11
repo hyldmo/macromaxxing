@@ -749,7 +749,7 @@ export const workoutsRouter = router({
 		.query(({ input }) => {
 			const { workingWeight } = input
 			const bar = 20
-			const round = (w: number) => Math.round(w / 2.5) * 2.5
+			const round = (w: number) => Math.round(w / 0.5) * 0.5
 
 			const sets: Array<{ weightKg: number; reps: number; setType: 'warmup' }> = []
 
@@ -782,13 +782,13 @@ export const workoutsRouter = router({
 		)
 		.query(({ input }) => {
 			const { workingWeight, workingReps, count } = input
-			const round = (w: number) => Math.round(w / 2.5) * 2.5
+			const roundUp = (w: number) => Math.ceil(w / 0.5) * 0.5
 
 			const sets: Array<{ weightKg: number; reps: number; setType: 'backoff' }> = []
 			for (let i = 0; i < count; i++) {
 				const pct = 0.8 - i * 0.1
 				sets.push({
-					weightKg: round(workingWeight * pct),
+					weightKg: roundUp(workingWeight * pct),
 					reps: workingReps + 2 * (i + 1),
 					setType: 'backoff'
 				})
