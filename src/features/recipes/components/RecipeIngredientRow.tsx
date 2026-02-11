@@ -1,5 +1,8 @@
-import { Trash2 } from 'lucide-react'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { GripVertical, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
+import { cn } from '~/lib/cn'
 import { Button, NumberInput, Select, TRPCError } from '~/components/ui'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { formatIngredientAmount, getAllUnits } from '../utils/format'
@@ -16,6 +19,9 @@ export interface RecipeIngredientRowProps {
 }
 
 export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, recipeId, readOnly }) => {
+	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ri.id })
+	const style = { transform: CSS.Translate.toString(transform), transition }
+
 	const units = getAllUnits(ri.ingredient.units ?? [], ri.ingredient.density)
 	const hasUnits = units.length > 0
 
@@ -103,10 +109,20 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 	}
 
 	return (
-		<>
+		<tbody ref={setNodeRef} style={style} className={cn(isDragging && 'opacity-50')}>
 			<tr className="group border-edge/50 border-b transition-colors hover:bg-surface-2/50">
 				<td className="px-2 py-1.5 font-medium text-sm">
 					<div className="flex items-baseline gap-1">
+						{!readOnly && (
+							<button
+								type="button"
+								className="shrink-0 cursor-grab touch-none self-center text-ink-faint hover:text-ink active:cursor-grabbing"
+								{...attributes}
+								{...listeners}
+							>
+								<GripVertical className="size-3.5" />
+							</button>
+						)}
 						<span className="text-ink">{ri.ingredient.name}</span>
 						{readOnly ? (
 							ri.preparation && <span className="font-normal text-ink-faint">{ri.preparation}</span>
@@ -176,6 +192,6 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({ ri, macros, 
 					{error && <TRPCError error={error} className="mt-1" />}
 				</td>
 			</tr>
-		</>
+		</tbody>
 	)
 }
