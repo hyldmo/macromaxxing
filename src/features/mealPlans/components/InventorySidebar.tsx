@@ -1,7 +1,7 @@
 import type { MealPlan } from '@macromaxxing/db'
 import { Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Button } from '~/components/ui/Button'
+import { Button } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 import { AddToInventoryModal } from './AddToInventoryModal'
 import { InventoryCard } from './InventoryCard'

@@ -1,11 +1,7 @@
 import { extractPreparation, type Ingredient } from '@macromaxxing/db'
 import { ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
-import { Card } from '~/components/ui'
-import { Button } from '~/components/ui/Button'
-import { Input } from '~/components/ui/Input'
-import { Spinner } from '~/components/ui/Spinner'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { MacroBar } from './MacroBar'
 

@@ -1,11 +1,7 @@
 import type { MealPlan } from '@macromaxxing/db'
 import { Package, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Input } from '~/components/ui/Input'
-import { Modal } from '~/components/ui/Modal'
-import { Spinner } from '~/components/ui/Spinner'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Input, Modal, Spinner, TRPCError } from '~/components/ui'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import {

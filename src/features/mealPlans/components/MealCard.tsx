@@ -1,6 +1,6 @@
 import { ChevronRight, GripVertical, Minus, Plus } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
-import { Card } from '~/components/ui/Card'
+import { Card } from '~/components/ui'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import {
 	calculatePortionMacros,

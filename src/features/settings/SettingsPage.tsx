@@ -1,11 +1,6 @@
 import { AI_PROVIDER_OPTIONS, type AiProvider } from '@macromaxxing/db'
 import { useEffect, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Card, CardContent, CardHeader } from '~/components/ui/Card'
-import { Input } from '~/components/ui/Input'
-import { SaveButton } from '~/components/ui/SaveButton'
-import { Switch } from '~/components/ui/Switch'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Card, CardContent, CardHeader, Input, SaveButton, Switch, TRPCError } from '~/components/ui'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { trpc } from '~/lib/trpc'
 

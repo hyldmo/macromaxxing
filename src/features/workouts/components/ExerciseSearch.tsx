@@ -1,7 +1,6 @@
 import { Plus, Search } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Card } from '~/components/ui/Card'
-import { Input } from '~/components/ui/Input'
+import { Card, Input } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
@@ -54,7 +53,9 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 							<Plus className="size-3.5 shrink-0 text-ink-faint" />
 							<span className="text-ink">{exercise.name}</span>
 							<span
-								className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] ${TYPE_BADGE[exercise.type]}`}
+								className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] ${
+									TYPE_BADGE[exercise.type]
+								}`}
 							>
 								{exercise.type}
 							</span>

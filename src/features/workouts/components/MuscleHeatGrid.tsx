@@ -1,5 +1,5 @@
 import { type FC, useMemo, useRef, useState } from 'react'
-import { Spinner } from '~/components/ui/Spinner'
+import { Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { BodyMap } from './BodyMap'
 

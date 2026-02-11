@@ -18,7 +18,8 @@ export function calculateRest(
 	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 
-const round = (w: number) => Math.round(w / 2.5) * 2.5
+const round = (w: number) => Math.round(w / 0.5) * 0.5
+const roundUp = (w: number) => Math.ceil(w / 0.5) * 0.5
 
 export interface GeneratedSet {
 	weightKg: number
@@ -76,7 +77,7 @@ export function generateBackoffSets(workingWeight: number, workingReps: number, 
 	for (let i = 0; i < count; i++) {
 		const pct = 0.8 - i * 0.1
 		sets.push({
-			weightKg: round(workingWeight * pct),
+			weightKg: roundUp(workingWeight * pct),
 			reps: workingReps + 2 * (i + 1),
 			setType: 'backoff'
 		})

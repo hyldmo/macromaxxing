@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { Card } from '~/components/ui/Card'
+import { Card } from '~/components/ui'
 import {
 	type AbsoluteMacros,
 	calculateDayTotals,

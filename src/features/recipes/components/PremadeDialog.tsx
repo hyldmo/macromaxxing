@@ -1,11 +1,6 @@
 import { Globe, X } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Input } from '~/components/ui/Input'
-import { Modal } from '~/components/ui/Modal'
-import { NumberInput } from '~/components/ui/NumberInput'
-import { Spinner } from '~/components/ui/Spinner'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Input, Modal, NumberInput, Spinner, TRPCError } from '~/components/ui'
 import { MacroInput } from '~/features/ingredients'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 

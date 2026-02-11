@@ -1,11 +1,7 @@
 import type { TypeIDString } from '@macromaxxing/db'
 import { Upload, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
-import { Button } from '~/components/ui/Button'
-import { Modal } from '~/components/ui/Modal'
-import { Spinner } from '~/components/ui/Spinner'
-import { Textarea } from '~/components/ui/Textarea'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Modal, Spinner, Textarea, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 
 export interface ImportDialogProps {

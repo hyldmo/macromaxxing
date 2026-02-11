@@ -1,7 +1,7 @@
 import type { SetType } from '@macromaxxing/db'
 import { Check, Circle } from 'lucide-react'
 import type { FC } from 'react'
-import { NumberInput } from '~/components/ui/NumberInput'
+import { NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { estimated1RM } from '../utils/formulas'
 

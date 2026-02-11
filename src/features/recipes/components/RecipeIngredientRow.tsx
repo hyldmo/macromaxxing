@@ -1,7 +1,6 @@
 import { Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { Button, NumberInput, TRPCError } from '~/components/ui'
-import { Select } from '~/components/ui/Select'
+import { Button, NumberInput, Select, TRPCError } from '~/components/ui'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { formatIngredientAmount, getAllUnits } from '../utils/format'
 import type { AbsoluteMacros } from '../utils/macros'

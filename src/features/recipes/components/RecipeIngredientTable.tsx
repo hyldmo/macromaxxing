@@ -1,5 +1,5 @@
 import { type FC, useCallback, useEffect, useState } from 'react'
-import { Spinner } from '~/components/ui/Spinner'
+import { Spinner } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 import type { AbsoluteMacros } from '../utils/macros'
 import { IngredientSearchInput } from './IngredientSearchInput'

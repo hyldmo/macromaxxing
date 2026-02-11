@@ -1,11 +1,7 @@
 import { CalendarDays, Plus, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '~/components/ui/Button'
-import { Card } from '~/components/ui/Card'
-import { Input } from '~/components/ui/Input'
-import { Spinner } from '~/components/ui/Spinner'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useUser } from '~/lib/user'
 

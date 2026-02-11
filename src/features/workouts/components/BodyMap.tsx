@@ -1,6 +1,6 @@
 import type { Sex } from '@macromaxxing/db'
 import type { FC, SVGAttributes } from 'react'
-import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui/body'
+import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
 
 export interface BodyMapProps {
 	muscleColors: Map<string, string>
@@ -15,7 +15,9 @@ const BodyFigure: FC<{
 	label: string
 }> = ({ SvgComponent, muscleColors, onHover, label }) => {
 	const gp = (muscle: string): SVGAttributes<SVGGElement> => ({
-		className: `cursor-pointer transition-colors hover:opacity-70 ${muscleColors.get(muscle) ?? 'text-ink-faint/20'}`,
+		className: `cursor-pointer transition-colors hover:opacity-70 ${
+			muscleColors.get(muscle) ?? 'text-ink-faint/20'
+		}`,
 		onMouseEnter: () => onHover(muscle),
 		onMouseLeave: () => onHover(null)
 	})

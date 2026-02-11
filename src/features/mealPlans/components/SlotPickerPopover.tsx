@@ -1,7 +1,6 @@
 import { X } from 'lucide-react'
 import type { FC } from 'react'
-import { Spinner } from '~/components/ui/Spinner'
-import { TRPCError } from '~/components/ui/TRPCError'
+import { Spinner, TRPCError } from '~/components/ui'
 import {
 	calculatePortionMacros,
 	calculateRecipeTotals,

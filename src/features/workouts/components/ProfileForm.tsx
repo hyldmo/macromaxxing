@@ -1,8 +1,6 @@
 import type { Sex } from '@macromaxxing/db'
 import { type FC, useEffect, useState } from 'react'
-import { NumberInput } from '~/components/ui/NumberInput'
-import { SaveButton } from '~/components/ui/SaveButton'
-import { Select } from '~/components/ui/Select'
+import { NumberInput, SaveButton, Select } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 
 export const ProfileForm: FC = () => {
