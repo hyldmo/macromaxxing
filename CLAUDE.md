@@ -11,6 +11,7 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 - **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom
 - **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), Drizzle ORM
 - **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
+  - **Production:** Google/GitHub OAuth require your own OAuth credentials configured in Clerk's production instance (dev uses Clerk's shared test credentials automatically)
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
 
 ## Commands
@@ -49,6 +50,16 @@ Create `.env.local` for frontend:
 ```bash
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
 ```
+
+### Production Auth Setup
+
+Clerk dev instances include shared Google/GitHub OAuth credentials, but **production requires your own**:
+
+1. **Google:** Create OAuth 2.0 credentials in [Google Cloud Console](https://console.cloud.google.com/) (APIs & Services → Credentials → OAuth client ID). Add the Clerk redirect URI shown in the Clerk dashboard.
+2. **GitHub:** Create an OAuth App in GitHub Developer Settings. Add the Clerk redirect URI.
+3. **Clerk Dashboard:** Switch to **Production** instance → User & Authentication → Social Connections → enter Client ID + Secret for each provider.
+
+Without this, Google/GitHub login will fail with `Missing required parameter: client_id`.
 
 ## Source Tree
 
