@@ -20,7 +20,7 @@ export interface DayColumnProps {
 	dayOfWeek: number
 	slots: SlotWithInventory[]
 	inventory: InventoryItem[]
-	onDrop: (slotIndex: number, inventoryId: string) => void
+	onDrop: (slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
 }
 
 const MIN_SLOTS = 3
@@ -67,7 +67,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 						slotIndex={index}
 						slot={slot}
 						inventory={inventory}
-						onDrop={inventoryId => onDrop(index, inventoryId)}
+						onDrop={(inventoryId, sourceSlotId) => onDrop(index, inventoryId, sourceSlotId)}
 					/>
 				))}
 			</div>

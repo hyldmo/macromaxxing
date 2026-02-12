@@ -8,7 +8,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
 export interface WeekGridProps {
 	inventory: InventoryItem[]
-	onDrop: (dayOfWeek: number, slotIndex: number, inventoryId: string) => void
+	onDrop: (dayOfWeek: number, slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
 }
 
 export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
@@ -32,7 +32,9 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 					dayOfWeek={dayIndex}
 					slots={slotsByDay[dayIndex]}
 					inventory={inventory}
-					onDrop={(slotIndex, inventoryId) => onDrop(dayIndex, slotIndex, inventoryId)}
+					onDrop={(slotIndex, inventoryId, sourceSlotId) =>
+						onDrop(dayIndex, slotIndex, inventoryId, sourceSlotId)
+					}
 				/>
 			))}
 		</div>

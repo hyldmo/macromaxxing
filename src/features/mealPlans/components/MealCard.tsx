@@ -45,8 +45,8 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 	const cardRef = useRef<HTMLDivElement>(null)
 
 	function handleDragStart(e: React.DragEvent) {
-		e.dataTransfer.setData('text/plain', slot.inventoryId)
-		e.dataTransfer.effectAllowed = 'copy'
+		e.dataTransfer.setData('text/plain', JSON.stringify({ inventoryId: slot.inventoryId, slotId: slot.id }))
+		e.dataTransfer.effectAllowed = 'move'
 		if (cardRef.current) {
 			const rect = cardRef.current.getBoundingClientRect()
 			const offsetX = e.clientX - rect.left

@@ -44,6 +44,10 @@ export const MealPlannerPage: FC = () => {
 		onSuccess: () => utils.mealPlan.get.invalidate({ id: id! })
 	})
 
+	const removeSlotMutation = trpc.mealPlan.removeSlot.useMutation({
+		onSuccess: () => utils.mealPlan.get.invalidate({ id: id! })
+	})
+
 	function handleNameBlur() {
 		if (id && name.trim() && name.trim() !== planQuery.data?.name) {
 			updateMutation.mutate({ id, name: name.trim() })
@@ -58,7 +62,12 @@ export const MealPlannerPage: FC = () => {
 		duplicateMutation.mutate({ id: id!, newName: `${planQuery.data?.name} (copy)` })
 	}
 
-	function handleDrop(dayOfWeek: number, slotIndex: number, inventoryId: string) {
+	function handleDrop(dayOfWeek: number, slotIndex: number, inventoryId: string, sourceSlotId?: string) {
+		if (sourceSlotId) {
+			removeSlotMutation.mutate({
+				slotId: sourceSlotId as Parameters<typeof removeSlotMutation.mutate>[0]['slotId']
+			})
+		}
 		allocateMutation.mutate({
 			inventoryId: inventoryId as Parameters<typeof allocateMutation.mutate>[0]['inventoryId'],
 			dayOfWeek,

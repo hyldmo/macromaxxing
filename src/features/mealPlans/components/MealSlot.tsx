@@ -13,7 +13,7 @@ export interface MealSlotProps {
 	slotIndex: number
 	slot: SlotWithInventory | null
 	inventory: InventoryItem[]
-	onDrop: (inventoryId: string) => void
+	onDrop: (inventoryId: string, sourceSlotId?: string) => void
 }
 
 export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, inventory, onDrop }) => {
@@ -26,7 +26,7 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 
 	function handleDragOver(e: React.DragEvent) {
 		e.preventDefault()
-		e.dataTransfer.dropEffect = 'copy'
+		e.dataTransfer.dropEffect = 'move'
 		setIsDragOver(true)
 	}
 
@@ -37,9 +37,14 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 	function handleDrop(e: React.DragEvent) {
 		e.preventDefault()
 		setIsDragOver(false)
-		const inventoryId = e.dataTransfer.getData('text/plain')
-		if (inventoryId) {
-			onDrop(inventoryId)
+		const raw = e.dataTransfer.getData('text/plain')
+		if (!raw) return
+		try {
+			const data = JSON.parse(raw) as { inventoryId: string; slotId?: string }
+			onDrop(data.inventoryId, data.slotId)
+		} catch {
+			// Plain inventoryId from inventory sidebar drag
+			onDrop(raw)
 		}
 	}
 
