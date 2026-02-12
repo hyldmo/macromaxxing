@@ -26,7 +26,7 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 
 	function handleDragOver(e: React.DragEvent) {
 		e.preventDefault()
-		e.dataTransfer.dropEffect = 'move'
+		e.dataTransfer.dropEffect = e.dataTransfer.effectAllowed === 'copy' ? 'copy' : 'move'
 		setIsDragOver(true)
 	}
 
