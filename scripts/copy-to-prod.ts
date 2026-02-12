@@ -47,7 +47,7 @@ function buildInserts<T extends Record<string, unknown>>(table: string, rows: T[
 		.map(row => {
 			const cols = Object.keys(row)
 			const vals = cols.map(c => sqlVal(row[c]))
-			return `INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${vals.join(', ')});`
+			return `INSERT OR IGNORE INTO ${table} (${cols.join(', ')}) VALUES (${vals.join(', ')});`
 		})
 		.join('\n')
 }

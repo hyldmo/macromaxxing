@@ -29,10 +29,9 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 		onSuccess: () => utils.mealPlan.get.invalidate()
 	})
 
-	const remaining = calculateRemainingPortions(inventory.totalPortions, inventory.slots)
-	const isOverAllocated = remaining < 0
-
 	const recipe = inventory.recipe
+	const remaining = calculateRemainingPortions(inventory.totalPortions, inventory.slots)
+	const isOverAllocated = recipe.portionSize != null && remaining < 0
 	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 	const totals = calculateRecipeTotals(items)
 	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
