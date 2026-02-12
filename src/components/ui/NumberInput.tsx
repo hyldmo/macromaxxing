@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { forwardRef, type KeyboardEvent, type MouseEvent, useCallback, useRef } from 'react'
+import { forwardRef, type KeyboardEvent, type MouseEvent, useCallback, useRef, useState } from 'react'
 import { cn } from '~/lib/cn'
 
 export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'inputMode'> {
@@ -28,8 +28,11 @@ function autoStep(value: number): number {
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
-	({ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, ...props }, ref) => {
+	({ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, onFocus, onChange, value, ...props }, ref) => {
 		const innerRef = useRef<HTMLInputElement | null>(null)
+		// While focused, hold the raw string so parent's numeric round-trip
+		// (e.g. "22." → 22 → "22") doesn't clobber in-progress typing
+		const [localValue, setLocalValue] = useState<string | null>(null)
 
 		const bump = useCallback(
 			(direction: 1 | -1, input: HTMLInputElement) => {
@@ -40,6 +43,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 				const next = Math.max(min, snapped)
 				const formatted = stepDecimals > 0 ? next.toFixed(stepDecimals) : String(Math.round(next))
 				triggerChange(input, formatted)
+				setLocalValue(formatted)
 			},
 			[step, min]
 		)
@@ -55,8 +59,25 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 			[bump, onKeyDown]
 		)
 
+		const handleFocus = useCallback(
+			(e: React.FocusEvent<HTMLInputElement>) => {
+				setLocalValue(String(value ?? ''))
+				onFocus?.(e)
+			},
+			[value, onFocus]
+		)
+
+		const handleChange = useCallback(
+			(e: React.ChangeEvent<HTMLInputElement>) => {
+				setLocalValue(e.target.value)
+				onChange?.(e)
+			},
+			[onChange]
+		)
+
 		const handleBlur = useCallback(
 			(e: React.FocusEvent<HTMLInputElement>) => {
+				setLocalValue(null)
 				const v = e.currentTarget.value
 				if (v !== '') {
 					const n = Number.parseFloat(v)
@@ -102,6 +123,9 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					type="text"
 					inputMode="decimal"
 					className="min-w-0 flex-1 bg-transparent py-1 pr-1 pl-2 text-right font-mono text-ink text-sm tabular-nums shadow-none outline-none placeholder:text-ink-faint disabled:cursor-not-allowed"
+					value={localValue !== null ? localValue : (value ?? '')}
+					onFocus={handleFocus}
+					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					onBlur={handleBlur}
 					{...props}
@@ -111,7 +135,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 						'group-focus-within:border-edge group-hover:border-edge': enabled
 					})}
 				>
-					{unit && (props.placeholder === unit ? !!props.value : true) && (
+					{unit && (props.placeholder === unit ? !!value : true) && (
 						<span
 							className={cn(
 								'pointer-events-none absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',
