@@ -57,8 +57,8 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 
 	return (
 		<div ref={cardRef} className="group/card relative">
-			{/* Card */}
-			<Card className="p-2">
+			{/* Card — tappable to open popover (replaces hover side-panel on touch devices) */}
+			<Card className="cursor-pointer p-2" onClick={() => setShowPopover(true)}>
 				<span className="line-clamp-2 font-medium text-ink text-sm leading-tight">
 					{slot.inventory.recipe.name}
 				</span>
@@ -66,7 +66,10 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 					<div className="mt-1 flex items-center gap-1">
 						<button
 							type="button"
-							onClick={() => updatePortions(slot.portions - 0.5)}
+							onClick={e => {
+								e.stopPropagation()
+								updatePortions(slot.portions - 0.5)
+							}}
 							disabled={slot.portions <= 0.5 || updateMutation.isPending}
 							className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 						>
@@ -77,7 +80,10 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 						</span>
 						<button
 							type="button"
-							onClick={() => updatePortions(slot.portions + 0.5)}
+							onClick={e => {
+								e.stopPropagation()
+								updatePortions(slot.portions + 0.5)
+							}}
 							disabled={updateMutation.isPending}
 							className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 						>
@@ -98,7 +104,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 				</div>
 			</Card>
 
-			<div className="absolute top-0 left-[calc(100%-1px)] z-10 flex flex-col justify-center rounded-r-md border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100">
+			<div className="absolute top-0 left-[calc(100%-1px)] z-10 hidden flex-col justify-center rounded-r-md border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100 md:flex">
 				<div
 					role="group"
 					aria-label="Drag handle"
