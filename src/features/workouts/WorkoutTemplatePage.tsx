@@ -324,30 +324,30 @@ export function WorkoutTemplatePage() {
 							)
 						})}
 					</SortableContext>
-
-					{exercisesQuery.data && (
-						<ExerciseSearch
-							exercises={exercisesQuery.data}
-							onSelect={exercise => {
-								setExercises(prev => [
-									...prev,
-									{
-										uid: crypto.randomUUID(),
-										exerciseId: exercise.id,
-										exerciseName: exercise.name,
-										exerciseType: exercise.type,
-										targetSets: null,
-										targetReps: null,
-										targetWeight: null,
-										setMode: exercise.type === 'compound' ? 'warmup' : 'working',
-										supersetGroup: null
-									}
-								])
-							}}
-						/>
-					)}
 				</div>
 			</DndContext>
+
+			{exercisesQuery.data && (
+				<ExerciseSearch
+					exercises={exercisesQuery.data}
+					onSelect={exercise => {
+						setExercises(prev => [
+							...prev,
+							{
+								uid: crypto.randomUUID(),
+								exerciseId: exercise.id,
+								exerciseName: exercise.name,
+								exerciseType: exercise.type,
+								targetSets: null,
+								targetReps: null,
+								targetWeight: null,
+								setMode: exercise.type === 'compound' ? 'warmup' : 'working',
+								supersetGroup: null
+							}
+						])
+					}}
+				/>
+			)}
 
 			{(createMutation.isError || updateMutation.isError) && (
 				<TRPCError error={createMutation.error ?? updateMutation.error!} />
