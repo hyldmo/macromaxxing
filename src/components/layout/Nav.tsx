@@ -62,6 +62,17 @@ export function Nav() {
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<RestTimer />
+						<SignedOut>
+							<SignInButton mode="modal">
+								<button
+									type="button"
+									className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink md:hidden"
+								>
+									<LogIn className="size-4" />
+									Sign in
+								</button>
+							</SignInButton>
+						</SignedOut>
 					</div>
 					<div className="hidden items-center gap-2 md:flex">
 						<SignedIn>
