@@ -2,12 +2,13 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 import { formatTemplate } from './utils/export'
@@ -60,6 +61,28 @@ export function WorkoutTemplatePage() {
 			)
 		}
 	}, [workoutQuery.data])
+
+	const dirty = useMemo(() => {
+		if (!isEditing) return name !== '' || exercises.length > 0
+		const data = workoutQuery.data
+		if (!data) return false
+		if (name !== data.name) return true
+		if (trainingGoal !== data.trainingGoal) return true
+		if (exercises.length !== data.exercises.length) return true
+		return exercises.some((e, i) => {
+			const s = data.exercises[i]
+			return (
+				e.exerciseId !== s.exerciseId ||
+				e.targetSets !== s.targetSets ||
+				e.targetReps !== s.targetReps ||
+				e.targetWeight !== s.targetWeight ||
+				e.setMode !== (s.setMode ?? 'working') ||
+				e.supersetGroup !== s.supersetGroup
+			)
+		})
+	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
+
+	useUnsavedChanges(dirty)
 
 	const createMutation = trpc.workout.createWorkout.useMutation({
 		onSuccess: () => {

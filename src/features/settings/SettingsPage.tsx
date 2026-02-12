@@ -4,6 +4,7 @@ import { Button, Card, CardContent, CardHeader, Input, SaveButton, Switch, TRPCE
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 
 export function SettingsPage() {
 	useDocumentTitle('Settings')
@@ -47,6 +48,8 @@ export function SettingsPage() {
 	}
 
 	const canSave = apiKey || providerChanged || batchChanged || fallbackChanged
+
+	useUnsavedChanges(!!canSave)
 
 	return (
 		<div className="space-y-3">

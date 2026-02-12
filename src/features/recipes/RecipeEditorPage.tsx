@@ -6,6 +6,7 @@ import { Button, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
+import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
@@ -49,6 +50,8 @@ export function RecipeEditorPage() {
 			setHasLoadedRecipe(true)
 		}
 	}, [recipeQuery.data])
+
+	useUnsavedChanges(isNew && name.trim() !== '')
 
 	const calculations = useRecipeCalculations(recipeQuery.data)
 
