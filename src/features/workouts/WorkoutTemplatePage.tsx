@@ -219,10 +219,7 @@ export function WorkoutTemplatePage() {
 				<h1 className="font-semibold text-ink">{isEditing ? 'Edit Workout' : 'New Workout'}</h1>
 				{isEditing && workoutQuery.data && (
 					<div className="ml-auto flex items-center gap-1">
-						<CopyButton
-							className="text-ink-faint hover:text-ink"
-							getText={() => formatTemplate(workoutQuery.data)}
-						/>
+						<CopyButton getText={() => formatTemplate(workoutQuery.data)} />
 						<Button
 							variant="ghost"
 							size="icon"

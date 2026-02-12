@@ -388,7 +388,7 @@ export function WorkoutSessionPage() {
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
-					<CopyButton className="text-ink-faint hover:text-ink" getText={() => formatSession(session)} />
+					<CopyButton getText={() => formatSession(session)} />
 					{!isCompleted && (
 						<>
 							<LinkButton to="timer" size="sm">

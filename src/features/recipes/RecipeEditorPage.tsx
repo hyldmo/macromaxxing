@@ -133,10 +133,7 @@ export function RecipeEditorPage() {
 				{isOwner && (
 					<div className="ml-auto flex items-center gap-2">
 						{calculations && (
-							<CopyButton
-								className="text-ink-faint hover:text-ink"
-								getText={() => formatRecipe(recipeQuery.data!, calculations)}
-							/>
+							<CopyButton getText={() => formatRecipe(recipeQuery.data!, calculations)} />
 						)}
 						<label
 							htmlFor="public-toggle"
@@ -163,10 +160,7 @@ export function RecipeEditorPage() {
 				{!(isNew || isOwner) && (
 					<div className="ml-auto flex items-center gap-2">
 						{calculations && (
-							<CopyButton
-								className="text-ink-faint hover:text-ink"
-								getText={() => formatRecipe(recipeQuery.data!, calculations)}
-							/>
+							<CopyButton getText={() => formatRecipe(recipeQuery.data!, calculations)} />
 						)}
 						<span className="flex items-center gap-1.5 text-ink-muted text-sm">
 							<Eye className="size-4" />

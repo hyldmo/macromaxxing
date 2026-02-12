@@ -99,10 +99,7 @@ export const MealPlannerPage: FC = () => {
 					className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
 				/>
 				<div className="ml-auto flex items-center gap-1">
-					<CopyButton
-						className="text-ink-faint hover:text-ink"
-						getText={() => formatMealPlan(planQuery.data!)}
-					/>
+					<CopyButton getText={() => formatMealPlan(planQuery.data!)} />
 					<Button variant="ghost" size="sm" onClick={handleDuplicate} disabled={duplicateMutation.isPending}>
 						<Copy className="size-4" />
 						<span className="hidden sm:inline">Duplicate</span>
