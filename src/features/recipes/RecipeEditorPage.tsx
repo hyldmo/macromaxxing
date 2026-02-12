@@ -2,7 +2,7 @@ import type { Recipe } from '@macromaxxing/db'
 import { AlertTriangle, ArrowLeft, Eye, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from '~/components/ui'
+import { Button, CopyButton, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
@@ -12,6 +12,7 @@ import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
 import { RecipeTotalsBar } from './components/RecipeTotalsBar'
 import { useRecipeCalculations } from './hooks/useRecipeCalculations'
+import { formatRecipe } from './utils/export'
 
 export function RecipeEditorPage() {
 	const { id } = useParams<{ id: Recipe['id'] }>()
@@ -131,6 +132,12 @@ export function RecipeEditorPage() {
 				)}
 				{isOwner && (
 					<div className="ml-auto flex items-center gap-2">
+						{calculations && (
+							<CopyButton
+								className="text-ink-faint hover:text-ink"
+								getText={() => formatRecipe(recipeQuery.data!, calculations)}
+							/>
+						)}
 						<label
 							htmlFor="public-toggle"
 							className="flex cursor-pointer items-center gap-2 text-ink-muted text-sm"
@@ -154,10 +161,18 @@ export function RecipeEditorPage() {
 					</div>
 				)}
 				{!(isNew || isOwner) && (
-					<span className="ml-auto flex items-center gap-1.5 text-ink-muted text-sm">
-						<Eye className="size-4" />
-						View only
-					</span>
+					<div className="ml-auto flex items-center gap-2">
+						{calculations && (
+							<CopyButton
+								className="text-ink-faint hover:text-ink"
+								getText={() => formatRecipe(recipeQuery.data!, calculations)}
+							/>
+						)}
+						<span className="flex items-center gap-1.5 text-ink-muted text-sm">
+							<Eye className="size-4" />
+							View only
+						</span>
+					</div>
 				)}
 			</div>
 

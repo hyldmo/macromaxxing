@@ -2,12 +2,13 @@ import type { MealPlan } from '@macromaxxing/db'
 import { ArrowLeft, Copy, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, Input, Spinner, TRPCError } from '~/components/ui'
+import { Button, CopyButton, Input, Spinner, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { InventorySidebar } from './components/InventorySidebar'
 import { WeekGrid } from './components/WeekGrid'
 import { WeeklyAverages } from './components/WeeklyAverages'
+import { formatMealPlan } from './utils/export'
 
 export const MealPlannerPage: FC = () => {
 	const { id } = useParams<{ id: MealPlan['id'] }>()
@@ -98,6 +99,10 @@ export const MealPlannerPage: FC = () => {
 					className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
 				/>
 				<div className="ml-auto flex items-center gap-1">
+					<CopyButton
+						className="text-ink-faint hover:text-ink"
+						getText={() => formatMealPlan(planQuery.data!)}
+					/>
 					<Button variant="ghost" size="sm" onClick={handleDuplicate} disabled={duplicateMutation.isPending}>
 						<Copy className="size-4" />
 						<span className="hidden sm:inline">Duplicate</span>
