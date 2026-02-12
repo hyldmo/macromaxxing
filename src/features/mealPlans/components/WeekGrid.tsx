@@ -41,8 +41,8 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 	// Group by day
 	const slotsByDay = DAYS.map((_, dayIndex) => allSlots.filter(s => s.dayOfWeek === dayIndex))
 
-	// Kcal per day for mobile tab indicators
-	const dayKcals = DAYS.map((_, dayIndex) => {
+	// Per-day totals for mobile tab indicators
+	const dayTotals = DAYS.map((_, dayIndex) => {
 		const slotsForDay = inventory.flatMap(inv =>
 			inv.slots
 				.filter(s => s.dayOfWeek === dayIndex)
@@ -55,7 +55,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 					return calculateSlotMacros(portionMacros, slot.portions)
 				})
 		)
-		return calculateDayTotals(slotsForDay).kcal
+		return calculateDayTotals(slotsForDay)
 	})
 
 	return (
@@ -76,10 +76,20 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 							)}
 						>
 							<span className="font-medium">{day}</span>
-							{dayKcals[dayIndex] > 0 && (
-								<span className="font-mono text-[10px] tabular-nums opacity-75">
-									{dayKcals[dayIndex].toFixed(0)}
-								</span>
+							{dayTotals[dayIndex].kcal > 0 && (
+								<>
+									<span className="font-mono text-[10px] tabular-nums opacity-75">
+										{dayTotals[dayIndex].kcal.toFixed(0)}
+									</span>
+									<span
+										className={cn(
+											'font-mono text-[10px] tabular-nums',
+											selectedDay === dayIndex ? 'opacity-75' : 'text-macro-protein'
+										)}
+									>
+										P{dayTotals[dayIndex].protein.toFixed(0)}
+									</span>
+								</>
 							)}
 						</button>
 					))}
