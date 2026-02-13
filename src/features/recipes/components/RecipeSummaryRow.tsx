@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { cn } from '~/lib/cn'
-import type { AbsoluteMacros } from '../utils/macros'
+import type { AbsoluteMacros } from '~/lib/macros'
 import { MacroCell } from './MacroCell'
 
 export interface RecipeSummaryRowProps {

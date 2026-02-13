@@ -5,9 +5,9 @@ import { type FC, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, NumberInput, Select, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
+import type { AbsoluteMacros } from '~/lib/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { formatIngredientAmount, getAllUnits } from '../utils/format'
-import type { AbsoluteMacros } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 import { MacroCell } from './MacroCell'
 import { PreparationInput } from './PreparationInput'
@@ -263,7 +263,7 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 			</tr>
 			<tr className="border-edge/30 border-b">
 				<td colSpan={readOnly ? 6 : 7} className="px-2 pb-1.5">
-					<MacroBar protein={macros.protein} carbs={macros.carbs} fat={macros.fat} />
+					<MacroBar macros={macros} />
 					{error && <TRPCError error={error} className="mt-1" />}
 				</td>
 			</tr>

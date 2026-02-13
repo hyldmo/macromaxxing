@@ -142,11 +142,7 @@ export function IngredientListPage() {
 											<span className="text-macro-fiber">Fib {ingredient.fiber}</span>
 										</div>
 										<div className="mt-1.5">
-											<MacroBar
-												protein={ingredient.protein}
-												carbs={ingredient.carbs}
-												fat={ingredient.fat}
-											/>
+											<MacroBar macros={ingredient} />
 										</div>
 									</div>
 									{isMine && (
@@ -277,11 +273,7 @@ export function IngredientListPage() {
 										</tr>
 										<tr key={`${ingredient.id}-bar`} className="border-edge/30 border-b">
 											<td colSpan={8} className="px-2 pb-1">
-												<MacroBar
-													protein={ingredient.protein}
-													carbs={ingredient.carbs}
-													fat={ingredient.fat}
-												/>
+												<MacroBar macros={ingredient} />
 											</td>
 										</tr>
 									</>

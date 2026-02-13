@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import type { AbsoluteMacros } from '../utils/macros'
+import type { AbsoluteMacros } from '~/lib/macros'
 import { CookedWeightInput } from './CookedWeightInput'
 import { MacroReadout } from './MacroReadout'
 import { MacroRing } from './MacroRing'
@@ -35,13 +35,7 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 			</h3>
 
 			<div className="flex flex-col items-center gap-3">
-				<MacroRing
-					protein={portion.protein}
-					carbs={portion.carbs}
-					fat={portion.fat}
-					kcal={portion.kcal}
-					size="lg"
-				/>
+				<MacroRing macros={portion} size="lg" />
 
 				<div className="grid grid-cols-4 gap-x-6 gap-y-2 lg:grid-cols-2">
 					<MacroReadout label="Protein" value={portion.protein} type="protein" />

@@ -1,5 +1,4 @@
 import {
-	type AbsoluteMacros,
 	calculateDayTotals,
 	calculatePortionMacros,
 	calculateRecipeTotals,
@@ -9,6 +8,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
+import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 
 type MealPlan = RouterOutput['mealPlan']['get']

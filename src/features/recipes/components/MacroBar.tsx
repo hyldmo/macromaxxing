@@ -1,13 +1,12 @@
 import type { FC } from 'react'
+import type { AbsoluteMacros } from '~/lib/macros'
 import { caloricRatio } from '../utils/macros'
 
 export interface MacroBarProps {
-	protein: number
-	carbs: number
-	fat: number
+	macros: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat'>
 }
 
-export const MacroBar: FC<MacroBarProps> = ({ protein, carbs, fat }) => {
+export const MacroBar: FC<MacroBarProps> = ({ macros: { protein, carbs, fat } }) => {
 	const ratio = caloricRatio(protein, carbs, fat)
 	const total = ratio.protein + ratio.carbs + ratio.fat
 

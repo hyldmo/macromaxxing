@@ -107,7 +107,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 					{macros.kcal.toFixed(0)} kcal
 				</div>
 				<div className="mt-1.5">
-					<MacroBar protein={macros.protein} carbs={macros.carbs} fat={macros.fat} />
+					<MacroBar macros={macros} />
 				</div>
 			</Card>
 

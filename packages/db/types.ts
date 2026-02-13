@@ -34,3 +34,12 @@ export type Workout = InferSelectModel<typeof workouts>
 export type WorkoutExercise = InferSelectModel<typeof workoutExercises>
 export type WorkoutSession = InferSelectModel<typeof workoutSessions>
 export type WorkoutLog = InferSelectModel<typeof workoutLogs>
+
+export interface AbsoluteMacros {
+	protein: number
+	carbs: number
+	fat: number
+	kcal: number
+	fiber: number
+	weight: number
+}

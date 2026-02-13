@@ -1,3 +1,5 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
+
 export interface MacrosPer100g {
 	protein: number
 	carbs: number
@@ -9,15 +11,6 @@ export interface MacrosPer100g {
 export interface IngredientWithAmount {
 	per100g: MacrosPer100g
 	amountGrams: number
-}
-
-export interface AbsoluteMacros {
-	protein: number
-	carbs: number
-	fat: number
-	kcal: number
-	fiber: number
-	weight: number
 }
 
 export function calculateIngredientMacros(per100g: MacrosPer100g, amountGrams: number): AbsoluteMacros {

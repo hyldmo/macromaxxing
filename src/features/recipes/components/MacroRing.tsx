@@ -1,13 +1,11 @@
 import type { FC } from 'react'
+import type { AbsoluteMacros } from '~/lib/macros'
 import { caloricRatio } from '../utils/macros'
 
 type MacroRingSize = 'sm' | 'md' | 'lg'
 
 export interface MacroRingProps {
-	protein: number
-	carbs: number
-	fat: number
-	kcal: number
+	macros: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat' | 'kcal'>
 	size?: MacroRingSize
 }
 
@@ -17,7 +15,7 @@ const sizeConfig = {
 	lg: { px: 120, stroke: 9, fontSize: 'text-xl' }
 } as const
 
-export const MacroRing: FC<MacroRingProps> = ({ protein, carbs, fat, kcal, size = 'md' }) => {
+export const MacroRing: FC<MacroRingProps> = ({ macros: { protein, carbs, fat, kcal }, size = 'md' }) => {
 	const { px, stroke, fontSize } = sizeConfig[size]
 	const radius = (px - stroke) / 2
 	const circumference = 2 * Math.PI * radius

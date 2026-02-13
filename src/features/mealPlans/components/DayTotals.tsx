@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import type { AbsoluteMacros } from '~/features/recipes/utils/macros'
+import type { AbsoluteMacros } from '~/lib/macros'
 
 export interface DayTotalsProps {
 	totals: AbsoluteMacros

@@ -1,7 +1,6 @@
 import type { FC } from 'react'
 import { Card } from '~/components/ui'
 import {
-	type AbsoluteMacros,
 	calculateDayTotals,
 	calculatePortionMacros,
 	calculateRecipeTotals,
@@ -11,6 +10,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
+import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]

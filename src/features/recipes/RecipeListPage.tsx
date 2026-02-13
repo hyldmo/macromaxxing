@@ -170,16 +170,7 @@ export function RecipeListPage() {
 
 			<div className="grid gap-2">
 				{sortedRecipes.map(({ recipe, portion, isMine }) => (
-					<RecipeCard
-						key={recipe.id}
-						id={recipe.id}
-						name={recipe.name}
-						type={recipe.type}
-						ingredientCount={recipe.recipeIngredients.length}
-						portionSize={recipe.portionSize}
-						portion={portion}
-						isMine={isMine}
-					/>
+					<RecipeCard key={recipe.id} recipe={recipe} portion={portion} isMine={isMine} />
 				))}
 			</div>
 			<RecipeImportDialog open={showImport} onClose={() => setShowImport(false)} />

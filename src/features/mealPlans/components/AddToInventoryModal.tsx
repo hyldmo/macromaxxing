@@ -125,7 +125,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 										<span className="text-macro-fat">F {portion.fat.toFixed(0)}g</span>
 										<span className="text-macro-kcal">{portion.kcal.toFixed(0)} kcal</span>
 									</div>
-									<MacroBar protein={portion.protein} carbs={portion.carbs} fat={portion.fat} />
+									<MacroBar macros={portion} />
 								</button>
 							)
 						})}

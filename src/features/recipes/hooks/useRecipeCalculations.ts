@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
+import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import {
-	type AbsoluteMacros,
 	calculateIngredientMacros,
 	calculatePortionMacros,
 	calculateRecipeTotals,

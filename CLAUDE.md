@@ -213,7 +213,9 @@ No shadows — borders-only depth strategy.
 ## Patterns
 
 - All numbers use `font-mono tabular-nums`
-- Macro visualization: `MacroRing` (donut), `MacroBar` (stacked bar), `MacroReadout` (single value)
+- Macro visualization: `MacroRing` (donut), `MacroBar` (stacked bar), `MacroReadout` (single value) — accept `macros` object prop, not individual scalars
+- Reuse existing types (`Pick<AbsoluteMacros, ...>`, `RouterOutput`, etc.) — never manually spell out fields that an existing type already covers
+- Shared types live in `@macromaxxing/db` (packages/db/types.ts), re-exported via `~/lib/` for frontend (e.g. `~/lib/macros`)
 - Forms use `Input` from `~/components/ui/Input`
 - Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`

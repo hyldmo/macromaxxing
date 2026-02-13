@@ -1,6 +1,6 @@
+import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { formatIngredientAmount } from './format'
-import type { AbsoluteMacros } from './macros'
 
 type Recipe = RouterOutput['recipe']['get']
 

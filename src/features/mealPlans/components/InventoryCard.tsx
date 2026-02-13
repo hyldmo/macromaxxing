@@ -132,7 +132,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 						{portionMacros.kcal.toFixed(0)} kcal{recipe.portionSize != null && '/portion'}
 					</div>
 					<div className="mt-1.5">
-						<MacroBar protein={portionMacros.protein} carbs={portionMacros.carbs} fat={portionMacros.fat} />
+						<MacroBar macros={portionMacros} />
 					</div>
 				</div>
 			</div>

@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import type { AbsoluteMacros } from '../utils/macros'
+import type { AbsoluteMacros } from '~/lib/macros'
 import { MacroBar } from './MacroBar'
 
 export interface RecipeTotalsBarProps {
@@ -17,7 +17,7 @@ export const RecipeTotalsBar: FC<RecipeTotalsBarProps> = ({ totals }) => {
 				<span className="font-semibold text-macro-kcal">{totals.kcal.toFixed(0)} kcal</span>
 			</div>
 			<div className="mt-1.5">
-				<MacroBar protein={totals.protein} carbs={totals.carbs} fat={totals.fat} />
+				<MacroBar macros={totals} />
 			</div>
 		</div>
 	)
