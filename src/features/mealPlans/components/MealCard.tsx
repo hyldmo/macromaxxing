@@ -1,4 +1,4 @@
-import { ChevronRight, GripVertical, Minus, Plus } from 'lucide-react'
+import { ChevronRight, Minus, Plus } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
 import { Card } from '~/components/ui'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
@@ -56,9 +56,16 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 	}
 
 	return (
-		<div ref={cardRef} className="group/card relative">
-			{/* Card */}
-			<Card className="p-2">
+		<div
+			ref={cardRef}
+			role="group"
+			aria-label={`Meal: ${slot.inventory.recipe.name}`}
+			className="group/card relative cursor-grab active:cursor-grabbing"
+			draggable
+			onDragStart={handleDragStart}
+		>
+			{/* Card — tappable to open popover, entire card is drag handle */}
+			<Card className="cursor-pointer p-2" onClick={() => setShowPopover(true)}>
 				<span className="line-clamp-2 font-medium text-ink text-sm leading-tight">
 					{slot.inventory.recipe.name}
 				</span>
@@ -66,7 +73,10 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 					<div className="mt-1 flex items-center gap-1">
 						<button
 							type="button"
-							onClick={() => updatePortions(slot.portions - 0.5)}
+							onClick={e => {
+								e.stopPropagation()
+								updatePortions(slot.portions - 0.5)
+							}}
 							disabled={slot.portions <= 0.5 || updateMutation.isPending}
 							className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 						>
@@ -77,7 +87,10 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 						</span>
 						<button
 							type="button"
-							onClick={() => updatePortions(slot.portions + 0.5)}
+							onClick={e => {
+								e.stopPropagation()
+								updatePortions(slot.portions + 0.5)
+							}}
 							disabled={updateMutation.isPending}
 							className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 						>
@@ -98,25 +111,13 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 				</div>
 			</Card>
 
-			<div className="absolute top-0 left-[calc(100%-1px)] z-10 flex flex-col justify-center rounded-r-md border border-edge border-l-0 bg-surface-1 opacity-0 transition-opacity group-hover/card:opacity-100">
-				<div
-					role="group"
-					aria-label="Drag handle"
-					draggable
-					onDragStart={handleDragStart}
-					className="flex cursor-grab justify-center px-1 py-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink active:cursor-grabbing"
-				>
-					<GripVertical className="size-4" />
-				</div>
-				<div className="mx-1 h-px bg-edge" />
-				<button
-					type="button"
-					onClick={() => setShowPopover(true)}
-					className="flex cursor-pointer justify-center px-1 py-1.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-ink"
-				>
-					<ChevronRight className="size-4" />
-				</button>
-			</div>
+			<button
+				type="button"
+				onClick={() => setShowPopover(true)}
+				className="absolute top-0 left-[calc(100%-1px)] z-10 hidden items-center rounded-r-md border border-edge border-l-0 bg-surface-1 px-1 py-2 text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-ink group-hover/card:opacity-100 md:flex"
+			>
+				<ChevronRight className="size-4" />
+			</button>
 
 			{showPopover && (
 				<MealPopover
