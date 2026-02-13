@@ -52,7 +52,7 @@ export function RecipeEditorPage() {
 		}
 	}, [recipeQuery.data])
 
-	useUnsavedChanges(isNew && name.trim() !== '')
+	useUnsavedChanges(isNew && name.trim() !== '' && !createMutation.isPending && !createMutation.isSuccess)
 
 	const calculations = useRecipeCalculations(recipeQuery.data)
 
