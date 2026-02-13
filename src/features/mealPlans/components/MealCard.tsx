@@ -58,6 +58,8 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 	return (
 		<div
 			ref={cardRef}
+			role="group"
+			aria-label={`Meal: ${slot.inventory.recipe.name}`}
 			className="group/card relative cursor-grab active:cursor-grabbing"
 			draggable
 			onDragStart={handleDragStart}
