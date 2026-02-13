@@ -11,7 +11,12 @@ export function SettingsPage() {
 	const settingsQuery = trpc.settings.get.useQuery()
 	const utils = trpc.useUtils()
 	const saveMutation = trpc.settings.save.useMutation({
-		onSuccess: () => utils.settings.get.invalidate()
+		onSuccess: () => {
+			utils.settings.get.invalidate()
+			setApiKey('')
+			setEditingKey(false)
+			setSynced(false)
+		}
 	})
 
 	const [provider, setProvider] = useState<AiProvider>('gemini')
@@ -19,6 +24,7 @@ export function SettingsPage() {
 	const [editingKey, setEditingKey] = useState(false)
 	const [batchLookups, setBatchLookups] = useState(false)
 	const [modelFallback, setModelFallback] = useState(false)
+	const [synced, setSynced] = useState(false)
 
 	const savedProvider = settingsQuery.data?.provider
 	const providerChanged = savedProvider && provider !== savedProvider
@@ -34,6 +40,7 @@ export function SettingsPage() {
 		if (settingsQuery.data) {
 			setBatchLookups(settingsQuery.data.batchLookups)
 			setModelFallback(settingsQuery.data.modelFallback)
+			setSynced(true)
 		}
 	}, [settingsQuery.data])
 
@@ -49,7 +56,7 @@ export function SettingsPage() {
 
 	const canSave = apiKey || providerChanged || batchChanged || fallbackChanged
 
-	useUnsavedChanges(!!canSave)
+	useUnsavedChanges(synced && !!canSave)
 
 	return (
 		<div className="space-y-3">
