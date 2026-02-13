@@ -1,11 +1,8 @@
 import { useAuth } from '@clerk/clerk-react'
 import { createContext, type FC, type ReactNode, useContext } from 'react'
-import { trpc } from './trpc'
+import { type RouterOutput, trpc } from './trpc'
 
-interface User {
-	id: string
-	email: string
-}
+type User = RouterOutput['user']['me']
 
 interface UserContextValue {
 	user: User | null
