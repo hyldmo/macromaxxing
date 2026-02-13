@@ -4,6 +4,7 @@ import { type FC, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { FuzzyHighlight, fuzzyMatch } from '~/lib/fuzzy'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { useUser } from '~/lib/user'
 import { calculateRecipeTotals, getEffectiveCookedWeight, getEffectivePortionSize } from '../utils/macros'
 import { MacroBar } from './MacroBar'
 
@@ -194,9 +195,10 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const [pasteError, setPasteError] = useState<Error | null>(null)
 	const inputRef = useRef<HTMLInputElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
+	const { isSignedIn } = useUser()
 	const utils = trpc.useUtils()
 
-	const settingsQuery = trpc.settings.get.useQuery()
+	const settingsQuery = trpc.settings.get.useQuery(undefined, { enabled: isSignedIn })
 	const ingredientsQuery = trpc.ingredient.list.useQuery()
 	const recipesQuery = trpc.recipe.list.useQuery()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation({

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Input, Modal, Spinner, Textarea, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
+import { useUser } from '~/lib/user'
 import { formatIngredientAmount, getAllUnits } from '../utils/format'
 
 export interface RecipeImportDialogProps {
@@ -39,9 +40,10 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 	const [importError, setImportError] = useState<string | null>(null)
 
 	const navigate = useNavigate()
+	const { isSignedIn } = useUser()
 	const utils = trpc.useUtils()
 
-	const settingsQuery = trpc.settings.get.useQuery()
+	const settingsQuery = trpc.settings.get.useQuery(undefined, { enabled: isSignedIn })
 	const parseRecipe = trpc.ai.parseRecipe.useMutation()
 	const createRecipe = trpc.recipe.create.useMutation()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation()

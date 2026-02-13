@@ -1,18 +1,16 @@
 import { useAuth } from '@clerk/clerk-react'
 import { createContext, type FC, type ReactNode, useContext } from 'react'
-import { trpc } from './trpc'
+import { type RouterOutput, trpc } from './trpc'
 
-interface User {
-	id: string
-	email: string
-}
+type User = RouterOutput['user']['me']
 
 interface UserContextValue {
 	user: User | null
+	isSignedIn: boolean
 	isLoading: boolean
 }
 
-const UserContext = createContext<UserContextValue>({ user: null, isLoading: true })
+const UserContext = createContext<UserContextValue>({ user: null, isSignedIn: false, isLoading: true })
 
 export interface UserProviderProps {
 	children: ReactNode
@@ -28,7 +26,11 @@ export const UserProvider: FC<UserProviderProps> = ({ children }) => {
 
 	return (
 		<UserContext.Provider
-			value={{ user: data ?? null, isLoading: !isLoaded || (isSignedIn === true && isLoading) }}
+			value={{
+				user: data ?? null,
+				isSignedIn: isSignedIn === true,
+				isLoading: !isLoaded || (isSignedIn === true && isLoading)
+			}}
 		>
 			{children}
 		</UserContext.Provider>
