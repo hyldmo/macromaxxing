@@ -1,13 +1,11 @@
 import { type FC, useMemo, useRef, useState } from 'react'
 import { Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
-import { useUser } from '~/lib/user'
 import { BodyMap } from './BodyMap'
 
 export const MuscleHeatGrid: FC = () => {
-	const { isSignedIn } = useUser()
-	const coverageQuery = trpc.workout.coverageStats.useQuery(undefined, { enabled: isSignedIn })
-	const profileQuery = trpc.settings.getProfile.useQuery(undefined, { enabled: isSignedIn })
+	const coverageQuery = trpc.workout.coverageStats.useQuery()
+	const profileQuery = trpc.settings.getProfile.useQuery()
 	const [hoveredMuscle, setHoveredMuscle] = useState<string | null>(null)
 	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 	const containerRef = useRef<HTMLDivElement>(null)

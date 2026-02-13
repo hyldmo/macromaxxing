@@ -2,11 +2,9 @@ import type { Sex } from '@macromaxxing/db'
 import { type FC, useEffect, useState } from 'react'
 import { NumberInput, SaveButton, Select } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
-import { useUser } from '~/lib/user'
 
 export const ProfileForm: FC = () => {
-	const { isSignedIn } = useUser()
-	const profileQuery = trpc.settings.getProfile.useQuery(undefined, { enabled: isSignedIn })
+	const profileQuery = trpc.settings.getProfile.useQuery()
 	const utils = trpc.useUtils()
 	const saveMutation = trpc.settings.saveProfile.useMutation({
 		onSuccess: () => {
