@@ -1,4 +1,5 @@
-import { type FC, useState } from 'react'
+import { type FC, type PropsWithChildren, useState } from 'react'
+import { objectKeys } from 'ts-extras'
 import {
 	calculateDayTotals,
 	calculatePortionMacros,
@@ -9,6 +10,7 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { cn } from '~/lib/cn'
+import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayColumn } from './DayColumn'
 
@@ -76,21 +78,18 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 							)}
 						>
 							<span className="font-medium">{day}</span>
-							{dayTotals[dayIndex].kcal > 0 && (
-								<>
-									<span className="font-mono text-[10px] tabular-nums opacity-75">
-										{dayTotals[dayIndex].kcal.toFixed(0)}
-									</span>
-									<span
-										className={cn(
-											'font-mono text-[10px] tabular-nums',
-											selectedDay === dayIndex ? 'opacity-75' : 'text-macro-protein'
-										)}
-									>
-										P{dayTotals[dayIndex].protein.toFixed(0)}
-									</span>
-								</>
-							)}
+							{dayTotals[dayIndex].kcal > 0 &&
+								objectKeys(dayTotals[dayIndex])
+									.filter(macro => ['kcal', 'protein', 'carbs', 'fat'].includes(macro))
+									.reverse()
+									.map(macro => (
+										<DayTotals
+											key={macro}
+											macro={macro}
+											totals={dayTotals[dayIndex]}
+											isSelected={selectedDay === dayIndex}
+										/>
+									))}
 						</button>
 					))}
 				</div>
@@ -121,5 +120,20 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 				))}
 			</div>
 		</>
+	)
+}
+
+export interface DayTotalsProps extends PropsWithChildren {
+	macro: keyof AbsoluteMacros
+	totals: AbsoluteMacros
+	isSelected: boolean
+}
+
+export const DayTotals: FC<DayTotalsProps> = ({ macro, totals, isSelected }) => {
+	return (
+		<span className={cn('font-mono tabular-nums', isSelected ? 'opacity-75' : `text-macro-${macro}`)}>
+			{macro === 'kcal' ? '' : macro[0].toUpperCase()}
+			{totals[macro].toFixed(0)}
+		</span>
 	)
 }
