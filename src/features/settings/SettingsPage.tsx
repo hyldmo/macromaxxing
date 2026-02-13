@@ -4,11 +4,13 @@ import { Button, Card, CardContent, CardHeader, Input, SaveButton, Switch, TRPCE
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { useUser } from '~/lib/user'
 import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 
 export function SettingsPage() {
 	useDocumentTitle('Settings')
-	const settingsQuery = trpc.settings.get.useQuery()
+	const { isSignedIn } = useUser()
+	const settingsQuery = trpc.settings.get.useQuery(undefined, { enabled: isSignedIn })
 	const utils = trpc.useUtils()
 	const saveMutation = trpc.settings.save.useMutation({
 		onSuccess: () => utils.settings.get.invalidate()

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button, Card, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { useUser } from '~/lib/user'
 import { ImportDialog } from './components/ImportDialog'
 import { MuscleHeatGrid } from './components/MuscleHeatGrid'
 import { SessionCard } from './components/SessionCard'
@@ -16,8 +17,9 @@ export function WorkoutListPage() {
 	useDocumentTitle('Workouts')
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
-	const workoutsQuery = trpc.workout.listWorkouts.useQuery()
-	const sessionsQuery = trpc.workout.listSessions.useQuery()
+	const { isSignedIn } = useUser()
+	const workoutsQuery = trpc.workout.listWorkouts.useQuery(undefined, { enabled: isSignedIn })
+	const sessionsQuery = trpc.workout.listSessions.useQuery(undefined, { enabled: isSignedIn })
 	const utils = trpc.useUtils()
 
 	const createSession = trpc.workout.createSession.useMutation({

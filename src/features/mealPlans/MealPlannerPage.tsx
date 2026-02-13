@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, Spinner, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { useUser } from '~/lib/user'
 import { InventorySidebar } from './components/InventorySidebar'
 import { WeekGrid } from './components/WeekGrid'
 import { WeeklyAverages } from './components/WeeklyAverages'
@@ -15,9 +16,10 @@ export const MealPlannerPage: FC = () => {
 	const navigate = useNavigate()
 	const [name, setName] = useState('')
 	const [hasLoadedPlan, setHasLoadedPlan] = useState(false)
+	const { isSignedIn } = useUser()
 	useDocumentTitle(name || 'Meal Plan')
 
-	const planQuery = trpc.mealPlan.get.useQuery({ id: id! }, { enabled: !!id })
+	const planQuery = trpc.mealPlan.get.useQuery({ id: id! }, { enabled: !!id && isSignedIn })
 
 	useEffect(() => {
 		if (planQuery.data && !hasLoadedPlan) {

@@ -10,9 +10,9 @@ export const MealPlanListPage: FC = () => {
 	useDocumentTitle('Meal Plans')
 	const [newPlanName, setNewPlanName] = useState('')
 	const [isCreating, setIsCreating] = useState(false)
-	const { user } = useUser()
+	const { user, isSignedIn } = useUser()
 
-	const plansQuery = trpc.mealPlan.list.useQuery()
+	const plansQuery = trpc.mealPlan.list.useQuery(undefined, { enabled: isSignedIn })
 	const utils = trpc.useUtils()
 
 	const createMutation = trpc.mealPlan.create.useMutation({
