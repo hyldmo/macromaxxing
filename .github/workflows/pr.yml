@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   check:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -23,6 +24,7 @@ jobs:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
 
   preview:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     needs: check
     steps:
@@ -57,3 +59,25 @@ jobs:
             | **URL** | ${{ steps.deploy.outputs.url }} |
             | **Branch** | `${{ github.head_ref }}` |
             | **Commit** | ${{ github.event.pull_request.head.sha }} |
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete preview deployments
+        run: |
+          PROJECT="${{ github.event.repository.name }}"
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_URL="https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT}/deployments"
+
+          # List all deployments, filter to this PR's branch
+          DEPLOYMENTS=$(curl -s "${API_URL}" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            | jq -r --arg branch "${{ github.head_ref }}" \
+              '.result[] | select(.deployment_trigger.metadata.branch == $branch) | .id')
+
+          for ID in $DEPLOYMENTS; do
+            echo "Deleting deployment $ID"
+            curl -s -X DELETE "${API_URL}/${ID}?force=true" \
+              -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          done
