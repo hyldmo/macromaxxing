@@ -24,7 +24,7 @@ const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Bench Press',
 		type: 'compound',
-		fatigueTier: 2,
+		fatigueTier: 1,
 		muscles: [
 			{ group: 'chest', intensity: 1.0 },
 			{ group: 'triceps', intensity: 0.5 },
