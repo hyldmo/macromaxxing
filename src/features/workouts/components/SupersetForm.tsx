@@ -379,7 +379,7 @@ const AddSetRow: FC<{
 				))}
 			</div>
 			<NumberInput
-				className="w-20"
+				className="w-24"
 				placeholder="reps"
 				value={reps}
 				onChange={e => setReps(e.target.value)}
@@ -389,7 +389,7 @@ const AddSetRow: FC<{
 			/>
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
-				className="w-16"
+				className="w-20"
 				placeholder="kg"
 				value={weight}
 				onChange={e => setWeight(e.target.value)}

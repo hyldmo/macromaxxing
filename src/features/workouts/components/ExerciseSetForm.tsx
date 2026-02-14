@@ -198,7 +198,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 					{!readOnly && (
 						<div className="mt-2 flex items-center gap-2">
 							<NumberInput
-								className="w-20"
+								className="w-24"
 								placeholder="reps"
 								value={newReps}
 								onChange={e => setNewReps(e.target.value)}
@@ -208,7 +208,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 							/>
 							<span className="text-ink-faint text-xs">×</span>
 							<NumberInput
-								className="w-20"
+								className="w-24"
 								placeholder="kg"
 								value={newWeight}
 								onChange={e => setNewWeight(e.target.value)}

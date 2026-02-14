@@ -56,7 +56,7 @@ export const SetRow: FC<SetRowProps> = ({
 				<span className="sm:hidden">{setType[0].toUpperCase()}</span>
 			</span>
 			<NumberInput
-				className="w-16 sm:w-20"
+				className="w-24"
 				value={weightKg ?? ''}
 				placeholder="kg"
 				unit="kg"
@@ -70,7 +70,7 @@ export const SetRow: FC<SetRowProps> = ({
 			/>
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
-				className="w-12 sm:w-16"
+				className="w-20"
 				value={reps}
 				onChange={e => {
 					const v = Number.parseInt(e.target.value, 10)
