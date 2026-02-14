@@ -106,6 +106,22 @@ For each ingredient, separate the base ingredient name from any preparation meth
 - "400g sweet potatoes, cut into chunks" → name: "Sweet Potatoes", amount: 400, unit: "g", preparation: "cut into chunks"
 Do not include preparation words, serving instructions, or package descriptions in the ingredient name.`
 
+export const generatedInstructionsSchema = z.object({
+	instructions: z
+		.string()
+		.describe('Cooking instructions as a markdown numbered list. Each step on its own line: "1. Step\\n2. Step"')
+})
+
+export const GENERATE_INSTRUCTIONS_PROMPT = `Generate cooking instructions for a recipe with the given ingredients.
+Return a markdown numbered list with each step on its own line, separated by newlines.
+Be concise and practical — focus on the cooking process, not obvious prep like "gather ingredients".
+Use metric measurements when referencing ingredient amounts.
+
+Example format:
+1. Heat oil in a pan over medium heat.
+2. Add onion and cook for 5 minutes.
+3. Stir in garlic and cook for 1 minute.`
+
 export const PREMADE_AI_PROMPT = `
 Extract product nutrition information from this page.
 Return the product name, serving size (total product weight in grams), servings per container, and macros per serving (protein, carbs, fat, kcal, fiber in grams).

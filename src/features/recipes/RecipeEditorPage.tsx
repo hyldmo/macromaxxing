@@ -7,6 +7,7 @@ import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
 import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
+import { GenerateInstructionsButton } from './components/GenerateInstructionsButton'
 import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
@@ -201,9 +202,19 @@ export function RecipeEditorPage() {
 						)}
 
 						<div className="space-y-1.5">
-							<h3 className="px-1 font-semibold text-ink-muted text-xs uppercase tracking-wider">
-								Method
-							</h3>
+							<div className="flex items-center justify-between">
+								<h3 className="px-1 font-semibold text-ink-muted text-xs uppercase tracking-wider">
+									Method
+								</h3>
+								{isOwner && ingredients && (
+									<GenerateInstructionsButton
+										recipeId={id!}
+										ingredients={ingredients}
+										hasExisting={instructions.trim().length > 0}
+										onGenerated={setInstructions}
+									/>
+								)}
+							</div>
 							{isOwner ? (
 								<MarkdownEditor
 									value={instructions}

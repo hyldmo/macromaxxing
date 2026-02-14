@@ -1,5 +1,7 @@
+import { recipes, type TypeIDString } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import {
 	extractJsonLdProduct,
@@ -13,6 +15,8 @@ import {
 } from '../ai-utils'
 import {
 	cookedWeightSchema,
+	GENERATE_INSTRUCTIONS_PROMPT,
+	generatedInstructionsSchema,
 	ingredientAiSchema,
 	PREMADE_AI_PROMPT,
 	parsedProductSchema,
@@ -106,6 +110,47 @@ export const aiRouter = router({
 				prompt: `Estimate the cooked weight for a recipe with these raw ingredients: ${ingredientList}. ${instructionsContext}Consider typical water loss/gain during cooking. Return weight in grams.`,
 				fallback: settings.modelFallback
 			})
+
+			return output
+		}),
+
+	generateInstructions: protectedProcedure
+		.input(
+			z.object({
+				recipeId: z.custom<TypeIDString<'rcp'>>(),
+				ingredients: z.array(z.object({ name: z.string(), grams: z.number() })),
+				preprompt: z.string().optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const encryptionSecret = ctx.env.ENCRYPTION_SECRET
+			if (!encryptionSecret) {
+				throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
+			}
+
+			const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
+			if (!settings) {
+				throw new TRPCError({
+					code: 'PRECONDITION_FAILED',
+					message: 'No AI provider configured. Go to Settings to add your API key.'
+				})
+			}
+
+			const ingredientList = input.ingredients.map(i => `${i.grams}g ${i.name}`).join(', ')
+			const prepromptContext = input.preprompt?.trim() ? `\n\nAdditional context: ${input.preprompt.trim()}` : ''
+
+			const { output } = await generateTextWithFallback({
+				provider: settings.provider,
+				apiKey: settings.apiKey,
+				output: Output.object({ schema: generatedInstructionsSchema }),
+				prompt: `${GENERATE_INSTRUCTIONS_PROMPT}${prepromptContext}\n\nIngredients: ${ingredientList}`,
+				fallback: settings.modelFallback
+			})
+
+			await ctx.db
+				.update(recipes)
+				.set({ instructions: output.instructions, updatedAt: Date.now() })
+				.where(and(eq(recipes.id, input.recipeId), eq(recipes.userId, ctx.user.id)))
 
 			return output
 		}),
