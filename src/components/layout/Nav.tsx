@@ -64,25 +64,12 @@ export function Nav() {
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
 						<RestTimer />
-						<SignedOut>
-							<SignInButton mode="modal">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink md:hidden"
-								>
-									<LogIn className="size-4" />
-									Sign in
-								</button>
-							</SignInButton>
-						</SignedOut>
-					</div>
-					<div className="hidden items-center gap-2 md:flex">
 						<SignedIn>
 							<NavLink
 								to="/settings"
 								className={({ isActive }) =>
 									cn(
-										'rounded-sm p-1.5 transition-colors',
+										'hidden rounded-sm p-1.5 transition-colors md:block',
 										isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
 									)
 								}
@@ -156,11 +143,6 @@ export function Nav() {
 							<Settings className="size-5" />
 							Settings
 						</NavLink>
-					</SignedIn>
-					<SignedIn>
-						<div className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2">
-							<UserButton />
-						</div>
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">

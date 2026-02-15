@@ -48,12 +48,12 @@ export const SetRow: FC<SetRowProps> = ({
 		<div className={cn('flex items-center gap-1.5 rounded-sm py-0.5 sm:gap-2', active && 'bg-surface-2')}>
 			<span
 				className={cn(
-					'w-7 shrink-0 rounded-full px-1 py-0.5 text-center font-mono text-[10px] sm:w-16 sm:px-1.5',
+					'w-7 xs:w-16 shrink-0 rounded-full px-1 xs:px-1.5 py-0.5 text-center font-mono text-[10px]',
 					SET_TYPE_STYLES[setType]
 				)}
 			>
-				<span className="hidden sm:inline">{setType}</span>
-				<span className="sm:hidden">{setType[0].toUpperCase()}</span>
+				<span className="xs:inline hidden">{setType}</span>
+				<span className="xs:hidden">{setType[0].toUpperCase()}</span>
 			</span>
 			<NumberInput
 				className="w-24"
@@ -70,7 +70,7 @@ export const SetRow: FC<SetRowProps> = ({
 			/>
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
-				className="w-20"
+				className="w-16"
 				value={reps}
 				onChange={e => {
 					const v = Number.parseInt(e.target.value, 10)

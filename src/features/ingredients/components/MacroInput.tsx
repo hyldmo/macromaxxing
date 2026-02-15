@@ -21,6 +21,6 @@ const colorMap = {
 export const MacroInput: FC<MacroInputProps> = ({ label, value, onChange }) => (
 	<label>
 		<span className={cn('mb-1 block text-xs', colorMap[label])}>{label}</span>
-		<NumberInput value={value} onChange={e => onChange(e.target.value)} />
+		<NumberInput value={value} onChange={e => onChange(e.target.value)} unit="g" />
 	</label>
 )

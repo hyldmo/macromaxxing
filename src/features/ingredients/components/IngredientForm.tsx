@@ -173,7 +173,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 						<RefreshCw className={`size-3.5 ${lookupMutation.isPending ? 'animate-spin' : ''}`} />
 					</Button>
 				)}
-				<div className="grid flex-1 grid-cols-5 gap-2">
+				<div className="grid flex-1 xs:grid-cols-5 gap-2 max-xs:grid-rows-5">
 					<MacroInput label="Protein" value={protein} onChange={setProtein} />
 					<MacroInput label="Carbs" value={carbs} onChange={setCarbs} />
 					<MacroInput label="Fat" value={fat} onChange={setFat} />

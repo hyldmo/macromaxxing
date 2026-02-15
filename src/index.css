@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+	--breakpoint-xs: 30rem; /* 480px — between default and sm */
+
 	/* Surfaces — dark soapstone with warm undertone */
 	--color-surface-0: oklch(0.13 0.008 60);
 	--color-surface-1: oklch(0.17 0.008 60);

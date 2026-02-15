@@ -73,8 +73,8 @@ export function RecipeListPage() {
 
 	return (
 		<div className="space-y-3">
-			<div className="flex items-center justify-between gap-2">
-				<div className="flex items-center gap-2">
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<div className="flex flex-wrap items-center gap-2">
 					<h1 className="font-semibold text-ink">Recipes</h1>
 					{user && (
 						<div className="flex gap-1">
@@ -117,7 +117,7 @@ export function RecipeListPage() {
 						</div>
 					)}
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
 					<select
 						value={sort}
 						onChange={e => setSort(e.target.value as Sort)}

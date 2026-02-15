@@ -22,11 +22,11 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 				isMine ? 'border-accent/30' : 'border-edge'
 			)}
 		>
-			<MacroRing macros={portion} size="sm" />
+			<MacroRing className="max-xs:hidden" macros={portion} size="sm" />
 			<div className="min-w-0 flex-1">
-				<div className="flex items-baseline justify-between gap-2">
+				<div className="flex flex-wrap items-baseline justify-between gap-2">
 					<div className="flex min-w-0 items-center gap-1.5">
-						<h2 className="truncate font-medium text-ink text-sm">{recipe.name}</h2>
+						<h2 className="truncate whitespace-normal font-medium text-ink text-sm">{recipe.name}</h2>
 						{isMine && (
 							<span className="shrink-0 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
 								yours
