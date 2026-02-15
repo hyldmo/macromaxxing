@@ -28,7 +28,8 @@
     "db:seed": "yarn db:migrate && yarn workspace @macromaxxing/workers wrangler d1 execute macromaxxing --local --file=scripts/seed.sql",
     "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
     "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pwa:generate-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",
@@ -41,6 +42,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@macromaxxing/db": "workspace:*",
     "@mdxeditor/editor": "^3.52.3",
+    "@tanstack/query-persist-client-core": "^5.91.19",
     "@tanstack/react-query": "^5.90.20",
     "@trpc/client": "^11.9.0",
     "@trpc/react-query": "^11.9.0",
@@ -49,12 +51,14 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "es-toolkit": "^1.44.0",
+    "idb-keyval": "^6.2.2",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0",
     "tailwind-merge": "^3.4.0",
     "ts-extras": "^0.17.0",
+    "vite-plugin-pwa": "^1.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -64,9 +68,11 @@
     "@types/node": "^25.2.1",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
+    "@vite-pwa/assets-generator": "^1.0.2",
     "@vitejs/plugin-react": "^5.1.3",
     "concurrently": "^9.2.1",
     "semantic-release": "^25.0.3",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",

@@ -63,6 +63,12 @@ coverage/
 ehthumbs.db
 Thumbs.db
 
+# PWA generated icons (yarn pwa:generate-icons)
+public/favicon.ico
+public/pwa-*.png
+public/maskable-icon-*.png
+public/apple-touch-icon-*.png
+
 # Temporary files
 *.tmp
 *.temp

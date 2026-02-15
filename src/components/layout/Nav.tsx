@@ -1,6 +1,7 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import { CalendarDays, ChefHat, CookingPot, Dumbbell, LogIn, Settings, UtensilsCrossed } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { cn } from '~/lib/cn'
 
@@ -61,6 +62,7 @@ export function Nav() {
 						</SignedIn>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
+						<OfflineIndicator />
 						<RestTimer />
 						<SignedOut>
 							<SignInButton mode="modal">

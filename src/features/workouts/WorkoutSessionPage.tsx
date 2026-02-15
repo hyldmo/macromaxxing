@@ -95,9 +95,51 @@ export function WorkoutSessionPage() {
 
 	const goal = (sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy') as TrainingGoal
 
+	type SessionData = NonNullable<typeof sessionQuery.data>
+
 	const addSetMutation = trpc.workout.addSet.useMutation({
+		onMutate: async variables => {
+			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
+			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
+			if (previous) {
+				// Find exercise data from existing logs or template
+				const existingLog = previous.logs.find(l => l.exerciseId === variables.exerciseId)
+				const templateExercise = previous.workout?.exercises.find(
+					we => we.exerciseId === variables.exerciseId
+				)?.exercise
+				const exercise = existingLog?.exercise ?? templateExercise
+				if (exercise) {
+					const existingCount = previous.logs.filter(l => l.exerciseId === variables.exerciseId).length
+					const optimisticLog = {
+						id: `wkl_temp_${Date.now()}`,
+						sessionId: variables.sessionId,
+						exerciseId: variables.exerciseId,
+						setNumber: existingCount + 1,
+						setType: variables.setType ?? 'working',
+						weightKg: variables.weightKg,
+						reps: variables.reps,
+						rpe: variables.rpe ?? null,
+						failureFlag: 0,
+						createdAt: Date.now(),
+						exercise
+					} as SessionData['logs'][number]
+					utils.workout.getSession.setData(
+						{ id: effectiveSessionId! },
+						{
+							...previous,
+							logs: [...previous.logs, optimisticLog]
+						}
+					)
+				}
+			}
+			return { previous }
+		},
+		onError: (_err, _variables, context) => {
+			if (context?.previous) {
+				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
+			}
+		},
 		onSuccess: (_data, variables) => {
-			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 			setActiveExerciseId(variables.exerciseId)
 			// Auto-start rest timer
 			if (!isCompleteSession) {
@@ -120,13 +162,67 @@ export function WorkoutSessionPage() {
 					startTimer(rest, variables.setType ?? 'working')
 				}
 			}
-		}
+		},
+		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 	})
+
 	const updateSetMutation = trpc.workout.updateSet.useMutation({
-		onSuccess: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
+		onMutate: async variables => {
+			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
+			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
+			if (previous) {
+				utils.workout.getSession.setData(
+					{ id: effectiveSessionId! },
+					{
+						...previous,
+						logs: previous.logs.map(log =>
+							log.id === variables.id
+								? {
+										...log,
+										...(variables.weightKg !== undefined && { weightKg: variables.weightKg }),
+										...(variables.reps !== undefined && { reps: variables.reps }),
+										...(variables.setType !== undefined && { setType: variables.setType }),
+										...(variables.rpe !== undefined && { rpe: variables.rpe }),
+										...(variables.failureFlag !== undefined && {
+											failureFlag: variables.failureFlag ? 1 : 0
+										})
+									}
+								: log
+						)
+					}
+				)
+			}
+			return { previous }
+		},
+		onError: (_err, _variables, context) => {
+			if (context?.previous) {
+				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
+			}
+		},
+		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 	})
+
 	const removeSetMutation = trpc.workout.removeSet.useMutation({
-		onSuccess: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
+		onMutate: async variables => {
+			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
+			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
+			if (previous) {
+				utils.workout.getSession.setData(
+					{ id: effectiveSessionId! },
+					{
+						...previous,
+						logs: previous.logs.filter(log => log.id !== variables.id)
+					}
+				)
+			}
+			return { previous }
+		},
+		onError: (_err, _variables, context) => {
+			if (context?.previous) {
+				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
+			}
+		},
+		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 	})
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
 		onSuccess: () => {
