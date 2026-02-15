@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import { RestTimerProvider } from '~/features/workouts/RestTimerContext'
+import { ReloadPrompt } from '../ui/ReloadPrompt'
 import { Nav } from './Nav'
 
 export function RootLayout() {
@@ -10,6 +11,7 @@ export function RootLayout() {
 				<main className="mx-auto max-w-7xl px-4 py-4 pb-20 md:pb-4">
 					<Outlet />
 				</main>
+				<ReloadPrompt />
 			</div>
 		</RestTimerProvider>
 	)

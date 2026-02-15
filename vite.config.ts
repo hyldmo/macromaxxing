@@ -20,7 +20,7 @@ export default defineConfig({
 		react(),
 		tailwind(),
 		VitePWA({
-			registerType: 'autoUpdate',
+			registerType: 'prompt',
 			manifest: {
 				name: 'Macromaxxing',
 				short_name: 'Macromaxxing',
