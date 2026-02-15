@@ -40,7 +40,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'flex items-center gap-2 border border-edge bg-surface-1 px-2 py-1.5',
+				'flex flex-wrap items-center gap-x-2 gap-y-1 border border-edge bg-surface-1 px-2 py-1.5',
 				isSuperset ? 'border-l-2 border-l-accent' : '',
 				isFirstInGroup ? 'rounded-t-sm' : '',
 				isLastInGroup ? 'rounded-b-sm' : '',
@@ -61,8 +61,17 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 					{supersetLabel}
 				</span>
 			)}
-			<span className="min-w-0 flex-1 truncate text-ink text-sm">{exercise.exerciseName}</span>
+			<span className="min-w-0 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
 			<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
+			<Button
+				variant="ghost"
+				size="icon"
+				className="size-6 text-ink-faint hover:text-destructive md:order-last"
+				onClick={onRemove}
+			>
+				<Trash2 className="size-3" />
+			</Button>
+			<div className="basis-full md:hidden" />
 			<NumberInput
 				className="w-14"
 				value={exercise.targetSets ?? ''}
@@ -100,14 +109,6 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				min={0}
 				step={0.5}
 			/>
-			<Button
-				variant="ghost"
-				size="icon"
-				className="size-6 text-ink-faint hover:text-destructive"
-				onClick={onRemove}
-			>
-				<Trash2 className="size-3" />
-			</Button>
 		</div>
 	)
 }
