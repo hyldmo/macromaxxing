@@ -19,3 +19,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: yarn --immutable
+
+    - name: Generate PWA icons
+      shell: bash
+      run: yarn pwa:generate-icons
