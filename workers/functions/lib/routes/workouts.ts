@@ -655,6 +655,25 @@ export const workoutsRouter = router({
 			await ctx.db.delete(workoutLogs).where(eq(workoutLogs.id, input.id))
 		}),
 
+	replaceSessionExercise: protectedProcedure
+		.input(
+			z.object({
+				sessionId: z.custom<TypeIDString<'wks'>>(),
+				oldExerciseId: z.custom<TypeIDString<'exc'>>(),
+				newExerciseId: z.custom<TypeIDString<'exc'>>()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: eq(workoutSessions.id, input.sessionId)
+			})
+			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
+			await ctx.db
+				.update(workoutLogs)
+				.set({ exerciseId: input.newExerciseId })
+				.where(and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.oldExerciseId)))
+		}),
+
 	// ─── Stats ────────────────────────────────────────────────────
 
 	muscleGroupStats: protectedProcedure

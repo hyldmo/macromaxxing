@@ -1,5 +1,5 @@
 import type { SetMode, SetType } from '@macromaxxing/db'
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
@@ -26,6 +26,7 @@ export interface ExerciseSetFormProps {
 	onAddSet: (data: { exerciseId: Exercise['id']; weightKg: number; reps: number; setType: SetType }) => void
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
+	onReplace?: (exerciseId: Exercise['id']) => void
 	readOnly?: boolean
 	active?: boolean
 }
@@ -39,6 +40,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	onAddSet,
 	onUpdateSet,
 	onRemoveSet,
+	onReplace,
 	readOnly,
 	active
 }) => {
@@ -85,26 +87,37 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 
 	return (
 		<div className="rounded-sm border border-edge bg-surface-1" data-exercise-id={exercise.id}>
-			<button
-				type="button"
-				className="flex w-full items-center gap-2 px-3 py-2 text-left"
-				onClick={() => setCollapsed(!collapsed)}
-			>
-				{collapsed ? (
-					<ChevronRight className="size-4 text-ink-faint" />
-				) : (
-					<ChevronDown className="size-4 text-ink-faint" />
+			<div className="flex items-center gap-2 px-3 py-2">
+				<button
+					type="button"
+					className="flex min-w-0 flex-1 items-center gap-2 text-left"
+					onClick={() => setCollapsed(!collapsed)}
+				>
+					{collapsed ? (
+						<ChevronRight className="size-4 shrink-0 text-ink-faint" />
+					) : (
+						<ChevronDown className="size-4 shrink-0 text-ink-faint" />
+					)}
+					<span className="font-medium text-ink text-sm">{exercise.name}</span>
+					<span className="ml-1 rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">
+						{exercise.type}
+					</span>
+					<span className="ml-auto font-mono text-ink-muted text-xs tabular-nums">
+						{logs.length}
+						{totalPlanned > 0 ? `/${totalPlanned}` : ''} sets
+						{vol > 0 && ` · ${(vol / 1000).toFixed(1)}k`}
+					</span>
+				</button>
+				{onReplace && !readOnly && (
+					<button
+						type="button"
+						className="shrink-0 rounded-sm p-1 text-ink-faint transition-colors hover:bg-surface-2 hover:text-accent"
+						onClick={() => onReplace(exercise.id)}
+					>
+						<ArrowLeftRight className="size-3.5" />
+					</button>
 				)}
-				<span className="font-medium text-ink text-sm">{exercise.name}</span>
-				<span className="ml-1 rounded-full bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">
-					{exercise.type}
-				</span>
-				<span className="ml-auto font-mono text-ink-muted text-xs tabular-nums">
-					{logs.length}
-					{totalPlanned > 0 ? `/${totalPlanned}` : ''} sets
-					{vol > 0 && ` · ${(vol / 1000).toFixed(1)}k`}
-				</span>
-			</button>
+			</div>
 
 			{!collapsed && (
 				<div className="border-edge border-t px-3 py-2">

@@ -1,4 +1,5 @@
-import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { sql } from 'drizzle-orm'
+import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
 	type FatigueTier,
@@ -143,16 +144,23 @@ export const mealPlanSlots = sqliteTable('meal_plan_slots', {
 
 // ─── Workout Tracking ────────────────────────────────────────────────
 
-export const exercises = sqliteTable('exercises', {
-	id: typeidCol('exc')('id')
-		.primaryKey()
-		.$defaultFn(() => newId('exc')),
-	userId: text('user_id').references(() => users.id), // null = system exercise
-	name: text('name').notNull(),
-	type: text('type').notNull().$type<'compound' | 'isolation'>(),
-	fatigueTier: integer('fatigue_tier').notNull().default(2).$type<FatigueTier>(),
-	createdAt: integer('created_at').notNull()
-})
+export const exercises = sqliteTable(
+	'exercises',
+	{
+		id: typeidCol('exc')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('exc')),
+		userId: text('user_id').references(() => users.id), // null = system exercise
+		name: text('name').notNull(),
+		type: text('type').notNull().$type<'compound' | 'isolation'>(),
+		fatigueTier: integer('fatigue_tier').notNull().default(2).$type<FatigueTier>(),
+		createdAt: integer('created_at').notNull()
+	},
+	t => [
+		uniqueIndex('exercises_name_system_idx').on(t.name).where(sql`user_id IS NULL`),
+		uniqueIndex('exercises_name_user_idx').on(t.name, t.userId).where(sql`user_id IS NOT NULL`)
+	]
+)
 
 export const exerciseMuscles = sqliteTable('exercise_muscles', {
 	id: typeidCol('exm')('id')

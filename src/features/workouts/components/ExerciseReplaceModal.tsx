@@ -3,7 +3,6 @@ import { type FC, useMemo, useState } from 'react'
 import { Input, Modal } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 import { rankBySimilarity, type ScoredExercise } from '../utils/similarity'
-import type { TemplateExercise } from '../WorkoutTemplatePage'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
 
@@ -13,7 +12,8 @@ const TYPE_BADGE = {
 } as const
 
 export interface ExerciseReplaceModalProps {
-	exercise: TemplateExercise
+	exerciseId: string
+	exerciseName: string
 	allExercises: Exercise[]
 	excludeIds: Set<string>
 	onReplace: (exercise: Exercise) => void
@@ -21,7 +21,8 @@ export interface ExerciseReplaceModalProps {
 }
 
 export const ExerciseReplaceModal: FC<ExerciseReplaceModalProps> = ({
-	exercise,
+	exerciseId,
+	exerciseName,
 	allExercises,
 	excludeIds,
 	onReplace,
@@ -29,10 +30,7 @@ export const ExerciseReplaceModal: FC<ExerciseReplaceModalProps> = ({
 }) => {
 	const [search, setSearch] = useState('')
 
-	const sourceExercise = useMemo(
-		() => allExercises.find(e => e.id === exercise.exerciseId),
-		[allExercises, exercise.exerciseId]
-	)
+	const sourceExercise = useMemo(() => allExercises.find(e => e.id === exerciseId), [allExercises, exerciseId])
 
 	const ranked = useMemo(
 		() => (sourceExercise ? rankBySimilarity(sourceExercise, allExercises, excludeIds) : []),
@@ -53,7 +51,7 @@ export const ExerciseReplaceModal: FC<ExerciseReplaceModalProps> = ({
 	return (
 		<Modal onClose={onClose} className="w-full max-w-md">
 			<div className="flex items-center justify-between border-edge border-b px-4 py-3">
-				<h2 className="font-semibold text-ink">Replace {exercise.exerciseName}</h2>
+				<h2 className="font-semibold text-ink">Replace {exerciseName}</h2>
 				<button
 					type="button"
 					onClick={onClose}

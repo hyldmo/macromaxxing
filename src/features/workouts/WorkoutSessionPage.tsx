@@ -6,6 +6,7 @@ import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/comp
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { ExerciseReplaceModal } from './components/ExerciseReplaceModal'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
@@ -47,6 +48,8 @@ export function WorkoutSessionPage() {
 	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
+	const [replaceExerciseId, setReplaceExerciseId] = useState<string | null>(null)
+	const [templateReplacements, setTemplateReplacements] = useState<Map<string, SessionExercise>>(new Map())
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -224,6 +227,10 @@ export function WorkoutSessionPage() {
 		},
 		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 	})
+	const replaceExerciseMutation = trpc.workout.replaceSessionExercise.useMutation({
+		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
+	})
+
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
 		onSuccess: () => {
 			setSession(null)
@@ -276,10 +283,14 @@ export function WorkoutSessionPage() {
 
 		if (template) {
 			for (const we of template.exercises) {
-				templateExerciseIds.add(we.exerciseId)
+				const replacement = templateReplacements.get(we.exerciseId)
+				const effectiveExerciseId = replacement?.id ?? we.exerciseId
+				const effectiveExercise = replacement ?? we.exercise
+
+				templateExerciseIds.add(effectiveExerciseId)
 				const templateMode = (we.setMode ?? 'working') as SetMode
-				const effectiveMode = modeOverrides.get(we.exerciseId) ?? templateMode
-				modes.set(we.exerciseId, effectiveMode)
+				const effectiveMode = modeOverrides.get(effectiveExerciseId) ?? templateMode
+				modes.set(effectiveExerciseId, effectiveMode)
 
 				const effectiveSets = we.targetSets ?? goalDefaults.targetSets
 				const effectiveReps = we.targetReps ?? goalDefaults.targetReps
@@ -291,7 +302,7 @@ export function WorkoutSessionPage() {
 
 				// Generate warmup sets
 				if (hasWarmup && we.targetWeight != null && we.targetWeight > 0) {
-					const skipWarmup = shouldSkipWarmup(we.exercise.muscles, warmedUpMuscles)
+					const skipWarmup = shouldSkipWarmup(effectiveExercise.muscles, warmedUpMuscles)
 					if (!skipWarmup) {
 						const warmups = generateWarmupSets(we.targetWeight, effectiveReps)
 						for (const wu of warmups) {
@@ -299,7 +310,7 @@ export function WorkoutSessionPage() {
 						}
 					}
 					// Track warmed-up muscles
-					for (const m of we.exercise.muscles) {
+					for (const m of effectiveExercise.muscles) {
 						const existing = warmedUpMuscles.get(m.muscleGroup) ?? 0
 						warmedUpMuscles.set(m.muscleGroup, Math.max(existing, m.intensity))
 					}
@@ -324,12 +335,12 @@ export function WorkoutSessionPage() {
 					}
 				}
 
-				planned.set(we.exerciseId, sets)
+				planned.set(effectiveExerciseId, sets)
 
-				const logged = logsByExercise.get(we.exerciseId)
+				const logged = logsByExercise.get(effectiveExerciseId)
 				exerciseDataList.push({
-					exerciseId: we.exerciseId,
-					exercise: logged?.exercise ?? we.exercise,
+					exerciseId: effectiveExerciseId,
+					exercise: logged?.exercise ?? effectiveExercise,
 					logs: logged?.logs ?? [],
 					planned: sets,
 					supersetGroup: we.supersetGroup
@@ -392,7 +403,7 @@ export function WorkoutSessionPage() {
 		}
 
 		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes }
-	}, [sessionQuery.data, modeOverrides, goal])
+	}, [sessionQuery.data, modeOverrides, goal, templateReplacements])
 
 	// Helper: check if a render item contains a given exerciseId
 	const itemContainsExercise = useCallback(
@@ -566,6 +577,7 @@ export function WorkoutSessionPage() {
 								}}
 								onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
 								onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
+								onReplace={exerciseId => setReplaceExerciseId(exerciseId)}
 							/>
 						)
 					}
@@ -597,6 +609,7 @@ export function WorkoutSessionPage() {
 							}
 							onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
 							onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
+							onReplace={exerciseId => setReplaceExerciseId(exerciseId)}
 						/>
 					)
 				})}
@@ -631,6 +644,43 @@ export function WorkoutSessionPage() {
 					}
 				}}
 			/>
+
+			{replaceExerciseId && exercisesQuery.data && (
+				<ExerciseReplaceModal
+					exerciseId={replaceExerciseId}
+					exerciseName={
+						exerciseGroups
+							.flatMap(g => (g.type === 'superset' ? g.exercises.map(e => e.exercise) : [g.exercise]))
+							.find(e => e.id === replaceExerciseId)?.name ?? ''
+					}
+					allExercises={exercisesQuery.data}
+					excludeIds={
+						new Set(
+							exerciseGroups.flatMap(g =>
+								g.type === 'superset' ? g.exercises.map(e => e.exerciseId) : [g.exerciseId]
+							)
+						)
+					}
+					onReplace={selected => {
+						const oldId = replaceExerciseId as TypeIDString<'exc'>
+						const hasLogs = session.logs.some(l => l.exerciseId === oldId)
+						if (hasLogs) {
+							replaceExerciseMutation.mutate({
+								sessionId: session.id,
+								oldExerciseId: oldId,
+								newExerciseId: selected.id
+							})
+						}
+						setTemplateReplacements(prev => {
+							const next = new Map(prev)
+							next.set(oldId, selected as SessionExercise)
+							return next
+						})
+						setReplaceExerciseId(null)
+					}}
+					onClose={() => setReplaceExerciseId(null)}
+				/>
+			)}
 
 			<ImportDialog
 				open={showImport}

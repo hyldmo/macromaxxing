@@ -1,5 +1,5 @@
 import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
@@ -44,6 +44,7 @@ export interface SupersetFormProps {
 	}) => void
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
+	onReplace?: (exerciseId: Exercise['id']) => void
 }
 
 export const SupersetForm: FC<SupersetFormProps> = ({
@@ -53,7 +54,8 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	active,
 	onAddSet,
 	onUpdateSet,
-	onRemoveSet
+	onRemoveSet,
+	onReplace
 }) => {
 	const [collapsed, setCollapsed] = useState(false)
 	const [editableTargets, setEditableTargets] = useState<Map<string, { weight: number | null; reps: number }>>(
@@ -171,6 +173,15 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 							<span key={exData.exercise.id} className="flex items-center gap-1 text-[10px]">
 								<span className="font-medium font-mono text-accent">{String.fromCharCode(65 + i)}</span>
 								<span className="text-ink-muted">{exData.exercise.name}</span>
+								{onReplace && !readOnly && (
+									<button
+										type="button"
+										className="rounded-sm p-0.5 text-ink-faint transition-colors hover:text-accent"
+										onClick={() => onReplace(exData.exercise.id)}
+									>
+										<ArrowLeftRight className="size-3" />
+									</button>
+								)}
 							</span>
 						))}
 					</div>

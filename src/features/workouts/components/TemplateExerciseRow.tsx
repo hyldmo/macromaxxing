@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TrainingGoal } from '@macromaxxing/db'
-import { ArrowLeftRight, GripVertical, Trash2 } from 'lucide-react'
+import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
@@ -18,7 +18,6 @@ export interface TemplateExerciseRowProps {
 	isFirstInGroup: boolean
 	isLastInGroup: boolean
 	onUpdate: (updates: Partial<TemplateExercise>) => void
-	onReplace: () => void
 	onRemove: () => void
 }
 
@@ -31,7 +30,6 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	isFirstInGroup,
 	isLastInGroup,
 	onUpdate,
-	onReplace,
 	onRemove
 }) => {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -102,9 +100,6 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				min={0}
 				step={0.5}
 			/>
-			<Button variant="ghost" size="icon" className="size-6 text-ink-faint hover:text-accent" onClick={onReplace}>
-				<ArrowLeftRight className="size-3" />
-			</Button>
 			<Button
 				variant="ghost"
 				size="icon"
