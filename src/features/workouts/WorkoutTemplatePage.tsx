@@ -9,6 +9,7 @@ import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
+import { ExerciseReplaceModal } from './components/ExerciseReplaceModal'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 import { formatTemplate } from './utils/export'
@@ -41,6 +42,7 @@ export function WorkoutTemplatePage() {
 	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
+	const [replaceIndex, setReplaceIndex] = useState<number | null>(null)
 
 	useEffect(() => {
 		if (workoutQuery.data) {
@@ -308,6 +310,7 @@ export function WorkoutTemplatePage() {
 										isFirstInGroup={!isLinkedAbove && ex.supersetGroup !== null}
 										isLastInGroup={!isLinkedBelow && ex.supersetGroup !== null}
 										onUpdate={updates => updateExercise(idx, updates)}
+										onReplace={() => setReplaceIndex(idx)}
 										onRemove={() => removeExercise(idx)}
 									/>
 									{canLink && (
@@ -366,6 +369,30 @@ export function WorkoutTemplatePage() {
 							}
 						])
 					}}
+				/>
+			)}
+
+			{replaceIndex !== null && exercisesQuery.data && (
+				<ExerciseReplaceModal
+					exercise={exercises[replaceIndex]}
+					allExercises={exercisesQuery.data}
+					excludeIds={new Set(exercises.map(e => e.exerciseId))}
+					onReplace={selected => {
+						setExercises(prev =>
+							prev.map((e, i) =>
+								i === replaceIndex
+									? {
+											...e,
+											exerciseId: selected.id,
+											exerciseName: selected.name,
+											exerciseType: selected.type
+										}
+									: e
+							)
+						)
+						setReplaceIndex(null)
+					}}
+					onClose={() => setReplaceIndex(null)}
 				/>
 			)}
 
