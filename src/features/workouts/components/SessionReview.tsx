@@ -62,7 +62,9 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 			if (weightDiff > 0.1 || repsDiff > 0 || setsDiff > 0) {
 				const improved =
-					bestSet.weightKg >= (we.targetWeight ?? 0) && bestSet.reps >= effectiveReps && logs.length >= effectiveSets
+					bestSet.weightKg >= (we.targetWeight ?? 0) &&
+					bestSet.reps >= effectiveReps &&
+					logs.length >= effectiveSets
 				result.push({
 					exerciseId: we.exerciseId,
 					exerciseName: we.exercise.name,
