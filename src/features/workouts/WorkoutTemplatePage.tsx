@@ -380,7 +380,7 @@ export function WorkoutTemplatePage() {
 
 			<SaveButton
 				mutation={isEditing ? updateMutation : createMutation}
-				disabled={!name || exercises.length === 0}
+				disabled={!name || exercises.length === 0 || !dirty}
 				onClick={handleSave}
 				pendingText={isEditing ? 'Saving...' : 'Creating...'}
 				icon={SaveIcon}
