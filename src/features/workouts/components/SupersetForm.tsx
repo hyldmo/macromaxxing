@@ -6,24 +6,12 @@ import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { totalVolume } from '../utils/formulas'
+import { buildSupersetRounds } from '../utils/sets'
 import type { PlannedSet } from './ExerciseSetForm'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
 type Exercise = Log['exercise']
-
-interface RoundSet {
-	exerciseId: Exercise['id']
-	exercise: Exercise
-	planned: PlannedSet
-	log: Log | null
-	exerciseIndex: number
-}
-
-interface Round {
-	setType: SetType
-	sets: RoundSet[]
-}
 
 export interface SupersetFormProps {
 	group: number
@@ -73,73 +61,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const totalPlanned = exercises.reduce((sum, e) => sum + e.plannedSets.length, 0)
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')
 
-	const { rounds, extraLogs } = useMemo(() => {
-		const exercisePhases = exercises.map((exData, exIdx) => {
-			const { exercise, logs, plannedSets } = exData
-
-			const warmupLogs = logs.filter(l => l.setType === 'warmup')
-			const workingLogs = logs.filter(l => l.setType === 'working')
-			const backoffLogs = logs.filter(l => l.setType === 'backoff')
-
-			const plannedWarmups = plannedSets.filter(s => s.setType === 'warmup')
-			const plannedWorking = plannedSets.filter(s => s.setType === 'working')
-			const plannedBackoffs = plannedSets.filter(s => s.setType === 'backoff')
-
-			const warmups: RoundSet[] = plannedWarmups.map((p, i) => ({
-				exerciseId: exercise.id,
-				exercise,
-				planned: p,
-				log: warmupLogs[i] ?? null,
-				exerciseIndex: exIdx
-			}))
-			const working: RoundSet[] = plannedWorking.map((p, i) => ({
-				exerciseId: exercise.id,
-				exercise,
-				planned: p,
-				log: workingLogs[i] ?? null,
-				exerciseIndex: exIdx
-			}))
-			const backoffs: RoundSet[] = plannedBackoffs.map((p, i) => ({
-				exerciseId: exercise.id,
-				exercise,
-				planned: p,
-				log: backoffLogs[i] ?? null,
-				exerciseIndex: exIdx
-			}))
-
-			const extras: Log[] = [
-				...warmupLogs.slice(plannedWarmups.length),
-				...workingLogs.slice(plannedWorking.length),
-				...backoffLogs.slice(plannedBackoffs.length)
-			]
-
-			return { warmups, working, backoffs, extras, exercise }
-		})
-
-		const rounds: Round[] = []
-
-		const maxWarmups = Math.max(0, ...exercisePhases.map(e => e.warmups.length))
-		for (let i = 0; i < maxWarmups; i++) {
-			const sets = exercisePhases.filter(e => i < e.warmups.length).map(e => e.warmups[i])
-			rounds.push({ setType: 'warmup', sets })
-		}
-
-		const maxWorking = Math.max(0, ...exercisePhases.map(e => e.working.length))
-		for (let i = 0; i < maxWorking; i++) {
-			const sets = exercisePhases.filter(e => i < e.working.length).map(e => e.working[i])
-			rounds.push({ setType: 'working', sets })
-		}
-
-		const maxBackoffs = Math.max(0, ...exercisePhases.map(e => e.backoffs.length))
-		for (let i = 0; i < maxBackoffs; i++) {
-			const sets = exercisePhases.filter(e => i < e.backoffs.length).map(e => e.backoffs[i])
-			rounds.push({ setType: 'backoff', sets })
-		}
-
-		const extraLogs = exercisePhases.flatMap(ep => ep.extras.map(log => ({ log, exercise: ep.exercise })))
-
-		return { rounds, extraLogs }
-	}, [exercises])
+	const { rounds, extraLogs } = useMemo(() => buildSupersetRounds(exercises), [exercises])
 
 	// Find the first pending set across all rounds for active highlight
 	let firstPendingFound = false
