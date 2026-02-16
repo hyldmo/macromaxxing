@@ -22,7 +22,8 @@ const publicLinks = [
 
 const authLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
+	{ to: '/settings', label: 'Settings', icon: Settings }
 ] satisfies Link[]
 
 export interface Link {
@@ -113,22 +114,19 @@ export function Nav() {
 
 			{/* Mobile bottom tab bar */}
 			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
-				<div className="flex justify-around">
+				<div className="grid auto-cols-fr grid-flow-col justify-center">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
 						<AppLinks links={authLinks} />
-					</SignedIn>
-					<SignedIn>
-						<AppLinks links={[{ to: '/settings', label: 'Settings', icon: Settings }]} />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
 							<button
 								type="button"
-								className="flex flex-1 flex-col items-center gap-0.5 py-2 text-ink-muted text-xs transition-colors"
+								className="mx-auto space-y-0.5 py-2 text-center text-ink-muted text-xs transition-colors"
 							>
-								<LogIn className="size-5" />
-								<span>Sign in</span>
+								<LogIn className="mx-auto size-5" />
+								<div>Sign in</div>
 							</button>
 						</SignInButton>
 					</SignedOut>
@@ -138,19 +136,19 @@ export function Nav() {
 	)
 }
 
-export const AppLinks: FC<{ links: Link[] }> = ({ links }) =>
-	links.map(({ to, label, icon: Icon }) => (
-		<NavLink
-			key={to}
-			to={to}
-			className={({ isActive }) =>
-				cn(
-					'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
-					isActive ? 'font-medium text-accent' : 'text-ink-muted'
-				)
-			}
-		>
-			<Icon className="size-5" />
-			{label}
-		</NavLink>
-	))
+const AppLink: FC<{ to: string; label: string; icon: LucideIcon }> = ({ to, label, icon: Icon }) => (
+	<NavLink
+		to={to}
+		className={({ isActive }) =>
+			cn(
+				'mx-auto space-y-0.5 py-2 text-center text-xs transition-colors',
+				isActive ? 'font-medium text-accent' : 'text-ink-muted'
+			)
+		}
+	>
+		<Icon className="mx-auto size-5" />
+		<div>{label}</div>
+	</NavLink>
+)
+
+const AppLinks: FC<{ links: Link[] }> = ({ links }) => links.map(link => <AppLink key={link.to} {...link} />)
