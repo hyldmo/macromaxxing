@@ -91,18 +91,19 @@ export function scoreUsdaMatch(query: string, description: string): number {
 	return matched * 100 + startsWithQuery - extraWords * 10 - description.length
 }
 
-export type UsdaResult = Macros & { fdcId: number }
+export type UsdaResult = Macros & { fdcId: number; description: string }
 
-export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<UsdaResult | null> {
+/** Search USDA and return all scored results (sorted by relevance, limited to top N) */
+export async function searchUSDA(query: string, apiKey: string, limit = 5): Promise<UsdaResult[]> {
 	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
 	url.searchParams.set('api_key', apiKey)
-	url.searchParams.set('query', ingredientName)
+	url.searchParams.set('query', query)
 	url.searchParams.set('pageSize', '10')
 	// Foundation/SR Legacy for raw ingredients, FNDDS for common foods (milk, bread, etc.)
 	url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS)')
 
 	const res = await fetch(url.toString())
-	if (!res.ok) return null
+	if (!res.ok) return []
 
 	const data = (await res.json()) as {
 		foods?: Array<{
@@ -112,29 +113,30 @@ export async function lookupUSDA(ingredientName: string, apiKey: string): Promis
 		}>
 	}
 
-	if (!data.foods?.length) return null
+	if (!data.foods?.length) return []
 
-	// Pick the best match — USDA search often returns loosely related foods first
-	// (e.g. "Crackers, milk" for query "milk"). Score by relevance to the query.
-	const food = data.foods.reduce(
-		(best, candidate) =>
-			scoreUsdaMatch(ingredientName, candidate.description) > scoreUsdaMatch(ingredientName, best.description)
-				? candidate
-				: best,
-		data.foods[0]
-	)
-	const nutrients = food.foodNutrients ?? []
+	const getNutrient = (nutrients: Array<{ nutrientId: number; value: number }>, id: number): number =>
+		nutrients.find(n => n.nutrientId === id)?.value ?? 0
 
-	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
+	return data.foods
+		.map(food => ({
+			fdcId: food.fdcId,
+			description: food.description,
+			score: scoreUsdaMatch(query, food.description),
+			protein: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.protein),
+			fat: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.fat),
+			carbs: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.carbs),
+			kcal: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.kcal),
+			fiber: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.fiber)
+		}))
+		.sort((a, b) => b.score - a.score)
+		.slice(0, limit)
+		.map(({ score: _, ...rest }) => rest)
+}
 
-	return {
-		fdcId: food.fdcId,
-		protein: getNutrient(NUTRIENT_IDS.protein),
-		fat: getNutrient(NUTRIENT_IDS.fat),
-		carbs: getNutrient(NUTRIENT_IDS.carbs),
-		kcal: getNutrient(NUTRIENT_IDS.kcal),
-		fiber: getNutrient(NUTRIENT_IDS.fiber)
-	}
+export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<UsdaResult | null> {
+	const results = await searchUSDA(ingredientName, apiKey, 1)
+	return results[0] ?? null
 }
 
 // Known unit names we recognize from USDA portion modifiers

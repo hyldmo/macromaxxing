@@ -11,7 +11,8 @@ import {
 	generateTextWithFallback,
 	INGREDIENT_AI_PROMPT,
 	isVolumeUnit,
-	lookupUSDA
+	lookupUSDA,
+	searchUSDA
 } from '../ai-utils'
 import { batchIngredientAiSchema, ingredientAiSchema } from '../constants'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
@@ -69,6 +70,79 @@ export const ingredientsRouter = router({
 			limit: 200
 		})
 	}),
+
+	searchUSDA: publicProcedure.input(z.object({ query: z.string().min(2) })).query(async ({ ctx, input }) => {
+		const apiKey = ctx.env.USDA_API_KEY
+		if (!apiKey) return []
+		return searchUSDA(input.query, apiKey, 5)
+	}),
+
+	createFromUSDA: protectedProcedure
+		.input(z.object({ fdcId: z.number().int(), name: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			// Check if ingredient with same fdcId already exists
+			const existing = await ctx.db.query.ingredients.findFirst({
+				where: eq(ingredients.fdcId, input.fdcId),
+				with: { units: true }
+			})
+			if (existing) {
+				return { ingredient: existing, source: 'existing' as const }
+			}
+
+			// Fetch full nutrition + portions from USDA
+			const apiKey = ctx.env.USDA_API_KEY
+			if (!apiKey) {
+				throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'USDA API key not configured' })
+			}
+
+			const usdaResult = await lookupUSDA(input.name, apiKey)
+			if (!usdaResult) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'USDA food not found' })
+			}
+
+			const { fdcId, description: _, ...macros } = usdaResult
+			const usdaPortions = await fetchUsdaPortions(fdcId, apiKey)
+			const density = densityFromPortions(usdaPortions)
+			const nonVolumeUnits = usdaPortions
+				.filter(p => !isVolumeUnit(p.name))
+				.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+
+			const [ingredient] = await ctx.db
+				.insert(ingredients)
+				.values({
+					userId: ctx.user.id,
+					name: normalizeIngredientName(input.name),
+					...macros,
+					fdcId: input.fdcId,
+					density,
+					source: 'usda',
+					createdAt: Date.now()
+				})
+				.returning()
+
+			const hasDefault = nonVolumeUnits.some(u => u.isDefault)
+			const unitRows = [
+				{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
+				...nonVolumeUnits.filter(u => u.name.toLowerCase() !== 'g')
+			]
+			await ctx.db.insert(ingredientUnits).values(
+				unitRows.map(unit => ({
+					ingredientId: ingredient.id,
+					name: unit.name,
+					grams: unit.grams,
+					isDefault: unit.isDefault ? 1 : 0,
+					source: unit.source,
+					createdAt: Date.now()
+				}))
+			)
+
+			const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
+				where: eq(ingredients.id, ingredient.id),
+				with: { units: true }
+			})
+
+			return { ingredient: ingredientWithUnits!, source: 'usda' as const }
+		}),
 
 	create: protectedProcedure.input(createIngredientSchema).mutation(async ({ ctx, input }) => {
 		const [ingredient] = await ctx.db
