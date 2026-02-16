@@ -1,5 +1,15 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
-import { CalendarDays, ChefHat, CookingPot, Dumbbell, LogIn, Settings, UtensilsCrossed } from 'lucide-react'
+import {
+	CalendarDays,
+	ChefHat,
+	CookingPot,
+	Dumbbell,
+	LogIn,
+	type LucideIcon,
+	Settings,
+	UtensilsCrossed
+} from 'lucide-react'
+import type { FC } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
@@ -8,12 +18,18 @@ import { cn } from '~/lib/cn'
 const publicLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
 	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
-] as const
+] satisfies Link[]
 
 const authLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
 	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
-] as const
+] satisfies Link[]
+
+export interface Link {
+	to: string
+	label: string
+	icon: LucideIcon
+}
 
 export function Nav() {
 	return (
@@ -38,7 +54,7 @@ export function Nav() {
 								}
 							>
 								<Icon className="size-4" />
-								<span className="group-hover:inline max-lg:hidden">{label}</span>
+								<span className="group-hover:inline max-md:hidden">{label}</span>
 							</NavLink>
 						))}
 						<SignedIn>
@@ -56,7 +72,7 @@ export function Nav() {
 									}
 								>
 									<Icon className="size-4" />
-									<span className="group-hover:inline max-lg:hidden">{label}</span>
+									<span className="group-hover:inline max-md:hidden">{label}</span>
 								</NavLink>
 							))}
 						</SignedIn>
@@ -98,51 +114,12 @@ export function Nav() {
 			{/* Mobile bottom tab bar */}
 			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
 				<div className="flex justify-around">
-					{publicLinks.map(({ to, label, icon: Icon }) => (
-						<NavLink
-							key={to}
-							to={to}
-							className={({ isActive }) =>
-								cn(
-									'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
-									isActive ? 'font-medium text-accent' : 'text-ink-muted'
-								)
-							}
-						>
-							<Icon className="size-5" />
-							{label}
-						</NavLink>
-					))}
+					<AppLinks links={publicLinks} />
 					<SignedIn>
-						{authLinks.map(({ to, label, icon: Icon }) => (
-							<NavLink
-								key={to}
-								to={to}
-								className={({ isActive }) =>
-									cn(
-										'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
-										isActive ? 'font-medium text-accent' : 'text-ink-muted'
-									)
-								}
-							>
-								<Icon className="size-5" />
-								{label}
-							</NavLink>
-						))}
+						<AppLinks links={authLinks} />
 					</SignedIn>
 					<SignedIn>
-						<NavLink
-							to="/settings"
-							className={({ isActive }) =>
-								cn(
-									'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
-									isActive ? 'font-medium text-accent' : 'text-ink-muted'
-								)
-							}
-						>
-							<Settings className="size-5" />
-							Settings
-						</NavLink>
+						<AppLinks links={[{ to: '/settings', label: 'Settings', icon: Settings }]} />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
@@ -160,3 +137,20 @@ export function Nav() {
 		</>
 	)
 }
+
+export const AppLinks: FC<{ links: Link[] }> = ({ links }) =>
+	links.map(({ to, label, icon: Icon }) => (
+		<NavLink
+			key={to}
+			to={to}
+			className={({ isActive }) =>
+				cn(
+					'flex flex-1 flex-col items-center gap-0.5 py-2 text-xs transition-colors',
+					isActive ? 'font-medium text-accent' : 'text-ink-muted'
+				)
+			}
+		>
+			<Icon className="size-5" />
+			{label}
+		</NavLink>
+	))
