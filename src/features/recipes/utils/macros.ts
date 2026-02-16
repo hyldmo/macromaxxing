@@ -81,7 +81,7 @@ export interface CaloricRatio {
 	total: number
 }
 
-export function caloricRatio(protein: number, carbs: number, fat: number): CaloricRatio {
+export function caloricRatio({ protein, carbs, fat }: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat'>): CaloricRatio {
 	const pCal = protein * 4
 	const cCal = carbs * 4
 	const fCal = fat * 9

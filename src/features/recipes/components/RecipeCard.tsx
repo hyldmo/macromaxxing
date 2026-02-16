@@ -22,7 +22,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 				isMine ? 'border-accent/30' : 'border-edge'
 			)}
 		>
-			<MacroRing className="max-xs:hidden" macros={portion} size="sm" />
+			<MacroRing className="max-xs:hidden" macros={portion} size="sm" ratio="macro" />
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline justify-between gap-2">
 					<div className="flex min-w-0 items-center gap-1.5">

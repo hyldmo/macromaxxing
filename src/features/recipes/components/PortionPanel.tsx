@@ -35,7 +35,7 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 			</h3>
 
 			<div className="flex flex-col items-center gap-3">
-				<MacroRing macros={portion} size="lg" />
+				<MacroRing ratio="macro" macros={portion} size="lg" />
 
 				<div className="grid grid-cols-4 gap-x-6 gap-y-2 lg:grid-cols-2">
 					<MacroReadout label="Protein" value={portion.protein} type="protein" />

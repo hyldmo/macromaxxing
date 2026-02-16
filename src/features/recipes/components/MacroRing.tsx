@@ -1,14 +1,16 @@
 import type { FC } from 'react'
+import { isPresent } from 'ts-extras'
 import { cn } from '~/lib/cn'
 import type { AbsoluteMacros } from '~/lib/macros'
-import { caloricRatio } from '../utils/macros'
+import { caloricRatio, macroRatio } from '../utils/macros'
 
 type MacroRingSize = 'sm' | 'md' | 'lg'
 
 export interface MacroRingProps {
 	className?: string
-	macros: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat' | 'kcal'>
+	macros: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>
 	size?: MacroRingSize
+	ratio?: 'caloric' | 'macro'
 }
 
 const sizeConfig = {
@@ -17,19 +19,21 @@ const sizeConfig = {
 	lg: { px: 120, stroke: 9, fontSize: 'text-xl' }
 } as const
 
-export const MacroRing: FC<MacroRingProps> = ({ className, macros: { protein, carbs, fat, kcal }, size = 'md' }) => {
+export const MacroRing: FC<MacroRingProps> = ({ className, macros, ratio: ratioType = 'caloric', size = 'md' }) => {
 	const { px, stroke, fontSize } = sizeConfig[size]
 	const radius = (px - stroke) / 2
 	const circumference = 2 * Math.PI * radius
-	const ratio = caloricRatio(protein, carbs, fat)
-	const total = ratio.protein + ratio.carbs + ratio.fat
+	// Split to avoid `in` narrowing bug with extended interfaces: https://github.com/microsoft/TypeScript/issues/56106
+	const mRatio = ratioType === 'macro' ? macroRatio(macros) : null
+	const ratio = mRatio ?? caloricRatio(macros)
 	const center = px / 2
 
 	const segments = [
 		{ key: 'protein', ratio: ratio.protein, color: 'var(--color-macro-protein)' },
 		{ key: 'carbs', ratio: ratio.carbs, color: 'var(--color-macro-carbs)' },
-		{ key: 'fat', ratio: ratio.fat, color: 'var(--color-macro-fat)' }
-	]
+		{ key: 'fat', ratio: ratio.fat, color: 'var(--color-macro-fat)' },
+		mRatio ? { key: 'fiber', ratio: mRatio.fiber, color: 'var(--color-macro-fiber)' } : null
+	].filter(isPresent)
 
 	let accumulatedOffset = 0
 
@@ -41,7 +45,7 @@ export const MacroRing: FC<MacroRingProps> = ({ className, macros: { protein, ca
 			role="img"
 			aria-label="Macro caloric ratio"
 		>
-			{total === 0 ? (
+			{ratio.total === 0 ? (
 				<circle
 					cx={center}
 					cy={center}
@@ -81,7 +85,7 @@ export const MacroRing: FC<MacroRingProps> = ({ className, macros: { protein, ca
 				dominantBaseline="central"
 				className={`${fontSize} origin-center rotate-90 fill-ink font-bold font-mono`}
 			>
-				{kcal.toFixed(0)}
+				{ratioType === 'caloric' ? macros.kcal.toFixed(0) : macros.fiber.toFixed(0)}
 			</text>
 		</svg>
 	)
