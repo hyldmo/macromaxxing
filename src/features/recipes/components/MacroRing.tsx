@@ -85,7 +85,7 @@ export const MacroRing: FC<MacroRingProps> = ({ className, macros, ratio: ratioT
 				dominantBaseline="central"
 				className={`${fontSize} origin-center rotate-90 fill-ink font-bold font-mono`}
 			>
-				{ratioType === 'caloric' ? macros.kcal.toFixed(0) : macros.fiber.toFixed(0)}
+				{macros.kcal.toFixed(0)}
 			</text>
 		</svg>
 	)
