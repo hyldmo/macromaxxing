@@ -29,7 +29,8 @@
     "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
     "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
     "test": "vitest run",
-    "pwa:generate-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg"
+    "pwa:generate-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
+    "postinstall": "prek install"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",
