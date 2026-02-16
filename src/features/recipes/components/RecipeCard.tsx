@@ -47,6 +47,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 					<span className="text-macro-protein">P {portion.protein.toFixed(0)}g</span>
 					<span className="text-macro-carbs">C {portion.carbs.toFixed(0)}g</span>
 					<span className="text-macro-fat">F {portion.fat.toFixed(0)}g</span>
+					<span className="text-macro-fiber">Fi {portion.fiber.toFixed(0)}g</span>
 				</div>
 				<div className="mt-1.5">
 					<MacroBar macros={portion} />

@@ -78,6 +78,7 @@ export interface CaloricRatio {
 	protein: number
 	carbs: number
 	fat: number
+	total: number
 }
 
 export function caloricRatio(protein: number, carbs: number, fat: number): CaloricRatio {
@@ -85,8 +86,19 @@ export function caloricRatio(protein: number, carbs: number, fat: number): Calor
 	const cCal = carbs * 4
 	const fCal = fat * 9
 	const total = pCal + cCal + fCal
-	if (total === 0) return { protein: 0, carbs: 0, fat: 0 }
-	return { protein: pCal / total, carbs: cCal / total, fat: fCal / total }
+	if (total === 0) return { protein: 0, carbs: 0, fat: 0, total: 0 }
+	return { protein: pCal / total, carbs: cCal / total, fat: fCal / total, total }
+}
+
+export interface MacroRatio extends CaloricRatio {
+	fiber: number
+}
+
+export function macroRatio(macros: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat' | 'fiber'>): MacroRatio {
+	const { protein, carbs, fat, fiber } = macros
+	const total = protein + carbs + fat + fiber
+	if (total === 0) return { protein: 0, carbs: 0, fat: 0, fiber: 0, total: 0 }
+	return { protein: protein / total, carbs: carbs / total, fat: fat / total, fiber: fiber / total, total }
 }
 
 // Calculate macros for allocated portions in a meal slot
