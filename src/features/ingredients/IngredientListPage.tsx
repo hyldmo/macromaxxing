@@ -218,7 +218,7 @@ export function IngredientListPage() {
 									<>
 										<tr
 											key={ingredient.id + ingredient.name}
-											className="border-edge/50 border-b transition-colors hover:bg-surface-2/50"
+											className="transition-colors hover:bg-surface-2/50"
 										>
 											<td className="px-2 py-1.5 font-medium text-ink">{ingredient.name}</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-protein">
