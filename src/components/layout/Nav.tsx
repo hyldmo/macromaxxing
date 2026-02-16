@@ -43,58 +43,22 @@ export function Nav() {
 						<span className="tracking-tight">macromaxxing</span>
 					</NavLink>
 					<div className="hidden flex-1 md:flex">
-						{publicLinks.map(({ to, label, icon: Icon }) => (
-							<NavLink
-								key={to}
-								to={to}
-								className={({ isActive }) =>
-									cn(
-										'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
-										isActive ? 'bg-surface-2 font-medium text-ink' : 'text-ink-muted hover:text-ink'
-									)
-								}
-							>
-								<Icon className="size-4" />
-								<span className="group-hover:inline max-md:hidden">{label}</span>
-							</NavLink>
+						{publicLinks.map(props => (
+							<WebLink key={props.to} {...props} />
 						))}
 						<SignedIn>
-							{authLinks.map(({ to, label, icon: Icon }) => (
-								<NavLink
-									key={to}
-									to={to}
-									className={({ isActive }) =>
-										cn(
-											'group flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm transition-colors',
-											isActive
-												? 'bg-surface-2 font-medium text-ink'
-												: 'text-ink-muted hover:text-ink'
-										)
-									}
-								>
-									<Icon className="size-4" />
-									<span className="group-hover:inline max-md:hidden">{label}</span>
-								</NavLink>
-							))}
+							{authLinks
+								.filter(link => link.to !== '/settings')
+								.map(props => (
+									<WebLink key={props.to} {...props} />
+								))}
 						</SignedIn>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
 						<RestTimer />
 						<SignedIn>
-							<NavLink
-								to="/settings"
-								className={({ isActive }) =>
-									cn(
-										'hidden rounded-sm p-1.5 transition-colors md:block',
-										isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
-									)
-								}
-							>
-								<Settings className="size-5" />
-							</NavLink>
-						</SignedIn>
-						<SignedIn>
+							<WebLink to="/settings" icon={Settings} className="max-md:hidden" />
 							<UserButton />
 						</SignedIn>
 						<SignedOut>
@@ -136,13 +100,38 @@ export function Nav() {
 	)
 }
 
-const AppLink: FC<{ to: string; label: string; icon: LucideIcon }> = ({ to, label, icon: Icon }) => (
+interface LinkProps {
+	className?: string
+	to: string
+	label?: string
+	icon: LucideIcon
+}
+
+const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
+	<NavLink
+		key={to}
+		to={to}
+		className={({ isActive }) =>
+			cn(
+				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
+				isActive ? 'bg-surface-2 font-medium text-ink' : 'text-ink-muted hover:text-ink',
+				className
+			)
+		}
+	>
+		<Icon className="size-5" />
+		<span className="group-hover:inline max-md:hidden">{label}</span>
+	</NavLink>
+)
+
+const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
 	<NavLink
 		to={to}
 		className={({ isActive }) =>
 			cn(
 				'mx-auto space-y-0.5 py-2 text-center text-xs transition-colors',
-				isActive ? 'font-medium text-accent' : 'text-ink-muted'
+				isActive ? 'font-medium text-accent' : 'text-ink-muted',
+				className
 			)
 		}
 	>
