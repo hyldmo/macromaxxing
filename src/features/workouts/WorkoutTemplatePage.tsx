@@ -46,7 +46,7 @@ export function WorkoutTemplatePage() {
 	useEffect(() => {
 		if (workoutQuery.data) {
 			setName(workoutQuery.data.name)
-			setTrainingGoal(workoutQuery.data.trainingGoal as TrainingGoal)
+			setTrainingGoal(workoutQuery.data.trainingGoal)
 			setExercises(
 				workoutQuery.data.exercises.map(e => ({
 					uid: crypto.randomUUID(),
@@ -57,7 +57,7 @@ export function WorkoutTemplatePage() {
 					targetReps: e.targetReps,
 					targetWeight: e.targetWeight,
 					setMode: e.setMode ?? 'working',
-					trainingGoal: (e.trainingGoal as TrainingGoal) ?? null,
+					trainingGoal: e.trainingGoal ?? null,
 					supersetGroup: e.supersetGroup
 				}))
 			)
@@ -79,7 +79,7 @@ export function WorkoutTemplatePage() {
 				e.targetReps !== s.targetReps ||
 				e.targetWeight !== s.targetWeight ||
 				e.setMode !== (s.setMode ?? 'working') ||
-				e.trainingGoal !== ((s.trainingGoal as TrainingGoal) ?? null) ||
+				e.trainingGoal !== (s.trainingGoal ?? null) ||
 				e.supersetGroup !== s.supersetGroup
 			)
 		})
@@ -120,7 +120,7 @@ export function WorkoutTemplatePage() {
 			}))
 		}
 		if (isEditing) {
-			updateMutation.mutate({ id: workoutId as TypeIDString<'wkt'>, ...payload })
+			updateMutation.mutate({ id: workoutId, ...payload })
 		} else {
 			createMutation.mutate(payload)
 		}
@@ -228,7 +228,7 @@ export function WorkoutTemplatePage() {
 							variant="ghost"
 							size="icon"
 							className="text-ink-faint hover:text-destructive"
-							onClick={() => deleteMutation.mutate({ id: workoutId as TypeIDString<'wkt'> })}
+							onClick={() => deleteMutation.mutate({ id: workoutId })}
 						>
 							<Trash2 className="size-4" />
 						</Button>

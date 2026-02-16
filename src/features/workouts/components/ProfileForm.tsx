@@ -73,10 +73,15 @@ export const ProfileForm: FC = () => {
 					<label className="text-ink-muted text-sm" htmlFor="sex">
 						Sex
 					</label>
-					<Select id="sex" value={sex} onChange={e => setSex(e.target.value as Sex)}>
-						<option value="male">Male</option>
-						<option value="female">Female</option>
-					</Select>
+					<Select
+						id="sex"
+						value={sex}
+						onChange={v => setSex(v)}
+						options={[
+							{ label: 'Male', value: 'male' },
+							{ label: 'Female', value: 'female' }
+						]}
+					/>
 				</div>
 			</div>
 			<p className="text-ink-faint text-xs">Used for workout validation and nutrition targets.</p>

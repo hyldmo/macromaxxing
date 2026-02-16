@@ -2,7 +2,7 @@ import { PREP_ADVERBS, PREP_DESCRIPTORS } from '@macromaxxing/db'
 import { type FC, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '~/lib/cn'
-import { FuzzyHighlight, type FuzzyResult, fuzzyMatch } from '~/lib/fuzzy'
+import { FuzzyHighlight, fuzzyMatch } from '~/lib/fuzzy'
 
 export interface PreparationInputProps {
 	value: string
@@ -31,7 +31,7 @@ export const PreparationInput: FC<PreparationInputProps> = ({ value, onChange })
 			})
 				.sort((a, b) => b.match.score - a.match.score)
 				.slice(0, 12)
-		: PREP_DESCRIPTORS.slice(0, 12).map(s => ({ text: s, match: null as FuzzyResult | null }))
+		: PREP_DESCRIPTORS.slice(0, 12).map(s => ({ text: s, match: null }))
 
 	function getPos() {
 		if (!inputRef.current) return null

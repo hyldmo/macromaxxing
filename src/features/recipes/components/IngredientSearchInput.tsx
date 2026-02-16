@@ -430,8 +430,8 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		setPasteError(null)
 		findOrCreate.reset()
 		// Reset failed items back to pending so they get processed
-		const resetItems = pastedIngredients.map(item =>
-			item.status === 'error' ? { ...item, status: 'pending' as const, error: undefined } : item
+		const resetItems = pastedIngredients.map<ParsedIngredient>(item =>
+			item.status === 'error' ? { ...item, status: 'pending', error: undefined } : item
 		)
 		setPastedIngredients(resetItems)
 		handleAddPastedIngredients(resetItems)

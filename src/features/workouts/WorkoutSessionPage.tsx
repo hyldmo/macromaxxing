@@ -1,4 +1,4 @@
-import type { FatigueTier, SetMode, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+import type { Exercise, FatigueTier, SetMode, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
 import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom'
@@ -27,12 +27,18 @@ type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
 type SessionExercise = SessionLog['exercise']
 
 type RenderItem =
-	| { type: 'standalone'; exerciseId: string; exercise: SessionExercise; logs: SessionLog[]; planned: PlannedSet[] }
+	| {
+			type: 'standalone'
+			exerciseId: Exercise['id']
+			exercise: SessionExercise
+			logs: SessionLog[]
+			planned: PlannedSet[]
+	  }
 	| {
 			type: 'superset'
 			group: number
 			exercises: Array<{
-				exerciseId: string
+				exerciseId: Exercise['id']
 				exercise: SessionExercise
 				logs: SessionLog[]
 				planned: PlannedSet[]
@@ -40,16 +46,16 @@ type RenderItem =
 	  }
 
 export function WorkoutSessionPage() {
-	const { sessionId, workoutId } = useParams<{ sessionId?: string; workoutId?: string }>()
+	const { sessionId, workoutId } = useParams<{ sessionId?: WorkoutSession['id']; workoutId?: Workout['id'] }>()
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
-	const [modeOverrides, setModeOverrides] = useState<Map<string, SetMode>>(new Map())
+	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
 	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
-	const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null)
-	const [replaceExerciseId, setReplaceExerciseId] = useState<string | null>(null)
-	const [templateReplacements, setTemplateReplacements] = useState<Map<string, SessionExercise>>(new Map())
+	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
+	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
+	const [templateReplacements, setTemplateReplacements] = useState<Map<Exercise['id'], SessionExercise>>(new Map())
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -70,14 +76,14 @@ export function WorkoutSessionPage() {
 
 	// Auto-create session if we came from template route
 	const isCreating = !!workoutId && !sessionId
-	const effectiveSessionId = sessionId as TypeIDString<'wks'> | undefined
+	const effectiveSessionId = sessionId
 
 	// Create session on mount if needed (use ref to prevent double-fire in strict mode)
 	const didCreate = useRef(false)
 	useEffect(() => {
 		if (isCreating && !didCreate.current) {
 			didCreate.current = true
-			createSession.mutate({ workoutId: workoutId as TypeIDString<'wkt'> })
+			createSession.mutate({ workoutId: workoutId })
 		}
 	}, [isCreating, createSession, workoutId])
 
@@ -96,7 +102,7 @@ export function WorkoutSessionPage() {
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
-	const goal = (sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy') as TrainingGoal
+	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
 
 	type SessionData = NonNullable<typeof sessionQuery.data>
 
@@ -113,7 +119,7 @@ export function WorkoutSessionPage() {
 				const exercise = existingLog?.exercise ?? templateExercise
 				if (exercise) {
 					const existingCount = previous.logs.filter(l => l.exerciseId === variables.exerciseId).length
-					const optimisticLog = {
+					const optimisticLog: SessionData['logs'][number] = {
 						id: `wkl_temp_${Date.now()}`,
 						sessionId: variables.sessionId,
 						exerciseId: variables.exerciseId,
@@ -125,7 +131,7 @@ export function WorkoutSessionPage() {
 						failureFlag: 0,
 						createdAt: Date.now(),
 						exercise
-					} as SessionData['logs'][number]
+					}
 					utils.workout.getSession.setData(
 						{ id: effectiveSessionId! },
 						{
@@ -158,9 +164,9 @@ export function WorkoutSessionPage() {
 					})
 					const tier: FatigueTier =
 						exercise?.type === 'standalone'
-							? (exercise.exercise.fatigueTier as FatigueTier)
-							: ((exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
-									.fatigueTier as FatigueTier) ?? 2)
+							? exercise.exercise.fatigueTier
+							: (exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
+									.fatigueTier ?? 2)
 					const exerciseGoal = exerciseGoals.get(variables.exerciseId) ?? goal
 					const rest = calculateRest(variables.reps, tier, exerciseGoal, variables.setType ?? 'working')
 					startTimer(rest, variables.setType ?? 'working')
@@ -253,7 +259,7 @@ export function WorkoutSessionPage() {
 			return { exerciseGroups: [], extraExercises: [], exerciseModes: new Map(), exerciseGoals: new Map() }
 
 		const template = sessionQuery.data.workout
-		const logsByExercise = new Map<string, ExerciseGroup>()
+		const logsByExercise = new Map<Exercise['id'], ExerciseGroup>()
 
 		for (const log of sessionQuery.data.logs) {
 			const existing = logsByExercise.get(log.exerciseId)
@@ -275,7 +281,7 @@ export function WorkoutSessionPage() {
 
 		// Per-exercise data for grouping
 		type ExerciseData = {
-			exerciseId: string
+			exerciseId: Exercise['id']
 			exercise: SessionExercise
 			logs: SessionLog[]
 			planned: PlannedSet[]
@@ -290,11 +296,11 @@ export function WorkoutSessionPage() {
 				const effectiveExercise = replacement ?? we.exercise
 
 				templateExerciseIds.add(effectiveExerciseId)
-				const templateMode = (we.setMode ?? 'working') as SetMode
+				const templateMode = we.setMode ?? 'working'
 				const effectiveMode = modeOverrides.get(effectiveExerciseId) ?? templateMode
 				modes.set(effectiveExerciseId, effectiveMode)
 
-				const exerciseGoal = (we.trainingGoal as TrainingGoal) ?? goal
+				const exerciseGoal = we.trainingGoal ?? goal
 				goals.set(effectiveExerciseId, exerciseGoal)
 				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
 
@@ -371,7 +377,7 @@ export function WorkoutSessionPage() {
 
 		// Group into RenderItems
 		const items: RenderItem[] = []
-		const processedIds = new Set<string>()
+		const processedIds = new Set<Exercise['id']>()
 
 		for (const ed of exerciseDataList) {
 			if (processedIds.has(ed.exerciseId)) continue
@@ -668,7 +674,7 @@ export function WorkoutSessionPage() {
 						)
 					}
 					onReplace={selected => {
-						const oldId = replaceExerciseId as TypeIDString<'exc'>
+						const oldId = replaceExerciseId
 						const hasLogs = session.logs.some(l => l.exerciseId === oldId)
 						if (hasLogs) {
 							replaceExerciseMutation.mutate({
@@ -679,7 +685,7 @@ export function WorkoutSessionPage() {
 						}
 						setTemplateReplacements(prev => {
 							const next = new Map(prev)
-							next.set(oldId, selected as SessionExercise)
+							next.set(oldId, selected)
 							return next
 						})
 						setReplaceExerciseId(null)
@@ -702,7 +708,7 @@ export function WorkoutSessionPage() {
 					session={session}
 					template={session.workout}
 					extraExercises={extraExercises.map((eg: ExerciseGroup) => ({
-						exerciseId: eg.exercise.id as TypeIDString<'exc'>,
+						exerciseId: eg.exercise.id,
 						exerciseName: eg.exercise.name,
 						logs: eg.logs
 					}))}

@@ -224,17 +224,14 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 								<Select
 									className="h-7 w-20 font-mono text-sm"
 									value={displayUnit}
-									onChange={e => handleUnitChange(e.target.value)}
-								>
-									<option value="g">g</option>
-									{units
-										.filter(unit => unit.name !== 'g')
-										.map(unit => (
-											<option key={unit.name} value={unit.name}>
-												{unit.name}
-											</option>
-										))}
-								</Select>
+									onChange={handleUnitChange}
+									options={[
+										{ label: 'g', value: 'g' },
+										...units
+											.filter(unit => unit.name !== 'g')
+											.map(unit => ({ label: unit.name, value: unit.name }))
+									]}
+								/>
 							) : (
 								<span className="text-ink-muted text-sm">g</span>
 							)}

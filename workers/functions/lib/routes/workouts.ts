@@ -3,6 +3,7 @@ import {
 	exercises,
 	type FatigueTier,
 	MUSCLE_GROUPS,
+	type MuscleGroup,
 	type SetType,
 	type TypeIDString,
 	workoutExercises,
@@ -18,8 +19,7 @@ const zExerciseType = z.enum(['compound', 'isolation'])
 const zSetType = z.enum(['warmup', 'working', 'backoff'])
 const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 const zTrainingGoal = z.enum(['hypertrophy', 'strength'])
-const zMuscleGroup = z.enum(MUSCLE_GROUPS as unknown as [string, ...string[]])
-type InferredMuscle = { muscleGroup: (typeof MUSCLE_GROUPS)[number]; intensity: number }
+type InferredMuscle = { muscleGroup: MuscleGroup; intensity: number }
 type InferredExercise = { type: 'compound' | 'isolation'; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
 
 /** Keyword-based muscle group inference from exercise name */
@@ -196,7 +196,7 @@ export const workoutsRouter = router({
 				name: z.string().min(1),
 				type: zExerciseType,
 				fatigueTier: z.number().int().min(1).max(4).optional(),
-				muscles: z.array(z.object({ muscleGroup: zMuscleGroup, intensity: z.number().min(0).max(1) }))
+				muscles: z.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -211,7 +211,7 @@ export const workoutsRouter = router({
 				await ctx.db.insert(exerciseMuscles).values(
 					input.muscles.map(m => ({
 						exerciseId: exercise.id,
-						muscleGroup: m.muscleGroup as (typeof MUSCLE_GROUPS)[number],
+						muscleGroup: m.muscleGroup,
 						intensity: m.intensity
 					}))
 				)

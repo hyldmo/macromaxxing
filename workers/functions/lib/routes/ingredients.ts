@@ -2,6 +2,7 @@ import { ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@mac
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, ne, sql } from 'drizzle-orm'
+import { isPresent } from 'ts-extras'
 import { z } from 'zod'
 import {
 	BATCH_INGREDIENT_AI_PROMPT,
@@ -477,7 +478,7 @@ export const ingredientsRouter = router({
 				results[idx] = { ingredient: ingredientWithUnits!, source }
 			}
 
-			return results as ResultItem[]
+			return results.filter(isPresent)
 		}),
 
 	// Unit CRUD operations

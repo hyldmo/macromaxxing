@@ -1,4 +1,4 @@
-import type { TrainingGoal, TypeIDString } from '@macromaxxing/db'
+import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button, Modal, Spinner, Switch } from '~/components/ui'
@@ -37,13 +37,13 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	const divergences = useMemo(() => {
 		const result: Divergence[] = []
-		const workoutGoal = (template.trainingGoal ?? 'hypertrophy') as TrainingGoal
+		const workoutGoal = template.trainingGoal ?? 'hypertrophy'
 
 		for (const we of template.exercises) {
 			const logs = session.logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
 			if (logs.length === 0) continue
 
-			const exerciseGoal = (we.trainingGoal as TrainingGoal) ?? workoutGoal
+			const exerciseGoal = we.trainingGoal ?? workoutGoal
 			const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
 
 			const templateMode = we.setMode ?? 'working'

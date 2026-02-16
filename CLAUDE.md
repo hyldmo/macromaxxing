@@ -215,6 +215,8 @@ No shadows — borders-only depth strategy.
 - All numbers use `font-mono tabular-nums`
 - Macro visualization: `MacroRing` (donut), `MacroBar` (stacked bar), `MacroReadout` (single value) — accept `macros` object prop, not individual scalars
 - Reuse existing types (`Pick<AbsoluteMacros, ...>`, `RouterOutput`, etc.) — never manually spell out fields that an existing type already covers
+- Never cast types. There's a 99% chance you're wrong or dug yourself into a corner, and you will introduce bugs. Always prefer `const foo: Type = bar` over `const foo = bar as Type`
+- Always prefer using TypeID types, like `Exercise['id]` instead of strings.
 - Shared types live in `@macromaxxing/db` (packages/db/types.ts), re-exported via `~/lib/` for frontend (e.g. `~/lib/macros`)
 - Forms use `Input` from `~/components/ui/Input`
 - Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`

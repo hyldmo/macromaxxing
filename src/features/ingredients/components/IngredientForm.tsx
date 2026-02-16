@@ -141,17 +141,6 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 		})
 	}
 
-	function handleSetDefault(unitId: string) {
-		updateUnitMutation.mutate({
-			id: unitId as Parameters<typeof updateUnitMutation.mutate>[0]['id'],
-			isDefault: true
-		})
-	}
-
-	function handleDeleteUnit(unitId: string) {
-		deleteUnitMutation.mutate(unitId as Parameters<typeof deleteUnitMutation.mutate>[0])
-	}
-
 	const isPending = createMutation.isPending || updateMutation.isPending
 	const error = createMutation.error || updateMutation.error || createUnitMutation.error || lookupMutation.error
 
@@ -223,7 +212,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 										variant="ghost"
 										size="icon"
 										className="size-5"
-										onClick={() => handleSetDefault(unit.id)}
+										onClick={() => updateUnitMutation.mutate({ id: unit.id, isDefault: true })}
 										title="Set as default"
 									>
 										<Star className="size-3 text-ink-faint" />
@@ -235,7 +224,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 									variant="ghost"
 									size="icon"
 									className="ml-auto size-5"
-									onClick={() => handleDeleteUnit(unit.id)}
+									onClick={() => deleteUnitMutation.mutate(unit.id)}
 								>
 									<Trash2 className="size-3 text-ink-faint" />
 								</Button>

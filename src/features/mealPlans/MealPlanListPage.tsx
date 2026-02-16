@@ -32,12 +32,6 @@ export const MealPlanListPage: FC = () => {
 		createMutation.mutate({ name: newPlanName.trim() })
 	}
 
-	function handleDelete(e: React.MouseEvent, id: string) {
-		e.preventDefault()
-		e.stopPropagation()
-		deleteMutation.mutate({ id: id as Parameters<typeof deleteMutation.mutate>[0]['id'] })
-	}
-
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
@@ -109,7 +103,11 @@ export const MealPlanListPage: FC = () => {
 							</div>
 							<button
 								type="button"
-								onClick={e => handleDelete(e, plan.id)}
+								onClick={e => {
+									e.preventDefault()
+									e.stopPropagation()
+									deleteMutation.mutate({ id: plan.id })
+								}}
 								className="rounded-sm p-1.5 text-ink-faint transition-colors hover:bg-surface-2 hover:text-destructive"
 							>
 								<Trash2 className="size-4" />

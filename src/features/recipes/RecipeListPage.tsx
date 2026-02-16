@@ -1,6 +1,7 @@
 import { Import, Package, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { objectKeys } from 'ts-extras'
 import { Button, Card, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
@@ -123,7 +124,7 @@ export function RecipeListPage() {
 						onChange={e => setSort(e.target.value as Sort)}
 						className="h-7 rounded-full border-none bg-surface-2 px-2.5 pr-7 text-ink-muted text-xs transition-colors hover:text-ink focus:outline-none focus:ring-1 focus:ring-accent/50"
 					>
-						{(Object.keys(sortLabels) as Sort[]).map(key => (
+						{objectKeys(sortLabels).map(key => (
 							<option key={key} value={key}>
 								{sortLabels[key]}
 							</option>
