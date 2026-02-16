@@ -21,7 +21,7 @@ interface Divergence {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	planned: { sets: number; reps: number; weight: number | null }
-	actual: { sets: number; avgReps: number; avgWeight: number }
+	actual: { sets: number; reps: number; weight: number }
 	improved: boolean
 }
 
@@ -52,24 +52,24 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
 			const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
 
-			const avgWeight = logs.reduce((s, l) => s + l.weightKg, 0) / logs.length
-			const avgReps = logs.reduce((s, l) => s + l.reps, 0) / logs.length
+			const bestReps = Math.max(...logs.map(l => l.reps))
+			const bestWeight = Math.max(...logs.map(l => l.weightKg))
 
-			const weightDiff = we.targetWeight != null ? Math.abs(avgWeight - we.targetWeight) : 0
-			const repsDiff = Math.abs(avgReps - effectiveReps)
+			const weightDiff = we.targetWeight != null ? Math.abs(bestWeight - we.targetWeight) : 0
+			const repsDiff = Math.abs(bestReps - effectiveReps)
 			const setsDiff = Math.abs(logs.length - effectiveSets)
 
-			if (weightDiff > 0.1 || repsDiff > 0.5 || setsDiff > 0) {
+			if (weightDiff > 0.1 || repsDiff > 0 || setsDiff > 0) {
 				const improved =
-					avgWeight >= (we.targetWeight ?? 0) && avgReps >= effectiveReps && logs.length >= effectiveSets
+					bestWeight >= (we.targetWeight ?? 0) && bestReps >= effectiveReps && logs.length >= effectiveSets
 				result.push({
 					exerciseId: we.exerciseId,
 					exerciseName: we.exercise.name,
 					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
 					actual: {
 						sets: logs.length,
-						avgReps: Math.round(avgReps * 10) / 10,
-						avgWeight: Math.round(avgWeight * 10) / 10
+						reps: bestReps,
+						weight: bestWeight
 					},
 					improved
 				})
@@ -103,25 +103,21 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			.map(d => ({
 				exerciseId: d.exerciseId,
 				targetSets: d.actual.sets,
-				targetReps: Math.round(d.actual.avgReps),
-				targetWeight: d.actual.avgWeight > 0 ? d.actual.avgWeight : null
+				targetReps: d.actual.reps,
+				targetWeight: d.actual.weight > 0 ? d.actual.weight : null
 			}))
 
 		const addExercises = extraExercises
 			.filter(e => addToTemplate.get(e.exerciseId))
 			.map(e => {
 				const workingLogs = e.logs.filter(l => l.setType === 'working')
-				const avgWeight = workingLogs.length
-					? workingLogs.reduce((s, l) => s + l.weightKg, 0) / workingLogs.length
-					: 0
-				const avgReps = workingLogs.length
-					? Math.round(workingLogs.reduce((s, l) => s + l.reps, 0) / workingLogs.length)
-					: 8
+				const bestReps = workingLogs.length ? Math.max(...workingLogs.map(l => l.reps)) : 8
+				const bestWeight = workingLogs.length ? Math.max(...workingLogs.map(l => l.weightKg)) : 0
 				return {
 					exerciseId: e.exerciseId,
 					targetSets: workingLogs.length || 3,
-					targetReps: avgReps,
-					targetWeight: avgWeight > 0 ? Math.round(avgWeight * 10) / 10 : null
+					targetReps: bestReps,
+					targetWeight: bestWeight > 0 ? bestWeight : null
 				}
 			})
 
@@ -170,8 +166,8 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 											</span>
 											<ArrowRight className="size-3 text-ink-faint" />
 											<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
-												{d.actual.sets}×{d.actual.avgReps}
-												{d.actual.avgWeight > 0 && ` @${d.actual.avgWeight}kg`}
+												{d.actual.sets}×{d.actual.reps}
+												{d.actual.weight > 0 && ` @${d.actual.weight}kg`}
 											</span>
 										</div>
 									</div>
