@@ -4,6 +4,7 @@ import { type FC, useMemo, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
+import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { totalVolume } from '../utils/formulas'
 import type { PlannedSet } from './ExerciseSetForm'
 import { SetRow } from './SetRow'
@@ -31,6 +32,7 @@ export interface SupersetFormProps {
 		logs: Log[]
 		plannedSets: PlannedSet[]
 		setMode: SetMode
+		trainingGoal?: TrainingGoal
 	}>
 	goal: TrainingGoal
 	readOnly?: boolean
@@ -45,17 +47,20 @@ export interface SupersetFormProps {
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
 	onReplace?: (exerciseId: Exercise['id']) => void
+	onTrainingGoalChange?: (exerciseId: Exercise['id'], goal: TrainingGoal | null) => void
 }
 
 export const SupersetForm: FC<SupersetFormProps> = ({
 	group,
 	exercises,
+	goal,
 	readOnly,
 	active,
 	onAddSet,
 	onUpdateSet,
 	onRemoveSet,
-	onReplace
+	onReplace,
+	onTrainingGoalChange
 }) => {
 	const [collapsed, setCollapsed] = useState(false)
 	const [editableTargets, setEditableTargets] = useState<Map<string, { weight: number | null; reps: number }>>(
@@ -185,6 +190,25 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 							</span>
 						))}
 					</div>
+
+					{/* Per-exercise goal overrides */}
+					{!readOnly && onTrainingGoalChange && (
+						<div className="mb-2 flex items-center gap-3">
+							<span className="text-[10px] text-ink-faint">Goal</span>
+							{exercises.map((exData, i) => (
+								<div key={exData.exercise.id} className="flex items-center gap-1">
+									<span className="font-medium font-mono text-[10px] text-accent">
+										{String.fromCharCode(65 + i)}
+									</span>
+									<TrainingGoalToggle
+										workoutGoal={goal}
+										value={exData.trainingGoal !== goal ? (exData.trainingGoal ?? null) : null}
+										onChange={g => onTrainingGoalChange(exData.exercise.id, g)}
+									/>
+								</div>
+							))}
+						</div>
+					)}
 
 					{/* Interleaved rounds */}
 					{rounds.map((round, roundIdx) => (

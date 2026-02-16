@@ -51,6 +51,7 @@ export function WorkoutSessionPage() {
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
+	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
 	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
@@ -300,7 +301,8 @@ export function WorkoutSessionPage() {
 				const effectiveMode = modeOverrides.get(effectiveExerciseId) ?? templateMode
 				modes.set(effectiveExerciseId, effectiveMode)
 
-				const exerciseGoal = we.trainingGoal ?? goal
+				const goalOverride = goalOverrides.get(effectiveExerciseId)
+				const exerciseGoal = goalOverride !== undefined ? (goalOverride ?? goal) : (we.trainingGoal ?? goal)
 				goals.set(effectiveExerciseId, exerciseGoal)
 				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
 
@@ -415,7 +417,7 @@ export function WorkoutSessionPage() {
 		}
 
 		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes, exerciseGoals: goals }
-	}, [sessionQuery.data, modeOverrides, goal, templateReplacements])
+	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements])
 
 	// Helper: check if a render item contains a given exerciseId
 	const itemContainsExercise = useCallback(
@@ -572,7 +574,8 @@ export function WorkoutSessionPage() {
 									exercise: e.exercise,
 									logs: e.logs,
 									plannedSets: e.planned,
-									setMode: exerciseModes.get(e.exerciseId) ?? 'working'
+									setMode: exerciseModes.get(e.exerciseId) ?? 'working',
+									trainingGoal: exerciseGoals.get(e.exerciseId)
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
@@ -590,6 +593,13 @@ export function WorkoutSessionPage() {
 								onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
 								onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
 								onReplace={exerciseId => setReplaceExerciseId(exerciseId)}
+								onTrainingGoalChange={(exerciseId, g) => {
+									setGoalOverrides(prev => {
+										const next = new Map(prev)
+										next.set(exerciseId, g)
+										return next
+									})
+								}}
 							/>
 						)
 					}
@@ -601,11 +611,20 @@ export function WorkoutSessionPage() {
 							logs={item.logs}
 							plannedSets={item.planned.length > 0 ? item.planned : undefined}
 							setMode={exerciseModes.get(item.exerciseId)}
+							trainingGoal={exerciseGoals.get(item.exerciseId)}
+							workoutGoal={goal}
 							active={activeExerciseId === item.exerciseId}
 							onSetModeChange={mode => {
 								setModeOverrides(prev => {
 									const next = new Map(prev)
 									next.set(item.exerciseId, mode)
+									return next
+								})
+							}}
+							onTrainingGoalChange={g => {
+								setGoalOverrides(prev => {
+									const next = new Map(prev)
+									next.set(item.exerciseId, g)
 									return next
 								})
 							}}

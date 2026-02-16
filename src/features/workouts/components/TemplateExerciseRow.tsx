@@ -63,9 +63,13 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 					{supersetLabel}
 				</span>
 			)}
-			<span className="min-w-0 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
+			<span className="min-w-40 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
+			<TrainingGoalToggle
+				workoutGoal={trainingGoal}
+				value={exercise.trainingGoal}
+				onChange={goal => onUpdate({ trainingGoal: goal })}
+			/>
 			<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
-			<TrainingGoalToggle value={exercise.trainingGoal} onChange={goal => onUpdate({ trainingGoal: goal })} />
 			<Button
 				variant="ghost"
 				size="icon"

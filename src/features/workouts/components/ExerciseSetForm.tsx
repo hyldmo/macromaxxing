@@ -1,8 +1,9 @@
-import type { SetMode, SetType } from '@macromaxxing/db'
+import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
+import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { totalVolume } from '../utils/formulas'
 import { WorkoutModes } from '../WorkoutMode'
 import { SetRow } from './SetRow'
@@ -22,7 +23,10 @@ export interface ExerciseSetFormProps {
 	logs: Log[]
 	plannedSets?: PlannedSet[]
 	setMode?: SetMode
+	trainingGoal?: TrainingGoal
+	workoutGoal?: TrainingGoal
 	onSetModeChange?: (mode: SetMode) => void
+	onTrainingGoalChange?: (goal: TrainingGoal | null) => void
 	onAddSet: (data: { exerciseId: Exercise['id']; weightKg: number; reps: number; setType: SetType }) => void
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
@@ -36,7 +40,10 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	logs,
 	plannedSets,
 	setMode,
+	trainingGoal,
+	workoutGoal,
 	onSetModeChange,
+	onTrainingGoalChange,
 	onAddSet,
 	onUpdateSet,
 	onRemoveSet,
@@ -121,11 +128,25 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 
 			{!collapsed && (
 				<div className="border-edge border-t px-3 py-2">
-					{/* Mode toggle (session-level override) */}
-					{!readOnly && setMode && onSetModeChange && (
-						<div className="mb-2 flex items-center gap-2">
-							<span className="text-[10px] text-ink-faint">Mode</span>
-							<WorkoutModes value={setMode} onChange={onSetModeChange} />
+					{/* Session-level overrides */}
+					{!readOnly && (setMode || workoutGoal) && (
+						<div className="mb-2 flex items-center gap-3">
+							{setMode && onSetModeChange && (
+								<div className="flex items-center gap-2">
+									<span className="text-[10px] text-ink-faint">Mode</span>
+									<WorkoutModes value={setMode} onChange={onSetModeChange} />
+								</div>
+							)}
+							{workoutGoal && onTrainingGoalChange && (
+								<div className="flex items-center gap-2">
+									<span className="text-[10px] text-ink-faint">Goal</span>
+									<TrainingGoalToggle
+										workoutGoal={workoutGoal}
+										value={trainingGoal !== workoutGoal ? (trainingGoal ?? null) : null}
+										onChange={onTrainingGoalChange}
+									/>
+								</div>
+							)}
 						</div>
 					)}
 
