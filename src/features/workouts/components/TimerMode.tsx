@@ -1,5 +1,5 @@
 import type { Exercise, SetType } from '@macromaxxing/db'
-import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
@@ -25,19 +25,23 @@ export interface TimerModeContext {
 		setType: SetType
 		transition?: boolean
 	}) => void
+	onUndoSet: () => void
 }
 
-function formatElapsed(ms: number): string {
-	const totalSeconds = Math.floor(ms / 1000)
-	const hours = Math.floor(totalSeconds / 3600)
-	const minutes = Math.floor((totalSeconds % 3600) / 60)
-	const seconds = totalSeconds % 60
-	if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-	return `${minutes}:${seconds.toString().padStart(2, '0')}`
+function formatTime(seconds: number): string {
+	const sign = seconds < 0 ? '-' : ''
+	const abs = Math.abs(seconds)
+	const h = Math.floor(abs / 3600)
+	const m = Math.floor((abs % 3600) / 60)
+	const s = Math.floor(abs % 60)
+	const cs = Math.floor((abs * 100) % 100)
+	const hm = h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `${m}`
+	return `${sign}${hm}:${s.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`
 }
 
 export const TimerMode: FC = () => {
-	const { exerciseGroups, setActiveExerciseId, session, onConfirmSet } = useOutletContext<TimerModeContext>()
+	const { exerciseGroups, setActiveExerciseId, session, onConfirmSet, onUndoSet } =
+		useOutletContext<TimerModeContext>()
 	const { sessionId } = useParams<{ sessionId: string }>()
 	const navigate = useNavigate()
 	const onClose = useCallback(() => navigate('..'), [navigate])
@@ -50,13 +54,6 @@ export const TimerMode: FC = () => {
 			restTimer.setSession({ id: sessionId, startedAt: session.startedAt })
 		}
 	}, [sessionId, session.startedAt, restTimer.setSession, restTimer])
-
-	// Auto-dismiss rest timer when countdown reaches 0
-	useEffect(() => {
-		if (restTimer.isRunning && restTimer.remaining <= 0) {
-			restTimer.dismiss()
-		}
-	}, [restTimer.isRunning, restTimer.remaining, restTimer])
 
 	const [editWeight, setEditWeight] = useState<number | null>(null)
 	const [editReps, setEditReps] = useState<number>(0)
@@ -96,7 +93,7 @@ export const TimerMode: FC = () => {
 		return flatSets.findIndex(s => !s.completed)
 	}, [flatSets, focusedItemIndex])
 
-	// During rest, show the just-completed set (previous); otherwise show next pending
+	// During rest, show the just-completed set; otherwise show next pending
 	const currentIndex =
 		isResting && pendingIndex !== 0 ? (pendingIndex > 0 ? pendingIndex - 1 : flatSets.length - 1) : pendingIndex
 	const currentSet: FlatSet | null = currentIndex >= 0 ? flatSets[currentIndex] : null
@@ -214,14 +211,6 @@ export const TimerMode: FC = () => {
 	const isDoingSet = setStartedAt !== null && !isResting && !isPaused
 	const isSetPaused = setStartedAt !== null && isPaused && !isResting
 
-	const timerDisplay = (() => {
-		const abs = Math.abs(preciseRemaining)
-		const m = Math.floor(abs / 60)
-		const s = Math.floor(abs % 60)
-		const cs = Math.floor((abs * 100) % 100)
-		return `${preciseRemaining < 0 ? '-' : ''}${m}:${s.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`
-	})()
-
 	return (
 		<div className="fixed inset-0 z-50 flex flex-col bg-surface-0">
 			<div className="mx-auto flex h-full w-full max-w-sm flex-col">
@@ -235,7 +224,7 @@ export const TimerMode: FC = () => {
 							</div>
 							<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
 							<div className="font-mono text-ink-muted text-sm tabular-nums">
-								{formatElapsed(Date.now() - session.startedAt)} elapsed
+								{formatTime((Date.now() - session.startedAt) / 1000)} elapsed
 							</div>
 							<Button onClick={onClose} className="w-full">
 								Close
@@ -291,51 +280,36 @@ export const TimerMode: FC = () => {
 								total={isResting ? restTimer.total : 0}
 								setType={restTimer.setType ?? 'working'}
 							>
-								{/* Ready — visible when idle */}
-								<div
-									className={cn(
-										'absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300',
-										!(isDoingSet || isSetPaused || isResting) ? 'opacity-100' : 'opacity-0'
-									)}
-								>
-									<span className="font-mono text-4xl text-ink-muted tabular-nums">0:00</span>
-								</div>
-								{/* Set elapsed — visible when set active or paused */}
-								<div
-									className={cn(
-										'absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300',
-										isDoingSet || isSetPaused ? 'opacity-100' : 'opacity-0'
-									)}
-								>
-									<span className="text-ink-faint text-xs">{isSetPaused ? 'Paused' : 'Set'}</span>
-									<span
-										className={cn(
-											'font-mono text-4xl tabular-nums',
-											isSetPaused ? 'text-ink-muted' : 'text-ink'
-										)}
-									>
-										{formatElapsed(setElapsedMs)}
-									</span>
-								</div>
-								{/* Countdown — visible when resting */}
-								<div
-									className={cn(
-										'absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300',
-										isResting ? 'opacity-100' : 'opacity-0'
-									)}
-								>
-									<span className="text-ink-faint text-xs">
-										{restTimer.isTransition ? 'Transition' : 'Rest'}
-									</span>
-									<span
-										className={cn(
-											'font-mono text-5xl tabular-nums',
-											preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
-										)}
-									>
-										{timerDisplay}
-									</span>
-								</div>
+								{isResting ? (
+									<>
+										<span className="text-ink-faint text-xs">
+											{restTimer.isTransition ? 'Transition' : 'Rest'}
+										</span>
+										<span
+											className={cn(
+												'font-mono text-5xl tabular-nums',
+												preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
+											)}
+										>
+											{formatTime(preciseRemaining)}
+										</span>
+										<span className="font-mono text-ink-faint text-xs tabular-nums">
+											{formatTime(restTimer.total - preciseRemaining)} rested
+										</span>
+									</>
+								) : (
+									<>
+										{isSetPaused && <span className="text-ink-faint text-xs">Paused</span>}
+										<span
+											className={cn(
+												'font-mono text-4xl tabular-nums',
+												isSetPaused ? 'text-ink-muted' : 'text-ink'
+											)}
+										>
+											{formatTime(setElapsedMs / 1000)}
+										</span>
+									</>
+								)}
 							</TimerRing>
 
 							{/* Weight x Reps inputs — visible during rest to show just-completed set */}
@@ -385,6 +359,11 @@ export const TimerMode: FC = () => {
 										<Square className="size-4" />
 									</Button>
 								)}
+								{!(isDoingSet || isSetPaused || isResting) && pendingIndex > 0 && (
+									<Button variant="outline" size="icon" onClick={onUndoSet}>
+										<Undo2 className="size-4" />
+									</Button>
+								)}
 								<Button
 									onClick={
 										isResting
@@ -397,7 +376,15 @@ export const TimerMode: FC = () => {
 									}
 									className="flex-1"
 								>
-									{isResting ? 'Skip Rest' : isSetPaused ? 'Resume' : isDoingSet ? 'Done' : 'Start'}
+									{isResting
+										? preciseRemaining <= 0
+											? 'Next Set'
+											: 'Skip Rest'
+										: isSetPaused
+											? 'Resume'
+											: isDoingSet
+												? 'Done'
+												: 'Start'}
 								</Button>
 							</div>
 

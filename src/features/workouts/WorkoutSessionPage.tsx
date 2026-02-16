@@ -105,50 +105,7 @@ export function WorkoutSessionPage() {
 
 	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
 
-	type SessionData = NonNullable<typeof sessionQuery.data>
-
 	const addSetMutation = trpc.workout.addSet.useMutation({
-		onMutate: async variables => {
-			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
-			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
-			if (previous) {
-				// Find exercise data from existing logs or template
-				const existingLog = previous.logs.find(l => l.exerciseId === variables.exerciseId)
-				const templateExercise = previous.workout?.exercises.find(
-					we => we.exerciseId === variables.exerciseId
-				)?.exercise
-				const exercise = existingLog?.exercise ?? templateExercise
-				if (exercise) {
-					const existingCount = previous.logs.filter(l => l.exerciseId === variables.exerciseId).length
-					const optimisticLog: SessionData['logs'][number] = {
-						id: `wkl_temp_${Date.now()}`,
-						sessionId: variables.sessionId,
-						exerciseId: variables.exerciseId,
-						setNumber: existingCount + 1,
-						setType: variables.setType ?? 'working',
-						weightKg: variables.weightKg,
-						reps: variables.reps,
-						rpe: variables.rpe ?? null,
-						failureFlag: 0,
-						createdAt: Date.now(),
-						exercise
-					}
-					utils.workout.getSession.setData(
-						{ id: effectiveSessionId! },
-						{
-							...previous,
-							logs: [...previous.logs, optimisticLog]
-						}
-					)
-				}
-			}
-			return { previous }
-		},
-		onError: (_err, _variables, context) => {
-			if (context?.previous) {
-				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
-			}
-		},
 		onSuccess: (_data, variables) => {
 			setActiveExerciseId(variables.exerciseId)
 			// Auto-start rest timer
@@ -672,6 +629,10 @@ export function WorkoutSessionPage() {
 							reps: data.reps,
 							setType: data.setType
 						})
+					},
+					onUndoSet: () => {
+						const lastLog = session.logs[session.logs.length - 1]
+						if (lastLog) removeSetMutation.mutate({ id: lastLog.id })
 					}
 				}}
 			/>
