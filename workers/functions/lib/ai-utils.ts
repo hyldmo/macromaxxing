@@ -2,10 +2,12 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import type { AiProvider } from '@macromaxxing/db'
+import { type AiProvider, usdaFoods, usdaPortions } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
+import { eq, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { FALLBACK_MODELS, MODELS, type macroSchema } from './constants'
+import type { Database } from './db'
 import { extractPreparation } from './utils'
 
 // USDA nutrient IDs
@@ -449,6 +451,99 @@ function findProductInJsonLd(data: unknown): JsonLdProduct | null {
 	}
 
 	return null
+}
+
+// ─── Local USDA Lookup ──────────────────────────────────────────────
+
+/** Search local usda_foods table using FTS5 full-text search */
+export async function searchLocalUSDA(db: Database, query: string, limit = 5): Promise<UsdaResult[]> {
+	const words = query.trim().split(/\s+/).filter(Boolean)
+	if (words.length === 0) return []
+
+	// FTS5 query: each word as a prefix match, all must appear
+	const ftsQuery = words.map(w => `"${w}"*`).join(' ')
+
+	const rows = await db.all<{
+		fdc_id: number
+		description: string
+		protein: number
+		carbs: number
+		fat: number
+		kcal: number
+		fiber: number
+	}>(sql`
+		SELECT f.fdc_id, f.description, f.protein, f.carbs, f.fat, f.kcal, f.fiber
+		FROM usda_foods_fts fts
+		JOIN usda_foods f ON f.fdc_id = fts.rowid
+		WHERE usda_foods_fts MATCH ${ftsQuery}
+		LIMIT 50
+	`)
+
+	return rows
+		.map(row => ({
+			fdcId: row.fdc_id,
+			description: row.description,
+			score: scoreUsdaMatch(query, row.description),
+			protein: row.protein,
+			carbs: row.carbs,
+			fat: row.fat,
+			kcal: row.kcal,
+			fiber: row.fiber
+		}))
+		.sort((a, b) => b.score - a.score)
+		.slice(0, limit)
+		.map(({ score: _, ...rest }) => rest)
+}
+
+/** Exact case-insensitive match on local usda_foods table */
+export async function lookupLocalUSDA(db: Database, name: string): Promise<UsdaResult | null> {
+	const row = await db.query.usdaFoods.findFirst({
+		where: sql`lower(${usdaFoods.description}) = lower(${name})`
+	})
+	if (!row) return null
+	return {
+		fdcId: row.fdcId,
+		description: row.description,
+		protein: row.protein,
+		carbs: row.carbs,
+		fat: row.fat,
+		kcal: row.kcal,
+		fiber: row.fiber
+	}
+}
+
+/** Lookup a food by fdcId from local usda_foods table */
+export async function getLocalUsdaFood(
+	db: Database,
+	fdcId: number
+): Promise<{
+	protein: number
+	carbs: number
+	fat: number
+	kcal: number
+	fiber: number
+	density: number | null
+} | null> {
+	const row = await db.query.usdaFoods.findFirst({
+		where: eq(usdaFoods.fdcId, fdcId)
+	})
+	if (!row) return null
+	return {
+		protein: row.protein,
+		carbs: row.carbs,
+		fat: row.fat,
+		kcal: row.kcal,
+		fiber: row.fiber,
+		density: row.density
+	}
+}
+
+/** Fetch portions for a food from local usda_portions table */
+export async function fetchLocalUsdaPortions(db: Database, fdcId: number): Promise<UsdaPortion[]> {
+	const rows = await db.query.usdaPortions.findMany({
+		where: eq(usdaPortions.fdcId, fdcId)
+	})
+	return rows.map(r => ({ name: r.name, grams: r.grams }))
 }
 
 /** Strip HTML tags and collapse whitespace for AI fallback */

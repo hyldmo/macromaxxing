@@ -91,3 +91,6 @@ apps/hub/bin/
 .migration-data.sql
 workers/.wrangler/
 workers/dist/
+
+# USDA data cache
+.usda-cache/

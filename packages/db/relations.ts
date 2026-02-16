@@ -10,6 +10,8 @@ import {
 	recipeIngredients,
 	recipes,
 	strengthStandards,
+	usdaFoods,
+	usdaPortions,
 	userSettings,
 	users,
 	workoutExercises,
@@ -122,4 +124,14 @@ export const workoutSessionsRelations = relations(workoutSessions, ({ one, many 
 export const workoutLogsRelations = relations(workoutLogs, ({ one }) => ({
 	session: one(workoutSessions, { fields: [workoutLogs.sessionId], references: [workoutSessions.id] }),
 	exercise: one(exercises, { fields: [workoutLogs.exerciseId], references: [exercises.id] })
+}))
+
+// ─── USDA Local Data ────────────────────────────────────────────────
+
+export const usdaFoodsRelations = relations(usdaFoods, ({ many }) => ({
+	portions: many(usdaPortions)
+}))
+
+export const usdaPortionsRelations = relations(usdaPortions, ({ one }) => ({
+	food: one(usdaFoods, { fields: [usdaPortions.fdcId], references: [usdaFoods.fdcId] })
 }))

@@ -6,9 +6,11 @@ import { z } from 'zod'
 import {
 	extractJsonLdProduct,
 	extractJsonLdRecipe,
+	fetchLocalUsdaPortions,
 	generateTextWithFallback,
 	INGREDIENT_AI_PROMPT,
 	isVolumeUnit,
+	lookupLocalUSDA,
 	lookupUSDA,
 	parseIngredientString,
 	stripHtml
@@ -40,7 +42,18 @@ export const aiRouter = router({
 
 			// If unitsOnly is true, skip USDA and go straight to AI for density + units
 			if (!input.unitsOnly) {
-				// Try USDA first (free, accurate, fast)
+				// Try local USDA exact match first (instant, no API call)
+				const localUsda = await lookupLocalUSDA(ctx.db, cleanName)
+				if (localUsda) {
+					const { fdcId, description: _, ...macros } = localUsda
+					const localPortions = await fetchLocalUsdaPortions(ctx.db, fdcId)
+					const nonVolumeUnits = localPortions
+						.filter(p => !isVolumeUnit(p.name))
+						.map(p => ({ ...p, isDefault: false }))
+					return { ...macros, fdcId, density: null, units: nonVolumeUnits, source: 'usda' as const }
+				}
+
+				// Fall back to USDA API search
 				const usdaKey = ctx.env.USDA_API_KEY
 				if (usdaKey) {
 					const usdaResult = await lookupUSDA(cleanName, usdaKey)

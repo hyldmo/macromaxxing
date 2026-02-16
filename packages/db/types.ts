@@ -10,6 +10,8 @@ import type {
 	recipeIngredients,
 	recipes,
 	strengthStandards,
+	usdaFoods,
+	usdaPortions,
 	userSettings,
 	users,
 	workoutExercises,
@@ -34,6 +36,8 @@ export type Workout = InferSelectModel<typeof workouts>
 export type WorkoutExercise = InferSelectModel<typeof workoutExercises>
 export type WorkoutSession = InferSelectModel<typeof workoutSessions>
 export type WorkoutLog = InferSelectModel<typeof workoutLogs>
+export type UsdaFood = InferSelectModel<typeof usdaFoods>
+export type UsdaPortion = InferSelectModel<typeof usdaPortions>
 
 export interface AbsoluteMacros {
 	protein: number

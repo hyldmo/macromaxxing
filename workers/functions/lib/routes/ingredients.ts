@@ -7,11 +7,15 @@ import { z } from 'zod'
 import {
 	BATCH_INGREDIENT_AI_PROMPT,
 	densityFromPortions,
+	fetchLocalUsdaPortions,
 	fetchUsdaPortions,
 	generateTextWithFallback,
+	getLocalUsdaFood,
 	INGREDIENT_AI_PROMPT,
 	isVolumeUnit,
+	lookupLocalUSDA,
 	lookupUSDA,
+	searchLocalUSDA,
 	searchUSDA
 } from '../ai-utils'
 import { batchIngredientAiSchema, ingredientAiSchema } from '../constants'
@@ -72,9 +76,14 @@ export const ingredientsRouter = router({
 	}),
 
 	searchUSDA: publicProcedure.input(z.object({ query: z.string().min(2) })).query(async ({ ctx, input }) => {
+		// Search local USDA tables first
+		const localResults = await searchLocalUSDA(ctx.db, input.query, 10)
+		if (localResults.length > 0) return localResults
+
+		// Fall back to USDA API if no local results
 		const apiKey = ctx.env.USDA_API_KEY
 		if (!apiKey) return []
-		return searchUSDA(input.query, apiKey, 5)
+		return searchUSDA(input.query, apiKey, 10)
 	}),
 
 	createFromUSDA: protectedProcedure
@@ -89,7 +98,53 @@ export const ingredientsRouter = router({
 				return { ingredient: existing, source: 'existing' as const }
 			}
 
-			// Fetch full nutrition + portions from USDA
+			// Try local USDA tables first (by fdcId)
+			const localFood = await getLocalUsdaFood(ctx.db, input.fdcId)
+			if (localFood) {
+				const { density, ...macros } = localFood
+				const localPortions = await fetchLocalUsdaPortions(ctx.db, input.fdcId)
+				const nonVolumeUnits = localPortions
+					.filter(p => !isVolumeUnit(p.name))
+					.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+
+				const [ingredient] = await ctx.db
+					.insert(ingredients)
+					.values({
+						userId: ctx.user.id,
+						name: normalizeIngredientName(input.name),
+						...macros,
+						fdcId: input.fdcId,
+						density,
+						source: 'usda',
+						createdAt: Date.now()
+					})
+					.returning()
+
+				const hasDefault = nonVolumeUnits.some(u => u.isDefault)
+				const unitRows = [
+					{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
+					...nonVolumeUnits.filter(u => u.name.toLowerCase() !== 'g')
+				]
+				await ctx.db.insert(ingredientUnits).values(
+					unitRows.map(unit => ({
+						ingredientId: ingredient.id,
+						name: unit.name,
+						grams: unit.grams,
+						isDefault: unit.isDefault ? 1 : 0,
+						source: unit.source,
+						createdAt: Date.now()
+					}))
+				)
+
+				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
+					where: eq(ingredients.id, ingredient.id),
+					with: { units: true }
+				})
+
+				return { ingredient: ingredientWithUnits!, source: 'usda' as const }
+			}
+
+			// Fall back to USDA API
 			const apiKey = ctx.env.USDA_API_KEY
 			if (!apiKey) {
 				throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'USDA API key not configured' })
@@ -184,7 +239,54 @@ export const ingredientsRouter = router({
 			return { ingredient: existing, source: 'existing' as const }
 		}
 
-		// Try USDA first (free, accurate, fast)
+		// Try local USDA exact match first (instant, no API call)
+		const localUsda = await lookupLocalUSDA(ctx.db, normalizedName)
+		if (localUsda) {
+			const { fdcId, description: _, ...macros } = localUsda
+			const localPortions = await fetchLocalUsdaPortions(ctx.db, fdcId)
+			const density = densityFromPortions(localPortions)
+			const nonVolumeUnits = localPortions
+				.filter(p => !isVolumeUnit(p.name))
+				.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+
+			const [ingredient] = await ctx.db
+				.insert(ingredients)
+				.values({
+					userId: ctx.user.id,
+					name: normalizedName,
+					...macros,
+					fdcId,
+					density,
+					source: 'usda',
+					createdAt: Date.now()
+				})
+				.returning()
+
+			const hasDefault = nonVolumeUnits.some(u => u.isDefault)
+			const unitRows = [
+				{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
+				...nonVolumeUnits.filter(u => u.name.toLowerCase() !== 'g')
+			]
+			await ctx.db.insert(ingredientUnits).values(
+				unitRows.map(unit => ({
+					ingredientId: ingredient.id,
+					name: unit.name,
+					grams: unit.grams,
+					isDefault: unit.isDefault ? 1 : 0,
+					source: unit.source,
+					createdAt: Date.now()
+				}))
+			)
+
+			const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
+				where: eq(ingredients.id, ingredient.id),
+				with: { units: true }
+			})
+
+			return { ingredient: ingredientWithUnits!, source: 'usda' as const }
+		}
+
+		// Try USDA API (free, accurate, fast)
 		const usdaKey = ctx.env.USDA_API_KEY
 		if (usdaKey) {
 			const usdaResult = await lookupUSDA(normalizedName, usdaKey)
@@ -354,10 +456,68 @@ export const ingredientsRouter = router({
 			})
 
 			// Collect names that need lookup
-			const missingIndices = results.map((r, i) => (r === null ? i : -1)).filter(i => i !== -1)
+			let missingIndices = results.map((r, i) => (r === null ? i : -1)).filter(i => i !== -1)
 			if (missingIndices.length === 0) return results as ResultItem[]
 
-			// 2. USDA lookup missing (parallel)
+			// 2. Local USDA exact match (parallel)
+			const localLookups = await Promise.all(
+				missingIndices.map(async idx => {
+					const result = await lookupLocalUSDA(ctx.db, normalizedNames[idx])
+					return { idx, result }
+				})
+			)
+
+			for (const { idx, result } of localLookups) {
+				if (!result) continue
+				const { fdcId, description: _, ...macros } = result
+				const localPortions = await fetchLocalUsdaPortions(ctx.db, fdcId)
+				const density = densityFromPortions(localPortions)
+				const nonVolumeUnits = localPortions
+					.filter(p => !isVolumeUnit(p.name))
+					.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+
+				const [ingredient] = await ctx.db
+					.insert(ingredients)
+					.values({
+						userId: ctx.user.id,
+						name: normalizedNames[idx],
+						...macros,
+						fdcId,
+						density,
+						source: 'usda',
+						createdAt: Date.now()
+					})
+					.returning()
+
+				const hasDefault = nonVolumeUnits.some(u => u.isDefault)
+				const unitRows = [
+					{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
+					...nonVolumeUnits.filter(u => u.name.toLowerCase() !== 'g')
+				]
+				await ctx.db.insert(ingredientUnits).values(
+					unitRows.map(unit => ({
+						ingredientId: ingredient.id,
+						name: unit.name,
+						grams: unit.grams,
+						isDefault: unit.isDefault ? 1 : 0,
+						source: unit.source,
+						createdAt: Date.now()
+					}))
+				)
+
+				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
+					where: eq(ingredients.id, ingredient.id),
+					with: { units: true }
+				})
+
+				results[idx] = { ingredient: ingredientWithUnits!, source: 'usda' }
+			}
+
+			// Recalculate missing after local USDA
+			missingIndices = results.map((r, i) => (r === null ? i : -1)).filter(i => i !== -1)
+			if (missingIndices.length === 0) return results as ResultItem[]
+
+			// 3. USDA API lookup remaining missing (parallel)
 			const usdaKey = ctx.env.USDA_API_KEY
 			const usdaResults = new Map<
 				number,

@@ -26,6 +26,7 @@
     "db:generate": "yarn workspace @macromaxxing/db drizzle-kit generate",
     "db:migrate": "yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --local",
     "db:seed": "yarn db:migrate && yarn workspace @macromaxxing/workers wrangler d1 execute macromaxxing --local --file=scripts/seed.sql",
+    "db:seed:usda": "node --experimental-transform-types scripts/seed-usda.ts",
     "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
     "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
     "test": "vitest run",

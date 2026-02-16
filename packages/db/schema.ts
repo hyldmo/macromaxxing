@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
 	type FatigueTier,
@@ -254,3 +254,35 @@ export const workoutLogs = sqliteTable('workout_logs', {
 	failureFlag: integer('failure_flag').notNull().default(0),
 	createdAt: integer('created_at').notNull()
 })
+
+// ─── USDA Local Data ────────────────────────────────────────────────
+
+export const usdaFoods = sqliteTable(
+	'usda_foods',
+	{
+		fdcId: integer('fdc_id').primaryKey(),
+		description: text('description').notNull(),
+		dataType: text('data_type').notNull(), // 'foundation' | 'sr_legacy'
+		protein: real('protein').notNull(), // per 100g
+		carbs: real('carbs').notNull(),
+		fat: real('fat').notNull(),
+		kcal: real('kcal').notNull(),
+		fiber: real('fiber').notNull(),
+		density: real('density') // g/ml, calculated from volume portions during import
+	},
+	t => [index('usda_foods_description_idx').on(sql`lower(${t.description})`)]
+)
+
+export const usdaPortions = sqliteTable(
+	'usda_portions',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		fdcId: integer('fdc_id')
+			.notNull()
+			.references(() => usdaFoods.fdcId),
+		name: text('name').notNull(), // normalized: 'cup', 'tbsp', 'pcs', etc.
+		grams: real('grams').notNull(), // grams per 1 unit
+		isVolume: integer('is_volume').notNull().default(0) // 1 = volume unit derived from density
+	},
+	t => [index('usda_portions_fdc_id_idx').on(t.fdcId)]
+)

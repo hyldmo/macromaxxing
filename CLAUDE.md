@@ -25,6 +25,7 @@ yarn preview      # Preview build with local D1
 yarn fix          # Lint + format (Biome)
 yarn db:generate  # Generate migration from schema
 yarn db:migrate   # Apply migrations to local D1
+yarn db:seed:usda # Import USDA Foundation + SR Legacy foods into local D1
 yarn test         # Run tests (Vitest)
 ```
 
@@ -141,6 +142,7 @@ workers/functions/
       user.ts                               # user.* endpoints
 scripts/
   seed-exercises.ts                         # System exercises with muscle group mappings + strength standards
+  seed-usda.ts                              # Import USDA Foundation + SR Legacy foods into D1
 ```
 
 ## Routes
@@ -191,6 +193,9 @@ workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOr
 workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)
+
+usda_foods(fdc_id PK integer, description, data_type: foundation|sr_legacy, protein/carbs/fat/kcal/fiber per 100g, density?)
+  → usda_portions(id autoincrement PK, fdc_id FK, name, grams, is_volume)
 ```
 
 All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
@@ -275,7 +280,7 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 - Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
 - Over-allocation allowed with visual warning
 
-**Nutrition lookup priority:** USDA FoodData Central API → AI (user's configured provider)
+**Nutrition lookup priority:** Local USDA D1 (FTS5 search, ~14k foods) → USDA FoodData Central API → AI (user's configured provider)
 
 **Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
 
