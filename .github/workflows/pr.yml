@@ -21,7 +21,7 @@ jobs:
       - run: yarn test
       - run: yarn build
         env:
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_TEST_CLERK_PUBLISHABLE_KEY }}
 
   preview:
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
@@ -34,7 +34,7 @@ jobs:
       - name: Build
         run: yarn build
         env:
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_TEST_CLERK_PUBLISHABLE_KEY }}
 
       - name: Deploy preview
         id: deploy
