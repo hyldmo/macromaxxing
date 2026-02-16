@@ -266,6 +266,7 @@ export const workoutsRouter = router({
 						targetReps: z.number().int().min(1).nullable(),
 						targetWeight: z.number().min(0).nullable(),
 						setMode: zSetMode.default('working'),
+						trainingGoal: zTrainingGoal.nullable().default(null),
 						supersetGroup: z.number().int().nullable().default(null)
 					})
 				)
@@ -294,10 +295,10 @@ export const workoutsRouter = router({
 				.returning()
 
 			if (input.exercises.length > 0) {
-				// D1 limits to 100 bound params per query (9 cols → max 11 rows per insert)
-				for (let i = 0; i < input.exercises.length; i += 11) {
+				// D1 limits to 100 bound params per query (10 cols → max 10 rows per insert)
+				for (let i = 0; i < input.exercises.length; i += 10) {
 					await ctx.db.insert(workoutExercises).values(
-						input.exercises.slice(i, i + 11).map((e, idx) => ({
+						input.exercises.slice(i, i + 10).map((e, idx) => ({
 							workoutId: workout.id,
 							exerciseId: e.exerciseId,
 							sortOrder: i + idx,
@@ -305,6 +306,7 @@ export const workoutsRouter = router({
 							targetReps: e.targetReps,
 							targetWeight: e.targetWeight,
 							setMode: e.setMode,
+							trainingGoal: e.trainingGoal,
 							supersetGroup: e.supersetGroup,
 							createdAt: now
 						}))
@@ -338,6 +340,7 @@ export const workoutsRouter = router({
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
 							setMode: zSetMode.default('working'),
+							trainingGoal: zTrainingGoal.nullable().default(null),
 							supersetGroup: z.number().int().nullable().default(null)
 						})
 					)
@@ -362,9 +365,9 @@ export const workoutsRouter = router({
 				// Replace all exercises
 				await ctx.db.delete(workoutExercises).where(eq(workoutExercises.workoutId, input.id))
 				if (input.exercises.length > 0) {
-					for (let i = 0; i < input.exercises.length; i += 11) {
+					for (let i = 0; i < input.exercises.length; i += 10) {
 						await ctx.db.insert(workoutExercises).values(
-							input.exercises.slice(i, i + 11).map((e, idx) => ({
+							input.exercises.slice(i, i + 10).map((e, idx) => ({
 								workoutId: input.id,
 								exerciseId: e.exerciseId,
 								sortOrder: i + idx,
@@ -372,6 +375,7 @@ export const workoutsRouter = router({
 								targetReps: e.targetReps,
 								targetWeight: e.targetWeight,
 								setMode: e.setMode,
+								trainingGoal: e.trainingGoal,
 								supersetGroup: e.supersetGroup,
 								createdAt: now
 							}))
@@ -742,7 +746,8 @@ export const workoutsRouter = router({
 		// Sum Σ(targetSets × muscleIntensity) across ALL exercises in ALL templates
 		for (const workout of userWorkouts) {
 			for (const wkExercise of workout.exercises) {
-				const sets = wkExercise.targetSets ?? (workout.trainingGoal === 'strength' ? 5 : 3)
+				const effectiveGoal = wkExercise.trainingGoal ?? workout.trainingGoal
+				const sets = wkExercise.targetSets ?? (effectiveGoal === 'strength' ? 5 : 3)
 				for (const muscle of wkExercise.exercise.muscles) {
 					const volume = sets * muscle.intensity
 					muscleVolume.set(muscle.muscleGroup, (muscleVolume.get(muscle.muscleGroup) ?? 0) + volume)

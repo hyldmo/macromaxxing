@@ -161,7 +161,8 @@ export function WorkoutSessionPage() {
 							? (exercise.exercise.fatigueTier as FatigueTier)
 							: ((exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
 									.fatigueTier as FatigueTier) ?? 2)
-					const rest = calculateRest(variables.reps, tier, goal, variables.setType ?? 'working')
+					const exerciseGoal = exerciseGoals.get(variables.exerciseId) ?? goal
+					const rest = calculateRest(variables.reps, tier, exerciseGoal, variables.setType ?? 'working')
 					startTimer(rest, variables.setType ?? 'working')
 				}
 			}
@@ -242,12 +243,14 @@ export function WorkoutSessionPage() {
 	type ExerciseGroup = { exercise: SessionExercise; logs: SessionLog[] }
 
 	// Group logs by exercise, preserving template order + superset grouping
-	const { exerciseGroups, extraExercises, exerciseModes } = useMemo<{
+	const { exerciseGroups, extraExercises, exerciseModes, exerciseGoals } = useMemo<{
 		exerciseGroups: RenderItem[]
 		extraExercises: ExerciseGroup[]
 		exerciseModes: Map<string, SetMode>
+		exerciseGoals: Map<string, TrainingGoal>
 	}>(() => {
-		if (!sessionQuery.data) return { exerciseGroups: [], extraExercises: [], exerciseModes: new Map() }
+		if (!sessionQuery.data)
+			return { exerciseGroups: [], extraExercises: [], exerciseModes: new Map(), exerciseGoals: new Map() }
 
 		const template = sessionQuery.data.workout
 		const logsByExercise = new Map<string, ExerciseGroup>()
@@ -265,11 +268,10 @@ export function WorkoutSessionPage() {
 		const planned = new Map<string, PlannedSet[]>()
 		const templateExerciseIds = new Set<string>()
 		const modes = new Map<string, SetMode>()
+		const goals = new Map<string, TrainingGoal>()
 
 		// Track which muscles have been warmed up by preceding exercises
 		const warmedUpMuscles = new Map<string, number>()
-
-		const goalDefaults = TRAINING_DEFAULTS[goal]
 
 		// Per-exercise data for grouping
 		type ExerciseData = {
@@ -292,8 +294,12 @@ export function WorkoutSessionPage() {
 				const effectiveMode = modeOverrides.get(effectiveExerciseId) ?? templateMode
 				modes.set(effectiveExerciseId, effectiveMode)
 
-				const effectiveSets = we.targetSets ?? goalDefaults.targetSets
-				const effectiveReps = we.targetReps ?? goalDefaults.targetReps
+				const exerciseGoal = (we.trainingGoal as TrainingGoal) ?? goal
+				goals.set(effectiveExerciseId, exerciseGoal)
+				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
+
+				const effectiveSets = we.targetSets ?? exerciseDefaults.targetSets
+				const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
 
 				const sets: PlannedSet[] = []
 				let setNum = 1
@@ -402,7 +408,7 @@ export function WorkoutSessionPage() {
 			})
 		}
 
-		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes }
+		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes, exerciseGoals: goals }
 	}, [sessionQuery.data, modeOverrides, goal, templateReplacements])
 
 	// Helper: check if a render item contains a given exerciseId
