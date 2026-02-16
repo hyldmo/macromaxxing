@@ -37,18 +37,20 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	const divergences = useMemo(() => {
 		const result: Divergence[] = []
-		const goal = (template.trainingGoal ?? 'hypertrophy') as TrainingGoal
-		const goalDefaults = TRAINING_DEFAULTS[goal]
+		const workoutGoal = (template.trainingGoal ?? 'hypertrophy') as TrainingGoal
 
 		for (const we of template.exercises) {
 			const logs = session.logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
 			if (logs.length === 0) continue
 
+			const exerciseGoal = (we.trainingGoal as TrainingGoal) ?? workoutGoal
+			const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
+
 			const templateMode = we.setMode ?? 'working'
 			const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
-			const totalSets = we.targetSets ?? goalDefaults.targetSets
+			const totalSets = we.targetSets ?? exerciseDefaults.targetSets
 			const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
-			const effectiveReps = we.targetReps ?? goalDefaults.targetReps
+			const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
 
 			const avgWeight = logs.reduce((s, l) => s + l.weightKg, 0) / logs.length
 			const avgReps = logs.reduce((s, l) => s + l.reps, 0) / logs.length

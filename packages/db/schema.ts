@@ -202,6 +202,7 @@ export const workoutExercises = sqliteTable('workout_exercises', {
 	targetReps: integer('target_reps'), // null = use training goal default
 	targetWeight: real('target_weight'), // null = find weight first session
 	setMode: text('set_mode').notNull().default('warmup').$type<SetMode>(),
+	trainingGoal: text('training_goal').$type<TrainingGoal>(), // null = use workout-level goal
 	supersetGroup: integer('superset_group'), // null = standalone, same int = grouped
 	createdAt: integer('created_at').notNull()
 })

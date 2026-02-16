@@ -5,6 +5,7 @@ import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
+import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { TRAINING_DEFAULTS } from '../utils/sets'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
@@ -34,7 +35,8 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 }) => {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
-	const defaults = TRAINING_DEFAULTS[trainingGoal]
+	const effectiveGoal = exercise.trainingGoal ?? trainingGoal
+	const defaults = TRAINING_DEFAULTS[effectiveGoal]
 	return (
 		<div
 			ref={setNodeRef}
@@ -63,6 +65,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			)}
 			<span className="min-w-0 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
 			<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
+			<TrainingGoalToggle value={exercise.trainingGoal} onChange={goal => onUpdate({ trainingGoal: goal })} />
 			<Button
 				variant="ghost"
 				size="icon"

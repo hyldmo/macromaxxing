@@ -22,6 +22,7 @@ export interface TemplateExercise {
 	targetReps: number | null
 	targetWeight: number | null
 	setMode: SetMode
+	trainingGoal: TrainingGoal | null
 	supersetGroup: number | null
 }
 
@@ -56,6 +57,7 @@ export function WorkoutTemplatePage() {
 					targetReps: e.targetReps,
 					targetWeight: e.targetWeight,
 					setMode: e.setMode ?? 'working',
+					trainingGoal: (e.trainingGoal as TrainingGoal) ?? null,
 					supersetGroup: e.supersetGroup
 				}))
 			)
@@ -77,6 +79,7 @@ export function WorkoutTemplatePage() {
 				e.targetReps !== s.targetReps ||
 				e.targetWeight !== s.targetWeight ||
 				e.setMode !== (s.setMode ?? 'working') ||
+				e.trainingGoal !== ((s.trainingGoal as TrainingGoal) ?? null) ||
 				e.supersetGroup !== s.supersetGroup
 			)
 		})
@@ -112,6 +115,7 @@ export function WorkoutTemplatePage() {
 				targetReps: e.targetReps,
 				targetWeight: e.targetWeight,
 				setMode: e.setMode,
+				trainingGoal: e.trainingGoal,
 				supersetGroup: e.supersetGroup
 			}))
 		}
@@ -362,6 +366,7 @@ export function WorkoutTemplatePage() {
 								targetReps: null,
 								targetWeight: null,
 								setMode: exercise.type === 'compound' ? 'warmup' : 'working',
+								trainingGoal: null,
 								supersetGroup: null
 							}
 						])
