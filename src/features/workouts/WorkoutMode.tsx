@@ -34,8 +34,10 @@ export const WorkoutModes: FC<WorkoutModesProps> = ({ value, onChange }) => {
 						onChange(opt.value)
 					}}
 				>
-					<span className="group-hover:hidden">{opt.label}</span>
-					<span className="hidden group-hover:block">{startCase(opt.value)}</span>
+					<span className={cn('group-hover:hidden', value === opt.value && 'hidden')}>{opt.label}</span>
+					<span className={cn(value === opt.value ? 'block' : 'hidden group-hover:block')}>
+						{startCase(opt.value)}
+					</span>
 				</button>
 			))}
 		</div>
