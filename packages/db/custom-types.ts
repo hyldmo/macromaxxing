@@ -31,6 +31,9 @@ export type SetType = Exclude<SetMode, 'full'>
 export const trainingGoal = z.enum(['hypertrophy', 'strength'])
 export type TrainingGoal = z.infer<typeof trainingGoal>
 
+export const nutritionGoal = z.enum(['cut', 'maintain', 'bulk', 'custom'])
+export type NutritionGoal = z.infer<typeof nutritionGoal>
+
 export type FatigueTier = 1 | 2 | 3 | 4
 
 export const MUSCLE_GROUPS = [

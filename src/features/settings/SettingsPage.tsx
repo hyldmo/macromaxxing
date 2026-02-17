@@ -5,6 +5,7 @@ import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
+import { MacroTargetsForm } from './MacroTargetsForm'
 
 export function SettingsPage() {
 	useDocumentTitle('Settings')
@@ -73,6 +74,18 @@ export function SettingsPage() {
 				</CardHeader>
 				<CardContent>
 					<ProfileForm />
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<h2 className="font-medium text-ink text-sm">Macro Targets</h2>
+					<p className="text-ink-muted text-xs">
+						Set daily nutrition goals manually or auto-calculate from your TDEE.
+					</p>
+				</CardHeader>
+				<CardContent>
+					<MacroTargetsForm />
 				</CardContent>
 			</Card>
 

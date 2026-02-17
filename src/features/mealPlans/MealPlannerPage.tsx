@@ -3,8 +3,10 @@ import { ArrowLeft, Copy, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, Spinner, TRPCError } from '~/components/ui'
+import type { MacroTargets } from '~/lib/macros'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { useUser } from '~/lib/user'
 import { InventorySidebar } from './components/InventorySidebar'
 import { WeekGrid } from './components/WeekGrid'
 import { WeeklyAverages } from './components/WeeklyAverages'
@@ -13,11 +15,22 @@ import { formatMealPlan } from './utils/export'
 export const MealPlannerPage: FC = () => {
 	const { id } = useParams<{ id: MealPlan['id'] }>()
 	const navigate = useNavigate()
+	const { isSignedIn } = useUser()
 	const [name, setName] = useState('')
 	const [hasLoadedPlan, setHasLoadedPlan] = useState(false)
 	useDocumentTitle(name || 'Meal Plan')
 
 	const planQuery = trpc.mealPlan.get.useQuery({ id: id! }, { enabled: !!id })
+	const targetsQuery = trpc.settings.getTargets.useQuery(undefined, { enabled: isSignedIn })
+	const macroTargets: MacroTargets | null = targetsQuery.data?.targetKcal
+		? {
+				kcal: targetsQuery.data.targetKcal,
+				protein: targetsQuery.data.targetProtein ?? 0,
+				carbs: targetsQuery.data.targetCarbs ?? 0,
+				fat: targetsQuery.data.targetFat ?? 0,
+				fiber: targetsQuery.data.targetFiber ?? 0
+			}
+		: null
 
 	useEffect(() => {
 		if (planQuery.data && !hasLoadedPlan) {
@@ -137,9 +150,9 @@ export const MealPlannerPage: FC = () => {
 
 				{/* Week grid */}
 				<div className="min-w-0 flex-1">
-					<WeekGrid inventory={planQuery.data.inventory} onDrop={handleDrop} />
+					<WeekGrid inventory={planQuery.data.inventory} onDrop={handleDrop} targets={macroTargets} />
 					<div className="mt-3">
-						<WeeklyAverages inventory={planQuery.data.inventory} />
+						<WeeklyAverages inventory={planQuery.data.inventory} targets={macroTargets} />
 					</div>
 				</div>
 			</div>

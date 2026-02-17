@@ -10,7 +10,7 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { cn } from '~/lib/cn'
-import type { AbsoluteMacros } from '~/lib/macros'
+import type { AbsoluteMacros, MacroTargets } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayColumn } from './DayColumn'
 
@@ -21,6 +21,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 export interface WeekGridProps {
 	inventory: InventoryItem[]
 	onDrop: (dayOfWeek: number, slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
+	targets?: MacroTargets | null
 }
 
 /** Map JS getDay() (Sun=0..Sat=6) to our Mon=0..Sun=6 index */
@@ -29,7 +30,7 @@ function todayDayIndex() {
 	return d === 0 ? 6 : d - 1
 }
 
-export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
+export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop, targets }) => {
 	const [selectedDay, setSelectedDay] = useState(todayDayIndex)
 
 	// Collect all slots from inventory
@@ -101,6 +102,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 					onDrop={(slotIndex, inventoryId, sourceSlotId) =>
 						onDrop(selectedDay, slotIndex, inventoryId, sourceSlotId)
 					}
+					targets={targets}
 				/>
 			</div>
 
@@ -116,6 +118,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 						onDrop={(slotIndex, inventoryId, sourceSlotId) =>
 							onDrop(dayIndex, slotIndex, inventoryId, sourceSlotId)
 						}
+						targets={targets}
 					/>
 				))}
 			</div>
