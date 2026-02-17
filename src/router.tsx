@@ -1,6 +1,7 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router-dom'
 import { ErrorBoundary } from '~/components/ErrorBoundary'
 import { RootLayout } from '~/components/layout/RootLayout'
+import { DashboardPage } from '~/features/dashboard/DashboardPage'
 import { IngredientListPage } from '~/features/ingredients'
 import { MealPlanListPage } from '~/features/mealPlans/MealPlanListPage'
 import { MealPlannerPage } from '~/features/mealPlans/MealPlannerPage'
@@ -17,7 +18,7 @@ export const router = createBrowserRouter([
 		element: <RootLayout />,
 		errorElement: <ErrorBoundary />,
 		children: [
-			{ index: true, element: <Navigate to="/recipes" replace /> },
+			{ index: true, element: <DashboardPage /> },
 			{ path: 'recipes', element: <RecipeListPage /> },
 			{ path: 'recipes/new', element: <RecipeEditorPage /> },
 			{ path: 'recipes/:id', element: <RecipeEditorPage /> },

@@ -4,6 +4,7 @@ import {
 	ChefHat,
 	CookingPot,
 	Dumbbell,
+	LayoutDashboard,
 	LogIn,
 	type LucideIcon,
 	Settings,
@@ -21,6 +22,7 @@ const publicLinks = [
 ] satisfies Link[]
 
 const authLinks = [
+	{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
 	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
 	{ to: '/settings', label: 'Settings', icon: Settings }
@@ -30,6 +32,7 @@ export interface Link {
 	to: string
 	label: string
 	icon: LucideIcon
+	end?: boolean
 }
 
 export function Nav() {
@@ -105,12 +108,14 @@ interface LinkProps {
 	to: string
 	label?: string
 	icon: LucideIcon
+	end?: boolean
 }
 
-const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
+const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => (
 	<NavLink
 		key={to}
 		to={to}
+		end={end}
 		className={({ isActive }) =>
 			cn(
 				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
@@ -124,9 +129,10 @@ const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
 	</NavLink>
 )
 
-const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
+const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => (
 	<NavLink
 		to={to}
+		end={end}
 		className={({ isActive }) =>
 			cn(
 				'mx-auto space-y-0.5 py-2 text-center text-xs transition-colors',
