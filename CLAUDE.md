@@ -114,7 +114,8 @@ src/
         formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
-    settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile
+    settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile, macro targets
+      MacroTargetsForm.tsx                   # Daily macro targets form (TDEE auto-calc or manual entry)
 packages/db/                                # Shared package @macromaxxing/db
   schema.ts                                 # All tables (see DB Schema below)
   relations.ts                              # Drizzle relations
@@ -169,7 +170,9 @@ scripts/
 ```
 users(id PK clerk_user_id, email)
   → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
-                 heightCm?, weightKg?, sex: male|female)
+                 heightCm?, weightKg?, sex: male|female, age?, activityLevel?,
+                 nutritionGoal?: cut|maintain|bulk|custom,
+                 targetKcal?, targetProtein?, targetCarbs?, targetFat?, targetFiber?)
 
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, fdcId?, source: manual|ai|usda|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
@@ -261,6 +264,8 @@ trpc.workout.importWorkouts                 # Import workout templates from spre
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
 trpc.settings.get/save
+trpc.settings.getProfile/saveProfile             # Body profile (height, weight, sex)
+trpc.settings.getTargets/saveTargets             # Daily macro targets + TDEE inputs (age, activity, goal)
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions
 trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI)
@@ -297,7 +302,13 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 - **Session review** on completion compares actual vs. planned, offers to update template targets
 - **Rest timer** persists globally (nav widget) — shows countdown, overshot time, or session elapsed
 - **Timer route** (`/workouts/sessions/:id/timer`) renders as full-screen child route via `<Outlet>`
-- Body profile (height/weight/sex) stored in `userSettings`, used for workout validation
+- Body profile (height/weight/sex/age) stored in `userSettings`, used for workout validation and TDEE calculation
+
+**Macro Targets** — Daily nutrition goals (kcal/protein/carbs/fat/fiber) stored in `userSettings`:
+- Manual entry (custom goal) or auto-derived from TDEE + nutrition goal (cut/maintain/bulk)
+- TDEE calculated via Mifflin-St Jeor BMR × activity multiplier (requires age, height, weight, sex)
+- Cut = TDEE - 500, Maintain = TDEE, Bulk = TDEE + 300; protein scales by goal (2.2/1.8/2.0 g/kg)
+- Meal plan pages show progress against targets: per-day bars in DayTotals, comparison in WeeklyAverages
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 
