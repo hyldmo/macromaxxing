@@ -727,6 +727,124 @@ export const workoutsRouter = router({
 			}))
 		}),
 
+	/** Per-exercise progression: best estimated 1RM + volume per session over time */
+	exerciseProgression: protectedProcedure
+		.input(
+			z.object({
+				exerciseId: z.custom<TypeIDString<'exc'>>(),
+				days: z.number().int().min(1).default(90)
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const since = Date.now() - input.days * 24 * 60 * 60 * 1000
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: and(eq(workoutSessions.userId, ctx.user.id), gte(workoutSessions.startedAt, since)),
+				with: {
+					logs: true
+				},
+				orderBy: [workoutSessions.startedAt]
+			})
+
+			const points: Array<{
+				sessionId: TypeIDString<'wks'>
+				date: number
+				bestE1RM: number
+				bestWeight: number
+				bestReps: number
+				totalVolume: number
+				totalSets: number
+			}> = []
+
+			for (const session of sessions) {
+				const logs = session.logs.filter(l => l.exerciseId === input.exerciseId && l.setType !== 'warmup')
+				if (logs.length === 0) continue
+
+				let bestE1RM = 0
+				let bestWeight = 0
+				let bestReps = 0
+				let totalVolume = 0
+
+				for (const log of logs) {
+					const e1rm = log.reps <= 0 || log.reps >= 37 ? log.weightKg : log.weightKg * (36 / (37 - log.reps))
+					if (e1rm > bestE1RM) {
+						bestE1RM = e1rm
+						bestWeight = log.weightKg
+						bestReps = log.reps
+					}
+					totalVolume += log.weightKg * log.reps
+				}
+
+				points.push({
+					sessionId: session.id,
+					date: session.startedAt,
+					bestE1RM: Math.round(bestE1RM * 10) / 10,
+					bestWeight,
+					bestReps,
+					totalVolume: Math.round(totalVolume),
+					totalSets: logs.length
+				})
+			}
+
+			return points
+		}),
+
+	/** Volume per muscle group per week over time */
+	volumeProgression: protectedProcedure
+		.input(z.object({ weeks: z.number().int().min(1).max(52).default(12) }).optional())
+		.query(async ({ ctx, input }) => {
+			const weeks = input?.weeks ?? 12
+			const since = Date.now() - weeks * 7 * 24 * 60 * 60 * 1000
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: and(eq(workoutSessions.userId, ctx.user.id), gte(workoutSessions.startedAt, since)),
+				with: {
+					logs: {
+						with: { exercise: { with: { muscles: true } } }
+					}
+				}
+			})
+
+			// Build week buckets: Monday-aligned
+			const weekMap = new Map<number, Map<string, number>>()
+			const getWeekStart = (ts: number) => {
+				const d = new Date(ts)
+				const day = d.getUTCDay()
+				const diff = day === 0 ? 6 : day - 1 // Monday = 0
+				d.setUTCDate(d.getUTCDate() - diff)
+				d.setUTCHours(0, 0, 0, 0)
+				return d.getTime()
+			}
+
+			for (const session of sessions) {
+				const weekStart = getWeekStart(session.startedAt)
+				if (!weekMap.has(weekStart)) {
+					const muscles = new Map<string, number>()
+					for (const mg of MUSCLE_GROUPS) muscles.set(mg, 0)
+					weekMap.set(weekStart, muscles)
+				}
+				const muscles = weekMap.get(weekStart)!
+
+				for (const log of session.logs) {
+					if (log.setType === 'warmup') continue
+					const volume = log.weightKg * log.reps
+					for (const muscle of log.exercise.muscles) {
+						muscles.set(
+							muscle.muscleGroup,
+							(muscles.get(muscle.muscleGroup) ?? 0) + volume * muscle.intensity
+						)
+					}
+				}
+			}
+
+			return Array.from(weekMap.entries())
+				.sort(([a], [b]) => a - b)
+				.map(([weekStart, muscles]) => ({
+					weekStart,
+					muscles: Object.fromEntries(muscles) as Record<string, number>
+				}))
+		}),
+
 	/** Coverage stats: weekly sets per muscle assuming all templates are done once */
 	coverageStats: protectedProcedure.query(async ({ ctx }) => {
 		const userWorkouts = await ctx.db.query.workouts.findMany({
