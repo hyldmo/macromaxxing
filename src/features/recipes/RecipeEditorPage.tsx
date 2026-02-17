@@ -1,8 +1,18 @@
 import type { Recipe } from '@macromaxxing/db'
-import { AlertTriangle, ArrowLeft, Eye, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChefHat, Eye, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, CopyButton, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from '~/components/ui'
+import {
+	Button,
+	CopyButton,
+	Input,
+	LinkButton,
+	MarkdownEditor,
+	Modal,
+	Spinner,
+	Switch,
+	TRPCError
+} from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
@@ -61,6 +71,8 @@ export function RecipeEditorPage() {
 		name: ri.subrecipe?.name ?? ri.ingredient?.name ?? '',
 		grams: ri.amountGrams
 	}))
+
+	const hasIngredients = (recipeQuery.data?.recipeIngredients.length ?? 0) > 0
 
 	function handleCreate() {
 		if (!name.trim()) return
@@ -133,6 +145,12 @@ export function RecipeEditorPage() {
 				)}
 				{isOwner && (
 					<div className="ml-auto flex items-center gap-2">
+						{hasIngredients && (
+							<LinkButton to={`/recipes/${id}/cook`} size="sm">
+								<ChefHat className="size-4" />
+								Cook
+							</LinkButton>
+						)}
 						{calculations && <CopyButton getText={() => formatRecipe(recipeQuery.data!, calculations)} />}
 						<label
 							htmlFor="public-toggle"
@@ -158,6 +176,12 @@ export function RecipeEditorPage() {
 				)}
 				{!(isNew || isOwner) && (
 					<div className="ml-auto flex items-center gap-2">
+						{hasIngredients && (
+							<LinkButton to={`/recipes/${id}/cook`} size="sm">
+								<ChefHat className="size-4" />
+								Cook
+							</LinkButton>
+						)}
 						{calculations && <CopyButton getText={() => formatRecipe(recipeQuery.data!, calculations)} />}
 						<span className="flex items-center gap-1.5 text-ink-muted text-sm">
 							<Eye className="size-4" />

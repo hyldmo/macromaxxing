@@ -71,11 +71,14 @@ src/
     recipes/
       RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
       RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions)
+      CookModePage.tsx                      # Read-only cook mode with batch scaling, ingredient checklist, method steps
       components/                           # MacroRing, MacroBar, MacroReadout, MacroCell, RecipeIngredientTable,
                                             #   RecipeIngredientRow, RecipeSummaryRow, RecipeTotalsBar, PortionPanel,
                                             #   PortionSizeInput, CookedWeightInput, IngredientSearchInput,
                                             #   PreparationInput, RecipeImportDialog, PremadeDialog, RecipeCard,
-                                            #   SubrecipeExpandedRows, HighlightedInstructions
+                                            #   SubrecipeExpandedRows, HighlightedInstructions,
+                                            #   BatchMultiplierPills, CookIngredientList, CookInstructionSteps,
+                                            #   CookPortionSummary
       hooks/useRecipeCalculations.ts        # Derives totals, per-portion, per-100g from ingredients + cooked weight
       utils/macros.ts                       # Pure math: macro calculations
       utils/format.ts                       # Number/unit formatting helpers
@@ -152,6 +155,7 @@ scripts/
 /recipes                             → RecipeListPage
 /recipes/new                         → RecipeEditorPage
 /recipes/:id                         → RecipeEditorPage
+/recipes/:id/cook                    → CookModePage
 /ingredients                         → IngredientListPage
 /plans                               → MealPlanListPage
 /plans/:id                           → MealPlannerPage
@@ -211,7 +215,7 @@ Use these Tailwind classes (defined in `src/index.css`):
 **Macro colors:** `text-macro-protein`, `text-macro-carbs`, `text-macro-fat`, `text-macro-kcal`, `text-macro-fiber`
 **Accent:** `bg-accent`, `text-accent`, `hover:bg-accent-hover`
 **Radius:** `rounded-sm` (4px), `rounded-md` (6px)
-**Sizing:** Use `size-4` instead of `size-4`
+**Sizing:** Use `size-4` instead of `w-4 h-4`
 
 No shadows — borders-only depth strategy.
 
