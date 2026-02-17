@@ -92,6 +92,7 @@ src/
       WorkoutListPage.tsx                   # Workout templates list + body map + recent sessions
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets)
       WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets
+      ProgressionPage.tsx                   # 1RM trends + weekly muscle volume charts over time
       WorkoutMode.tsx                       # Workout execution mode
       RestTimerContext.tsx                   # Global rest timer + session state (persists across pages)
       components/
@@ -156,6 +157,7 @@ scripts/
 /plans                               → MealPlanListPage
 /plans/:id                           → MealPlannerPage
 /workouts                            → WorkoutListPage
+/workouts/progression                → ProgressionPage
 /workouts/new                        → WorkoutTemplatePage
 /workouts/:workoutId                 → WorkoutTemplatePage
 /workouts/:workoutId/session         → WorkoutSessionPage (new session from template)
@@ -255,6 +257,8 @@ trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts
 trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
+trpc.workout.exerciseProgression            # Best estimated 1RM + volume per session for an exercise over time
+trpc.workout.volumeProgression              # Weekly volume per muscle group over configurable weeks
 trpc.workout.coverageStats                  # Template muscle coverage for body map
 trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
