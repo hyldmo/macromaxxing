@@ -1,7 +1,8 @@
-import { CalendarDays, Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import { getISOWeek } from '~/lib/date'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUser } from '~/lib/user'
@@ -94,8 +95,10 @@ export const MealPlanListPage: FC = () => {
 				{plansQuery.data?.map(plan => (
 					<Link key={plan.id} to={`/plans/${plan.id}`}>
 						<Card className="flex items-center gap-4 p-3 transition-colors hover:bg-surface-2">
-							<div className="flex size-10 items-center justify-center rounded-sm bg-accent/10 text-accent">
-								<CalendarDays className="size-5" />
+							<div className="flex size-10 flex-col items-center justify-center rounded-sm bg-accent/10 text-accent">
+								<span className="font-mono text-[10px] tabular-nums leading-none">
+									W{getISOWeek(plan.createdAt)}
+								</span>
 							</div>
 							<div className="min-w-0 flex-1">
 								<h2 className="truncate font-medium text-ink text-sm">{plan.name}</h2>
