@@ -1,4 +1,4 @@
-import { type AiProvider, userSettings, zAiProvider } from '@macromaxxing/db'
+import { type AiProvider, nutritionGoal, userSettings, zAiProvider } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -96,6 +96,67 @@ export const settingsRouter = router({
 					heightCm: input.heightCm,
 					weightKg: input.weightKg,
 					sex: input.sex
+				})
+			}
+		}),
+
+	getTargets: protectedProcedure.query(async ({ ctx }) => {
+		const settings = await ctx.db.query.userSettings.findFirst({
+			where: eq(userSettings.userId, ctx.user.id)
+		})
+		if (!settings) return null
+		return {
+			age: settings.age,
+			activityLevel: settings.activityLevel,
+			nutritionGoal: settings.nutritionGoal,
+			targetKcal: settings.targetKcal,
+			targetProtein: settings.targetProtein,
+			targetCarbs: settings.targetCarbs,
+			targetFat: settings.targetFat,
+			targetFiber: settings.targetFiber,
+			heightCm: settings.heightCm,
+			weightKg: settings.weightKg,
+			sex: settings.sex
+		}
+	}),
+
+	saveTargets: protectedProcedure
+		.input(
+			z.object({
+				age: z.number().int().min(10).max(120).nullable(),
+				activityLevel: z.number().min(1.0).max(2.5).nullable(),
+				nutritionGoal: nutritionGoal.nullable(),
+				targetKcal: z.number().min(0).nullable(),
+				targetProtein: z.number().min(0).nullable(),
+				targetCarbs: z.number().min(0).nullable(),
+				targetFat: z.number().min(0).nullable(),
+				targetFiber: z.number().min(0).nullable()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.userSettings.findFirst({
+				where: eq(userSettings.userId, ctx.user.id)
+			})
+			const data = {
+				age: input.age,
+				activityLevel: input.activityLevel,
+				nutritionGoal: input.nutritionGoal,
+				targetKcal: input.targetKcal,
+				targetProtein: input.targetProtein,
+				targetCarbs: input.targetCarbs,
+				targetFat: input.targetFat,
+				targetFiber: input.targetFiber
+			}
+			if (existing) {
+				await ctx.db.update(userSettings).set(data).where(eq(userSettings.userId, ctx.user.id))
+			} else {
+				await ctx.db.insert(userSettings).values({
+					userId: ctx.user.id,
+					aiProvider: 'gemini',
+					aiApiKey: '',
+					aiKeyIv: '',
+					aiModel: '',
+					...data
 				})
 			}
 		}),

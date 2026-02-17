@@ -47,3 +47,11 @@ export interface AbsoluteMacros {
 	fiber: number
 	weight: number
 }
+
+export interface MacroTargets {
+	kcal: number
+	protein: number
+	carbs: number
+	fat: number
+	fiber: number
+}

@@ -8,6 +8,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
+import type { MacroTargets } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayTotals } from './DayTotals'
 import { MealSlot } from './MealSlot'
@@ -21,11 +22,12 @@ export interface DayColumnProps {
 	slots: SlotWithInventory[]
 	inventory: InventoryItem[]
 	onDrop: (slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
+	targets?: MacroTargets | null
 }
 
 const MIN_SLOTS = 3
 
-export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inventory, onDrop }) => {
+export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inventory, onDrop, targets }) => {
 	// Sort slots by index
 	const sortedSlots = slots.toSorted((a, b) => a.slotIndex - b.slotIndex)
 
@@ -73,7 +75,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 			</div>
 
 			{/* Day totals */}
-			<DayTotals totals={dayTotal} />
+			<DayTotals totals={dayTotal} targets={targets} />
 		</div>
 	)
 }

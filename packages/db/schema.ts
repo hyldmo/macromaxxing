@@ -4,6 +4,7 @@ import {
 	type AiProvider,
 	type FatigueTier,
 	type MuscleGroup,
+	type NutritionGoal,
 	newId,
 	type SetMode,
 	type SetType,
@@ -30,7 +31,15 @@ export const userSettings = sqliteTable('user_settings', {
 	modelFallback: integer('model_fallback').notNull().default(0), // 0=off, 1=on
 	heightCm: real('height_cm'),
 	weightKg: real('weight_kg'),
-	sex: text('sex').notNull().default('male').$type<Sex>()
+	sex: text('sex').notNull().default('male').$type<Sex>(),
+	age: integer('age'),
+	activityLevel: real('activity_level'), // TDEE multiplier (1.2 sedentary .. 1.9 very active)
+	nutritionGoal: text('nutrition_goal').$type<NutritionGoal>(), // cut | maintain | bulk | custom
+	targetKcal: real('target_kcal'),
+	targetProtein: real('target_protein'), // grams
+	targetCarbs: real('target_carbs'), // grams
+	targetFat: real('target_fat'), // grams
+	targetFiber: real('target_fiber') // grams
 })
 
 export const ingredients = sqliteTable('ingredients', {

@@ -1,1 +1,1 @@
-export type { AbsoluteMacros } from '@macromaxxing/db'
+export type { AbsoluteMacros, MacroTargets } from '@macromaxxing/db'
