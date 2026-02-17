@@ -68,6 +68,8 @@ src/
     layout/RootLayout.tsx                    # Shell: nav + <Outlet />
     ErrorBoundary.tsx
   features/
+    dashboard/
+      DashboardPage.tsx                   # Home page: today's meals, macro progress, workouts, recent sessions
     recipes/
       RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
       RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions)
@@ -136,6 +138,7 @@ workers/functions/
     constants.ts                            # Shared constants + Zod schemas
     utils.ts                                # Shared backend helpers (toStartCase, etc.)
     routes/
+      dashboard.ts                          # dashboard.* endpoints
       recipes.ts                            # recipe.* endpoints
       ingredients.ts                        # ingredient.* endpoints
       mealPlans.ts                          # mealPlan.* endpoints
@@ -151,7 +154,7 @@ scripts/
 ## Routes
 
 ```
-/                                    → redirect to /recipes
+/                                    → DashboardPage (signed-in) / redirect to /recipes (signed-out)
 /recipes                             → RecipeListPage
 /recipes/new                         → RecipeEditorPage
 /recipes/:id                         → RecipeEditorPage
@@ -264,6 +267,7 @@ trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff set
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
+trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout templates
 trpc.settings.get/save
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions

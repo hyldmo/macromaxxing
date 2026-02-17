@@ -4,6 +4,7 @@ import {
 	ChefHat,
 	CookingPot,
 	Dumbbell,
+	Home,
 	LogIn,
 	type LucideIcon,
 	Settings,
@@ -20,16 +21,22 @@ const publicLinks = [
 	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
 ] satisfies Link[]
 
-const authLinks = [
+const desktopAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
-	{ to: '/settings', label: 'Settings', icon: Settings }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+] satisfies Link[]
+
+const mobileAuthLinks = [
+	{ to: '/', label: 'Home', icon: Home, end: true },
+	{ to: '/plans', label: 'Plans', icon: CalendarDays },
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
 ] satisfies Link[]
 
 export interface Link {
 	to: string
 	label: string
 	icon: LucideIcon
+	end?: boolean
 }
 
 export function Nav() {
@@ -47,18 +54,16 @@ export function Nav() {
 							<WebLink key={props.to} {...props} />
 						))}
 						<SignedIn>
-							{authLinks
-								.filter(link => link.to !== '/settings')
-								.map(props => (
-									<WebLink key={props.to} {...props} />
-								))}
+							{desktopAuthLinks.map(props => (
+								<WebLink key={props.to} {...props} />
+							))}
 						</SignedIn>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
 						<RestTimer />
 						<SignedIn>
-							<WebLink to="/settings" icon={Settings} className="max-md:hidden" />
+							<WebLink to="/settings" icon={Settings} />
 							<UserButton />
 						</SignedIn>
 						<SignedOut>
@@ -81,7 +86,7 @@ export function Nav() {
 				<div className="grid auto-cols-fr grid-flow-col justify-center">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
-						<AppLinks links={authLinks} />
+						<AppLinks links={mobileAuthLinks} />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
@@ -105,12 +110,14 @@ interface LinkProps {
 	to: string
 	label?: string
 	icon: LucideIcon
+	end?: boolean
 }
 
-const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
+const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => (
 	<NavLink
 		key={to}
 		to={to}
+		end={end}
 		className={({ isActive }) =>
 			cn(
 				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
@@ -124,9 +131,10 @@ const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
 	</NavLink>
 )
 
-const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className }) => (
+const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => (
 	<NavLink
 		to={to}
+		end={end}
 		className={({ isActive }) =>
 			cn(
 				'mx-auto space-y-0.5 py-2 text-center text-xs transition-colors',

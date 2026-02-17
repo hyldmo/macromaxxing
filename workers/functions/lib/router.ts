@@ -1,4 +1,5 @@
 import { aiRouter } from './routes/ai'
+import { dashboardRouter } from './routes/dashboard'
 import { ingredientsRouter } from './routes/ingredients'
 import { mealPlansRouter } from './routes/mealPlans'
 import { recipesRouter } from './routes/recipes'
@@ -12,6 +13,7 @@ export const appRouter = router({
 	ingredient: ingredientsRouter,
 	settings: settingsRouter,
 	ai: aiRouter,
+	dashboard: dashboardRouter,
 	mealPlan: mealPlansRouter,
 	user: userRouter,
 	workout: workoutsRouter
