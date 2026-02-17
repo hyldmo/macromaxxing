@@ -4,7 +4,7 @@ import {
 	ChefHat,
 	CookingPot,
 	Dumbbell,
-	LayoutDashboard,
+	Home,
 	LogIn,
 	type LucideIcon,
 	Settings,
@@ -21,11 +21,15 @@ const publicLinks = [
 	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
 ] satisfies Link[]
 
-const authLinks = [
-	{ to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+const desktopAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
-	{ to: '/settings', label: 'Settings', icon: Settings }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+] satisfies Link[]
+
+const mobileAuthLinks = [
+	{ to: '/', label: 'Home', icon: Home, end: true },
+	{ to: '/plans', label: 'Plans', icon: CalendarDays },
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
 ] satisfies Link[]
 
 export interface Link {
@@ -50,18 +54,16 @@ export function Nav() {
 							<WebLink key={props.to} {...props} />
 						))}
 						<SignedIn>
-							{authLinks
-								.filter(link => link.to !== '/settings')
-								.map(props => (
-									<WebLink key={props.to} {...props} />
-								))}
+							{desktopAuthLinks.map(props => (
+								<WebLink key={props.to} {...props} />
+							))}
 						</SignedIn>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
 						<RestTimer />
 						<SignedIn>
-							<WebLink to="/settings" icon={Settings} className="max-md:hidden" />
+							<WebLink to="/settings" icon={Settings} />
 							<UserButton />
 						</SignedIn>
 						<SignedOut>
@@ -84,7 +86,7 @@ export function Nav() {
 				<div className="grid auto-cols-fr grid-flow-col justify-center">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
-						<AppLinks links={authLinks} />
+						<AppLinks links={mobileAuthLinks} />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
