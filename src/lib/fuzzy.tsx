@@ -16,7 +16,7 @@ export function fuzzyMatch(query: string, text: string): FuzzyResult | null {
 	let score = 0
 
 	// Match longest words first to avoid overlap conflicts
-	const sorted = [...words].sort((a, b) => b.length - a.length)
+	const sorted = words.toSorted((a, b) => b.length - a.length)
 
 	for (const word of sorted) {
 		let bestIdx = -1

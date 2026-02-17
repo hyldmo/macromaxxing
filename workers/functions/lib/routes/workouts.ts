@@ -788,7 +788,7 @@ export const workoutsRouter = router({
 				// Skip if too close to working weight (within 5kg)
 				if (workingWeight - w < 5) continue
 				// Skip if same as last added set
-				if (sets.length > 0 && sets[sets.length - 1].weightKg === w) continue
+				if (sets.length > 0 && sets.at(-1)!.weightKg === w) continue
 				const reps = pct <= 0.5 ? 8 : pct <= 0.7 ? 5 : 3
 				sets.push({ weightKg: w, reps, setType: 'warmup' })
 			}

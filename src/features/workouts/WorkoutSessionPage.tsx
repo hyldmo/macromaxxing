@@ -631,7 +631,7 @@ export function WorkoutSessionPage() {
 						})
 					},
 					onUndoSet: () => {
-						const lastLog = session.logs[session.logs.length - 1]
+						const lastLog = session.logs.at(-1)
 						if (lastLog) removeSetMutation.mutate({ id: lastLog.id })
 					}
 				}}

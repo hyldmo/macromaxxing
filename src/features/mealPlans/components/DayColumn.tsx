@@ -27,7 +27,7 @@ const MIN_SLOTS = 3
 
 export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inventory, onDrop }) => {
 	// Sort slots by index
-	const sortedSlots = [...slots].sort((a, b) => a.slotIndex - b.slotIndex)
+	const sortedSlots = slots.toSorted((a, b) => a.slotIndex - b.slotIndex)
 
 	// Calculate the max slot index we need to show
 	const maxUsedSlot = sortedSlots.length > 0 ? Math.max(...sortedSlots.map(s => s.slotIndex)) : -1

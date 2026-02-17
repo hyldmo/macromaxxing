@@ -25,7 +25,7 @@ function highlightText(text: string, ingredients: RecipeIngredient[], keyPrefix:
 	const withIngredient = ingredients.filter(i => i.ingredient != null)
 	if (withIngredient.length === 0) return [text]
 
-	const sorted = [...withIngredient].sort((a, b) => b.ingredient!.name.length - a.ingredient!.name.length)
+	const sorted = withIngredient.toSorted((a, b) => b.ingredient!.name.length - a.ingredient!.name.length)
 	const pattern = sorted.map(i => escapeRegex(i.ingredient!.name)).join('|')
 	const regex = new RegExp(`\\b(${pattern})\\b`, 'gi')
 

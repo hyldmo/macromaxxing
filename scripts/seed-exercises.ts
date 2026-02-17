@@ -5,7 +5,7 @@ import type { MuscleGroup } from '@macromaxxing/db'
 const WRANGLER = 'yarn workspace @macromaxxing/workers wrangler'
 
 function exec(sql: string) {
-	const escaped = sql.replace(/"/g, '\\"')
+	const escaped = sql.replaceAll('"', '\\"')
 	execSync(`${WRANGLER} d1 execute macromaxxing --local --command "${escaped}"`, {
 		encoding: 'utf8',
 		cwd: process.cwd(),

@@ -48,7 +48,7 @@ const isLocal = !process.argv.includes('--remote')
 const flag = isLocal ? '--local' : '--remote'
 
 function exec(sql: string) {
-	const escaped = sql.replace(/"/g, '\\"')
+	const escaped = sql.replaceAll('"', '\\"')
 	execSync(`${WRANGLER} d1 execute macromaxxing ${flag} --command "${escaped}"`, {
 		encoding: 'utf8',
 		cwd: process.cwd(),
@@ -152,7 +152,7 @@ function findFile(dir: string, filename: string): string {
 
 /** Escape single quotes for SQL strings */
 function sqlEscape(s: string): string {
-	return s.replace(/'/g, "''")
+	return s.replaceAll("'", "''")
 }
 
 interface FoodData {

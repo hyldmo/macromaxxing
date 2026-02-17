@@ -55,7 +55,7 @@ export function RecipeListPage() {
 			if (filter === 'premade') return r.isMine && r.recipe.type === 'premade'
 			return r.recipe.type !== 'premade'
 		})
-		return [...filtered].sort((a, b) => {
+		return filtered.toSorted((a, b) => {
 			switch (sort) {
 				case 'protein':
 					return b.portion.protein - a.portion.protein

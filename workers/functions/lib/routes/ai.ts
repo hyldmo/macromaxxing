@@ -226,9 +226,9 @@ export const aiRouter = router({
 
 			let textContent: string
 			if (input.text) {
-				textContent = input.text.slice(0, 8000)
+				textContent = input.text.slice(0, 8_000)
 			} else if (htmlContent) {
-				textContent = stripHtml(htmlContent).slice(0, 8000)
+				textContent = stripHtml(htmlContent).slice(0, 8_000)
 			} else {
 				throw new TRPCError({ code: 'BAD_REQUEST', message: 'No content to parse' })
 			}
@@ -284,7 +284,7 @@ export const aiRouter = router({
 			})
 		}
 
-		const textContent = stripHtml(html).slice(0, 8000)
+		const textContent = stripHtml(html).slice(0, 8_000)
 
 		const { output } = await generateTextWithFallback({
 			provider: settings.provider,

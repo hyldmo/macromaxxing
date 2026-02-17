@@ -42,7 +42,7 @@ export function IngredientListPage() {
 
 	const filtered = useMemo(() => {
 		const list = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
-		return [...list].sort((a, b) => {
+		return list.toSorted((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
 			if (sortKey === 'recent') return dir * (a.createdAt - b.createdAt)
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)

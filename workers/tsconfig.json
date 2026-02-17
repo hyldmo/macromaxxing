@@ -1,10 +1,10 @@
 {
 	"compilerOptions": {
-		"target": "ES2021",
+		"target": "ES2024",
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"incremental": true,
-		"lib": ["ES2021"],
+		"lib": ["ES2024"],
 		"strict": true,
 		"skipLibCheck": true,
 		"noEmit": true,
