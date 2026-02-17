@@ -1,8 +1,9 @@
+import { by, Order } from '@hyldmo/by'
 import { Import, Package, Plus } from 'lucide-react'
+import type { AbsoluteMacros, Recipe } from 'packages/db'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { objectKeys } from 'ts-extras'
-import { Button, Card, Spinner, TRPCError } from '~/components/ui'
+import { Button, Card, Select, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
@@ -19,14 +20,9 @@ import {
 } from './utils/macros'
 
 type Filter = 'all' | 'mine' | 'premade'
-type Sort = 'recent' | 'protein' | 'calories' | 'name'
 
-const sortLabels: Record<Sort, string> = {
-	recent: 'Recent',
-	protein: 'Protein',
-	calories: 'Calories',
-	name: 'Name'
-}
+type Sort = 'recent' | keyof AbsoluteMacros | keyof Recipe
+const sortOptions: Sort[] = ['recent', 'protein', 'carbs', 'fat', 'kcal', 'fiber', 'name']
 
 export function RecipeListPage() {
 	useDocumentTitle('Recipes')
@@ -55,18 +51,16 @@ export function RecipeListPage() {
 			if (filter === 'premade') return r.isMine && r.recipe.type === 'premade'
 			return r.recipe.type !== 'premade'
 		})
-		return filtered.toSorted((a, b) => {
-			switch (sort) {
-				case 'protein':
-					return b.portion.protein - a.portion.protein
-				case 'calories':
-					return a.portion.kcal - b.portion.kcal
-				case 'name':
-					return a.recipe.name.localeCompare(b.recipe.name)
-				default:
-					return b.recipe.updatedAt - a.recipe.updatedAt
-			}
-		})
+		return filtered.toSorted(
+			by(
+				v => {
+					if (sort in v.portion) return v.portion[sort as keyof typeof v.portion]
+					if (sort in v.recipe) return v.recipe[sort as keyof typeof v.recipe]
+					return v.recipe.createdAt
+				},
+				sort === 'recent' ? Order.Asc : Order.Desc
+			)
+		)
 	}, [recipesWithMacros, filter, sort])
 
 	const myRecipeCount = recipesWithMacros.filter(r => r.isMine && r.recipe.type !== 'premade').length
@@ -119,17 +113,7 @@ export function RecipeListPage() {
 					)}
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<select
-						value={sort}
-						onChange={e => setSort(e.target.value as Sort)}
-						className="h-7 rounded-full border-none bg-surface-2 px-2.5 pr-7 text-ink-muted text-xs transition-colors hover:text-ink focus:outline-none focus:ring-1 focus:ring-accent/50"
-					>
-						{objectKeys(sortLabels).map(key => (
-							<option key={key} value={key}>
-								{sortLabels[key]}
-							</option>
-						))}
-					</select>
+					<Select className="w-auto" value={sort} onChange={setSort} options={sortOptions} />
 					{user && (
 						<>
 							<Button variant="outline" onClick={() => setShowImport(true)}>

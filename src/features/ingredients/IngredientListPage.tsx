@@ -1,3 +1,4 @@
+import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { USDA } from '~/components/icons'
@@ -32,13 +33,6 @@ export function IngredientListPage() {
 			setSortDir(key === 'name' ? 'asc' : 'desc')
 		}
 	}
-
-	const sortOptions = [
-		['recent', 'Recent'],
-		['name', 'Name'],
-		['protein', 'Prot'],
-		['kcal', 'Kcal']
-	] as const
 
 	const filtered = useMemo(() => {
 		const list = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
@@ -84,14 +78,14 @@ export function IngredientListPage() {
 			<div className="flex items-center gap-2">
 				<Input placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
 				<div className="flex shrink-0 gap-1">
-					{sortOptions.map(([key, label]) => (
+					{(['recent', 'name', 'protein', 'kcal'] as const).map(key => (
 						<button
 							key={key}
 							type="button"
 							className={`inline-flex items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors ${sortKey === key ? 'border-accent bg-accent/10 text-accent' : 'border-edge text-ink-muted hover:bg-surface-2'}`}
 							onClick={() => toggleSort(key)}
 						>
-							{label}
+							{startCase(key)}
 							{sortKey === key &&
 								(sortDir === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
 						</button>

@@ -2830,6 +2830,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hyldmo/by@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@hyldmo/by@npm:1.1.0"
+  dependencies:
+    type-fest: "npm:^5.3.1"
+  checksum: 10c0/b11221a0a1837a3bc2edea13d1cd36184d1dec1ca5472809b6d89d3612c284190c55c09f59bf77327a884920294db02f146034586f12dedff787a00fe76d471f
+  languageName: node
+  linkType: hard
+
 "@img/colour@npm:^1.0.0":
   version: 1.0.0
   resolution: "@img/colour@npm:1.0.0"
@@ -10023,6 +10032,7 @@ __metadata:
     "@dnd-kit/core": "npm:^6.3.1"
     "@dnd-kit/sortable": "npm:^10.0.0"
     "@dnd-kit/utilities": "npm:^3.2.2"
+    "@hyldmo/by": "npm:^1.1.0"
     "@j178/prek": "npm:^0.3.1"
     "@macromaxxing/db": "workspace:*"
     "@mdxeditor/editor": "npm:^3.52.3"
@@ -13603,7 +13613,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"type-fest@npm:^5.4.4":
+"type-fest@npm:^5.3.1, type-fest@npm:^5.4.4":
   version: 5.4.4
   resolution: "type-fest@npm:5.4.4"
   dependencies:
