@@ -240,11 +240,13 @@ export function RecipeEditorPage() {
 								)}
 							</div>
 							{isOwner ? (
-								<MarkdownEditor
-									value={instructions}
-									onChange={setInstructions}
-									placeholder="Add cooking instructions..."
-								/>
+								hasLoadedRecipe && (
+									<MarkdownEditor
+										value={instructions}
+										onChange={setInstructions}
+										placeholder="Add cooking instructions..."
+									/>
+								)
 							) : (
 								<HighlightedInstructions
 									markdown={instructions}
