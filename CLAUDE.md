@@ -8,7 +8,7 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 
 ## Stack
 
-- **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom
+- **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom, PWA (vite-plugin-pwa + Workbox)
 - **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), Drizzle ORM
 - **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
@@ -63,7 +63,7 @@ src/
     user.tsx                                # useUser() hook (Clerk)
     cn.ts                                   # cn() utility (clsx + twMerge)
   components/
-    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, etc.
+    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
     layout/RootLayout.tsx                    # Shell: nav + <Outlet />
     ErrorBoundary.tsx
@@ -302,6 +302,12 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 - **Rest timer** persists globally (nav widget) — shows countdown, overshot time, or session elapsed
 - **Timer route** (`/workouts/sessions/:id/timer`) renders as full-screen child route via `<Outlet>`
 - Body profile (height/weight/sex) stored in `userSettings`, used for workout validation
+
+**PWA** — Installable progressive web app via `vite-plugin-pwa`:
+- Workbox precaches all static assets (`js, css, html, ico, png, svg, woff2`) with SPA `navigateFallback` (excludes `/api/`)
+- `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available
+- Full web manifest with icons (64, 192, 512, maskable) for home screen install
+- `display: 'standalone'` for native app feel
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 
