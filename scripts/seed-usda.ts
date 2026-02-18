@@ -246,42 +246,82 @@ async function processDataset(dataset: (typeof DATASETS)[number]) {
 	}
 	console.log(`  Extracted portions for ${portionsMap.size} foods`)
 
-	// Build food data with density from volume portions
-	const foods: FoodData[] = []
+	// Group by description to aggregate samples (Foundation has multiple fdc_ids per food)
+	const descGroups = new Map<string, { fdcIds: number[]; description: string }>()
 	for (const [fdcId, food] of foodMap) {
-		const macros = macroMap.get(fdcId)
-		if (!macros) continue // Skip foods with no nutrient data
+		if (!macroMap.has(fdcId)) continue
+		const key = food.description.toLowerCase()
+		const group = descGroups.get(key)
+		if (group) {
+			group.fdcIds.push(fdcId)
+		} else {
+			descGroups.set(key, { fdcIds: [fdcId], description: food.description })
+		}
+	}
 
-		// Calculate density from volume portions
+	// Build food data — average macros across samples, pick first fdc_id as representative
+	const foods: FoodData[] = []
+	for (const group of descGroups.values()) {
+		const samples = group.fdcIds.map(id => macroMap.get(id)!).filter(Boolean)
+		if (samples.length === 0) continue
+
+		const avg = (key: keyof (typeof samples)[0]) => {
+			const values = samples.map(s => s[key]).filter(v => v > 0)
+			if (values.length === 0) return 0
+			return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100
+		}
+
+		const representativeFdcId = group.fdcIds[0]
+
+		// Calculate density from volume portions (check all fdc_ids in group)
 		let density: number | null = null
-		const portions = portionsMap.get(fdcId)
-		if (portions) {
-			for (const p of portions) {
-				const ml = VOLUME_ML.get(p.name)
-				if (ml) {
-					density = Math.round((p.grams / ml) * 1000) / 1000
-					break
+		for (const fdcId of group.fdcIds) {
+			const portions = portionsMap.get(fdcId)
+			if (portions) {
+				for (const p of portions) {
+					const ml = VOLUME_ML.get(p.name)
+					if (ml) {
+						density = Math.round((p.grams / ml) * 1000) / 1000
+						break
+					}
 				}
+				if (density !== null) break
 			}
 		}
 
 		foods.push({
-			fdcId,
-			description: food.description,
+			fdcId: representativeFdcId,
+			description: group.description,
 			dataType: dataset.dataType,
-			...macros,
+			protein: avg('protein'),
+			carbs: avg('carbs'),
+			fat: avg('fat'),
+			kcal: avg('kcal'),
+			fiber: avg('fiber'),
 			density
 		})
 	}
 
-	// Collect all portions
+	// Map all fdc_ids to their representative fdc_id for portion remapping
+	const fdcIdRemap = new Map<number, number>()
+	for (const group of descGroups.values()) {
+		const rep = group.fdcIds[0]
+		for (const id of group.fdcIds) {
+			fdcIdRemap.set(id, rep)
+		}
+	}
+
+	// Collect portions, remapping to representative fdc_id and deduplicating
 	const allPortions: PortionData[] = []
+	const seenPortions = new Set<string>()
 	for (const portions of portionsMap.values()) {
 		for (const p of portions) {
-			// Only include portions for foods we're importing
-			if (macroMap.has(p.fdcId)) {
-				allPortions.push(p)
-			}
+			const repId = fdcIdRemap.get(p.fdcId)
+			if (repId == null) continue
+			const key = `${repId}:${p.name}`
+			if (seenPortions.has(key)) continue
+			seenPortions.add(key)
+			allPortions.push({ ...p, fdcId: repId })
 		}
 	}
 
@@ -291,16 +331,54 @@ async function processDataset(dataset: (typeof DATASETS)[number]) {
 async function main() {
 	console.log(`Seeding USDA foods (${isLocal ? 'local' : 'remote'})...`)
 
-	let allFoods: FoodData[] = []
-	let allPortions: PortionData[] = []
+	console.log('Clearing existing data...')
+	exec('DELETE FROM usda_portions')
+	exec('DELETE FROM usda_foods')
+
+	let rawFoods: FoodData[] = []
+	let rawPortions: PortionData[] = []
 
 	for (const dataset of DATASETS) {
 		const { foods, portions } = await processDataset(dataset)
-		allFoods = [...allFoods, ...foods]
-		allPortions = [...allPortions, ...portions]
+		rawFoods = [...rawFoods, ...foods]
+		rawPortions = [...rawPortions, ...portions]
+	}
+	console.log(`\nRaw: ${rawFoods.length} foods, ${rawPortions.length} portions`)
+
+	// Deduplicate across datasets by description, merging macros (fill gaps from any source)
+	const foodsByDesc = new Map<string, FoodData>()
+	const MACRO_KEYS = ['protein', 'carbs', 'fat', 'kcal', 'fiber'] as const
+	for (const food of rawFoods) {
+		const key = food.description.toLowerCase()
+		const existing = foodsByDesc.get(key)
+		if (!existing) {
+			foodsByDesc.set(key, { ...food })
+		} else {
+			for (const k of MACRO_KEYS) {
+				if (existing[k] === 0 && food[k] > 0) existing[k] = food[k]
+			}
+			existing.density ??= food.density
+		}
+	}
+	const allFoods = [...foodsByDesc.values()]
+
+	// Remap portions to winning fdc_ids and deduplicate
+	const fdcIdByDesc = new Map(allFoods.map(f => [f.description.toLowerCase(), f.fdcId]))
+	const portionsSeen = new Set<string>()
+	const allPortions: PortionData[] = []
+	for (const p of rawPortions) {
+		// Find the winning fdc_id for this portion's food
+		const food = rawFoods.find(f => f.fdcId === p.fdcId)
+		if (!food) continue
+		const winId = fdcIdByDesc.get(food.description.toLowerCase())
+		if (winId == null) continue
+		const key = `${winId}:${p.name}`
+		if (portionsSeen.has(key)) continue
+		portionsSeen.add(key)
+		allPortions.push({ ...p, fdcId: winId })
 	}
 
-	console.log(`\nTotal: ${allFoods.length} foods, ${allPortions.length} portions`)
+	console.log(`Deduplicated: ${allFoods.length} foods, ${allPortions.length} portions`)
 
 	// Write SQL to temp file and execute in batches
 	const BATCH_SIZE = 500

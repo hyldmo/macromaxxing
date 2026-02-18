@@ -479,7 +479,7 @@ export async function searchLocalUSDA(db: Database, query: string, limit = 5): P
 		LIMIT 50
 	`)
 
-	return rows
+	const scored = rows
 		.map(row => ({
 			fdcId: row.fdc_id,
 			description: row.description,
@@ -491,8 +491,19 @@ export async function searchLocalUSDA(db: Database, query: string, limit = 5): P
 			fiber: row.fiber
 		}))
 		.sort((a, b) => b.score - a.score)
-		.slice(0, limit)
-		.map(({ score: _, ...rest }) => rest)
+
+	// Deduplicate by description (Foundation has multiple samples per food)
+	const seen = new Set<string>()
+	const deduped: typeof scored = []
+	for (const row of scored) {
+		const key = row.description.toLowerCase()
+		if (!seen.has(key)) {
+			seen.add(key)
+			deduped.push(row)
+		}
+	}
+
+	return deduped.slice(0, limit).map(({ score: _, ...rest }) => rest)
 }
 
 /** Exact case-insensitive match on local usda_foods table */
