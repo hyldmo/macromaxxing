@@ -2,11 +2,10 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowRight, Check, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button, Modal, Spinner, Switch } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { cn, computeDivergences, exerciseE1rmStats } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useRestTimer } from '../RestTimerContext'
-import { computeDivergences, exerciseE1rmStats } from '../utils/formulas'
 
 type Session = RouterOutput['workout']['getSession']
 type Template = NonNullable<Session['workout']>

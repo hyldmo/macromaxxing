@@ -15,11 +15,9 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
-import { totalVolume } from '~/features/workouts/utils/formulas'
-import { DAYS_LONG } from '~/lib/constants'
+import { DAYS_LONG, totalVolume, useDocumentTitle } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
 
 function todayDayIndex(): number {
 	const d = new Date().getDay() // 0=Sun, 6=Sat

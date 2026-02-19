@@ -2,21 +2,14 @@ import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
+import { type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
-import { totalVolume } from '../utils/formulas'
 import { WorkoutModes } from '../WorkoutMode'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
 type Exercise = Log['exercise']
-
-export interface PlannedSet {
-	setNumber: number
-	weightKg: number | null
-	reps: number
-	setType: SetType
-}
 
 export interface ExerciseSetFormProps {
 	exercise: Exercise

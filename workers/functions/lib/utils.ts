@@ -1,7 +1,5 @@
 import { extractPreparation } from '@macromaxxing/db'
 
-export { extractPreparation } from '@macromaxxing/db'
-
 /**
  * Converts a string to Start Case (first letter of each word capitalized)
  * Examples:

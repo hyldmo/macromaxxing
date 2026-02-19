@@ -1,5 +1,5 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import { useMemo } from 'react'
-import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import {
 	calculateIngredientMacros,

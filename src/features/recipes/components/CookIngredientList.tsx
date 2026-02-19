@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { formatAmount, formatIngredientAmount } from '../utils/format'
 

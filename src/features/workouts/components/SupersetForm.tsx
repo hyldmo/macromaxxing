@@ -2,12 +2,9 @@ import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { buildSupersetRounds, cn, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
-import { totalVolume } from '../utils/formulas'
-import { buildSupersetRounds } from '../utils/sets'
-import type { PlannedSet } from './ExerciseSetForm'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]

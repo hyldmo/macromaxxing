@@ -1,3 +1,4 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { Card } from '~/components/ui'
 import {
@@ -10,7 +11,6 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]

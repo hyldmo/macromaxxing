@@ -1,6 +1,6 @@
 import { startCase } from 'es-toolkit'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 type MacroReadoutType = 'protein' | 'carbs' | 'fat' | 'fiber'
 

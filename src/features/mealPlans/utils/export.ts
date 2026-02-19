@@ -1,3 +1,4 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import {
 	calculateDayTotals,
 	calculatePortionMacros,
@@ -8,8 +9,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { DAYS_LONG } from '~/lib/constants'
-import type { AbsoluteMacros } from '~/lib/macros'
+import { DAYS_LONG } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 
 type MealPlan = RouterOutput['mealPlan']['get']

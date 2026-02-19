@@ -1,7 +1,7 @@
 import type { SetMode } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export const SET_MODE_OPTIONS: { value: SetMode; label: string }[] = [
 	{ value: 'working', label: 'W' },

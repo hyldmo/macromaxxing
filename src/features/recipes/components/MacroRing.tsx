@@ -1,7 +1,7 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { isPresent } from 'ts-extras'
-import { cn } from '~/lib/cn'
-import type { AbsoluteMacros } from '~/lib/macros'
+import { cn } from '~/lib'
 import { caloricRatio, macroRatio } from '../utils/macros'
 
 type MacroRingSize = 'sm' | 'md' | 'lg'

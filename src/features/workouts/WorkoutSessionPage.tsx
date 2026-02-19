@@ -3,26 +3,28 @@ import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
+import {
+	calculateRest,
+	estimateReplacementWeight,
+	formatSession,
+	generateBackoffSets,
+	generateWarmupSets,
+	type PlannedSet,
+	shouldSkipWarmup,
+	TRAINING_DEFAULTS,
+	totalVolume,
+	useDocumentTitle
+} from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { ExerciseReplaceModal } from './components/ExerciseReplaceModal'
 import { ExerciseSearch } from './components/ExerciseSearch'
-import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
+import { ExerciseSetForm } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { SessionSummary } from './components/SessionSummary'
 import { SupersetForm } from './components/SupersetForm'
 import { useRestTimer } from './RestTimerContext'
-import { formatSession } from './utils/export'
-import { estimateReplacementWeight, totalVolume } from './utils/formulas'
-import {
-	calculateRest,
-	generateBackoffSets,
-	generateWarmupSets,
-	shouldSkipWarmup,
-	TRAINING_DEFAULTS
-} from './utils/sets'
 
 type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
 type SessionExercise = SessionLog['exercise']

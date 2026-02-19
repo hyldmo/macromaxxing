@@ -1,4 +1,4 @@
-import { type HttpsUrl, recipes, type TypeIDString } from '@macromaxxing/db'
+import { extractPreparation, type HttpsUrl, recipes, type TypeIDString } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq } from 'drizzle-orm'
@@ -26,7 +26,7 @@ import {
 	RECIPE_AI_PROMPT
 } from '../constants'
 import { protectedProcedure, router } from '../trpc'
-import { extractPreparation, normalizeIngredientName } from '../utils'
+import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
 
 export const aiRouter = router({

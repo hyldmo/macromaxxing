@@ -13,10 +13,8 @@ import {
 	Switch,
 	TRPCError
 } from '~/components/ui'
+import { useDocumentTitle, useUnsavedChanges, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUser } from '~/lib/user'
-import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 import { GenerateInstructionsButton } from './components/GenerateInstructionsButton'
 import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'

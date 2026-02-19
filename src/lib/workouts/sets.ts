@@ -1,6 +1,5 @@
 import type { Exercise, FatigueTier, SetType, TrainingGoal } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
-import type { PlannedSet } from '../components/ExerciseSetForm'
 import { roundWeight } from './formulas'
 
 export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
@@ -109,6 +108,13 @@ export function generateBackoffSets(workingWeight: number, workingReps: number, 
 
 export type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
 type SessionExercise = SessionLog['exercise']
+
+export interface PlannedSet {
+	setNumber: number
+	weightKg: number | null
+	reps: number
+	setType: SetType
+}
 
 export interface RoundSet {
 	exerciseId: Exercise['id']

@@ -1,8 +1,7 @@
 import { PREP_ADVERBS, PREP_DESCRIPTORS } from '@macromaxxing/db'
 import { type FC, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { cn } from '~/lib/cn'
-import { FuzzyHighlight, fuzzyMatch } from '~/lib/fuzzy'
+import { cn, FuzzyHighlight, fuzzyMatch } from '~/lib'
 
 export interface PreparationInputProps {
 	value: string

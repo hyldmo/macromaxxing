@@ -5,7 +5,7 @@ import { GripVertical, Pencil, Play } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 
 type Workout = RouterOutput['workout']['listWorkouts'][number]

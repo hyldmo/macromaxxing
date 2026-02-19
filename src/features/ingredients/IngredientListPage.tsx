@@ -3,9 +3,8 @@ import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } f
 import { useMemo, useState } from 'react'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import { useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUser } from '~/lib/user'
 import { MacroBar } from '../recipes/components/MacroBar'
 import { IngredientForm } from './components/IngredientForm'
 

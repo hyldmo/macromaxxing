@@ -1,5 +1,5 @@
 import { useReducer } from 'react'
-import type { FlatSet } from '../utils/sets'
+import type { FlatSet } from '~/lib'
 
 export interface TimerState {
 	queue: FlatSet[]

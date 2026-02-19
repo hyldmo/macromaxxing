@@ -6,14 +6,11 @@ import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
-import { formatTemplate } from './utils/export'
 
 export interface TemplateExercise {
 	uid: string

@@ -1,6 +1,6 @@
 import type { TrainingGoal } from '@macromaxxing/db'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export const TRAINING_GOAL_OPTIONS: { value: TrainingGoal | null; label: string; full: string }[] = [
 	{ value: null, label: '—', full: 'Default' },

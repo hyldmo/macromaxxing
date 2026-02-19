@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { forwardRef, type KeyboardEvent, type MouseEvent, useCallback, useRef, useState } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'inputMode'> {
 	/** Minimum value (default: 0) */

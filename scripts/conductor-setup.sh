@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 yarn install
 yarn postinstall
 cp $CONDUCTOR_ROOT_PATH/.env .env

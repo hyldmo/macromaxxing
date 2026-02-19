@@ -1,6 +1,6 @@
 import { Check } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface CookInstructionStepsProps {
 	markdown: string

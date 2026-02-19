@@ -1,6 +1,6 @@
 import type { SetType } from '@macromaxxing/db'
 import type { FC, ReactNode } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 const SET_TYPE_COLORS: Record<SetType, string> = {
 	warmup: 'var(--color-macro-carbs)',

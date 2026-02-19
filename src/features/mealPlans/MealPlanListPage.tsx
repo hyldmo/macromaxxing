@@ -2,10 +2,8 @@ import { Plus, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
-import { getISOWeek } from '~/lib/date'
+import { getISOWeek, useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUser } from '~/lib/user'
 
 export const MealPlanListPage: FC = () => {
 	useDocumentTitle('Meal Plans')

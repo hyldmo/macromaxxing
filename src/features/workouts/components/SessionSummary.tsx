@@ -1,8 +1,7 @@
 import { ArrowRight, Clock, Dumbbell, TrendingUp } from 'lucide-react'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
+import { cn, computeDivergences, type Divergence, exerciseE1rmStats, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
-import { computeDivergences, type Divergence, exerciseE1rmStats, totalVolume } from '../utils/formulas'
 
 type Session = RouterOutput['workout']['getSession']
 

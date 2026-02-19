@@ -2,8 +2,7 @@ import { Copy, ExternalLink, RefreshCw, Trash2, X } from 'lucide-react'
 import { type FC, type RefObject, useLayoutEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Spinner, TRPCError } from '~/components/ui'
-import { cn } from '~/lib/cn'
-import { DAYS_SHORT } from '~/lib/constants'
+import { cn, DAYS_SHORT } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]

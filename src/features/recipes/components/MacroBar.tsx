@@ -1,5 +1,5 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
-import type { AbsoluteMacros } from '~/lib/macros'
 import { macroRatio } from '../utils/macros'
 
 export interface MacroBarProps {

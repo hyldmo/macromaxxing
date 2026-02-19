@@ -2,13 +2,12 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import { type AiProvider, type HttpsUrl, usdaFoods, usdaPortions } from '@macromaxxing/db'
+import { type AiProvider, extractPreparation, type HttpsUrl, usdaFoods, usdaPortions } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
 import { eq, sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { FALLBACK_MODELS, MODELS, type macroSchema } from './constants'
 import type { Database } from './db'
-import { extractPreparation } from './utils'
 
 // USDA nutrient IDs
 const NUTRIENT_IDS = {

@@ -2,8 +2,7 @@ import type { Recipe } from '@macromaxxing/db'
 import { Camera, Trash2, Upload } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
 import { Button, Spinner } from '~/components/ui'
-import { cn } from '~/lib/cn'
-import { getImageAttribution, getImageUrl, isExternalImage } from '~/lib/images'
+import { cn, getImageAttribution, getImageUrl, isExternalImage } from '~/lib'
 
 export interface RecipeImageUploadProps {
 	recipeId: Recipe['id']

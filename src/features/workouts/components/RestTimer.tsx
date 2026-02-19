@@ -1,7 +1,7 @@
 import { Dumbbell } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 import { useRestTimer } from '../RestTimerContext'
 
 const SET_TYPE_COLORS = {

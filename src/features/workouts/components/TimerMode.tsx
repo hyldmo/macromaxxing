@@ -3,12 +3,10 @@ import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lu
 import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
-import { useScrollLock } from '~/lib/useScrollLock'
+import { cn, flattenSets, type RenderItem, useScrollLock } from '~/lib'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
 import { useWakeLock } from '../useWakeLock'
-import { flattenSets, type RenderItem } from '../utils/sets'
 import { TimerRing } from './TimerRing'
 
 const SET_TYPE_STYLES: Record<SetType, string> = {

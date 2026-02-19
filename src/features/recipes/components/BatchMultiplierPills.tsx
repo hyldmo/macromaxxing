@@ -1,6 +1,6 @@
 import { type FC, useRef, useState } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface BatchMultiplierPillsProps {
 	value: number

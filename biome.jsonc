@@ -66,6 +66,7 @@
 				"noMisplacedAssertion": "error"
 			},
 			"style": {
+				"noExportedImports": "error",
 				"noNonNullAssertion": "off"
 			},
 			"nursery": {

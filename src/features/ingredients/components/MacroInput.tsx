@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export type MacroLabel = keyof typeof colorMap
 

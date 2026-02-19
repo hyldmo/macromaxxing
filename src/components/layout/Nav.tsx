@@ -13,7 +13,7 @@ import type { FC, HTMLAttributes } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 const publicLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },

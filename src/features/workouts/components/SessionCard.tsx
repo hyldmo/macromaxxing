@@ -1,8 +1,8 @@
 import { ChevronRight } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
+import { totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
-import { totalVolume } from '../utils/formulas'
 
 type Session = RouterOutput['workout']['listSessions'][number]
 

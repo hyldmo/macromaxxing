@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { createPortal } from 'react-dom'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface ModalProps extends React.HTMLAttributes<HTMLDivElement> {
 	onClose?: () => void
