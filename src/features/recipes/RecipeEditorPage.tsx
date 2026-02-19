@@ -20,6 +20,7 @@ import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 import { GenerateInstructionsButton } from './components/GenerateInstructionsButton'
 import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'
+import { RecipeImageUpload } from './components/RecipeImageUpload'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
 import { RecipeTotalsBar } from './components/RecipeTotalsBar'
 import { useRecipeCalculations } from './hooks/useRecipeCalculations'
@@ -194,6 +195,15 @@ export function RecipeEditorPage() {
 			{recipeQuery.error && <TRPCError error={recipeQuery.error} />}
 			{(createMutation.error || updateMutation.error) && (
 				<TRPCError error={createMutation.error || updateMutation.error} />
+			)}
+
+			{!isNew && recipeQuery.data && (
+				<RecipeImageUpload
+					recipeId={id!}
+					image={recipeQuery.data.image}
+					onImageChange={() => recipeQuery.refetch()}
+					readOnly={!isOwner}
+				/>
 			)}
 
 			{!isNew && recipeQuery.data && calculations && (
