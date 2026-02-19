@@ -1,6 +1,6 @@
 {
 	"scripts": {
-		"setup": "yarn install && yarn db:migrate",
+		"setup": "yarn install && yarn postinstall && cp $CONDUCTOR_ROOT_PATH/.env .env && cp -r $CONDUCTOR_ROOT_PATH/workers workers",
 		"run": "yarn dev",
 		"archive": "rm -rf node_modules dist .wrangler"
 	},
