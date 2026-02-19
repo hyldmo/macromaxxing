@@ -59,6 +59,13 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		setSessionId(session?.id ?? null)
 		if (session === null) {
 			setStartedAt(null)
+			// Dismiss any running rest timer when session ends
+			setEndAt(null)
+			setTotal(0)
+			setSetType(null)
+			setRemaining(0)
+			setIsTransition(false)
+			completedRef.current = false
 		} else if (session.startedAt !== undefined) {
 			setStartedAt(session.startedAt)
 		}

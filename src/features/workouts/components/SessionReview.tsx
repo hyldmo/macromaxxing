@@ -5,6 +5,7 @@ import { Button, Modal, Spinner, Switch } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { useRestTimer } from '../RestTimerContext'
 import { TRAINING_DEFAULTS } from '../utils/sets'
 
 type Session = RouterOutput['workout']['getSession']
@@ -34,6 +35,7 @@ export interface SessionReviewProps {
 
 export const SessionReview: FC<SessionReviewProps> = ({ session, template, extraExercises, onClose }) => {
 	const utils = trpc.useUtils()
+	const { setSession } = useRestTimer()
 
 	const divergences = useMemo(() => {
 		const result: Divergence[] = []
@@ -92,6 +94,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	const completeMutation = trpc.workout.completeSession.useMutation({
 		onSuccess: () => {
+			setSession(null)
 			utils.workout.getSession.invalidate({ id: session.id })
 			utils.workout.listSessions.invalidate()
 			utils.workout.listWorkouts.invalidate()
