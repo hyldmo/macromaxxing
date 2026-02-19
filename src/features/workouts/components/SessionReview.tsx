@@ -5,6 +5,7 @@ import { Button, Modal, Spinner, Switch } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { exerciseE1rmStats } from '../utils/formulas'
 import { useRestTimer } from '../RestTimerContext'
 import { TRAINING_DEFAULTS } from '../utils/sets'
 
@@ -84,6 +85,8 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 		return result
 	}, [session.logs, template.exercises, template.trainingGoal])
 
+	const exerciseStats = useMemo(() => exerciseE1rmStats(session.logs), [session.logs])
+
 	// Toggle states: on for improvements, off for decreases by default
 	const [updates, setUpdates] = useState<Map<string, boolean>>(
 		() => new Map(divergences.map(d => [d.exerciseId, d.improved]))
@@ -148,6 +151,25 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 					<X className="size-4" />
 				</Button>
 			</div>
+
+			{exerciseStats.length > 0 && (
+				<div className="mb-4 rounded-sm border border-edge bg-surface-0 p-3">
+					<p className="mb-2 text-ink-muted text-xs">Estimated 1RM</p>
+					<div className="space-y-1.5">
+						{exerciseStats.map(s => (
+							<div key={s.name} className="flex items-baseline justify-between gap-2">
+								<span className="min-w-0 truncate text-ink text-sm">{s.name}</span>
+								<div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px] tabular-nums">
+									<span className="text-ink-faint">
+										{s.weightKg}kg × {s.reps}
+									</span>
+									<span className="font-semibold text-accent">{s.e1rm.toFixed(0)}kg</span>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 
 			{!hasDivergences ? (
 				<p className="mb-4 text-ink-muted text-sm">All sets matched the plan. Complete the session?</p>
