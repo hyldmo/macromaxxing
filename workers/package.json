@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "wrangler pages dev --d1=macromaxxing --port=8788 --live-reload",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

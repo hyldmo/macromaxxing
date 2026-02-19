@@ -11,9 +11,10 @@
     "url": "https://github.com/hyldmo/macromaxxing.git"
   },
   "scripts": {
-    "dev": "concurrently -k -c 'green,#CA7B38' 'yarn:dev:*'",
+    "dev": "concurrently -k -c 'green,#CA7B38,#C5F74F' 'yarn:dev:*'",
     "dev:web": "vite",
-    "dev:api": "yarn workspace @macromaxxing/workers wrangler pages dev --d1=macromaxxing --port=8788 --live-reload",
+    "dev:api": "yarn workspace @macromaxxing/workers dev",
+    "dev:db": "yarn workspace @macromaxxing/db dev",
     "build": "vite build",
     "typecheck": "concurrently 'yarn:typecheck:*'",
     "typecheck:app": "tsc",
