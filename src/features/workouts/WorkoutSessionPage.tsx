@@ -14,7 +14,7 @@ import { SessionReview } from './components/SessionReview'
 import { SupersetForm } from './components/SupersetForm'
 import { useRestTimer } from './RestTimerContext'
 import { formatSession } from './utils/export'
-import { totalVolume } from './utils/formulas'
+import { estimateReplacementWeight, totalVolume } from './utils/formulas'
 import {
 	calculateRest,
 	generateBackoffSets,
@@ -102,6 +102,7 @@ export function WorkoutSessionPage() {
 	}, [sessionQuery.data, isCompleteSession, setSession])
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
+	const standardsQuery = trpc.workout.listStandards.useQuery()
 
 	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
 
@@ -216,6 +217,7 @@ export function WorkoutSessionPage() {
 		if (!sessionQuery.data)
 			return { exerciseGroups: [], extraExercises: [], exerciseModes: new Map(), exerciseGoals: new Map() }
 
+		const standards = standardsQuery.data ?? []
 		const template = sessionQuery.data.workout
 		const logsByExercise = new Map<Exercise['id'], ExerciseGroup>()
 
@@ -263,8 +265,24 @@ export function WorkoutSessionPage() {
 				goals.set(effectiveExerciseId, exerciseGoal)
 				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
 
-				const effectiveSets = we.targetSets ?? exerciseDefaults.targetSets
-				const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
+				// When exercise is replaced, don't carry over the old exercise's targets —
+				// instead estimate weight from other template exercises via strength standards
+				const effectiveSets = (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets
+				const effectiveReps = (replacement ? null : we.targetReps) ?? exerciseDefaults.targetReps
+				const effectiveTargetWeight = replacement
+					? estimateReplacementWeight(
+							effectiveExerciseId,
+							effectiveReps,
+							template.exercises
+								.filter(e => e.exerciseId !== we.exerciseId)
+								.map(e => ({
+									exerciseId: templateReplacements.get(e.exerciseId)?.id ?? e.exerciseId,
+									targetWeight: e.targetWeight,
+									targetReps: e.targetReps
+								})),
+							standards
+						)
+					: we.targetWeight
 
 				const sets: PlannedSet[] = []
 				let setNum = 1
@@ -272,10 +290,10 @@ export function WorkoutSessionPage() {
 				const hasBackoff = effectiveMode === 'backoff' || effectiveMode === 'full'
 
 				// Generate warmup sets
-				if (hasWarmup && we.targetWeight != null && we.targetWeight > 0) {
+				if (hasWarmup && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
 					const skipWarmup = shouldSkipWarmup(effectiveExercise.muscles, warmedUpMuscles)
 					if (!skipWarmup) {
-						const warmups = generateWarmupSets(we.targetWeight, effectiveReps)
+						const warmups = generateWarmupSets(effectiveTargetWeight, effectiveReps)
 						for (const wu of warmups) {
 							sets.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
 						}
@@ -292,15 +310,15 @@ export function WorkoutSessionPage() {
 				for (let i = 0; i < workingCount; i++) {
 					sets.push({
 						setNumber: setNum++,
-						weightKg: we.targetWeight,
+						weightKg: effectiveTargetWeight,
 						reps: effectiveReps,
 						setType: 'working'
 					})
 				}
 
 				// Generate backoff set
-				if (hasBackoff && we.targetWeight != null && we.targetWeight > 0) {
-					const backoffs = generateBackoffSets(we.targetWeight, effectiveReps, 1)
+				if (hasBackoff && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
+					const backoffs = generateBackoffSets(effectiveTargetWeight, effectiveReps, 1)
 					for (const bo of backoffs) {
 						sets.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
 					}
@@ -374,7 +392,7 @@ export function WorkoutSessionPage() {
 		}
 
 		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes, exerciseGoals: goals }
-	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements])
+	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements, standardsQuery.data])
 
 	// Helper: check if a render item contains a given exerciseId
 	const itemContainsExercise = useCallback(

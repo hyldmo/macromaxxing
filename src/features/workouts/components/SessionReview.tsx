@@ -5,8 +5,8 @@ import { Button, Modal, Spinner, Switch } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
-import { exerciseE1rmStats } from '../utils/formulas'
 import { useRestTimer } from '../RestTimerContext'
+import { exerciseE1rmStats } from '../utils/formulas'
 import { TRAINING_DEFAULTS } from '../utils/sets'
 
 type Session = RouterOutput['workout']['getSession']

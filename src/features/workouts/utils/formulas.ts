@@ -6,6 +6,76 @@ export function estimated1RM(weightKg: number, reps: number): number {
 	return weightKg * (36 / (37 - reps))
 }
 
+/** Inverse Brzycki: working weight for a given 1RM and target reps */
+export function weightForReps(oneRM: number, reps: number): number {
+	if (reps <= 0 || reps >= 37) return oneRM
+	return oneRM * ((37 - reps) / 36)
+}
+
+export type WeightUnit = 'kg' | 'lbs'
+
+/** Pick the smallest practical plate increment for a given weight. */
+function plateIncrement(weight: number, unit: WeightUnit): number {
+	if (unit === 'lbs') {
+		if (weight <= 10) return 1
+		if (weight <= 40) return 2.5
+		return 5
+	}
+	// kg
+	if (weight <= 5) return 0.5
+	if (weight <= 20) return 1.25
+	return 2.5
+}
+
+/** Round weight to the nearest practical plate increment. */
+export function roundWeight(
+	weight: number,
+	unit: WeightUnit = 'kg',
+	direction: 'nearest' | 'up' | 'down' = 'nearest'
+): number {
+	const inc = plateIncrement(Math.abs(weight), unit)
+	const fn = direction === 'up' ? Math.ceil : direction === 'down' ? Math.floor : Math.round
+	return fn(weight / inc) * inc
+}
+
+/**
+ * Estimate a replacement exercise's working weight using strength standards.
+ * Looks at all template exercises with known weights and finds a path
+ * through the standards table to the replacement exercise.
+ */
+export function estimateReplacementWeight(
+	replacementId: string,
+	targetReps: number,
+	templateExercises: Array<{ exerciseId: string; targetWeight: number | null; targetReps: number | null }>,
+	standards: Array<{ compoundId: string; isolationId: string; maxRatio: number }>
+): number | null {
+	for (const te of templateExercises) {
+		if (te.targetWeight == null || te.targetWeight <= 0) continue
+		const known1RM = estimated1RM(te.targetWeight, te.targetReps ?? targetReps)
+
+		// Direct: known is compound, replacement is isolation
+		const directCI = standards.find(s => s.compoundId === te.exerciseId && s.isolationId === replacementId)
+		if (directCI) {
+			return roundWeight(weightForReps(known1RM * directCI.maxRatio, targetReps))
+		}
+
+		// Direct: known is isolation, replacement is compound
+		const directIC = standards.find(s => s.isolationId === te.exerciseId && s.compoundId === replacementId)
+		if (directIC) {
+			return roundWeight(weightForReps(known1RM / directIC.maxRatio, targetReps))
+		}
+
+		// Transitive: both isolations of the same compound
+		const knownAsIso = standards.find(s => s.isolationId === te.exerciseId)
+		const replAsIso = standards.find(s => s.isolationId === replacementId)
+		if (knownAsIso && replAsIso && knownAsIso.compoundId === replAsIso.compoundId) {
+			const compound1RM = known1RM / knownAsIso.maxRatio
+			return roundWeight(weightForReps(compound1RM * replAsIso.maxRatio, targetReps))
+		}
+	}
+	return null
+}
+
 export interface E1rmStat {
 	name: string
 	weightKg: number
