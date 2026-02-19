@@ -6,6 +6,7 @@ import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { useScrollLock } from '~/lib/useScrollLock'
 import { useRestTimer } from '../RestTimerContext'
+import { useWakeLock } from '../useWakeLock'
 import { type FlatSet, flattenSets, type RenderItem } from '../utils/sets'
 import { TimerRing } from './TimerRing'
 
@@ -48,6 +49,7 @@ export const TimerMode: FC = () => {
 	const onClose = useCallback(() => navigate('..'), [navigate])
 
 	const restTimer = useRestTimer()
+	useWakeLock()
 
 	// Activate nav elapsed display on mount
 	useEffect(() => {
