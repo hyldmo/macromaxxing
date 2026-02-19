@@ -9,7 +9,7 @@ import {
 	Settings,
 	UtensilsCrossed
 } from 'lucide-react'
-import type { FC } from 'react'
+import type { FC, HTMLAttributes } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
@@ -66,13 +66,7 @@ export function Nav() {
 						</SignedIn>
 						<SignedOut>
 							<SignInButton mode="modal">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
-								>
-									<LogIn className="size-4" />
-									Sign in
-								</button>
+								<WebLink className="max-md:hidden" to="/sign-in" icon={LogIn} label="Sign in" />
 							</SignInButton>
 						</SignedOut>
 					</div>
@@ -81,20 +75,14 @@ export function Nav() {
 
 			{/* Mobile bottom tab bar */}
 			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
-				<div className="grid auto-cols-fr grid-flow-col justify-center px-3">
+				<div className="grid auto-cols-fr grid-flow-col justify-center px-3 2xs:py-1">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
 						<AppLinks links={mobileAuthLinks} />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
-							<button
-								type="button"
-								className="mx-auto space-y-0.5 py-2 text-center text-ink-muted text-xs transition-colors"
-							>
-								<LogIn className="mx-auto size-5" />
-								<div>Sign in</div>
-							</button>
+							<AppLink to="/sign-in" icon={LogIn} label="Sign in" />
 						</SignInButton>
 					</SignedOut>
 				</div>
@@ -105,45 +93,46 @@ export function Nav() {
 
 interface LinkProps {
 	className?: string
-	to: string
+	to: string | (() => void)
 	label?: string
 	icon: LucideIcon
 	end?: boolean
 }
 
-const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => (
-	<NavLink
-		key={to}
-		to={to}
-		end={end}
-		className={({ isActive }) =>
-			cn(
-				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
-				isActive ? 'bg-surface-2 font-medium text-ink' : 'text-ink-muted hover:text-ink',
+const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => {
+	const Elem =
+		typeof to === 'string'
+			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
+			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
+	return (
+		<Elem
+			className={cn(
+				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink active:bg-surface-2 active:font-medium active:text-ink',
 				className
-			)
-		}
-	>
-		<Icon className="size-5" />
-		<span className="group-hover:inline max-md:hidden">{label}</span>
-	</NavLink>
-)
+			)}
+		>
+			<Icon className="size-5" />
+			<span className="group-hover:inline max-md:hidden">{label}</span>
+		</Elem>
+	)
+}
 
-const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => (
-	<NavLink
-		to={to}
-		end={end}
-		className={({ isActive }) =>
-			cn(
-				'mx-auto space-y-0.5 py-2 text-center text-xs transition-colors',
-				isActive ? 'font-medium text-accent' : 'text-ink-muted',
+const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => {
+	const Elem =
+		typeof to === 'string'
+			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
+			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
+	return (
+		<Elem
+			className={cn(
+				'mx-auto space-y-0.5 py-2 text-center 2xs:text-sm text-ink-muted text-xs transition-colors active:font-medium active:text-accent',
 				className
-			)
-		}
-	>
-		<Icon className="mx-auto size-5" />
-		<div>{label}</div>
-	</NavLink>
-)
+			)}
+		>
+			<Icon className="mx-auto 2xs:size-6 size-5" />
+			<div>{label}</div>
+		</Elem>
+	)
+}
 
 const AppLinks: FC<{ links: Link[] }> = ({ links }) => links.map(link => <AppLink key={link.to} {...link} />)
