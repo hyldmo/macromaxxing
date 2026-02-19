@@ -1,13 +1,14 @@
 import type { Exercise, SetType } from '@macromaxxing/db'
 import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { useScrollLock } from '~/lib/useScrollLock'
+import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
 import { useWakeLock } from '../useWakeLock'
-import { type FlatSet, flattenSets, type RenderItem } from '../utils/sets'
+import { flattenSets, type RenderItem } from '../utils/sets'
 import { TimerRing } from './TimerRing'
 
 const SET_TYPE_STYLES: Record<SetType, string> = {
@@ -28,6 +29,8 @@ export interface TimerModeContext {
 		transition?: boolean
 	}) => void
 	onUndoSet: () => void
+	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => number
+	timerModeActiveRef: MutableRefObject<boolean>
 }
 
 function formatTime(seconds: number): string {
@@ -42,14 +45,29 @@ function formatTime(seconds: number): string {
 }
 
 export const TimerMode: FC = () => {
-	const { exerciseGroups, setActiveExerciseId, session, onConfirmSet, onUndoSet } =
-		useOutletContext<TimerModeContext>()
+	const {
+		exerciseGroups,
+		setActiveExerciseId,
+		session,
+		onConfirmSet,
+		onUndoSet,
+		getRestDuration,
+		timerModeActiveRef
+	} = useOutletContext<TimerModeContext>()
 	const { sessionId } = useParams<{ sessionId: string }>()
 	const navigate = useNavigate()
 	const onClose = useCallback(() => navigate('..'), [navigate])
 
 	const restTimer = useRestTimer()
 	useWakeLock()
+
+	// Signal to parent that TimerMode is active (skip auto-timer in addSetMutation.onSuccess)
+	useEffect(() => {
+		timerModeActiveRef.current = true
+		return () => {
+			timerModeActiveRef.current = false
+		}
+	}, [timerModeActiveRef])
 
 	// Activate nav elapsed display on mount
 	useEffect(() => {
@@ -60,115 +78,110 @@ export const TimerMode: FC = () => {
 
 	useScrollLock()
 
-	const [editWeight, setEditWeight] = useState<number | null>(null)
-	const [editReps, setEditReps] = useState<number>(0)
+	// --- Local-first state via reducer ---
+	const [state, dispatch] = useTimerState()
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
-	const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null)
-	const [setStartedAt, setSetStartedAt] = useState<number | null>(null)
 	const [setElapsedMs, setSetElapsedMs] = useState(0)
-	const [isPaused, setIsPaused] = useState(false)
 	const rafRef = useRef(0)
 
+	// Initialize queue from exerciseGroups on mount
+	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
+	const didInit = useRef(false)
+	useEffect(() => {
+		if (flatSets.length > 0 && !didInit.current) {
+			didInit.current = true
+			dispatch({ type: 'INIT', sets: flatSets })
+		}
+	}, [flatSets, dispatch])
+
+	const isResting = restTimer.isRunning
+	const currentSet = state.currentIndex >= 0 ? state.queue[state.currentIndex] : null
+
+	// Find next pending after current for preview
+	const nextSet = useMemo(() => {
+		if (state.currentIndex < 0) return null
+		for (let i = state.currentIndex + 1; i < state.queue.length; i++) {
+			if (!(state.queue[i].completed || state.locallyConfirmed.includes(i))) return state.queue[i]
+		}
+		return null
+	}, [state.queue, state.currentIndex, state.locallyConfirmed])
+
 	// High-frequency timer — only runs when set is active (not paused) or rest countdown is running
-	const needsRaf = (setStartedAt !== null && !isPaused) || restTimer.endAt !== null
+	const needsRaf = (state.setStartedAt !== null && !state.isPaused) || restTimer.endAt !== null
 	useEffect(() => {
 		if (!needsRaf) return
 		const tick = () => {
 			if (restTimer.endAt !== null) {
 				setPreciseRemaining((restTimer.endAt - Date.now()) / 1000)
 			}
-			if (setStartedAt !== null && !isPaused) {
-				setSetElapsedMs(Date.now() - setStartedAt)
+			if (state.setStartedAt !== null && !state.isPaused) {
+				setSetElapsedMs(Date.now() - state.setStartedAt)
 			}
 			rafRef.current = requestAnimationFrame(tick)
 		}
 		rafRef.current = requestAnimationFrame(tick)
 		return () => cancelAnimationFrame(rafRef.current)
-	}, [needsRaf, restTimer.endAt, setStartedAt, isPaused])
-
-	// Flat set list — replaces nested exerciseGroup walking
-	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
-	const isResting = restTimer.isRunning
-
-	const pendingIndex = useMemo(() => {
-		if (focusedItemIndex !== null) {
-			const idx = flatSets.findIndex(s => !s.completed && s.itemIndex === focusedItemIndex)
-			if (idx !== -1) return idx
-		}
-		return flatSets.findIndex(s => !s.completed)
-	}, [flatSets, focusedItemIndex])
-
-	// During rest, show the just-completed set; otherwise show next pending
-	const currentIndex =
-		isResting && pendingIndex !== 0 ? (pendingIndex > 0 ? pendingIndex - 1 : flatSets.length - 1) : pendingIndex
-	const currentSet: FlatSet | null = currentIndex >= 0 ? flatSets[currentIndex] : null
-	const nextSet: FlatSet | null = currentIndex >= 0 ? (flatSets[currentIndex + 1] ?? null) : null
-
-	// Sync editable state when current set identity changes
-	const setIdentity = currentSet ? `${currentSet.exerciseId}-${currentSet.setNumber}-${currentSet.setType}` : null
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sync only when set identity changes, not on every weight/reps edit
-	useEffect(() => {
-		if (currentSet) {
-			setEditWeight(currentSet.weightKg)
-			setEditReps(currentSet.reps)
-		}
-		setSetStartedAt(null)
-		setSetElapsedMs(0)
-		setIsPaused(false)
-	}, [setIdentity])
+	}, [needsRaf, restTimer.endAt, state.setStartedAt, state.isPaused])
 
 	const handleStartSet = useCallback(() => {
-		setSetStartedAt(Date.now())
-		setIsPaused(false)
-	}, [])
+		dispatch({ type: 'START_SET' })
+		setSetElapsedMs(0)
+	}, [dispatch])
 
 	const handlePause = useCallback(() => {
-		setIsPaused(true)
-	}, [])
+		dispatch({ type: 'PAUSE' })
+	}, [dispatch])
 
 	const handleResume = useCallback(() => {
-		// Adjust startedAt so elapsed continues from where it was
-		setSetStartedAt(Date.now() - setElapsedMs)
-		setIsPaused(false)
-	}, [setElapsedMs])
+		dispatch({ type: 'RESUME', elapsedMs: setElapsedMs })
+	}, [dispatch, setElapsedMs])
 
 	const handleConfirm = useCallback(() => {
-		if (!currentSet || restTimer.isRunning) return
+		if (!currentSet || isResting) return
+		const { exerciseId, setType, transition } = currentSet
+
+		dispatch({ type: 'CONFIRM' })
+		setSetElapsedMs(0)
+		setActiveExerciseId(exerciseId)
+
+		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
+
 		onConfirmSet({
-			exerciseId: currentSet.exerciseId,
-			weightKg: editWeight ?? 0,
-			reps: editReps,
-			setType: currentSet.setType,
-			transition: currentSet.transition
+			exerciseId,
+			weightKg: state.editWeight ?? 0,
+			reps: state.editReps,
+			setType,
+			transition
 		})
-		setSetStartedAt(null)
-		setIsPaused(false)
-		setActiveExerciseId(currentSet.exerciseId)
-		setFocusedItemIndex(null)
-	}, [currentSet, editWeight, editReps, restTimer.isRunning, onConfirmSet, setActiveExerciseId])
+	}, [
+		currentSet,
+		isResting,
+		state.editWeight,
+		state.editReps,
+		dispatch,
+		setActiveExerciseId,
+		getRestDuration,
+		restTimer,
+		onConfirmSet
+	])
+
+	const handleUndo = useCallback(() => {
+		dispatch({ type: 'UNDO' })
+		restTimer.dismiss()
+		setSetElapsedMs(0)
+		onUndoSet()
+	}, [dispatch, restTimer, onUndoSet])
 
 	const handleDismissTimer = useCallback(() => {
 		restTimer.dismiss()
 	}, [restTimer])
 
-	// Navigate to previous/next exercise with pending sets
-	const navigateExercise = useCallback(
-		(direction: -1 | 1) => {
-			if (currentIndex < 0) return
-			const currentItemIdx = flatSets[currentIndex].itemIndex
-			if (direction === 1) {
-				const next = flatSets.find(s => !s.completed && s.itemIndex > currentItemIdx)
-				if (next) setFocusedItemIndex(next.itemIndex)
-			} else {
-				let targetIdx = -1
-				for (const s of flatSets) {
-					if (!s.completed && s.itemIndex < currentItemIdx) targetIdx = s.itemIndex
-				}
-				if (targetIdx >= 0) setFocusedItemIndex(targetIdx)
-			}
-		},
-		[currentIndex, flatSets]
-	)
+	const handleStopSet = useCallback(() => {
+		dispatch({ type: 'STOP_SET' })
+		setSetElapsedMs(0)
+	}, [dispatch])
+
+	const handleNavigate = useCallback((direction: -1 | 1) => dispatch({ type: 'NAVIGATE', direction }), [dispatch])
 
 	// Keyboard: Enter/Space confirms or dismisses, Escape closes
 	useEffect(() => {
@@ -190,11 +203,11 @@ export const TimerMode: FC = () => {
 				)
 					return
 				e.preventDefault()
-				if (restTimer.isRunning) {
+				if (isResting) {
 					handleDismissTimer()
-				} else if (isPaused) {
+				} else if (state.isPaused) {
 					handleResume()
-				} else if (setStartedAt !== null) {
+				} else if (state.setStartedAt !== null) {
 					handleConfirm()
 				} else {
 					handleStartSet()
@@ -208,14 +221,15 @@ export const TimerMode: FC = () => {
 		handleDismissTimer,
 		handleStartSet,
 		handleResume,
-		restTimer.isRunning,
-		setStartedAt,
-		isPaused,
+		isResting,
+		state.setStartedAt,
+		state.isPaused,
 		onClose
 	])
 
-	const isDoingSet = setStartedAt !== null && !isResting && !isPaused
-	const isSetPaused = setStartedAt !== null && isPaused && !isResting
+	const isDoingSet = state.setStartedAt !== null && !isResting && !state.isPaused
+	const isSetPaused = state.setStartedAt !== null && state.isPaused && !isResting
+	const hasConfirmedSets = state.locallyConfirmed.length > 0
 
 	return (
 		<div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
@@ -246,7 +260,7 @@ export const TimerMode: FC = () => {
 								<button
 									type="button"
 									className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-									onClick={() => navigateExercise(-1)}
+									onClick={() => handleNavigate(-1)}
 								>
 									<ChevronLeft className="size-5" />
 								</button>
@@ -254,7 +268,7 @@ export const TimerMode: FC = () => {
 								<button
 									type="button"
 									className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-									onClick={() => navigateExercise(1)}
+									onClick={() => handleNavigate(1)}
 								>
 									<ChevronRight className="size-5" />
 								</button>
@@ -318,16 +332,16 @@ export const TimerMode: FC = () => {
 								)}
 							</TimerRing>
 
-							{/* Weight x Reps inputs — visible during rest to show just-completed set */}
+							{/* Weight x Reps inputs — editable for upcoming set */}
 							<div className="flex items-center gap-3">
 								<NumberInput
 									className="w-28 text-center text-2xl"
-									value={editWeight ?? ''}
+									value={state.editWeight ?? ''}
 									placeholder="kg"
 									unit="kg"
 									onChange={e => {
 										const v = Number.parseFloat(e.target.value)
-										setEditWeight(Number.isNaN(v) ? null : v)
+										dispatch({ type: 'EDIT_WEIGHT', weight: Number.isNaN(v) ? null : v })
 									}}
 									step={2.5}
 									min={0}
@@ -335,10 +349,10 @@ export const TimerMode: FC = () => {
 								<span className="text-ink-faint text-xl">&times;</span>
 								<NumberInput
 									className="w-24 text-center text-2xl"
-									value={editReps}
+									value={state.editReps}
 									onChange={e => {
 										const v = Number.parseInt(e.target.value, 10)
-										if (!Number.isNaN(v) && v >= 0) setEditReps(v)
+										if (!Number.isNaN(v) && v >= 0) dispatch({ type: 'EDIT_REPS', reps: v })
 									}}
 									unit="r"
 									step={1}
@@ -354,19 +368,12 @@ export const TimerMode: FC = () => {
 									</Button>
 								)}
 								{isSetPaused && (
-									<Button
-										variant="outline"
-										size="icon"
-										onClick={() => {
-											setSetStartedAt(null)
-											setIsPaused(false)
-										}}
-									>
+									<Button variant="outline" size="icon" onClick={handleStopSet}>
 										<Square className="size-4" />
 									</Button>
 								)}
-								{!(isDoingSet || isSetPaused || isResting) && pendingIndex > 0 && (
-									<Button variant="outline" size="icon" onClick={onUndoSet}>
+								{!(isDoingSet || isSetPaused || isResting) && hasConfirmedSets && (
+									<Button variant="outline" size="icon" onClick={handleUndo}>
 										<Undo2 className="size-4" />
 									</Button>
 								)}

@@ -1,4 +1,4 @@
-import type { Exercise, FatigueTier, SetMode, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
+import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
 import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router-dom'
@@ -55,6 +55,7 @@ export function WorkoutSessionPage() {
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
 	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
+	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
 	const [templateReplacements, setTemplateReplacements] = useState<Map<Exercise['id'], SessionExercise>>(new Map())
@@ -108,29 +109,59 @@ export function WorkoutSessionPage() {
 	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
 
 	const addSetMutation = trpc.workout.addSet.useMutation({
+		onMutate: async variables => {
+			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
+			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
+			if (previous) {
+				// Find exercise data from existing logs or template
+				const exerciseData =
+					previous.logs.find(l => l.exerciseId === variables.exerciseId)?.exercise ??
+					previous.workout?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
+				if (exerciseData) {
+					const existingCount = previous.logs.filter(l => l.exerciseId === variables.exerciseId).length
+					utils.workout.getSession.setData(
+						{ id: effectiveSessionId! },
+						{
+							...previous,
+							logs: [
+								...previous.logs,
+								{
+									id: `wkl_optimistic_${Date.now()}` as SessionLog['id'],
+									sessionId: variables.sessionId,
+									exerciseId: variables.exerciseId,
+									setNumber: existingCount + 1,
+									setType: variables.setType ?? 'working',
+									weightKg: variables.weightKg,
+									reps: variables.reps,
+									rpe: null,
+									failureFlag: 0,
+									createdAt: Date.now(),
+									exercise: exerciseData
+								}
+							]
+						}
+					)
+				}
+			}
+			return { previous }
+		},
 		onSuccess: (_data, variables) => {
 			setActiveExerciseId(variables.exerciseId)
-			// Auto-start rest timer
-			if (!isCompleteSession) {
-				if (transitionRef.current) {
-					// Mid-superset round: short transition timer
-					startTimer(15, variables.setType ?? 'working', true)
-					transitionRef.current = false
-				} else {
-					// Standalone set or last exercise in superset round: full rest
-					const exercise = exerciseGroups.find(g => {
-						if (g.type === 'standalone') return g.exerciseId === variables.exerciseId
-						return g.exercises.some(e => e.exerciseId === variables.exerciseId)
-					})
-					const tier: FatigueTier =
-						exercise?.type === 'standalone'
-							? exercise.exercise.fatigueTier
-							: (exercise?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
-									.fatigueTier ?? 2)
-					const exerciseGoal = exerciseGoals.get(variables.exerciseId) ?? goal
-					const rest = calculateRest(variables.reps, tier, exerciseGoal, variables.setType ?? 'working')
-					startTimer(rest, variables.setType ?? 'working')
-				}
+			// Auto-start rest timer (skip when TimerMode handles it locally)
+			if (!(isCompleteSession || timerModeActiveRef.current)) {
+				const rest = getRestDuration(
+					variables.exerciseId,
+					variables.reps,
+					variables.setType ?? 'working',
+					transitionRef.current
+				)
+				startTimer(rest, variables.setType ?? 'working', transitionRef.current)
+				transitionRef.current = false
+			}
+		},
+		onError: (_err, _variables, context) => {
+			if (context?.previous) {
+				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
 			}
 		},
 		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
@@ -395,6 +426,24 @@ export function WorkoutSessionPage() {
 		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes, exerciseGoals: goals }
 	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements, standardsQuery.data])
 
+	// Compute rest duration for an exercise — used by both addSetMutation.onSuccess and TimerMode
+	const getRestDuration = useCallback(
+		(exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => {
+			if (transition) return 15
+			const exercise = exerciseGroups.find(g => {
+				if (g.type === 'standalone') return g.exerciseId === exerciseId
+				return g.exercises.some(e => e.exerciseId === exerciseId)
+			})
+			const tier: FatigueTier =
+				exercise?.type === 'standalone'
+					? exercise.exercise.fatigueTier
+					: (exercise?.exercises.find(e => e.exerciseId === exerciseId)?.exercise.fatigueTier ?? 2)
+			const exerciseGoal = exerciseGoals.get(exerciseId) ?? goal
+			return calculateRest(reps, tier, exerciseGoal, setType)
+		},
+		[exerciseGroups, exerciseGoals, goal]
+	)
+
 	// Helper: check if a render item contains a given exerciseId
 	const itemContainsExercise = useCallback(
 		(item: RenderItem, id: string) =>
@@ -654,7 +703,9 @@ export function WorkoutSessionPage() {
 					onUndoSet: () => {
 						const lastLog = session.logs.at(-1)
 						if (lastLog) removeSetMutation.mutate({ id: lastLog.id })
-					}
+					},
+					getRestDuration,
+					timerModeActiveRef
 				}}
 			/>
 
