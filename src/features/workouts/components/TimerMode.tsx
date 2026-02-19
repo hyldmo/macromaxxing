@@ -4,7 +4,9 @@ import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'reac
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
+import { useScrollLock } from '~/lib/useScrollLock'
 import { useRestTimer } from '../RestTimerContext'
+import { useWakeLock } from '../useWakeLock'
 import { type FlatSet, flattenSets, type RenderItem } from '../utils/sets'
 import { TimerRing } from './TimerRing'
 
@@ -47,6 +49,7 @@ export const TimerMode: FC = () => {
 	const onClose = useCallback(() => navigate('..'), [navigate])
 
 	const restTimer = useRestTimer()
+	useWakeLock()
 
 	// Activate nav elapsed display on mount
 	useEffect(() => {
@@ -54,6 +57,8 @@ export const TimerMode: FC = () => {
 			restTimer.setSession({ id: sessionId, startedAt: session.startedAt })
 		}
 	}, [sessionId, session.startedAt, restTimer.setSession, restTimer])
+
+	useScrollLock()
 
 	const [editWeight, setEditWeight] = useState<number | null>(null)
 	const [editReps, setEditReps] = useState<number>(0)
@@ -212,7 +217,7 @@ export const TimerMode: FC = () => {
 	const isSetPaused = setStartedAt !== null && isPaused && !isResting
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col bg-surface-0">
+		<div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
 			<div className="mx-auto flex h-full w-full max-w-sm flex-col">
 				{/* Main content */}
 				<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
