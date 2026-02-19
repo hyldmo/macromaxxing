@@ -54,6 +54,11 @@ body {
 	font-variant-numeric: tabular-nums;
 }
 
+/* Scroll lock — used by useScrollLock hook */
+.scroll-locked {
+	overflow: hidden;
+}
+
 /* Scrollbar styling for dark theme */
 ::-webkit-scrollbar {
 	width: 8px;

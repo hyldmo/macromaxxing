@@ -1,6 +1,6 @@
 import { by, Order } from '@hyldmo/by'
+import type { AbsoluteMacros, Recipe } from '@macromaxxing/db'
 import { Import, Package, Plus } from 'lucide-react'
-import type { AbsoluteMacros, Recipe } from 'packages/db'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, Select, Spinner, TRPCError } from '~/components/ui'

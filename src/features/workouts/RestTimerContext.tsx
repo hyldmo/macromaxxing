@@ -59,6 +59,13 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		setSessionId(session?.id ?? null)
 		if (session === null) {
 			setStartedAt(null)
+			// Dismiss any running rest timer when session ends
+			setEndAt(null)
+			setTotal(0)
+			setSetType(null)
+			setRemaining(0)
+			setIsTransition(false)
+			completedRef.current = false
 		} else if (session.startedAt !== undefined) {
 			setStartedAt(session.startedAt)
 		}
@@ -76,20 +83,51 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 	useEffect(() => {
 		if (endAt === null) return
 
-		const tick = () => {
-			const left = Math.ceil((endAt - Date.now()) / 1000)
-			setRemaining(left)
-			if (left <= 0 && !completedRef.current) {
+		const fireNotification = () => {
+			if (!completedRef.current) {
 				completedRef.current = true
 				if (navigator.vibrate) navigator.vibrate(200)
 				if ('Notification' in window && Notification.permission === 'granted') {
-					new Notification('Rest timer done', { body: 'Time for your next set', tag: 'rest-timer' })
+					// Use SW showNotification — works even when app is backgrounded
+					if ('serviceWorker' in navigator) {
+						navigator.serviceWorker.ready.then(reg => {
+							reg.showNotification('Rest timer done', {
+								body: 'Time for your next set',
+								tag: 'rest-timer',
+								icon: '/pwa-192x192.png'
+							})
+						})
+					} else {
+						new Notification('Rest timer done', { body: 'Time for your next set', tag: 'rest-timer' })
+					}
 				}
 			}
 		}
+
+		const tick = () => {
+			const left = Math.ceil((endAt - Date.now()) / 1000)
+			setRemaining(left)
+			if (left <= 0) fireNotification()
+		}
 		tick()
-		const id = setInterval(tick, 1000)
-		return () => clearInterval(id)
+		const intervalId = setInterval(tick, 1000)
+
+		// Schedule a direct timeout for when the timer expires.
+		// setInterval ticks are throttled to ~1/min in background tabs,
+		// but a one-shot setTimeout with exact delay is scheduled more reliably.
+		const delay = endAt - Date.now()
+		const timeoutId =
+			delay > 0
+				? setTimeout(() => {
+						fireNotification()
+						setRemaining(Math.ceil((endAt - Date.now()) / 1000))
+					}, delay)
+				: undefined
+
+		return () => {
+			clearInterval(intervalId)
+			if (timeoutId) clearTimeout(timeoutId)
+		}
 	}, [endAt])
 
 	return (

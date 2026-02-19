@@ -74,6 +74,52 @@ export function estimateReplacementWeight(
 		}
 	}
 	return null
+export interface E1rmStat {
+	name: string
+	weightKg: number
+	reps: number
+	e1rm: number
+	volume: number
+}
+
+/** Per-exercise estimated 1RM stats from a list of logs, sorted by highest e1RM */
+export function exerciseE1rmStats(
+	logs: ReadonlyArray<{ exerciseId: string; weightKg: number; reps: number; exercise: { name: string } }>
+): E1rmStat[] {
+	const byExercise = new Map<string, { name: string; logs: Array<{ weightKg: number; reps: number }> }>()
+
+	for (const log of logs) {
+		const existing = byExercise.get(log.exerciseId)
+		if (existing) {
+			existing.logs.push(log)
+		} else {
+			byExercise.set(log.exerciseId, { name: log.exercise.name, logs: [log] })
+		}
+	}
+
+	const stats: E1rmStat[] = []
+
+	for (const [, { name, logs: exLogs }] of byExercise) {
+		let bestE1rm = 0
+		let bestWeight = 0
+		let bestReps = 0
+
+		for (const log of exLogs) {
+			if (log.weightKg <= 0 || log.reps <= 0) continue
+			const e1rm = estimated1RM(log.weightKg, log.reps)
+			if (e1rm > bestE1rm) {
+				bestE1rm = e1rm
+				bestWeight = log.weightKg
+				bestReps = log.reps
+			}
+		}
+
+		if (bestE1rm > 0) {
+			stats.push({ name, weightKg: bestWeight, reps: bestReps, e1rm: bestE1rm, volume: totalVolume(exLogs) })
+		}
+	}
+
+	return stats.sort((a, b) => b.e1rm - a.e1rm)
 }
 
 /** Height-based limb length factor for leverage adjustment */
