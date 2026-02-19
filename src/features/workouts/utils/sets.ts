@@ -8,8 +8,28 @@ export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targe
 	strength: { targetSets: 5, targetReps: 5 }
 }
 
-const GOAL_MULTIPLIER = { hypertrophy: 1.0, strength: 1.5 } as const
-const TIER_MODIFIER = { 1: 60, 2: 30, 3: 0, 4: -15 } as const
+/**
+ * Rest period calculation based on fatigue tier, training goal, and reps.
+ *
+ * Formula: TIER_BASE[tier] × GOAL_MULTIPLIER[goal] + reps × PER_REP
+ *
+ * The fatigue tier is the dominant factor — heavy compounds (T1) need substantially
+ * more rest than isolation exercises (T4). The goal multiplier scales the tier
+ * component for strength work (heavier loads → longer recovery). Reps add a small
+ * per-rep increment.
+ *
+ * Warmup sets get 50% of the working set rest (minimum 15s).
+ *
+ * Evidence basis:
+ * - Strength compounds (3-5 min): Grgic et al. 2018, de Salles et al. 2009
+ * - Hypertrophy compounds (2-3 min): Schoenfeld et al. 2016, Singer et al. 2024
+ * - Isolation exercises (60-120s): Senna et al. 2011, Longo et al. 2023
+ * - Warmup at 50% of working rest: Starting Strength, Barbell Medicine, RP
+ * - <60s is consistently worse for hypertrophy: Singer et al. 2024 meta-analysis
+ */
+const TIER_BASE = { 1: 120, 2: 80, 3: 45, 4: 30 } as const
+const GOAL_MULTIPLIER = { hypertrophy: 1.0, strength: 2.0 } as const
+const PER_REP = 3
 
 export function calculateRest(
 	reps: number,
@@ -17,7 +37,7 @@ export function calculateRest(
 	goal: TrainingGoal,
 	setType: 'warmup' | 'working' | 'backoff' = 'working'
 ): number {
-	const base = Math.round(reps * 4 * GOAL_MULTIPLIER[goal] + TIER_MODIFIER[fatigueTier])
+	const base = Math.round(TIER_BASE[fatigueTier] * GOAL_MULTIPLIER[goal] + reps * PER_REP)
 	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 
