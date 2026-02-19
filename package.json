@@ -31,7 +31,7 @@
     "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
     "test": "vitest run",
     "pwa:generate-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
-    "postinstall": "prek install"
+    "postinstall": "prek install && prek install --hook-type commit-msg"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.36",
@@ -64,8 +64,15 @@
     "vite-plugin-pwa": "^1.2.0",
     "zod": "^4.3.6"
   },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
     "@j178/prek": "^0.3.1",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^25.2.1",
