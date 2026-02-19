@@ -108,6 +108,7 @@ export const TimerMode: FC = () => {
 			setEditReps(currentSet.reps)
 		}
 		setSetStartedAt(null)
+		setSetElapsedMs(0)
 		setIsPaused(false)
 	}, [setIdentity])
 
