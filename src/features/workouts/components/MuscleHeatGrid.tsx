@@ -1,20 +1,22 @@
+import type { MuscleGroup } from '@macromaxxing/db'
 import { type FC, useMemo, useRef, useState } from 'react'
 import { Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
+import { intensityClass, MUSCLE_LABELS } from '../utils/muscles'
 import { BodyMap } from './BodyMap'
 
 export const MuscleHeatGrid: FC = () => {
 	const coverageQuery = trpc.workout.coverageStats.useQuery()
 	const profileQuery = trpc.settings.getProfile.useQuery()
-	const [hoveredMuscle, setHoveredMuscle] = useState<string | null>(null)
+	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
 	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 	const containerRef = useRef<HTMLDivElement>(null)
 	const sex = profileQuery.data?.sex ?? 'male'
 
 	const muscleColors = useMemo(() => {
-		if (!coverageQuery.data) return new Map<string, string>()
+		if (!coverageQuery.data) return new Map<MuscleGroup, string>()
 		const max = Math.max(...coverageQuery.data.map(s => s.weeklySets), 1)
-		const colors = new Map<string, string>()
+		const colors = new Map<MuscleGroup, string>()
 		for (const s of coverageQuery.data) {
 			if (s.weeklySets > 0) {
 				colors.set(s.muscleGroup, intensityClass(s.weeklySets / max))
@@ -57,29 +59,4 @@ export const MuscleHeatGrid: FC = () => {
 			)}
 		</div>
 	) : null
-}
-
-/** Map 0-1 intensity to macro color classes (red=low → green=high) */
-function intensityClass(t: number): string {
-	if (t < 0.33) return 'text-macro-kcal'
-	if (t < 0.66) return 'text-macro-fat'
-	if (t < 0.85) return 'text-macro-carbs'
-	return 'text-macro-protein'
-}
-
-const MUSCLE_LABELS: Record<string, string> = {
-	chest: 'Chest',
-	upper_back: 'Upper Back',
-	lats: 'Lats',
-	front_delts: 'Front Delts',
-	side_delts: 'Side Delts',
-	rear_delts: 'Rear Delts',
-	biceps: 'Biceps',
-	triceps: 'Triceps',
-	forearms: 'Forearms',
-	quads: 'Quads',
-	hamstrings: 'Hamstrings',
-	glutes: 'Glutes',
-	calves: 'Calves',
-	core: 'Core'
 }

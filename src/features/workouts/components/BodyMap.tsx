@@ -1,20 +1,20 @@
-import type { Sex } from '@macromaxxing/db'
+import type { MuscleGroup, Sex } from '@macromaxxing/db'
 import type { FC, SVGAttributes } from 'react'
 import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
 
 export interface BodyMapProps {
-	muscleColors: Map<string, string>
-	onHover: (muscleGroup: string | null) => void
+	muscleColors: Map<MuscleGroup, string>
+	onHover: (muscleGroup: MuscleGroup | null) => void
 	sex: Sex
 }
 
 const BodyFigure: FC<{
 	SvgComponent: FC<BodySvgProps>
-	muscleColors: Map<string, string>
-	onHover: (muscle: string | null) => void
+	muscleColors: Map<MuscleGroup, string>
+	onHover: (muscle: MuscleGroup | null) => void
 	label: string
 }> = ({ SvgComponent, muscleColors, onHover, label }) => {
-	const gp = (muscle: string): SVGAttributes<SVGGElement> => ({
+	const gp = (muscle: MuscleGroup): SVGAttributes<SVGGElement> => ({
 		className: `cursor-pointer transition-colors hover:opacity-70 ${
 			muscleColors.get(muscle) ?? 'text-ink-faint/20'
 		}`,

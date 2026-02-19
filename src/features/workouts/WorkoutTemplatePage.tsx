@@ -1,17 +1,19 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import type { MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
+import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 import { formatTemplate } from './utils/export'
+import { intensityClass, MUSCLE_LABELS } from './utils/muscles'
 
 export interface TemplateExercise {
 	uid: string
@@ -37,11 +39,16 @@ export function WorkoutTemplatePage() {
 		{ enabled: isEditing }
 	)
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
+	const profileQuery = trpc.settings.getProfile.useQuery()
 
 	const [name, setName] = useState('')
 	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
+	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
+	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+	const bodyMapRef = useRef<HTMLDivElement>(null)
+	const sex = profileQuery.data?.sex ?? 'male'
 
 	useEffect(() => {
 		if (workoutQuery.data) {
@@ -84,6 +91,28 @@ export function WorkoutTemplatePage() {
 			)
 		})
 	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
+
+	const muscleColors = useMemo(() => {
+		const allExercises = exercisesQuery.data
+		if (!allExercises || exercises.length === 0) return new Map<MuscleGroup, string>()
+
+		const volumes = new Map<MuscleGroup, number>()
+		for (const te of exercises) {
+			const exercise = allExercises.find(e => e.id === te.exerciseId)
+			if (!exercise) continue
+			const sets = te.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
+			for (const m of exercise.muscles) {
+				volumes.set(m.muscleGroup, (volumes.get(m.muscleGroup) ?? 0) + sets * m.intensity)
+			}
+		}
+
+		const max = Math.max(...volumes.values(), 1)
+		const colors = new Map<MuscleGroup, string>()
+		for (const [muscle, volume] of volumes) {
+			colors.set(muscle, intensityClass(volume / max))
+		}
+		return colors
+	}, [exercises, exercisesQuery.data, trainingGoal])
 
 	useUnsavedChanges(dirty)
 
@@ -205,6 +234,12 @@ export function WorkoutTemplatePage() {
 		setExercises(next)
 	}
 
+	function handleBodyMapMouseMove(e: React.MouseEvent) {
+		if (!bodyMapRef.current) return
+		const rect = bodyMapRef.current.getBoundingClientRect()
+		setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+	}
+
 	if (isEditing && workoutQuery.isLoading) {
 		return (
 			<div className="flex justify-center py-12">
@@ -274,6 +309,26 @@ export function WorkoutTemplatePage() {
 					</p>
 				</div>
 			</div>
+
+			{exercises.length > 0 && (
+				<div
+					ref={bodyMapRef}
+					role="img"
+					aria-label="Muscle coverage preview"
+					className="relative"
+					onMouseMove={handleBodyMapMouseMove}
+				>
+					<BodyMap muscleColors={muscleColors} onHover={setHoveredMuscle} sex={sex} />
+					{hoveredMuscle && (
+						<div
+							className="pointer-events-none absolute z-10 rounded-sm border border-edge bg-surface-1 px-2 py-1"
+							style={{ left: mousePos.x + 12, top: mousePos.y - 8 }}
+						>
+							<div className="font-medium text-ink text-xs">{MUSCLE_LABELS[hoveredMuscle]}</div>
+						</div>
+					)}
+				</div>
+			)}
 
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 				<div className="space-y-0">
