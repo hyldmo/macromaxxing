@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import { type AiProvider, usdaFoods, usdaPortions } from '@macromaxxing/db'
+import { type AiProvider, type HttpsUrl, usdaFoods, usdaPortions } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
 import { eq, sql } from 'drizzle-orm'
 import type { z } from 'zod'
@@ -298,7 +298,7 @@ export interface JsonLdRecipe {
 	ingredientStrings: string[]
 	instructions: string
 	servings: number | null
-	image: string | null
+	image: HttpsUrl | null
 }
 
 /** Extract Recipe structured data from JSON-LD script tags in HTML */
@@ -356,7 +356,7 @@ function findRecipeInJsonLd(data: unknown): JsonLdRecipe | null {
 			ingredientStrings,
 			instructions: normalizeInstructions(obj.recipeInstructions),
 			servings: parseServings(obj.recipeYield),
-			image
+			image: image as HttpsUrl | null
 		}
 	}
 

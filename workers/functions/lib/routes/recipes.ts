@@ -1,4 +1,11 @@
-import { ingredients, ingredientUnits, recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
+import {
+	type ImageSource,
+	ingredients,
+	ingredientUnits,
+	recipeIngredients,
+	recipes,
+	type TypeIDString
+} from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { and, eq, isNotNull, or } from 'drizzle-orm'
 import { z } from 'zod'
@@ -28,7 +35,7 @@ const updateRecipeSchema = z.object({
 	cookedWeight: z.number().positive().nullable().optional(),
 	portionSize: z.number().positive().nullable().optional(),
 	isPublic: z.boolean().optional(),
-	image: z.string().nullable().optional()
+	image: z.custom<ImageSource>().nullable().optional()
 })
 
 const addIngredientSchema = z.object({

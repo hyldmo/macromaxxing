@@ -1,11 +1,9 @@
-import type { Recipe } from '@macromaxxing/db'
+import type { ImageSource } from '@macromaxxing/db'
 
 export const R2_BASE_URL = import.meta.env.VITE_R2_BASE_URL ?? ''
 
-type RecipeImage = NonNullable<Recipe['image']>
-
 /** Resolve a recipe image value to a renderable URL */
-export const getImageUrl = (image: RecipeImage): string =>
+export const getImageUrl = (image: ImageSource): string =>
 	image.startsWith('http') ? image : `${R2_BASE_URL}/recipes/${image}`
 
 /** Check if an image is externally hosted (for attribution) */

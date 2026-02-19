@@ -1,4 +1,5 @@
 import { ArrowLeft, FileText, Globe, X } from 'lucide-react'
+import type { ImageSource } from 'packages/db'
 import { type FC, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Modal, Spinner, Textarea, TRPCError } from '~/components/ui'
@@ -34,7 +35,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 	const [instructions, setInstructions] = useState('')
 	const [servings, setServings] = useState<number | null>(null)
 	const [source, setSource] = useState<'structured' | 'ai'>('ai')
-	const [imageUrl, setImageUrl] = useState<string | null>(null)
+	const [imageUrl, setImageUrl] = useState<ImageSource | null>(null)
 
 	// Import progress
 	const [progress, setProgress] = useState({ current: 0, total: 0 })

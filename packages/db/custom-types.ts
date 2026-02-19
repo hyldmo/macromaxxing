@@ -28,6 +28,9 @@ export const setMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 export type SetMode = z.infer<typeof setMode>
 export type SetType = Exclude<SetMode, 'full'>
 
+export type HttpsUrl = `https://${string}`
+export type ImageSource = HttpsUrl | TypeIDString<'rcp'>
+
 export const trainingGoal = z.enum(['hypertrophy', 'strength'])
 export type TrainingGoal = z.infer<typeof trainingGoal>
 
