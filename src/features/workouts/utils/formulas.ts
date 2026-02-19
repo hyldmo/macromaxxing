@@ -15,7 +15,7 @@ export function weightForReps(oneRM: number, reps: number): number {
 export type WeightUnit = 'kg' | 'lbs'
 
 /** Pick the smallest practical plate increment for a given weight. */
-function plateIncrement(weight: number, unit: WeightUnit): number {
+export function plateIncrement(weight: number, unit: WeightUnit = 'kg'): number {
 	if (unit === 'lbs') {
 		if (weight <= 10) return 1
 		if (weight <= 40) return 2.5
@@ -46,12 +46,12 @@ export function roundWeight(
 export function estimateReplacementWeight(
 	replacementId: string,
 	targetReps: number,
-	templateExercises: Array<{ exerciseId: string; targetWeight: number | null; targetReps: number | null }>,
+	templateExercises: Array<{ exerciseId: string; targetWeight: number | null; targetRepsMin: number | null }>,
 	standards: Array<{ compoundId: string; isolationId: string; maxRatio: number }>
 ): number | null {
 	for (const te of templateExercises) {
 		if (te.targetWeight == null || te.targetWeight <= 0) continue
-		const known1RM = estimated1RM(te.targetWeight, te.targetReps ?? targetReps)
+		const known1RM = estimated1RM(te.targetWeight, te.targetRepsMin ?? targetReps)
 
 		// Direct: known is compound, replacement is isolation
 		const directCI = standards.find(s => s.compoundId === te.exerciseId && s.isolationId === replacementId)
@@ -159,19 +159,36 @@ export function proteinPerKg(proteinGrams: number, weightKg: number): number {
 
 // ─── Divergence Calculation ──────────────────────────────────────────
 
+/** Rep range defaults for divergence calculation (duplicated from sets.ts to avoid circular dep) */
+const RANGE_DEFAULTS: Record<
+	TrainingGoal,
+	Record<'compound' | 'isolation', { targetSets: number; targetRepsMin: number; targetRepsMax: number }>
+> = {
+	hypertrophy: {
+		compound: { targetSets: 3, targetRepsMin: 8, targetRepsMax: 12 },
+		isolation: { targetSets: 3, targetRepsMin: 12, targetRepsMax: 15 }
+	},
+	strength: {
+		compound: { targetSets: 5, targetRepsMin: 3, targetRepsMax: 5 },
+		isolation: { targetSets: 5, targetRepsMin: 6, targetRepsMax: 8 }
+	}
+}
+
 export interface Divergence {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
-	planned: { sets: number; reps: number; weight: number | null }
+	planned: { sets: number; repsMin: number; repsMax: number; weight: number | null }
 	actual: { sets: number; reps: number; weight: number }
-	improved: boolean
+	status: 'below_range' | 'in_range' | 'improved'
+	suggestedWeight: number | null
 }
 
 interface PlannedExerciseInput {
 	exerciseId: TypeIDString<'exc'>
-	exercise: { name: string }
+	exercise: { name: string; type: 'compound' | 'isolation' }
 	targetSets: number | null
-	targetReps: number | null
+	targetRepsMin: number | null
+	targetRepsMax: number | null
 	targetWeight: number | null
 	setMode: SetMode | null
 	trainingGoal: TrainingGoal | null
@@ -182,11 +199,6 @@ interface LogInput {
 	setType: string
 	weightKg: number
 	reps: number
-}
-
-const DIVERGENCE_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
-	hypertrophy: { targetSets: 3, targetReps: 10 },
-	strength: { targetSets: 5, targetReps: 5 }
 }
 
 /** Compute per-exercise divergences between planned and actual performance */
@@ -202,33 +214,54 @@ export function computeDivergences(
 		if (exerciseLogs.length === 0) continue
 
 		const exerciseGoal = we.trainingGoal ?? workoutGoal
-		const defaults = DIVERGENCE_DEFAULTS[exerciseGoal]
+		const defaults = RANGE_DEFAULTS[exerciseGoal][we.exercise.type]
 
 		const templateMode = we.setMode ?? 'working'
 		const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
 		const totalSets = we.targetSets ?? defaults.targetSets
 		const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
-		const effectiveReps = we.targetReps ?? defaults.targetReps
+		const effectiveRepsMin = we.targetRepsMin ?? defaults.targetRepsMin
+		const effectiveRepsMax = we.targetRepsMax ?? defaults.targetRepsMax
 
 		const bestSet = exerciseLogs.reduce((best, l) =>
 			l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
 		)
 
-		const weightDiff = we.targetWeight != null ? Math.abs(bestSet.weightKg - we.targetWeight) : 0
-		const repsDiff = Math.abs(bestSet.reps - effectiveReps)
-		const setsDiff = Math.abs(exerciseLogs.length - effectiveSets)
+		const targetWeight = we.targetWeight ?? 0
+		const weightMatch = we.targetWeight != null ? Math.abs(bestSet.weightKg - we.targetWeight) <= 0.1 : true
+		const setsMatch = exerciseLogs.length === effectiveSets
 
-		if (weightDiff > 0.1 || repsDiff > 0 || setsDiff > 0) {
-			const improved =
-				bestSet.weightKg >= (we.targetWeight ?? 0) &&
-				bestSet.reps >= effectiveReps &&
-				exerciseLogs.length >= effectiveSets
+		// Determine status based on range
+		let status: Divergence['status']
+		let suggestedWeight: number | null = null
+
+		if (bestSet.reps < effectiveRepsMin) {
+			status = 'below_range'
+		} else if (bestSet.reps >= effectiveRepsMax && bestSet.weightKg >= targetWeight) {
+			status = 'improved'
+			if (we.targetWeight != null && we.targetWeight > 0) {
+				const inc = plateIncrement(we.targetWeight)
+				suggestedWeight = roundWeight(we.targetWeight + inc)
+			}
+		} else {
+			status = 'in_range'
+		}
+
+		// Only report if there's a meaningful divergence
+		const isInRangeAndMatched = status === 'in_range' && weightMatch && setsMatch
+		if (!isInRangeAndMatched) {
 			result.push({
 				exerciseId: we.exerciseId,
 				exerciseName: we.exercise.name,
-				planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
+				planned: {
+					sets: effectiveSets,
+					repsMin: effectiveRepsMin,
+					repsMax: effectiveRepsMax,
+					weight: we.targetWeight
+				},
 				actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
-				improved
+				status,
+				suggestedWeight
 			})
 		}
 	}

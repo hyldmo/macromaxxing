@@ -75,7 +75,12 @@ export function formatTemplate(workout: Workout): string {
 
 		// Target sets × reps @ weight
 		const sets = we.targetSets ?? '?'
-		const reps = we.targetReps ?? '?'
+		const repsMin = we.targetRepsMin
+		const repsMax = we.targetRepsMax
+		const reps =
+			repsMin != null && repsMax != null && repsMin !== repsMax
+				? `${repsMin}-${repsMax}`
+				: (repsMin ?? repsMax ?? '?')
 		let prescription = `${sets}×${reps}`
 		if (we.targetWeight != null) prescription += ` @ ${we.targetWeight}kg`
 		parts.push(`— ${prescription}`)

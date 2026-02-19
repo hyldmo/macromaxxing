@@ -19,7 +19,8 @@ export interface TemplateExercise {
 	exerciseName: string
 	exerciseType: 'compound' | 'isolation'
 	targetSets: number | null
-	targetReps: number | null
+	targetRepsMin: number | null
+	targetRepsMax: number | null
 	targetWeight: number | null
 	setMode: SetMode
 	trainingGoal: TrainingGoal | null
@@ -54,7 +55,8 @@ export function WorkoutTemplatePage() {
 					exerciseName: e.exercise.name,
 					exerciseType: e.exercise.type,
 					targetSets: e.targetSets,
-					targetReps: e.targetReps,
+					targetRepsMin: e.targetRepsMin,
+					targetRepsMax: e.targetRepsMax,
 					targetWeight: e.targetWeight,
 					setMode: e.setMode ?? 'working',
 					trainingGoal: e.trainingGoal ?? null,
@@ -76,7 +78,8 @@ export function WorkoutTemplatePage() {
 			return (
 				e.exerciseId !== s.exerciseId ||
 				e.targetSets !== s.targetSets ||
-				e.targetReps !== s.targetReps ||
+				e.targetRepsMin !== s.targetRepsMin ||
+				e.targetRepsMax !== s.targetRepsMax ||
 				e.targetWeight !== s.targetWeight ||
 				e.setMode !== (s.setMode ?? 'working') ||
 				e.trainingGoal !== (s.trainingGoal ?? null) ||
@@ -112,7 +115,8 @@ export function WorkoutTemplatePage() {
 			exercises: exercises.map(e => ({
 				exerciseId: e.exerciseId,
 				targetSets: e.targetSets,
-				targetReps: e.targetReps,
+				targetRepsMin: e.targetRepsMin,
+				targetRepsMax: e.targetRepsMax,
 				targetWeight: e.targetWeight,
 				setMode: e.setMode,
 				trainingGoal: e.trainingGoal,
@@ -269,8 +273,8 @@ export function WorkoutTemplatePage() {
 					</div>
 					<p className="text-ink-faint text-xs">
 						{trainingGoal === 'hypertrophy'
-							? 'Default 3×10, dynamic rest'
-							: 'Default 5×5, dynamic rest (1.5×)'}
+							? 'Default 3×8-12 (compound) / 3×12-15 (isolation)'
+							: 'Default 5×3-5 (compound) / 5×6-8 (isolation)'}
 					</p>
 				</div>
 			</div>
@@ -363,7 +367,8 @@ export function WorkoutTemplatePage() {
 								exerciseName: exercise.name,
 								exerciseType: exercise.type,
 								targetSets: null,
-								targetReps: null,
+								targetRepsMin: null,
+								targetRepsMax: null,
 								targetWeight: null,
 								setMode: exercise.type === 'compound' ? 'warmup' : 'working',
 								trainingGoal: null,

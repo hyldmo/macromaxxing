@@ -20,8 +20,8 @@ import {
 	calculateRest,
 	generateBackoffSets,
 	generateWarmupSets,
-	shouldSkipWarmup,
-	TRAINING_DEFAULTS
+	getExerciseDefaults,
+	shouldSkipWarmup
 } from './utils/sets'
 
 type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
@@ -295,22 +295,22 @@ export function WorkoutSessionPage() {
 				const goalOverride = goalOverrides.get(effectiveExerciseId)
 				const exerciseGoal = goalOverride !== undefined ? (goalOverride ?? goal) : (we.trainingGoal ?? goal)
 				goals.set(effectiveExerciseId, exerciseGoal)
-				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
+				const exerciseDefaults = getExerciseDefaults(exerciseGoal, effectiveExercise.type)
 
 				// When exercise is replaced, don't carry over the old exercise's targets —
 				// instead estimate weight from other template exercises via strength standards
 				const effectiveSets = (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets
-				const effectiveReps = (replacement ? null : we.targetReps) ?? exerciseDefaults.targetReps
+				const effectiveRepsMin = (replacement ? null : we.targetRepsMin) ?? exerciseDefaults.targetRepsMin
 				const effectiveTargetWeight = replacement
 					? estimateReplacementWeight(
 							effectiveExerciseId,
-							effectiveReps,
+							effectiveRepsMin,
 							template.exercises
 								.filter(e => e.exerciseId !== we.exerciseId)
 								.map(e => ({
 									exerciseId: templateReplacements.get(e.exerciseId)?.id ?? e.exerciseId,
 									targetWeight: e.targetWeight,
-									targetReps: e.targetReps
+									targetRepsMin: e.targetRepsMin
 								})),
 							standards
 						)
@@ -325,7 +325,7 @@ export function WorkoutSessionPage() {
 				if (hasWarmup && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
 					const skipWarmup = shouldSkipWarmup(effectiveExercise.muscles, warmedUpMuscles)
 					if (!skipWarmup) {
-						const warmups = generateWarmupSets(effectiveTargetWeight, effectiveReps)
+						const warmups = generateWarmupSets(effectiveTargetWeight, effectiveRepsMin)
 						for (const wu of warmups) {
 							sets.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
 						}
@@ -343,14 +343,14 @@ export function WorkoutSessionPage() {
 					sets.push({
 						setNumber: setNum++,
 						weightKg: effectiveTargetWeight,
-						reps: effectiveReps,
+						reps: effectiveRepsMin,
 						setType: 'working'
 					})
 				}
 
 				// Generate backoff set
 				if (hasBackoff && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
-					const backoffs = generateBackoffSets(effectiveTargetWeight, effectiveReps, 1)
+					const backoffs = generateBackoffSets(effectiveTargetWeight, effectiveRepsMin, 1)
 					for (const bo of backoffs) {
 						sets.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
 					}

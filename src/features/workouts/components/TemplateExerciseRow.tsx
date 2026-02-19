@@ -6,7 +6,7 @@ import type { FC } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
-import { TRAINING_DEFAULTS } from '../utils/sets'
+import { getExerciseDefaults } from '../utils/sets'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
 
@@ -36,7 +36,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
 	const style = { transform: CSS.Translate.toString(transform), transition }
 	const effectiveGoal = exercise.trainingGoal ?? trainingGoal
-	const defaults = TRAINING_DEFAULTS[effectiveGoal]
+	const defaults = getExerciseDefaults(effectiveGoal, exercise.exerciseType)
 	return (
 		<div
 			ref={setNodeRef}
@@ -94,11 +94,23 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
 				className="w-14"
-				value={exercise.targetReps ?? ''}
-				placeholder={String(defaults.targetReps)}
+				value={exercise.targetRepsMin ?? ''}
+				placeholder={String(defaults.targetRepsMin)}
 				onChange={e => {
 					const v = Number.parseInt(e.target.value, 10)
-					onUpdate({ targetReps: Number.isNaN(v) || v === 0 ? null : v })
+					onUpdate({ targetRepsMin: Number.isNaN(v) || v === 0 ? null : v })
+				}}
+				min={1}
+				step={1}
+			/>
+			<span className="text-ink-faint text-xs">-</span>
+			<NumberInput
+				className="w-14"
+				value={exercise.targetRepsMax ?? ''}
+				placeholder={String(defaults.targetRepsMax)}
+				onChange={e => {
+					const v = Number.parseInt(e.target.value, 10)
+					onUpdate({ targetRepsMax: Number.isNaN(v) || v === 0 ? null : v })
 				}}
 				min={1}
 				step={1}

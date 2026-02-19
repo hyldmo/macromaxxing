@@ -229,7 +229,8 @@ export const workoutExercises = sqliteTable(
 			.references(() => exercises.id),
 		sortOrder: integer('sort_order').notNull(),
 		targetSets: integer('target_sets'), // null = use training goal default
-		targetReps: integer('target_reps'), // null = use training goal default
+		targetRepsMin: integer('target_reps_min'), // null = use training goal default
+		targetRepsMax: integer('target_reps_max'), // null = use training goal default
 		targetWeight: real('target_weight'), // null = find weight first session
 		setMode: text('set_mode').notNull().default('warmup').$type<SetMode>(),
 		trainingGoal: text('training_goal').$type<TrainingGoal>(), // null = use workout-level goal
@@ -286,7 +287,8 @@ export const sessionPlannedExercises = sqliteTable(
 			.references(() => exercises.id),
 		sortOrder: integer('sort_order').notNull(),
 		targetSets: integer('target_sets'),
-		targetReps: integer('target_reps'),
+		targetRepsMin: integer('target_reps_min'),
+		targetRepsMax: integer('target_reps_max'),
 		targetWeight: real('target_weight'),
 		setMode: text('set_mode').notNull().default('working').$type<SetMode>(),
 		trainingGoal: text('training_goal').$type<TrainingGoal>(),

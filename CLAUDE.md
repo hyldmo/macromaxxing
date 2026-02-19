@@ -195,11 +195,11 @@ exercises(id typeid:exc, userId?, name, type: compound|isolation, fatigueTier: 1
 strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
 
 workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOrder)
-  → workoutExercises(id typeid:wke, workoutId, exerciseId, sortOrder, targetSets?, targetReps?, targetWeight?,
+  → workoutExercises(id typeid:wke, workoutId, exerciseId, sortOrder, targetSets?, targetRepsMin?, targetRepsMax?, targetWeight?,
                      setMode: working|warmup|backoff|full, supersetGroup?)
 
 workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
-  → sessionPlannedExercises(id typeid:spe, sessionId, exerciseId, sortOrder, targetSets?, targetReps?,
+  → sessionPlannedExercises(id typeid:spe, sessionId, exerciseId, sortOrder, targetSets?, targetRepsMin?, targetRepsMax?,
                             targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)

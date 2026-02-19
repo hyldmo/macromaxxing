@@ -3,9 +3,22 @@ import type { RouterOutput } from '~/lib/trpc'
 import type { PlannedSet } from '../components/ExerciseSetForm'
 import { roundWeight } from './formulas'
 
-export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
-	hypertrophy: { targetSets: 3, targetReps: 10 },
-	strength: { targetSets: 5, targetReps: 5 }
+export const REP_RANGE_DEFAULTS: Record<
+	TrainingGoal,
+	Record<'compound' | 'isolation', { targetSets: number; targetRepsMin: number; targetRepsMax: number }>
+> = {
+	hypertrophy: {
+		compound: { targetSets: 3, targetRepsMin: 8, targetRepsMax: 12 },
+		isolation: { targetSets: 3, targetRepsMin: 12, targetRepsMax: 15 }
+	},
+	strength: {
+		compound: { targetSets: 5, targetRepsMin: 3, targetRepsMax: 5 },
+		isolation: { targetSets: 5, targetRepsMin: 6, targetRepsMax: 8 }
+	}
+}
+
+export function getExerciseDefaults(goal: TrainingGoal, type: 'compound' | 'isolation') {
+	return REP_RANGE_DEFAULTS[goal][type]
 }
 
 /**

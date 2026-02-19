@@ -38,7 +38,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	// Toggle states: on for improvements, off for decreases by default
 	const [updates, setUpdates] = useState<Map<string, boolean>>(
-		() => new Map(divergences.map(d => [d.exerciseId, d.improved]))
+		() => new Map(divergences.map(d => [d.exerciseId, d.status !== 'below_range']))
 	)
 	const [addToTemplate, setAddToTemplate] = useState<Map<string, boolean>>(
 		() => new Map(extraExercises.map(e => [e.exerciseId, true]))
@@ -61,8 +61,14 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			.map(d => ({
 				exerciseId: d.exerciseId,
 				targetSets: d.actual.sets,
-				targetReps: d.actual.reps,
-				targetWeight: d.actual.weight > 0 ? d.actual.weight : null
+				targetRepsMin: d.status === 'improved' && d.suggestedWeight ? d.planned.repsMin : d.actual.reps,
+				targetRepsMax: d.planned.repsMax,
+				targetWeight:
+					d.status === 'improved' && d.suggestedWeight
+						? d.suggestedWeight
+						: d.actual.weight > 0
+							? d.actual.weight
+							: null
 			}))
 
 		const addExercises = extraExercises
@@ -70,7 +76,13 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			.map(e => {
 				const workingLogs = e.logs.filter(l => l.setType === 'working')
 				if (workingLogs.length === 0) {
-					return { exerciseId: e.exerciseId, targetSets: 3, targetReps: 8, targetWeight: null }
+					return {
+						exerciseId: e.exerciseId,
+						targetSets: 3,
+						targetRepsMin: 8,
+						targetRepsMax: 12,
+						targetWeight: null
+					}
 				}
 				const bestSet = workingLogs.reduce((best, l) =>
 					l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
@@ -78,7 +90,8 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 				return {
 					exerciseId: e.exerciseId,
 					targetSets: workingLogs.length,
-					targetReps: bestSet.reps,
+					targetRepsMin: bestSet.reps,
+					targetRepsMax: bestSet.reps,
 					targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
 				}
 			})
@@ -142,13 +155,22 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 										<div className="text-ink text-sm">{d.exerciseName}</div>
 										<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
 											<span className="text-ink-faint">
-												{d.planned.sets}×{d.planned.reps}
+												{d.planned.sets}×{d.planned.repsMin}-{d.planned.repsMax}
 												{d.planned.weight != null && ` @${d.planned.weight}kg`}
 											</span>
 											<ArrowRight className="size-3 text-ink-faint" />
-											<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
+											<span
+												className={cn(
+													d.status === 'improved'
+														? 'text-success'
+														: d.status === 'below_range'
+															? 'text-macro-kcal'
+															: 'text-ink'
+												)}
+											>
 												{d.actual.sets}×{d.actual.reps}
 												{d.actual.weight > 0 && ` @${d.actual.weight}kg`}
+												{d.suggestedWeight != null && ` → ${d.suggestedWeight}kg`}
 											</span>
 										</div>
 									</div>

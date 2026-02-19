@@ -261,15 +261,26 @@ export const workoutsRouter = router({
 				name: z.string().min(1),
 				trainingGoal: zTrainingGoal.default('hypertrophy'),
 				exercises: z.array(
-					z.object({
-						exerciseId: z.custom<TypeIDString<'exc'>>(),
-						targetSets: z.number().int().min(1).nullable(),
-						targetReps: z.number().int().min(1).nullable(),
-						targetWeight: z.number().min(0).nullable(),
-						setMode: zSetMode.default('working'),
-						trainingGoal: zTrainingGoal.nullable().default(null),
-						supersetGroup: z.number().int().nullable().default(null)
-					})
+					z
+						.object({
+							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							targetSets: z.number().int().min(1).nullable(),
+							targetRepsMin: z.number().int().min(1).nullable(),
+							targetRepsMax: z.number().int().min(1).nullable(),
+							targetWeight: z.number().min(0).nullable(),
+							setMode: zSetMode.default('working'),
+							trainingGoal: zTrainingGoal.nullable().default(null),
+							supersetGroup: z.number().int().nullable().default(null)
+						})
+						.refine(
+							e =>
+								e.targetRepsMin == null ||
+								e.targetRepsMax == null ||
+								e.targetRepsMin <= e.targetRepsMax,
+							{
+								message: 'targetRepsMin must be <= targetRepsMax'
+							}
+						)
 				)
 			})
 		)
@@ -304,7 +315,8 @@ export const workoutsRouter = router({
 							exerciseId: e.exerciseId,
 							sortOrder: i + idx,
 							targetSets: e.targetSets,
-							targetReps: e.targetReps,
+							targetRepsMin: e.targetRepsMin,
+							targetRepsMax: e.targetRepsMax,
 							targetWeight: e.targetWeight,
 							setMode: e.setMode,
 							trainingGoal: e.trainingGoal,
@@ -335,15 +347,24 @@ export const workoutsRouter = router({
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
-						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
-							targetSets: z.number().int().min(1).nullable(),
-							targetReps: z.number().int().min(1).nullable(),
-							targetWeight: z.number().min(0).nullable(),
-							setMode: zSetMode.default('working'),
-							trainingGoal: zTrainingGoal.nullable().default(null),
-							supersetGroup: z.number().int().nullable().default(null)
-						})
+						z
+							.object({
+								exerciseId: z.custom<TypeIDString<'exc'>>(),
+								targetSets: z.number().int().min(1).nullable(),
+								targetRepsMin: z.number().int().min(1).nullable(),
+								targetRepsMax: z.number().int().min(1).nullable(),
+								targetWeight: z.number().min(0).nullable(),
+								setMode: zSetMode.default('working'),
+								trainingGoal: zTrainingGoal.nullable().default(null),
+								supersetGroup: z.number().int().nullable().default(null)
+							})
+							.refine(
+								e =>
+									e.targetRepsMin == null ||
+									e.targetRepsMax == null ||
+									e.targetRepsMin <= e.targetRepsMax,
+								{ message: 'targetRepsMin must be <= targetRepsMax' }
+							)
 					)
 					.optional()
 			})
@@ -373,7 +394,8 @@ export const workoutsRouter = router({
 								exerciseId: e.exerciseId,
 								sortOrder: i + idx,
 								targetSets: e.targetSets,
-								targetReps: e.targetReps,
+								targetRepsMin: e.targetRepsMin,
+								targetRepsMax: e.targetRepsMax,
 								targetWeight: e.targetWeight,
 								setMode: e.setMode,
 								trainingGoal: e.trainingGoal,
@@ -492,7 +514,8 @@ export const workoutsRouter = router({
 							exerciseId: we.exerciseId,
 							sortOrder: we.sortOrder,
 							targetSets: we.targetSets,
-							targetReps: we.targetReps,
+							targetRepsMin: we.targetRepsMin,
+							targetRepsMax: we.targetRepsMax,
 							targetWeight: we.targetWeight,
 							setMode: we.setMode,
 							trainingGoal: we.trainingGoal,
@@ -516,7 +539,8 @@ export const workoutsRouter = router({
 						z.object({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
 							targetSets: z.number().int().min(1).nullable().optional(),
-							targetReps: z.number().int().min(1).nullable().optional(),
+							targetRepsMin: z.number().int().min(1).nullable().optional(),
+							targetRepsMax: z.number().int().min(1).nullable().optional(),
 							targetWeight: z.number().min(0).nullable().optional()
 						})
 					)
@@ -526,7 +550,8 @@ export const workoutsRouter = router({
 						z.object({
 							exerciseId: z.custom<TypeIDString<'exc'>>(),
 							targetSets: z.number().int().min(1).nullable(),
-							targetReps: z.number().int().min(1).nullable(),
+							targetRepsMin: z.number().int().min(1).nullable(),
+							targetRepsMax: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
 							setMode: zSetMode.default('working')
 						})
@@ -554,7 +579,8 @@ export const workoutsRouter = router({
 					for (const update of input.templateUpdates) {
 						const set: Record<string, unknown> = {}
 						if (update.targetSets !== undefined) set.targetSets = update.targetSets
-						if (update.targetReps !== undefined) set.targetReps = update.targetReps
+						if (update.targetRepsMin !== undefined) set.targetRepsMin = update.targetRepsMin
+						if (update.targetRepsMax !== undefined) set.targetRepsMax = update.targetRepsMax
 						if (update.targetWeight !== undefined) set.targetWeight = update.targetWeight
 						if (Object.keys(set).length === 0) continue
 
@@ -586,7 +612,8 @@ export const workoutsRouter = router({
 							exerciseId: ex.exerciseId,
 							sortOrder: sortOrder++,
 							targetSets: ex.targetSets,
-							targetReps: ex.targetReps,
+							targetRepsMin: ex.targetRepsMin,
+							targetRepsMax: ex.targetRepsMax,
 							targetWeight: ex.targetWeight,
 							setMode: ex.setMode,
 							createdAt: now
@@ -928,7 +955,8 @@ export const workoutsRouter = router({
 			const resolvedExercises: Array<{
 				exerciseId: TypeIDString<'exc'>
 				targetSets: number
-				targetReps: number
+				targetRepsMin: number
+				targetRepsMax: number
 				targetWeight: number | null
 				setMode: 'working' | 'warmup' | 'backoff' | 'full'
 			}> = []
@@ -965,7 +993,8 @@ export const workoutsRouter = router({
 				resolvedExercises.push({
 					exerciseId: exercise.id,
 					targetSets: isSpreadsheet ? setsPerExercise : 1,
-					targetReps: row.reps,
+					targetRepsMin: row.reps,
+					targetRepsMax: row.reps,
 					targetWeight: row.weightKg > 0 ? row.weightKg : null,
 					setMode: exercise.type === 'compound' ? 'warmup' : 'working'
 				})
@@ -989,7 +1018,8 @@ export const workoutsRouter = router({
 						exerciseId: e.exerciseId,
 						sortOrder: i + idx,
 						targetSets: e.targetSets,
-						targetReps: e.targetReps,
+						targetRepsMin: e.targetRepsMin,
+						targetRepsMax: e.targetRepsMax,
 						targetWeight: e.targetWeight,
 						setMode: e.setMode,
 						createdAt: now

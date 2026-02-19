@@ -46,7 +46,12 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ label, workout, onStartSessi
 						<span key={we.id} className="text-ink-muted">
 							{we.exercise.name}{' '}
 							<span className="text-ink-faint">
-								{we.targetSets}×{we.targetReps}
+								{we.targetSets}×
+								{we.targetRepsMin != null &&
+								we.targetRepsMax != null &&
+								we.targetRepsMin !== we.targetRepsMax
+									? `${we.targetRepsMin}-${we.targetRepsMax}`
+									: (we.targetRepsMin ?? we.targetRepsMax ?? '?')}
 							</span>
 						</span>
 					))}

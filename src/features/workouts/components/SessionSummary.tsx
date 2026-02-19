@@ -25,13 +25,22 @@ const DivergenceRow: FC<{ d: Divergence }> = ({ d }) => (
 			<div className="text-ink text-sm">{d.exerciseName}</div>
 			<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
 				<span className="text-ink-faint">
-					{d.planned.sets}×{d.planned.reps}
+					{d.planned.sets}×{d.planned.repsMin}-{d.planned.repsMax}
 					{d.planned.weight != null && ` @${d.planned.weight}kg`}
 				</span>
 				<ArrowRight className="size-3 text-ink-faint" />
-				<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
+				<span
+					className={cn(
+						d.status === 'improved'
+							? 'text-success'
+							: d.status === 'below_range'
+								? 'text-macro-kcal'
+								: 'text-ink'
+					)}
+				>
 					{d.actual.sets}×{d.actual.reps}
 					{d.actual.weight > 0 && ` @${d.actual.weight}kg`}
+					{d.suggestedWeight != null && ` → ${d.suggestedWeight}kg`}
 				</span>
 			</div>
 		</div>
