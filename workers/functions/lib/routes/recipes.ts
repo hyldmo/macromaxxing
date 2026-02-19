@@ -1,7 +1,17 @@
 import { ingredients, ingredientUnits, recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
+import { TRPCError } from '@trpc/server'
 import { and, eq, isNotNull, or } from 'drizzle-orm'
 import { z } from 'zod'
+import type { Database } from '../db'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
+
+async function assertRecipeOwnership(db: Database, recipeId: TypeIDString<'rcp'>, userId: string) {
+	const recipe = await db.query.recipes.findFirst({
+		where: and(eq(recipes.id, recipeId), eq(recipes.userId, userId))
+	})
+	if (!recipe) throw new TRPCError({ code: 'NOT_FOUND' })
+	return recipe
+}
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -124,6 +134,7 @@ export const recipesRouter = router({
 		}),
 
 	addIngredient: protectedProcedure.input(addIngredientSchema).mutation(async ({ ctx, input }) => {
+		await assertRecipeOwnership(ctx.db, input.recipeId, ctx.user.id)
 		// Get next sort order
 		const existing = await ctx.db
 			.select()
@@ -165,6 +176,7 @@ export const recipesRouter = router({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
+			await assertRecipeOwnership(ctx.db, input.recipeId, ctx.user.id)
 			// Prevent self-reference
 			if (input.recipeId === input.subrecipeId) {
 				throw new Error('A recipe cannot contain itself as a subrecipe')
@@ -232,13 +244,14 @@ export const recipesRouter = router({
 
 	updateIngredient: protectedProcedure.input(updateIngredientSchema).mutation(async ({ ctx, input }) => {
 		const { id, ...updates } = input
+		const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, id) })
+		if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
+		await assertRecipeOwnership(ctx.db, ri.recipeId, ctx.user.id)
+
 		await ctx.db.update(recipeIngredients).set(updates).where(eq(recipeIngredients.id, id))
 
 		// Touch parent recipe
-		const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, id) })
-		if (ri) {
-			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
-		}
+		await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
 
 		return ctx.db.query.recipeIngredients.findFirst({
 			where: eq(recipeIngredients.id, id),
@@ -253,10 +266,11 @@ export const recipesRouter = router({
 		.input(z.object({ id: z.custom<TypeIDString<'rci'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, input.id) })
+			if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
+			await assertRecipeOwnership(ctx.db, ri.recipeId, ctx.user.id)
+
 			await ctx.db.delete(recipeIngredients).where(eq(recipeIngredients.id, input.id))
-			if (ri) {
-				await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
-			}
+			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
 		}),
 
 	addPremade: protectedProcedure

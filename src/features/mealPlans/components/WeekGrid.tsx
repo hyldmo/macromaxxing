@@ -10,17 +10,21 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { cn } from '~/lib/cn'
+import { DAYS_SHORT } from '~/lib/constants'
 import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayColumn } from './DayColumn'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
-
 export interface WeekGridProps {
 	inventory: InventoryItem[]
-	onDrop: (dayOfWeek: number, slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
+	onDrop: (
+		dayOfWeek: number,
+		slotIndex: number,
+		inventoryId: InventoryItem['id'],
+		sourceSlotId?: InventoryItem['slots'][number]['id']
+	) => void
 }
 
 /** Map JS getDay() (Sun=0..Sat=6) to our Mon=0..Sun=6 index */
@@ -41,10 +45,10 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 	)
 
 	// Group by day
-	const slotsByDay = DAYS.map((_, dayIndex) => allSlots.filter(s => s.dayOfWeek === dayIndex))
+	const slotsByDay = DAYS_SHORT.map((_, dayIndex) => allSlots.filter(s => s.dayOfWeek === dayIndex))
 
 	// Per-day totals for mobile tab indicators
-	const dayTotals = DAYS.map((_, dayIndex) => {
+	const dayTotals = DAYS_SHORT.map((_, dayIndex) => {
 		const slotsForDay = inventory.flatMap(inv =>
 			inv.slots
 				.filter(s => s.dayOfWeek === dayIndex)
@@ -65,7 +69,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 			{/* Mobile: day selector tabs + single day column */}
 			<div className="md:hidden">
 				<div className="mb-2 flex gap-1">
-					{DAYS.map((day, dayIndex) => (
+					{DAYS_SHORT.map((day, dayIndex) => (
 						<button
 							key={day}
 							type="button"
@@ -94,7 +98,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 					))}
 				</div>
 				<DayColumn
-					dayName={DAYS[selectedDay]}
+					dayName={DAYS_SHORT[selectedDay]}
 					dayOfWeek={selectedDay}
 					slots={slotsByDay[selectedDay]}
 					inventory={inventory}
@@ -106,7 +110,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 
 			{/* Desktop: 7-column grid */}
 			<div className="hidden md:grid md:grid-cols-7 md:gap-1">
-				{DAYS.map((day, dayIndex) => (
+				{DAYS_SHORT.map((day, dayIndex) => (
 					<DayColumn
 						key={day}
 						dayName={day}

@@ -415,7 +415,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				}
 			}
 			setPastedIngredients([...updated])
-			setPasteError(err as Error)
+			setPasteError(err instanceof Error ? err : new Error(String(err)))
 			setIsProcessingPaste(false)
 		}
 	}
@@ -445,7 +445,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				const errorMsg = err instanceof Error ? err.message : 'Unknown error'
 				updated[i] = { ...item, status: 'error', error: errorMsg }
 				setPastedIngredients([...updated])
-				setPasteError(err as Error)
+				setPasteError(err instanceof Error ? err : new Error(String(err)))
 				setIsProcessingPaste(false)
 				return // Stop processing on first error
 			}

@@ -22,6 +22,11 @@ jobs:
       - run: yarn build
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_TEST_CLERK_PUBLISHABLE_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: workers/dist
+          retention-days: 1
 
   preview:
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
@@ -30,11 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
-
-      - name: Build
-        run: yarn build
-        env:
-          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_TEST_CLERK_PUBLISHABLE_KEY }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: workers/dist
 
       - name: Deploy preview
         id: deploy

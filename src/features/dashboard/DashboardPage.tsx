@@ -16,11 +16,10 @@ import {
 } from '~/features/recipes/utils/macros'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
 import { totalVolume } from '~/features/workouts/utils/formulas'
+import { DAYS_LONG } from '~/lib/constants'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
-
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 function todayDayIndex(): number {
 	const d = new Date().getDay() // 0=Sun, 6=Sat
@@ -128,7 +127,7 @@ const DashboardContent: FC = () => {
 
 	return (
 		<div className="space-y-4">
-			<h1 className="font-semibold text-ink text-lg">{DAY_NAMES[today]}</h1>
+			<h1 className="font-semibold text-ink text-lg">{DAYS_LONG[today]}</h1>
 
 			<div className="grid gap-4 lg:grid-cols-2">
 				{/* Left column: Today's Meals */}

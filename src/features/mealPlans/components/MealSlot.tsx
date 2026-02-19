@@ -13,7 +13,7 @@ export interface MealSlotProps {
 	slotIndex: number
 	slot: SlotWithInventory | null
 	inventory: InventoryItem[]
-	onDrop: (inventoryId: string, sourceSlotId?: string) => void
+	onDrop: (inventoryId: InventoryItem['id'], sourceSlotId?: SlotWithInventory['id']) => void
 }
 
 export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, inventory, onDrop }) => {
@@ -40,11 +40,11 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 		const raw = e.dataTransfer.getData('text/plain')
 		if (!raw) return
 		try {
-			const data = JSON.parse(raw) as { inventoryId: string; slotId?: string }
+			const data: { inventoryId: InventoryItem['id']; slotId?: SlotWithInventory['id'] } = JSON.parse(raw)
 			onDrop(data.inventoryId, data.slotId)
 		} catch {
 			// Plain inventoryId from inventory sidebar drag
-			onDrop(raw)
+			onDrop(raw as InventoryItem['id'])
 		}
 	}
 

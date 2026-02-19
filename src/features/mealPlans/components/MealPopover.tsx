@@ -3,12 +3,11 @@ import { type FC, type RefObject, useLayoutEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
+import { DAYS_SHORT } from '~/lib/constants'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type SlotWithInventory = InventoryItem['slots'][number] & { inventory: InventoryItem }
-
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
 export interface MealPopoverProps {
 	slot: SlotWithInventory
@@ -58,11 +57,8 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 
 	const recipe = slot.inventory.recipe
 
-	function handleSwap(inventoryId: string) {
-		updateMutation.mutate({
-			slotId: slot.id,
-			inventoryId: inventoryId as Parameters<typeof updateMutation.mutate>[0]['inventoryId']
-		})
+	function handleSwap(inventoryId: InventoryItem['id']) {
+		updateMutation.mutate({ slotId: slot.id, inventoryId })
 	}
 
 	function handleCopy() {
@@ -77,6 +73,8 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 	function toggleDay(day: number) {
 		setSelectedDays(prev => (prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]))
 	}
+
+	const mutationError = updateMutation.error || removeMutation.error || copyMutation.error
 
 	return (
 		<div
@@ -142,7 +140,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 						<>
 							<div className="mb-2 text-ink-muted text-xs">Copy to days:</div>
 							<div className="mb-3 flex flex-wrap gap-1">
-								{DAYS.map((day, i) => (
+								{DAYS_SHORT.map((day, i) => (
 									<button
 										key={day}
 										type="button"
@@ -205,12 +203,7 @@ export const MealPopover: FC<MealPopoverProps> = ({ slot, inventory, anchorRef, 
 						</>
 					)}
 
-					{(updateMutation.error || removeMutation.error || copyMutation.error) && (
-						<TRPCError
-							error={updateMutation.error || removeMutation.error || copyMutation.error}
-							className="mt-2"
-						/>
-					)}
+					{mutationError && <TRPCError error={mutationError} className="mt-2" />}
 				</div>
 			</div>
 		</div>

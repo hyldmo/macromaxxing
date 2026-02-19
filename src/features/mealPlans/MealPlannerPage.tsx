@@ -1,4 +1,4 @@
-import type { MealPlan } from '@macromaxxing/db'
+import type { MealPlan, MealPlanInventory, MealPlanSlot } from '@macromaxxing/db'
 import { ArrowLeft, Copy, ShoppingCart, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -64,18 +64,16 @@ export const MealPlannerPage: FC = () => {
 		duplicateMutation.mutate({ id: id!, newName: `${planQuery.data?.name} (copy)` })
 	}
 
-	function handleDrop(dayOfWeek: number, slotIndex: number, inventoryId: string, sourceSlotId?: string) {
+	function handleDrop(
+		dayOfWeek: number,
+		slotIndex: number,
+		inventoryId: MealPlanInventory['id'],
+		sourceSlotId?: MealPlanSlot['id']
+	) {
 		if (sourceSlotId) {
-			removeSlotMutation.mutate({
-				slotId: sourceSlotId as Parameters<typeof removeSlotMutation.mutate>[0]['slotId']
-			})
+			removeSlotMutation.mutate({ slotId: sourceSlotId })
 		}
-		allocateMutation.mutate({
-			inventoryId: inventoryId as Parameters<typeof allocateMutation.mutate>[0]['inventoryId'],
-			dayOfWeek,
-			slotIndex,
-			portions: 1
-		})
+		allocateMutation.mutate({ inventoryId, dayOfWeek, slotIndex, portions: 1 })
 	}
 
 	if (planQuery.isLoading) {

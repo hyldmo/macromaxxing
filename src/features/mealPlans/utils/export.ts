@@ -8,13 +8,12 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
+import { DAYS_LONG } from '~/lib/constants'
 import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 
 type MealPlan = RouterOutput['mealPlan']['get']
 type InventoryItem = MealPlan['inventory'][number]
-
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const
 
 function fmt(m: AbsoluteMacros): string {
 	return `${m.kcal.toFixed(0)} kcal | P ${m.protein.toFixed(0)}g | C ${m.carbs.toFixed(0)}g | F ${m.fat.toFixed(0)}g | Fiber ${m.fiber.toFixed(0)}g`
@@ -52,7 +51,7 @@ export function formatMealPlan(plan: MealPlan): string {
 
 	for (let day = 0; day < 7; day++) {
 		lines.push('')
-		lines.push(`## ${DAYS[day]}`)
+		lines.push(`## ${DAYS_LONG[day]}`)
 
 		const meals = plan.inventory.flatMap(inv =>
 			inv.slots

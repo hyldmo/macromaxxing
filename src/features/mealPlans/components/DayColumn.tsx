@@ -20,7 +20,7 @@ export interface DayColumnProps {
 	dayOfWeek: number
 	slots: SlotWithInventory[]
 	inventory: InventoryItem[]
-	onDrop: (slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
+	onDrop: (slotIndex: number, inventoryId: InventoryItem['id'], sourceSlotId?: SlotWithInventory['id']) => void
 }
 
 const MIN_SLOTS = 3
@@ -51,7 +51,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 	})
 
 	// Calculate day totals
-	const dayTotal = calculateDayTotals(slotMacros.filter(Boolean) as NonNullable<(typeof slotMacros)[number]>[])
+	const dayTotal = calculateDayTotals(slotMacros.filter((m): m is NonNullable<typeof m> => m != null))
 
 	return (
 		<div className="flex flex-col">
