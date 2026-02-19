@@ -11,13 +11,13 @@ export function useWakeLock(enabled = true) {
 	useEffect(() => {
 		if (!(enabled && 'wakeLock' in navigator)) return
 
-		const acquire = async () => {
-			try {
-				lockRef.current = await navigator.wakeLock.request('screen')
-			} catch {
-				// Wake lock request can fail (e.g. low battery, background tab)
-			}
-		}
+		const acquire = () =>
+			navigator.wakeLock
+				.request('screen')
+				.then(lock => {
+					lockRef.current = lock
+				})
+				.catch(() => undefined)
 
 		const onVisibilityChange = () => {
 			if (document.visibilityState === 'visible' && lockRef.current?.released !== false) {
