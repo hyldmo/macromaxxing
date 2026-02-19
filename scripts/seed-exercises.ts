@@ -18,6 +18,8 @@ interface ExerciseDef {
 	type: 'compound' | 'isolation'
 	fatigueTier: 1 | 2 | 3 | 4
 	muscles: Array<{ group: MuscleGroup; intensity: number }>
+	strengthRepsMin?: number
+	strengthRepsMax?: number
 }
 
 const EXERCISES: ExerciseDef[] = [
@@ -25,6 +27,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Bench Press',
 		type: 'compound',
 		fatigueTier: 2,
+		strengthRepsMin: 3,
+		strengthRepsMax: 5,
 		muscles: [
 			{ group: 'chest', intensity: 1.0 },
 			{ group: 'triceps', intensity: 0.5 },
@@ -35,6 +39,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Incline Bench Press',
 		type: 'compound',
 		fatigueTier: 2,
+		strengthRepsMin: 3,
+		strengthRepsMax: 5,
 		muscles: [
 			{ group: 'chest', intensity: 0.8 },
 			{ group: 'front_delts', intensity: 0.5 },
@@ -45,6 +51,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Overhead Press',
 		type: 'compound',
 		fatigueTier: 2,
+		strengthRepsMin: 3,
+		strengthRepsMax: 5,
 		muscles: [
 			{ group: 'front_delts', intensity: 1.0 },
 			{ group: 'side_delts', intensity: 0.5 },
@@ -55,6 +63,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Barbell Row',
 		type: 'compound',
 		fatigueTier: 2,
+		strengthRepsMin: 5,
+		strengthRepsMax: 8,
 		muscles: [
 			{ group: 'upper_back', intensity: 0.8 },
 			{ group: 'lats', intensity: 0.8 },
@@ -66,6 +76,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Pull-Up',
 		type: 'compound',
 		fatigueTier: 2,
+		strengthRepsMin: 3,
+		strengthRepsMax: 6,
 		muscles: [
 			{ group: 'lats', intensity: 1.0 },
 			{ group: 'upper_back', intensity: 0.6 },
@@ -76,6 +88,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Squat',
 		type: 'compound',
 		fatigueTier: 1,
+		strengthRepsMin: 3,
+		strengthRepsMax: 5,
 		muscles: [
 			{ group: 'quads', intensity: 1.0 },
 			{ group: 'glutes', intensity: 0.7 },
@@ -87,6 +101,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Deadlift',
 		type: 'compound',
 		fatigueTier: 1,
+		strengthRepsMin: 1,
+		strengthRepsMax: 5,
 		muscles: [
 			{ group: 'hamstrings', intensity: 0.8 },
 			{ group: 'glutes', intensity: 0.8 },
@@ -99,6 +115,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Romanian Deadlift',
 		type: 'compound',
 		fatigueTier: 2,
+		strengthRepsMin: 6,
+		strengthRepsMax: 10,
 		muscles: [
 			{ group: 'hamstrings', intensity: 1.0 },
 			{ group: 'glutes', intensity: 0.7 },
@@ -209,8 +227,10 @@ for (const ex of EXERCISES) {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, '_')
 		.replace(/_+$/, '')}`
+	const strMin = ex.strengthRepsMin ?? 'NULL'
+	const strMax = ex.strengthRepsMax ?? 'NULL'
 	exec(
-		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${now})`
+		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, strength_reps_min, strength_reps_max, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${strMin}, ${strMax}, ${now})`
 	)
 	for (const m of ex.muscles) {
 		const mid = `exm_${id.slice(4)}_${m.group}`

@@ -197,7 +197,11 @@ export const workoutsRouter = router({
 				name: z.string().min(1),
 				type: zExerciseType,
 				fatigueTier: z.number().int().min(1).max(4).optional(),
-				muscles: z.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
+				muscles: z.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) })),
+				strengthRepsMin: z.number().int().min(1).optional(),
+				strengthRepsMax: z.number().int().min(1).optional(),
+				hypertrophyRepsMin: z.number().int().min(1).optional(),
+				hypertrophyRepsMax: z.number().int().min(1).optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -205,7 +209,17 @@ export const workoutsRouter = router({
 			const tier = (input.fatigueTier ?? (input.type === 'compound' ? 2 : 4)) as FatigueTier
 			const [exercise] = await ctx.db
 				.insert(exercises)
-				.values({ userId: ctx.user.id, name: input.name, type: input.type, fatigueTier: tier, createdAt: now })
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					type: input.type,
+					fatigueTier: tier,
+					strengthRepsMin: input.strengthRepsMin ?? null,
+					strengthRepsMax: input.strengthRepsMax ?? null,
+					hypertrophyRepsMin: input.hypertrophyRepsMin ?? null,
+					hypertrophyRepsMax: input.hypertrophyRepsMax ?? null,
+					createdAt: now
+				})
 				.returning()
 
 			if (input.muscles.length > 0) {

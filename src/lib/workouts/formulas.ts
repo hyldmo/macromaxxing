@@ -1,4 +1,38 @@
-import type { SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+import type { Exercise, SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+
+// ─── Rep Range Resolution ───────────────────────────────────────────
+
+type RepRangeExercise = Pick<
+	Exercise,
+	'type' | 'strengthRepsMin' | 'strengthRepsMax' | 'hypertrophyRepsMin' | 'hypertrophyRepsMax'
+>
+
+/**
+ * Resolve the rep range for an exercise + training goal.
+ *
+ * Resolution order:
+ * 1. Explicit DB value for the goal → use directly
+ * 2. Derive hypertrophy from strength → { min: strengthMax, max: strengthMax * 2 }
+ * 3. Type-based fallback → compound strength 3–5, compound hypertrophy 8–12, isolation 10–15
+ */
+export function getRepRange(exercise: RepRangeExercise, goal: TrainingGoal): { min: number; max: number } {
+	if (goal === 'strength') {
+		if (exercise.strengthRepsMin != null && exercise.strengthRepsMax != null) {
+			return { min: exercise.strengthRepsMin, max: exercise.strengthRepsMax }
+		}
+		return exercise.type === 'compound' ? { min: 3, max: 5 } : { min: 10, max: 15 }
+	}
+
+	// Hypertrophy
+	if (exercise.hypertrophyRepsMin != null && exercise.hypertrophyRepsMax != null) {
+		return { min: exercise.hypertrophyRepsMin, max: exercise.hypertrophyRepsMax }
+	}
+	// Derive from strength range
+	if (exercise.strengthRepsMax != null) {
+		return { min: exercise.strengthRepsMax, max: exercise.strengthRepsMax * 2 }
+	}
+	return exercise.type === 'compound' ? { min: 8, max: 12 } : { min: 10, max: 15 }
+}
 
 /** Brzycki 1RM estimate: weight * 36 / (37 - reps) */
 export function estimated1RM(weightKg: number, reps: number): number {
