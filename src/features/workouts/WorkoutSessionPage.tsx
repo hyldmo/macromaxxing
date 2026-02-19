@@ -263,8 +263,10 @@ export function WorkoutSessionPage() {
 				goals.set(effectiveExerciseId, exerciseGoal)
 				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
 
-				const effectiveSets = we.targetSets ?? exerciseDefaults.targetSets
-				const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
+				// When exercise is replaced, don't carry over the old exercise's targets
+				const effectiveTargetWeight = replacement ? null : we.targetWeight
+				const effectiveSets = (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets
+				const effectiveReps = (replacement ? null : we.targetReps) ?? exerciseDefaults.targetReps
 
 				const sets: PlannedSet[] = []
 				let setNum = 1
@@ -272,10 +274,10 @@ export function WorkoutSessionPage() {
 				const hasBackoff = effectiveMode === 'backoff' || effectiveMode === 'full'
 
 				// Generate warmup sets
-				if (hasWarmup && we.targetWeight != null && we.targetWeight > 0) {
+				if (hasWarmup && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
 					const skipWarmup = shouldSkipWarmup(effectiveExercise.muscles, warmedUpMuscles)
 					if (!skipWarmup) {
-						const warmups = generateWarmupSets(we.targetWeight, effectiveReps)
+						const warmups = generateWarmupSets(effectiveTargetWeight, effectiveReps)
 						for (const wu of warmups) {
 							sets.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
 						}
@@ -292,15 +294,15 @@ export function WorkoutSessionPage() {
 				for (let i = 0; i < workingCount; i++) {
 					sets.push({
 						setNumber: setNum++,
-						weightKg: we.targetWeight,
+						weightKg: effectiveTargetWeight,
 						reps: effectiveReps,
 						setType: 'working'
 					})
 				}
 
 				// Generate backoff set
-				if (hasBackoff && we.targetWeight != null && we.targetWeight > 0) {
-					const backoffs = generateBackoffSets(we.targetWeight, effectiveReps, 1)
+				if (hasBackoff && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
+					const backoffs = generateBackoffSets(effectiveTargetWeight, effectiveReps, 1)
 					for (const bo of backoffs) {
 						sets.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
 					}
