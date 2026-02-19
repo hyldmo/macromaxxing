@@ -5,6 +5,7 @@ import {
 	MUSCLE_GROUPS,
 	type MuscleGroup,
 	type SetType,
+	sessionPlannedExercises,
 	type TypeIDString,
 	workoutExercises,
 	workoutLogs,
@@ -449,6 +450,10 @@ export const workoutsRouter = router({
 					logs: {
 						with: { exercise: { with: { muscles: true } } },
 						orderBy: [workoutLogs.createdAt]
+					},
+					plannedExercises: {
+						with: { exercise: { with: { muscles: true } } },
+						orderBy: [sessionPlannedExercises.sortOrder]
 					}
 				}
 			})
@@ -459,9 +464,10 @@ export const workoutsRouter = router({
 	createSession: protectedProcedure
 		.input(z.object({ workoutId: z.custom<TypeIDString<'wkt'>>(), name: z.string().optional() }))
 		.mutation(async ({ ctx, input }) => {
-			// Verify workout ownership
+			// Verify workout ownership and load template exercises
 			const workout = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.workoutId), eq(workouts.userId, ctx.user.id))
+				where: and(eq(workouts.id, input.workoutId), eq(workouts.userId, ctx.user.id)),
+				with: { exercises: { orderBy: [workoutExercises.sortOrder] } }
 			})
 			if (!workout) throw new Error('Workout not found')
 
@@ -476,6 +482,27 @@ export const workoutsRouter = router({
 					createdAt: now
 				})
 				.returning()
+
+			// Snapshot template exercises into session planned exercises
+			if (workout.exercises.length > 0) {
+				for (let i = 0; i < workout.exercises.length; i += 10) {
+					await ctx.db.insert(sessionPlannedExercises).values(
+						workout.exercises.slice(i, i + 10).map(we => ({
+							sessionId: session.id,
+							exerciseId: we.exerciseId,
+							sortOrder: we.sortOrder,
+							targetSets: we.targetSets,
+							targetReps: we.targetReps,
+							targetWeight: we.targetWeight,
+							setMode: we.setMode,
+							trainingGoal: we.trainingGoal,
+							supersetGroup: we.supersetGroup,
+							createdAt: now
+						}))
+					)
+				}
+			}
+
 			return session
 		}),
 
@@ -676,6 +703,15 @@ export const workoutsRouter = router({
 				.update(workoutLogs)
 				.set({ exerciseId: input.newExerciseId })
 				.where(and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.oldExerciseId)))
+			await ctx.db
+				.update(sessionPlannedExercises)
+				.set({ exerciseId: input.newExerciseId })
+				.where(
+					and(
+						eq(sessionPlannedExercises.sessionId, input.sessionId),
+						eq(sessionPlannedExercises.exerciseId, input.oldExerciseId)
+					)
+				)
 		}),
 
 	// ─── Stats ────────────────────────────────────────────────────

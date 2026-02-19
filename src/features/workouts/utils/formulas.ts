@@ -1,4 +1,4 @@
-import type { Sex } from '@macromaxxing/db'
+import type { SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
 
 /** Brzycki 1RM estimate: weight * 36 / (37 - reps) */
 export function estimated1RM(weightKg: number, reps: number): number {
@@ -155,4 +155,83 @@ export function estimateTDEE(bmr: number, activityMultiplier: number): number {
 export function proteinPerKg(proteinGrams: number, weightKg: number): number {
 	if (weightKg <= 0) return 0
 	return proteinGrams / weightKg
+}
+
+// ─── Divergence Calculation ──────────────────────────────────────────
+
+export interface Divergence {
+	exerciseId: TypeIDString<'exc'>
+	exerciseName: string
+	planned: { sets: number; reps: number; weight: number | null }
+	actual: { sets: number; reps: number; weight: number }
+	improved: boolean
+}
+
+interface PlannedExerciseInput {
+	exerciseId: TypeIDString<'exc'>
+	exercise: { name: string }
+	targetSets: number | null
+	targetReps: number | null
+	targetWeight: number | null
+	setMode: SetMode | null
+	trainingGoal: TrainingGoal | null
+}
+
+interface LogInput {
+	exerciseId: string
+	setType: string
+	weightKg: number
+	reps: number
+}
+
+const DIVERGENCE_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
+	hypertrophy: { targetSets: 3, targetReps: 10 },
+	strength: { targetSets: 5, targetReps: 5 }
+}
+
+/** Compute per-exercise divergences between planned and actual performance */
+export function computeDivergences(
+	logs: ReadonlyArray<LogInput>,
+	plannedExercises: ReadonlyArray<PlannedExerciseInput>,
+	workoutGoal: TrainingGoal
+): Divergence[] {
+	const result: Divergence[] = []
+
+	for (const we of plannedExercises) {
+		const exerciseLogs = logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
+		if (exerciseLogs.length === 0) continue
+
+		const exerciseGoal = we.trainingGoal ?? workoutGoal
+		const defaults = DIVERGENCE_DEFAULTS[exerciseGoal]
+
+		const templateMode = we.setMode ?? 'working'
+		const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
+		const totalSets = we.targetSets ?? defaults.targetSets
+		const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
+		const effectiveReps = we.targetReps ?? defaults.targetReps
+
+		const bestSet = exerciseLogs.reduce((best, l) =>
+			l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
+		)
+
+		const weightDiff = we.targetWeight != null ? Math.abs(bestSet.weightKg - we.targetWeight) : 0
+		const repsDiff = Math.abs(bestSet.reps - effectiveReps)
+		const setsDiff = Math.abs(exerciseLogs.length - effectiveSets)
+
+		if (weightDiff > 0.1 || repsDiff > 0 || setsDiff > 0) {
+			const improved =
+				bestSet.weightKg >= (we.targetWeight ?? 0) &&
+				bestSet.reps >= effectiveReps &&
+				exerciseLogs.length >= effectiveSets
+			result.push({
+				exerciseId: we.exerciseId,
+				exerciseName: we.exercise.name,
+				planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
+				actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
+				improved
+			})
+		}
+	}
+
+	return result
 }

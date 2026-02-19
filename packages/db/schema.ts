@@ -236,6 +236,30 @@ export const workoutSessions = sqliteTable('workout_sessions', {
 	createdAt: integer('created_at').notNull()
 })
 
+export const sessionPlannedExercises = sqliteTable(
+	'session_planned_exercises',
+	{
+		id: typeidCol('spe')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('spe')),
+		sessionId: typeidCol('wks')('session_id')
+			.notNull()
+			.references(() => workoutSessions.id, { onDelete: 'cascade' }),
+		exerciseId: typeidCol('exc')('exercise_id')
+			.notNull()
+			.references(() => exercises.id),
+		sortOrder: integer('sort_order').notNull(),
+		targetSets: integer('target_sets'),
+		targetReps: integer('target_reps'),
+		targetWeight: real('target_weight'),
+		setMode: text('set_mode').notNull().default('working').$type<SetMode>(),
+		trainingGoal: text('training_goal').$type<TrainingGoal>(),
+		supersetGroup: integer('superset_group'),
+		createdAt: integer('created_at').notNull()
+	},
+	t => [index('session_planned_exercises_session_idx').on(t.sessionId)]
+)
+
 export const workoutLogs = sqliteTable('workout_logs', {
 	id: typeidCol('wkl')('id')
 		.primaryKey()

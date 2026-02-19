@@ -110,13 +110,14 @@ src/
         SupersetForm.tsx                    # Interleaved superset card (rounds with transition timers)
         ExerciseSearch.tsx                  # Exercise typeahead (system + custom, shows type + muscles)
         SessionReview.tsx                   # Post-workout divergence review (update template targets)
+        SessionSummary.tsx                  # Completed session summary (1RM stats, volume, plan comparison)
         TimerMode.tsx                       # Full-screen timer overlay (child route)
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
         ProfileForm.tsx                     # Body profile inputs (height/weight/sex)
       utils/
-        formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE
+        formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE, computeDivergences
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
     settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile
@@ -198,6 +199,8 @@ workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOr
                      setMode: working|warmup|backoff|full, supersetGroup?)
 
 workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
+  → sessionPlannedExercises(id typeid:spe, sessionId, exerciseId, sortOrder, targetSets?, targetReps?,
+                            targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)
 

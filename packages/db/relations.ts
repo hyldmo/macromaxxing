@@ -9,6 +9,7 @@ import {
 	mealPlans,
 	recipeIngredients,
 	recipes,
+	sessionPlannedExercises,
 	strengthStandards,
 	usdaFoods,
 	usdaPortions,
@@ -118,7 +119,13 @@ export const strengthStandardsRelations = relations(strengthStandards, ({ one })
 export const workoutSessionsRelations = relations(workoutSessions, ({ one, many }) => ({
 	user: one(users, { fields: [workoutSessions.userId], references: [users.id] }),
 	workout: one(workouts, { fields: [workoutSessions.workoutId], references: [workouts.id] }),
-	logs: many(workoutLogs)
+	logs: many(workoutLogs),
+	plannedExercises: many(sessionPlannedExercises)
+}))
+
+export const sessionPlannedExercisesRelations = relations(sessionPlannedExercises, ({ one }) => ({
+	session: one(workoutSessions, { fields: [sessionPlannedExercises.sessionId], references: [workoutSessions.id] }),
+	exercise: one(exercises, { fields: [sessionPlannedExercises.exerciseId], references: [exercises.id] })
 }))
 
 export const workoutLogsRelations = relations(workoutLogs, ({ one }) => ({

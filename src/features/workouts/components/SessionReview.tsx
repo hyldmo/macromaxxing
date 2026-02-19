@@ -6,8 +6,7 @@ import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useRestTimer } from '../RestTimerContext'
-import { exerciseE1rmStats } from '../utils/formulas'
-import { TRAINING_DEFAULTS } from '../utils/sets'
+import { computeDivergences, exerciseE1rmStats } from '../utils/formulas'
 
 type Session = RouterOutput['workout']['getSession']
 type Template = NonNullable<Session['workout']>
@@ -17,14 +16,6 @@ interface ExtraDef {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	logs: Log[]
-}
-
-interface Divergence {
-	exerciseId: TypeIDString<'exc'>
-	exerciseName: string
-	planned: { sets: number; reps: number; weight: number | null }
-	actual: { sets: number; reps: number; weight: number }
-	improved: boolean
 }
 
 export interface SessionReviewProps {
@@ -38,52 +29,10 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 	const utils = trpc.useUtils()
 	const { setSession } = useRestTimer()
 
-	const divergences = useMemo(() => {
-		const result: Divergence[] = []
-		const workoutGoal = template.trainingGoal ?? 'hypertrophy'
-
-		for (const we of template.exercises) {
-			const logs = session.logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
-			if (logs.length === 0) continue
-
-			const exerciseGoal = we.trainingGoal ?? workoutGoal
-			const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
-
-			const templateMode = we.setMode ?? 'working'
-			const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
-			const totalSets = we.targetSets ?? exerciseDefaults.targetSets
-			const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
-			const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
-
-			const bestSet = logs.reduce((best, l) =>
-				l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
-			)
-
-			const weightDiff = we.targetWeight != null ? Math.abs(bestSet.weightKg - we.targetWeight) : 0
-			const repsDiff = Math.abs(bestSet.reps - effectiveReps)
-			const setsDiff = Math.abs(logs.length - effectiveSets)
-
-			if (weightDiff > 0.1 || repsDiff > 0 || setsDiff > 0) {
-				const improved =
-					bestSet.weightKg >= (we.targetWeight ?? 0) &&
-					bestSet.reps >= effectiveReps &&
-					logs.length >= effectiveSets
-				result.push({
-					exerciseId: we.exerciseId,
-					exerciseName: we.exercise.name,
-					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
-					actual: {
-						sets: logs.length,
-						reps: bestSet.reps,
-						weight: bestSet.weightKg
-					},
-					improved
-				})
-			}
-		}
-
-		return result
-	}, [session.logs, template.exercises, template.trainingGoal])
+	const divergences = useMemo(
+		() => computeDivergences(session.logs, template.exercises, template.trainingGoal ?? 'hypertrophy'),
+		[session.logs, template.exercises, template.trainingGoal]
+	)
 
 	const exerciseStats = useMemo(() => exerciseE1rmStats(session.logs), [session.logs])
 

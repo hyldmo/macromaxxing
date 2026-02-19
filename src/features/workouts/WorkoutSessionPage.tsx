@@ -11,6 +11,7 @@ import { ExerciseSearch } from './components/ExerciseSearch'
 import { ExerciseSetForm, type PlannedSet } from './components/ExerciseSetForm'
 import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
+import { SessionSummary } from './components/SessionSummary'
 import { SupersetForm } from './components/SupersetForm'
 import { useRestTimer } from './RestTimerContext'
 import { formatSession } from './utils/export'
@@ -522,6 +523,8 @@ export function WorkoutSessionPage() {
 					</Button>
 				</div>
 			</div>
+
+			{isCompleted && <SessionSummary session={session} plannedExercises={session.plannedExercises ?? []} />}
 
 			{!isCompleted && exercisesQuery.data && (
 				<ExerciseSearch
