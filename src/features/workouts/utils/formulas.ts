@@ -12,9 +12,30 @@ export function weightForReps(oneRM: number, reps: number): number {
 	return oneRM * ((37 - reps) / 36)
 }
 
-/** Round to nearest plate increment (2.5 kg) */
-export function roundToPlate(weightKg: number): number {
-	return Math.round(weightKg / 2.5) * 2.5
+export type WeightUnit = 'kg' | 'lbs'
+
+/** Pick the smallest practical plate increment for a given weight. */
+function plateIncrement(weight: number, unit: WeightUnit): number {
+	if (unit === 'lbs') {
+		if (weight <= 10) return 1
+		if (weight <= 40) return 2.5
+		return 5
+	}
+	// kg
+	if (weight <= 5) return 0.5
+	if (weight <= 20) return 1.25
+	return 2.5
+}
+
+/** Round weight to the nearest practical plate increment. */
+export function roundWeight(
+	weight: number,
+	unit: WeightUnit = 'kg',
+	direction: 'nearest' | 'up' | 'down' = 'nearest'
+): number {
+	const inc = plateIncrement(Math.abs(weight), unit)
+	const fn = direction === 'up' ? Math.ceil : direction === 'down' ? Math.floor : Math.round
+	return fn(weight / inc) * inc
 }
 
 /**
@@ -35,13 +56,13 @@ export function estimateReplacementWeight(
 		// Direct: known is compound, replacement is isolation
 		const directCI = standards.find(s => s.compoundId === te.exerciseId && s.isolationId === replacementId)
 		if (directCI) {
-			return roundToPlate(weightForReps(known1RM * directCI.maxRatio, targetReps))
+			return roundWeight(weightForReps(known1RM * directCI.maxRatio, targetReps))
 		}
 
 		// Direct: known is isolation, replacement is compound
 		const directIC = standards.find(s => s.isolationId === te.exerciseId && s.compoundId === replacementId)
 		if (directIC) {
-			return roundToPlate(weightForReps(known1RM / directIC.maxRatio, targetReps))
+			return roundWeight(weightForReps(known1RM / directIC.maxRatio, targetReps))
 		}
 
 		// Transitive: both isolations of the same compound
@@ -49,7 +70,7 @@ export function estimateReplacementWeight(
 		const replAsIso = standards.find(s => s.isolationId === replacementId)
 		if (knownAsIso && replAsIso && knownAsIso.compoundId === replAsIso.compoundId) {
 			const compound1RM = known1RM / knownAsIso.maxRatio
-			return roundToPlate(weightForReps(compound1RM * replAsIso.maxRatio, targetReps))
+			return roundWeight(weightForReps(compound1RM * replAsIso.maxRatio, targetReps))
 		}
 	}
 	return null

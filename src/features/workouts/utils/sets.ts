@@ -1,6 +1,7 @@
 import type { Exercise, FatigueTier, SetType, TrainingGoal } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 import type { PlannedSet } from '../components/ExerciseSetForm'
+import { roundWeight } from './formulas'
 
 export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
 	hypertrophy: { targetSets: 3, targetReps: 10 },
@@ -20,9 +21,6 @@ export function calculateRest(
 	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 
-const round = (w: number) => Math.round(w / 0.5) * 0.5
-const roundUp = (w: number) => Math.ceil(w / 0.5) * 0.5
-
 export interface GeneratedSet {
 	weightKg: number
 	reps: number
@@ -36,15 +34,15 @@ export function generateWarmupSets(workingWeight: number, workingReps: number): 
 	// Heavy barbell lifts: bar → 50% → 75%
 	if (workingWeight > 60) {
 		sets.push({ weightKg: 20, reps: 10, setType: 'warmup' })
-		const half = round(workingWeight * 0.5)
+		const half = roundWeight(workingWeight * 0.5)
 		if (half > 20) sets.push({ weightKg: half, reps: 5, setType: 'warmup' })
-		const three4 = round(workingWeight * 0.75)
+		const three4 = roundWeight(workingWeight * 0.75)
 		if (three4 > half && workingWeight - three4 >= 5) {
 			sets.push({ weightKg: three4, reps: 3, setType: 'warmup' })
 		}
 	} else {
 		// Light/dumbbell: single set at ~60%
-		const w = round(workingWeight * 0.6)
+		const w = roundWeight(workingWeight * 0.6)
 		if (w > 0) sets.push({ weightKg: w, reps: workingReps, setType: 'warmup' })
 	}
 
@@ -79,7 +77,7 @@ export function generateBackoffSets(workingWeight: number, workingReps: number, 
 	for (let i = 0; i < count; i++) {
 		const pct = 0.8 - i * 0.1
 		sets.push({
-			weightKg: roundUp(workingWeight * pct),
+			weightKg: roundWeight(workingWeight * pct, 'kg', 'up'),
 			reps: workingReps + 2 * (i + 1),
 			setType: 'backoff'
 		})
