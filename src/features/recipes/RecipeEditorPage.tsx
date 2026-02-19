@@ -197,19 +197,9 @@ export function RecipeEditorPage() {
 				<TRPCError error={createMutation.error || updateMutation.error} />
 			)}
 
-			{!isNew && recipeQuery.data && (
-				<RecipeImageUpload
-					recipeId={id!}
-					image={recipeQuery.data.image}
-					onImageChange={() => recipeQuery.refetch()}
-					readOnly={!isOwner}
-				/>
-			)}
-
 			{!isNew && recipeQuery.data && calculations && (
 				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
-					{/* Mobile: PortionPanel at top */}
-					<div className="order-first lg:hidden">
+					<div className="space-y-4 lg:order-last">
 						<PortionPanel
 							portion={calculations.portion}
 							cookedWeight={recipeQuery.data.cookedWeight}
@@ -221,6 +211,15 @@ export function RecipeEditorPage() {
 							ingredients={isOwner ? ingredients : undefined}
 							instructions={isOwner ? instructions : undefined}
 						/>
+
+						{!isNew && recipeQuery.data && (
+							<RecipeImageUpload
+								recipeId={id!}
+								image={recipeQuery.data.image}
+								onImageChange={() => recipeQuery.refetch()}
+								readOnly={!isOwner}
+							/>
+						)}
 					</div>
 
 					{/* Left column: ingredients */}
@@ -263,23 +262,6 @@ export function RecipeEditorPage() {
 									ingredients={recipeQuery.data.recipeIngredients}
 								/>
 							)}
-						</div>
-					</div>
-
-					{/* Right column: PortionPanel (desktop only) */}
-					<div className="hidden lg:block">
-						<div className="sticky top-4">
-							<PortionPanel
-								portion={calculations.portion}
-								cookedWeight={recipeQuery.data.cookedWeight}
-								rawTotal={calculations.totals.weight}
-								portionSize={recipeQuery.data.portionSize}
-								effectiveCookedWeight={calculations.cookedWeight}
-								onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
-								onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
-								ingredients={isOwner ? ingredients : undefined}
-								instructions={isOwner ? instructions : undefined}
-							/>
 						</div>
 					</div>
 				</div>

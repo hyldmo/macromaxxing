@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
+import { Image } from '~/components/ui/Image'
 import { cn } from '~/lib/cn'
 import { getImageUrl } from '~/lib/images'
 import type { AbsoluteMacros } from '~/lib/macros'
@@ -24,12 +25,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 			)}
 		>
 			{recipe.image ? (
-				<img
-					src={getImageUrl(recipe.image)}
-					alt=""
-					className="size-12 xs:size-14 shrink-0 border border-edge bg-surface-0 object-cover"
-					loading="lazy"
-				/>
+				<Image src={getImageUrl(recipe.image)} alt={recipe.name} className="size-12" />
 			) : (
 				<MacroRing className="max-xs:hidden" macros={portion} size="sm" ratio="macro" />
 			)}
