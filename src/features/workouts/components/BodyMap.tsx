@@ -1,9 +1,10 @@
 import type { MuscleGroup, Sex } from '@macromaxxing/db'
-import type { FC, SVGAttributes } from 'react'
+import { type FC, type SVGAttributes, useMemo } from 'react'
 import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
+import { intensityClass } from '../utils/muscles'
 
 export interface BodyMapProps {
-	muscleColors: Map<MuscleGroup, string>
+	muscleVolumes: Map<MuscleGroup, number>
 	onHover: (muscleGroup: MuscleGroup | null) => void
 	sex: Sex
 }
@@ -32,7 +33,16 @@ const BodyFigure: FC<{
 	)
 }
 
-export const BodyMap: FC<BodyMapProps> = ({ muscleColors, onHover, sex }) => {
+export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, onHover, sex }) => {
+	const muscleColors = useMemo(() => {
+		const max = Math.max(...muscleVolumes.values(), 1)
+		const colors = new Map<MuscleGroup, string>()
+		for (const [muscle, volume] of muscleVolumes) {
+			colors.set(muscle, intensityClass(volume / max))
+		}
+		return colors
+	}, [muscleVolumes])
+
 	const Front = sex === 'female' ? BodyFrontFemale : BodyFrontMale
 	const Back = sex === 'female' ? BodyBackFemale : BodyBackMale
 	return (

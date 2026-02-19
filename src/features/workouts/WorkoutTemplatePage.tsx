@@ -1,6 +1,7 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import { startCase } from 'es-toolkit'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -13,7 +14,6 @@ import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 import { formatTemplate } from './utils/export'
-import { intensityClass, MUSCLE_LABELS } from './utils/muscles'
 
 export interface TemplateExercise {
 	uid: string
@@ -92,9 +92,9 @@ export function WorkoutTemplatePage() {
 		})
 	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
 
-	const muscleColors = useMemo(() => {
+	const muscleVolumes = useMemo(() => {
 		const allExercises = exercisesQuery.data
-		if (!allExercises || exercises.length === 0) return new Map<MuscleGroup, string>()
+		if (!allExercises || exercises.length === 0) return new Map<MuscleGroup, number>()
 
 		const volumes = new Map<MuscleGroup, number>()
 		for (const te of exercises) {
@@ -105,13 +105,7 @@ export function WorkoutTemplatePage() {
 				volumes.set(m.muscleGroup, (volumes.get(m.muscleGroup) ?? 0) + sets * m.intensity)
 			}
 		}
-
-		const max = Math.max(...volumes.values(), 1)
-		const colors = new Map<MuscleGroup, string>()
-		for (const [muscle, volume] of volumes) {
-			colors.set(muscle, intensityClass(volume / max))
-		}
-		return colors
+		return volumes
 	}, [exercises, exercisesQuery.data, trainingGoal])
 
 	useUnsavedChanges(dirty)
@@ -318,13 +312,13 @@ export function WorkoutTemplatePage() {
 					className="relative"
 					onMouseMove={handleBodyMapMouseMove}
 				>
-					<BodyMap muscleColors={muscleColors} onHover={setHoveredMuscle} sex={sex} />
+					<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
 					{hoveredMuscle && (
 						<div
 							className="pointer-events-none absolute z-10 rounded-sm border border-edge bg-surface-1 px-2 py-1"
 							style={{ left: mousePos.x + 12, top: mousePos.y - 8 }}
 						>
-							<div className="font-medium text-ink text-xs">{MUSCLE_LABELS[hoveredMuscle]}</div>
+							<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
 						</div>
 					)}
 				</div>

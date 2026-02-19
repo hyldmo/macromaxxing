@@ -1,8 +1,8 @@
 import type { MuscleGroup } from '@macromaxxing/db'
+import { startCase } from 'es-toolkit'
 import { type FC, useMemo, useRef, useState } from 'react'
 import { Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
-import { intensityClass, MUSCLE_LABELS } from '../utils/muscles'
 import { BodyMap } from './BodyMap'
 
 export const MuscleHeatGrid: FC = () => {
@@ -13,16 +13,15 @@ export const MuscleHeatGrid: FC = () => {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const sex = profileQuery.data?.sex ?? 'male'
 
-	const muscleColors = useMemo(() => {
-		if (!coverageQuery.data) return new Map<MuscleGroup, string>()
-		const max = Math.max(...coverageQuery.data.map(s => s.weeklySets), 1)
-		const colors = new Map<MuscleGroup, string>()
+	const muscleVolumes = useMemo(() => {
+		if (!coverageQuery.data) return new Map<MuscleGroup, number>()
+		const volumes = new Map<MuscleGroup, number>()
 		for (const s of coverageQuery.data) {
 			if (s.weeklySets > 0) {
-				colors.set(s.muscleGroup, intensityClass(s.weeklySets / max))
+				volumes.set(s.muscleGroup, s.weeklySets)
 			}
 		}
-		return colors
+		return volumes
 	}, [coverageQuery.data])
 
 	const hovered = hoveredMuscle ? coverageQuery.data?.find(s => s.muscleGroup === hoveredMuscle) : null
@@ -45,13 +44,13 @@ export const MuscleHeatGrid: FC = () => {
 			className="relative py-12"
 			onMouseMove={handleMouseMove}
 		>
-			<BodyMap muscleColors={muscleColors} onHover={setHoveredMuscle} sex={sex} />
+			<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
 			{hovered && hoveredMuscle && (
 				<div
 					className="pointer-events-none absolute z-10 w-36 rounded-sm border border-edge bg-surface-1 p-2"
 					style={{ left: mousePos.x - 144, top: mousePos.y + 16 }}
 				>
-					<div className="font-medium text-ink text-xs">{MUSCLE_LABELS[hoveredMuscle] ?? hoveredMuscle}</div>
+					<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
 					<div className="mt-1 font-mono text-[10px] text-ink-muted tabular-nums">
 						{hovered.weeklySets.toFixed(1)} effective sets/wk
 					</div>
