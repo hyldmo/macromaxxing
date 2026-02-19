@@ -5,7 +5,7 @@ import { Button, Modal, Spinner, Switch } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
-import { estimated1RM, totalVolume } from '../utils/formulas'
+import { exerciseE1rmStats } from '../utils/formulas'
 import { TRAINING_DEFAULTS } from '../utils/sets'
 
 type Session = RouterOutput['workout']['getSession']
@@ -83,42 +83,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 		return result
 	}, [session.logs, template.exercises, template.trainingGoal])
 
-	const exerciseStats = useMemo(() => {
-		const byExercise = new Map<string, { name: string; logs: Log[] }>()
-
-		for (const log of session.logs) {
-			const existing = byExercise.get(log.exerciseId)
-			if (existing) {
-				existing.logs.push(log)
-			} else {
-				byExercise.set(log.exerciseId, { name: log.exercise.name, logs: [log] })
-			}
-		}
-
-		const stats: Array<{ name: string; weightKg: number; reps: number; e1rm: number; volume: number }> = []
-
-		for (const [, { name, logs }] of byExercise) {
-			let bestE1rm = 0
-			let bestWeight = 0
-			let bestReps = 0
-
-			for (const log of logs) {
-				if (log.weightKg <= 0 || log.reps <= 0) continue
-				const e1rm = estimated1RM(log.weightKg, log.reps)
-				if (e1rm > bestE1rm) {
-					bestE1rm = e1rm
-					bestWeight = log.weightKg
-					bestReps = log.reps
-				}
-			}
-
-			if (bestE1rm > 0) {
-				stats.push({ name, weightKg: bestWeight, reps: bestReps, e1rm: bestE1rm, volume: totalVolume(logs) })
-			}
-		}
-
-		return stats.sort((a, b) => b.e1rm - a.e1rm)
-	}, [session.logs])
+	const exerciseStats = useMemo(() => exerciseE1rmStats(session.logs), [session.logs])
 
 	// Toggle states: on for improvements, off for decreases by default
 	const [updates, setUpdates] = useState<Map<string, boolean>>(
