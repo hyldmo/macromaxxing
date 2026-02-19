@@ -265,64 +265,65 @@ export function WorkoutTemplatePage() {
 				)}
 			</div>
 
-			<div className="space-y-3">
-				<div className="space-y-1">
-					<label className="text-ink-muted text-sm" htmlFor="workout-name">
-						Name
-					</label>
-					<Input
-						id="workout-name"
-						placeholder="Push A, Pull B, Upper, Lower..."
-						value={name}
-						onChange={e => setName(e.target.value)}
-					/>
-				</div>
-				<div className="space-y-1">
-					<span className="text-ink-muted text-sm">Training Goal</span>
-					<div className="flex">
-						{(['hypertrophy', 'strength'] as const).map(goal => (
-							<button
-								key={goal}
-								type="button"
-								className={cn(
-									'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
-									trainingGoal === goal
-										? 'bg-accent text-white'
-										: 'bg-surface-0 text-ink-faint hover:text-ink'
-								)}
-								onClick={() => setTrainingGoal(goal)}
-							>
-								{goal}
-							</button>
-						))}
+			<div className="flex flex-wrap justify-center gap-x-8 gap-y-4 sm:justify-between">
+				<div className="flex-1 space-y-3">
+					<div className="space-y-1">
+						<label className="text-ink-muted text-sm" htmlFor="workout-name">
+							Name
+						</label>
+						<Input
+							id="workout-name"
+							placeholder="Push A, Pull B, Upper, Lower..."
+							value={name}
+							onChange={e => setName(e.target.value)}
+						/>
 					</div>
-					<p className="text-ink-faint text-xs">
-						{trainingGoal === 'hypertrophy'
-							? 'Default 3×10, dynamic rest'
-							: 'Default 5×5, dynamic rest (1.5×)'}
-					</p>
-				</div>
-			</div>
-
-			{exercises.length > 0 && (
-				<div
-					ref={bodyMapRef}
-					role="img"
-					aria-label="Muscle coverage preview"
-					className="relative"
-					onMouseMove={handleBodyMapMouseMove}
-				>
-					<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
-					{hoveredMuscle && (
-						<div
-							className="pointer-events-none absolute z-10 rounded-sm border border-edge bg-surface-1 px-2 py-1"
-							style={{ left: mousePos.x + 12, top: mousePos.y - 8 }}
-						>
-							<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
+					<div className="space-y-1">
+						<span className="text-ink-muted text-sm">Training Goal</span>
+						<div className="flex">
+							{(['hypertrophy', 'strength'] as const).map(goal => (
+								<button
+									key={goal}
+									type="button"
+									className={cn(
+										'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
+										trainingGoal === goal
+											? 'bg-accent text-white'
+											: 'bg-surface-0 text-ink-faint hover:text-ink'
+									)}
+									onClick={() => setTrainingGoal(goal)}
+								>
+									{goal}
+								</button>
+							))}
 						</div>
-					)}
+						<p className="text-ink-faint text-xs">
+							{trainingGoal === 'hypertrophy'
+								? 'Default 3×10, dynamic rest'
+								: 'Default 5×5, dynamic rest (1.5×)'}
+						</p>
+					</div>
 				</div>
-			)}
+				{exercises.length > 0 && (
+					<div
+						ref={bodyMapRef}
+						role="img"
+						aria-label="Muscle coverage preview"
+						className="relative"
+						onMouseMove={handleBodyMapMouseMove}
+					>
+						<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
+						{hoveredMuscle && (
+							<div
+								className="pointer-events-none absolute z-10 rounded-sm border border-edge bg-surface-1 px-2 py-1"
+								style={{ left: mousePos.x + 12, top: mousePos.y - 8 }}
+							>
+								<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 				<div className="space-y-0">
