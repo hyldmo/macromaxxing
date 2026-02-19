@@ -82,8 +82,8 @@ export function Nav() {
 			</nav>
 
 			{/* Mobile bottom tab bar */}
-			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
-				<div className="grid auto-cols-fr grid-flow-col justify-center">
+			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 pb-[env(safe-area-inset-bottom)] md:hidden">
+				<div className="grid auto-cols-fr grid-flow-col justify-center px-[env(safe-area-inset-left)]">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
 						<AppLinks links={mobileAuthLinks} />
