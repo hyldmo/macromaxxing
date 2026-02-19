@@ -205,6 +205,7 @@ export const aiRouter = router({
 						ingredients: ingredients.map(i => ({ ...i, preparation: i.preparation ?? null })),
 						instructions: jsonLd.instructions,
 						servings: jsonLd.servings,
+						imageUrl: jsonLd.image,
 						source: 'structured' as const
 					}
 				}

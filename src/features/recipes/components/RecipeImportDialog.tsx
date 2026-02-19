@@ -34,6 +34,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 	const [instructions, setInstructions] = useState('')
 	const [servings, setServings] = useState<number | null>(null)
 	const [source, setSource] = useState<'structured' | 'ai'>('ai')
+	const [imageUrl, setImageUrl] = useState<string | null>(null)
 
 	// Import progress
 	const [progress, setProgress] = useState({ current: 0, total: 0 })
@@ -46,6 +47,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 	const settingsQuery = trpc.settings.get.useQuery(undefined, { enabled: isSignedIn })
 	const parseRecipe = trpc.ai.parseRecipe.useMutation()
 	const createRecipe = trpc.recipe.create.useMutation()
+	const updateRecipe = trpc.recipe.update.useMutation()
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation()
 	const batchFindOrCreate = trpc.ingredient.batchFindOrCreate.useMutation()
 	const addIngredient = trpc.recipe.addIngredient.useMutation()
@@ -63,6 +65,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 			setInstructions('')
 			setServings(null)
 			setSource('ai')
+			setImageUrl(null)
 			setProgress({ current: 0, total: 0 })
 			setImportError(null)
 			parseRecipeReset()
@@ -89,6 +92,7 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 		setInstructions(result.instructions)
 		setServings(result.servings)
 		setSource(result.source)
+		setImageUrl(result.imageUrl ?? null)
 		setStep('preview')
 	}
 
@@ -177,7 +181,12 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 				}
 			}
 
-			// 3. Navigate to the new recipe
+			// 3. Set image if available
+			if (imageUrl) {
+				await updateRecipe.mutateAsync({ id: recipe.id, image: imageUrl })
+			}
+
+			// 4. Navigate to the new recipe
 			utils.recipe.list.invalidate()
 			navigate(`/recipes/${recipe.id}`)
 			onClose()
@@ -328,6 +337,17 @@ export const RecipeImportDialog: FC<RecipeImportDialogProps> = ({ open, onClose 
 						{servings && (
 							<div className="text-ink-muted text-sm">
 								Servings: <span className="font-mono tabular-nums">{servings}</span>
+							</div>
+						)}
+
+						{imageUrl && (
+							<div className="space-y-1">
+								<span className="text-ink-muted text-xs">Image</span>
+								<img
+									src={imageUrl}
+									alt=""
+									className="h-32 w-full border border-edge bg-surface-0 object-cover"
+								/>
 							</div>
 						)}
 					</div>

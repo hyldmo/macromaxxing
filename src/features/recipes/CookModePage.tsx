@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Button, Spinner, TRPCError } from '~/components/ui'
+import { getImageAttribution, getImageUrl, isExternalImage } from '~/lib/images'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { BatchMultiplierPills } from './components/BatchMultiplierPills'
@@ -51,6 +52,22 @@ export function CookModePage() {
 				</Link>
 				<h1 className="font-semibold text-ink text-lg">{recipe.name}</h1>
 			</div>
+
+			{/* Recipe image */}
+			{recipe.image && (
+				<div className="relative">
+					<img
+						src={getImageUrl(recipe.image)}
+						alt={recipe.name}
+						className="h-48 w-full border border-edge bg-surface-0 object-cover"
+					/>
+					{isExternalImage(recipe.image) && (
+						<span className="absolute right-2 bottom-2 bg-surface-0/80 px-2 py-0.5 text-ink-faint text-xs">
+							from {getImageAttribution(recipe.image)}
+						</span>
+					)}
+				</div>
+			)}
 
 			{/* Batch multiplier + portion count */}
 			<div className="space-y-2">

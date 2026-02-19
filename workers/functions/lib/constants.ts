@@ -55,7 +55,8 @@ export const parsedRecipeSchema = z.object({
 		)
 		.describe('List of ingredients with amounts'),
 	instructions: z.string().describe('Cooking instructions as plain text, preserving step numbering'),
-	servings: z.number().nullable().describe('Number of servings/portions, null if not specified')
+	servings: z.number().nullable().describe('Number of servings/portions, null if not specified'),
+	imageUrl: z.string().url().nullable().describe('URL of the main recipe image if visible on the page')
 })
 
 export const MODELS: Record<AiProvider, string> = {

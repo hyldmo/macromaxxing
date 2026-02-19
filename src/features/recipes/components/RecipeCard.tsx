@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '~/lib/cn'
+import { getImageUrl } from '~/lib/images'
 import type { AbsoluteMacros } from '~/lib/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { MacroBar } from './MacroBar'
@@ -22,7 +23,16 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 				isMine ? 'border-accent/30' : 'border-edge'
 			)}
 		>
-			<MacroRing className="max-xs:hidden" macros={portion} size="sm" ratio="macro" />
+			{recipe.image ? (
+				<img
+					src={getImageUrl(recipe.image)}
+					alt=""
+					className="size-12 xs:size-14 shrink-0 border border-edge bg-surface-0 object-cover"
+					loading="lazy"
+				/>
+			) : (
+				<MacroRing className="max-xs:hidden" macros={portion} size="sm" ratio="macro" />
+			)}
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline justify-between gap-2">
 					<div className="flex min-w-0 items-center gap-1.5">
