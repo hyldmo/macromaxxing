@@ -8,7 +8,7 @@ export function RootLayout() {
 		<RestTimerProvider>
 			<div className="min-h-screen bg-surface-0">
 				<Nav />
-				<main className="mx-auto max-w-7xl px-4 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-4">
+				<main className="mx-auto max-w-7xl px-4 py-4 pb-20 md:pb-4">
 					<Outlet />
 				</main>
 				<ReloadPrompt />

@@ -4,7 +4,6 @@ import {
 	ChefHat,
 	CookingPot,
 	Dumbbell,
-	Home,
 	LogIn,
 	type LucideIcon,
 	Settings,
@@ -27,7 +26,6 @@ const desktopAuthLinks = [
 ] satisfies Link[]
 
 const mobileAuthLinks = [
-	{ to: '/', label: 'Home', icon: Home, end: true },
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
 	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
 ] satisfies Link[]
@@ -82,8 +80,8 @@ export function Nav() {
 			</nav>
 
 			{/* Mobile bottom tab bar */}
-			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 pb-[env(safe-area-inset-bottom)] md:hidden">
-				<div className="grid auto-cols-fr grid-flow-col justify-center px-[env(safe-area-inset-left)]">
+			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
+				<div className="grid auto-cols-fr grid-flow-col justify-center px-3">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
 						<AppLinks links={mobileAuthLinks} />
