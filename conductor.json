@@ -1,0 +1,8 @@
+{
+	"scripts": {
+		"setup": "yarn install && yarn db:migrate",
+		"run": "yarn dev",
+		"archive": "rm -rf node_modules dist .wrangler"
+	},
+	"runScriptMode": "concurrent"
+}
