@@ -4,6 +4,7 @@ import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'reac
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
+import { useScrollLock } from '~/lib/useScrollLock'
 import { useRestTimer } from '../RestTimerContext'
 import { type FlatSet, flattenSets, type RenderItem } from '../utils/sets'
 import { TimerRing } from './TimerRing'
@@ -55,15 +56,7 @@ export const TimerMode: FC = () => {
 		}
 	}, [sessionId, session.startedAt, restTimer.setSession, restTimer])
 
-	// Lock background scroll while timer overlay is open
-	useEffect(() => {
-		const html = document.documentElement
-		const originalOverflow = html.style.overflow
-		html.style.overflow = 'hidden'
-		return () => {
-			html.style.overflow = originalOverflow
-		}
-	}, [])
+	useScrollLock()
 
 	const [editWeight, setEditWeight] = useState<number | null>(null)
 	const [editReps, setEditReps] = useState<number>(0)
