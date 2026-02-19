@@ -14,7 +14,7 @@ import { SessionReview } from './components/SessionReview'
 import { SupersetForm } from './components/SupersetForm'
 import { useRestTimer } from './RestTimerContext'
 import { formatSession } from './utils/export'
-import { totalVolume } from './utils/formulas'
+import { estimateReplacementWeight, totalVolume } from './utils/formulas'
 import {
 	calculateRest,
 	generateBackoffSets,
@@ -102,6 +102,7 @@ export function WorkoutSessionPage() {
 	}, [sessionQuery.data, isCompleteSession, setSession])
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
+	const standardsQuery = trpc.workout.listStandards.useQuery()
 
 	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
 
@@ -216,6 +217,7 @@ export function WorkoutSessionPage() {
 		if (!sessionQuery.data)
 			return { exerciseGroups: [], extraExercises: [], exerciseModes: new Map(), exerciseGoals: new Map() }
 
+		const standards = standardsQuery.data ?? []
 		const template = sessionQuery.data.workout
 		const logsByExercise = new Map<Exercise['id'], ExerciseGroup>()
 
@@ -263,10 +265,24 @@ export function WorkoutSessionPage() {
 				goals.set(effectiveExerciseId, exerciseGoal)
 				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
 
-				// When exercise is replaced, don't carry over the old exercise's targets
-				const effectiveTargetWeight = replacement ? null : we.targetWeight
+				// When exercise is replaced, don't carry over the old exercise's targets —
+				// instead estimate weight from other template exercises via strength standards
 				const effectiveSets = (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets
 				const effectiveReps = (replacement ? null : we.targetReps) ?? exerciseDefaults.targetReps
+				const effectiveTargetWeight = replacement
+					? estimateReplacementWeight(
+							effectiveExerciseId,
+							effectiveReps,
+							template.exercises
+								.filter(e => e.exerciseId !== we.exerciseId)
+								.map(e => ({
+									exerciseId: templateReplacements.get(e.exerciseId)?.id ?? e.exerciseId,
+									targetWeight: e.targetWeight,
+									targetReps: e.targetReps
+								})),
+							standards
+						)
+					: we.targetWeight
 
 				const sets: PlannedSet[] = []
 				let setNum = 1
@@ -376,7 +392,7 @@ export function WorkoutSessionPage() {
 		}
 
 		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes, exerciseGoals: goals }
-	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements])
+	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements, standardsQuery.data])
 
 	// Helper: check if a render item contains a given exerciseId
 	const itemContainsExercise = useCallback(
