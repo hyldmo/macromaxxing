@@ -1,4 +1,11 @@
-import { ingredients, ingredientUnits, recipeIngredients, recipes, type TypeIDString } from '@macromaxxing/db'
+import {
+	type ImageSource,
+	ingredients,
+	ingredientUnits,
+	recipeIngredients,
+	recipes,
+	type TypeIDString
+} from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { and, eq, isNotNull, or } from 'drizzle-orm'
 import { z } from 'zod'
@@ -27,7 +34,8 @@ const updateRecipeSchema = z.object({
 	instructions: z.string().nullable().optional(),
 	cookedWeight: z.number().positive().nullable().optional(),
 	portionSize: z.number().positive().nullable().optional(),
-	isPublic: z.boolean().optional()
+	isPublic: z.boolean().optional(),
+	image: z.custom<ImageSource>().nullable().optional()
 })
 
 const addIngredientSchema = z.object({
@@ -104,12 +112,13 @@ export const recipesRouter = router({
 	}),
 
 	update: protectedProcedure.input(updateRecipeSchema).mutation(async ({ ctx, input }) => {
-		const { id, isPublic, ...updates } = input
+		const { id, isPublic, image, ...updates } = input
 		await ctx.db
 			.update(recipes)
 			.set({
 				...updates,
 				...(isPublic !== undefined && { isPublic: isPublic ? 1 : 0 }),
+				...(image !== undefined && { image }),
 				updatedAt: Date.now()
 			})
 			.where(and(eq(recipes.id, id), eq(recipes.userId, ctx.user.id)))
@@ -130,7 +139,17 @@ export const recipesRouter = router({
 	delete: protectedProcedure
 		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
 		.mutation(async ({ ctx, input }) => {
-			await ctx.db.delete(recipes).where(and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id)))
+			const recipe = await ctx.db.query.recipes.findFirst({
+				where: and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id))
+			})
+			if (!recipe) throw new TRPCError({ code: 'NOT_FOUND' })
+
+			// Clean up R2 image if it was an upload (not external URL)
+			if (recipe.image && !recipe.image.startsWith('http')) {
+				await ctx.env.IMAGES.delete(`recipes/${recipe.image}`)
+			}
+
+			await ctx.db.delete(recipes).where(eq(recipes.id, input.id))
 		}),
 
 	addIngredient: protectedProcedure.input(addIngredientSchema).mutation(async ({ ctx, input }) => {

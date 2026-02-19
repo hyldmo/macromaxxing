@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import { type AiProvider, usdaFoods, usdaPortions } from '@macromaxxing/db'
+import { type AiProvider, type HttpsUrl, usdaFoods, usdaPortions } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
 import { eq, sql } from 'drizzle-orm'
 import type { z } from 'zod'
@@ -298,6 +298,7 @@ export interface JsonLdRecipe {
 	ingredientStrings: string[]
 	instructions: string
 	servings: number | null
+	image: HttpsUrl | null
 }
 
 /** Extract Recipe structured data from JSON-LD script tags in HTML */
@@ -340,11 +341,22 @@ function findRecipeInJsonLd(data: unknown): JsonLdRecipe | null {
 		const ingredientStrings = Array.isArray(obj.recipeIngredient) ? (obj.recipeIngredient as string[]) : []
 		if (ingredientStrings.length === 0) return null
 
+		// Extract image (string, array of strings, or { url: string } per schema.org)
+		let image: string | null = null
+		if (typeof obj.image === 'string') {
+			image = obj.image
+		} else if (Array.isArray(obj.image) && typeof obj.image[0] === 'string') {
+			image = obj.image[0]
+		} else if (typeof obj.image === 'object' && obj.image !== null && 'url' in obj.image) {
+			image = (obj.image as { url: string }).url
+		}
+
 		return {
 			name: (obj.name as string) || 'Untitled Recipe',
 			ingredientStrings,
 			instructions: normalizeInstructions(obj.recipeInstructions),
-			servings: parseServings(obj.recipeYield)
+			servings: parseServings(obj.recipeYield),
+			image: image as HttpsUrl | null
 		}
 	}
 

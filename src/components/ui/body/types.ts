@@ -1,4 +1,5 @@
+import type { MuscleGroup } from '@macromaxxing/db'
 import type { SVGAttributes } from 'react'
 export interface BodySvgProps {
-	gp?: (id: string) => SVGAttributes<SVGGElement>
+	gp?: (id: MuscleGroup) => SVGAttributes<SVGGElement>
 }

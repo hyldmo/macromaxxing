@@ -9,7 +9,7 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 ## Stack
 
 - **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom, PWA (vite-plugin-pwa + Workbox)
-- **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), Drizzle ORM
+- **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), R2 (images), Drizzle ORM
 - **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
 
@@ -49,6 +49,7 @@ Create `.env.local` for frontend:
 
 ```bash
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_R2_BASE_URL=https://pub-xxx.r2.dev   # R2 public bucket URL (shared across all envs)
 ```
 
 ## Source Tree
@@ -62,6 +63,7 @@ src/
     trpc.ts                                 # tRPC react-query client
     user.tsx                                # useUser() hook (Clerk)
     cn.ts                                   # cn() utility (clsx + twMerge)
+    images.ts                               # getImageUrl, isExternalImage, getImageAttribution (R2/external URL)
   components/
     ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
@@ -78,7 +80,7 @@ src/
                                             #   RecipeIngredientRow, RecipeSummaryRow, RecipeTotalsBar, PortionPanel,
                                             #   PortionSizeInput, CookedWeightInput, IngredientSearchInput,
                                             #   PreparationInput, RecipeImportDialog, PremadeDialog, RecipeCard,
-                                            #   SubrecipeExpandedRows, HighlightedInstructions,
+                                            #   RecipeImageUpload, SubrecipeExpandedRows, HighlightedInstructions,
                                             #   BatchMultiplierPills, CookIngredientList, CookInstructionSteps,
                                             #   CookPortionSummary
       hooks/useRecipeCalculations.ts        # Derives totals, per-portion, per-100g from ingredients + cooked weight
@@ -128,7 +130,7 @@ packages/db/                                # Shared package @macromaxxing/db
   custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
   preparation.ts                            # Preparation descriptor extraction (extractPreparation)
 workers/functions/
-  api/[[route]].ts                          # Hono entry: Clerk auth middleware → tRPC handler
+  api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
   lib/
     trpc.ts                                 # TRPCContext { db, user, env }, publicProcedure, protectedProcedure
     router.ts                               # Merges all route files into appRouter
@@ -182,7 +184,7 @@ users(id PK clerk_user_id, email)
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, fdcId?, source: manual|ai|usda|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
 
-recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?)
+recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
 mealPlans(id typeid:mpl, userId, name)
@@ -274,8 +276,12 @@ trpc.dashboard.summary                      # Aggregated dashboard data: today's
 trpc.settings.get/save
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions
-trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI)
+trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI); returns imageUrl
 trpc.ai.parseProduct                        # Parses product nutrition from URL (JSON-LD Product → AI fallback)
+
+# Non-tRPC routes (raw Hono, multipart form data)
+POST   /api/recipes/:id/image              # Upload recipe image to R2 (max 5MB, image/* only)
+DELETE /api/recipes/:id/image              # Remove recipe image (cleans up R2 if upload)
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -296,6 +302,8 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 **Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
 
 **Premade meals** — Tracked as `type: 'premade'` recipes backed by a single ingredient with `source: 'label'`. Premade recipes are always private (never shown to unauthenticated users). Backing ingredients are hidden from the ingredient list (`source != 'label'` filter).
+
+**Recipe images** — Single `image` column stores either a recipe ID (R2 upload at `recipes/{id}`) or an `http*` URL (external, hotlinked). Upload/delete via raw Hono routes (`POST/DELETE /api/recipes/:id/image`) since tRPC doesn't support multipart. Frontend resolves via `getImageUrl()` from `~/lib/images`. External images show "from hostname" attribution. R2 objects are cleaned up on image removal and recipe deletion. Images extracted from JSON-LD during recipe URL imports.
 
 **Subrecipes** — Recipes can be added as components of other recipes. `recipeIngredients` rows have either `ingredientId` or `subrecipeId` set (never both). Subrecipe macros are derived from the child recipe's ingredients and scale with portions. Cycle detection prevents circular references.
 

@@ -3,6 +3,7 @@ import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-or
 import {
 	type AiProvider,
 	type FatigueTier,
+	type ImageSource,
 	type MuscleGroup,
 	newId,
 	type SetMode,
@@ -86,6 +87,7 @@ export const recipes = sqliteTable(
 		portionSize: real('portion_size'), // null = entire dish is 1 portion
 		isPublic: integer('is_public').notNull().default(0), // 0 = private, 1 = public
 		sourceUrl: text('source_url'), // URL the recipe was imported from (null = manual/text)
+		image: text('image').$type<ImageSource>(),
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull()
 	},

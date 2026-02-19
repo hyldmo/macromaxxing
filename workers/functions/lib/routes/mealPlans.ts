@@ -1,5 +1,5 @@
-import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString } from '@macromaxxing/db'
-import { and, eq } from 'drizzle-orm'
+import { mealPlanInventory, mealPlanSlots, mealPlans, recipes, type TypeIDString } from '@macromaxxing/db'
+import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -14,29 +14,42 @@ export const mealPlansRouter = router({
 	}),
 
 	get: protectedProcedure.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() })).query(async ({ ctx, input }) => {
-		const plan = await ctx.db.query.mealPlans.findFirst({
-			where: and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)),
-			with: {
-				inventory: {
-					with: {
-						recipe: {
-							with: {
-								recipeIngredients: {
-									with: {
-										ingredient: true,
-										subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-									},
-									orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
-								}
-							}
+		const [plan, allRecipes] = await ctx.db.batch([
+			// Q1: Plan + inventory + slots (2 levels, shallow)
+			ctx.db.query.mealPlans.findFirst({
+				where: and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)),
+				with: { inventory: { with: { slots: true } } }
+			}),
+			// Q2: Recipes via subquery on inventory (3 levels, no dependency on Q1)
+			ctx.db.query.recipes.findMany({
+				where: inArray(
+					recipes.id,
+					ctx.db
+						.select({ id: mealPlanInventory.recipeId })
+						.from(mealPlanInventory)
+						.where(eq(mealPlanInventory.mealPlanId, input.id))
+				),
+				with: {
+					recipeIngredients: {
+						with: {
+							ingredient: true,
+							subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
 						},
-						slots: true
+						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
 					}
 				}
-			}
-		})
+			})
+		] as const)
 		if (!plan) throw new Error('Meal plan not found')
-		return plan
+
+		const recipeMap = new Map(allRecipes.map(r => [r.id, r]))
+		return {
+			...plan,
+			inventory: plan.inventory.map(inv => ({
+				...inv,
+				recipe: recipeMap.get(inv.recipeId)!
+			}))
+		}
 	}),
 
 	create: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {

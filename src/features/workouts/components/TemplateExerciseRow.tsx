@@ -6,7 +6,10 @@ import type { FC } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
+
+import { estimated1RM } from '../utils/formulas'
 import { getExerciseDefaults } from '../utils/sets'
+
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
 
@@ -64,6 +67,11 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				</span>
 			)}
 			<span className="min-w-40 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
+			{exercise.targetWeight && exercise.targetRepsMin && (
+				<span className="text-ink-muted text-xs max-lg:hidden">
+					{Math.round(estimated1RM(exercise.targetWeight, exercise.targetRepsMin))}kg e1RM
+				</span>
+			)}
 			<TrainingGoalToggle
 				workoutGoal={trainingGoal}
 				value={exercise.trainingGoal}

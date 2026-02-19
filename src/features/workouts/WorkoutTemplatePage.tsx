@@ -1,14 +1,16 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import type { MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import { startCase } from 'es-toolkit'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import { trpc } from '~/lib/trpc'
 import { useDocumentTitle } from '~/lib/useDocumentTitle'
 import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
+import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 import { formatTemplate } from './utils/export'
@@ -38,11 +40,16 @@ export function WorkoutTemplatePage() {
 		{ enabled: isEditing }
 	)
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
+	const profileQuery = trpc.settings.getProfile.useQuery()
 
 	const [name, setName] = useState('')
 	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
+	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
+	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+	const bodyMapRef = useRef<HTMLDivElement>(null)
+	const sex = profileQuery.data?.sex ?? 'male'
 
 	useEffect(() => {
 		if (workoutQuery.data) {
@@ -87,6 +94,22 @@ export function WorkoutTemplatePage() {
 			)
 		})
 	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
+
+	const muscleVolumes = useMemo(() => {
+		const allExercises = exercisesQuery.data
+		if (!allExercises || exercises.length === 0) return new Map<MuscleGroup, number>()
+
+		const volumes = new Map<MuscleGroup, number>()
+		for (const te of exercises) {
+			const exercise = allExercises.find(e => e.id === te.exerciseId)
+			if (!exercise) continue
+			const sets = te.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
+			for (const m of exercise.muscles) {
+				volumes.set(m.muscleGroup, (volumes.get(m.muscleGroup) ?? 0) + sets * m.intensity)
+			}
+		}
+		return volumes
+	}, [exercises, exercisesQuery.data, trainingGoal])
 
 	useUnsavedChanges(dirty)
 
@@ -209,6 +232,12 @@ export function WorkoutTemplatePage() {
 		setExercises(next)
 	}
 
+	function handleBodyMapMouseMove(e: React.MouseEvent) {
+		if (!bodyMapRef.current) return
+		const rect = bodyMapRef.current.getBoundingClientRect()
+		setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+	}
+
 	if (isEditing && workoutQuery.isLoading) {
 		return (
 			<div className="flex justify-center py-12">
@@ -239,46 +268,65 @@ export function WorkoutTemplatePage() {
 					</div>
 				)}
 			</div>
-
-			<div className="space-y-3">
-				<div className="space-y-1">
-					<label className="text-ink-muted text-sm" htmlFor="workout-name">
-						Name
-					</label>
-					<Input
-						id="workout-name"
-						placeholder="Push A, Pull B, Upper, Lower..."
-						value={name}
-						onChange={e => setName(e.target.value)}
-					/>
-				</div>
-				<div className="space-y-1">
-					<span className="text-ink-muted text-sm">Training Goal</span>
-					<div className="flex">
-						{(['hypertrophy', 'strength'] as const).map(goal => (
-							<button
-								key={goal}
-								type="button"
-								className={cn(
-									'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
-									trainingGoal === goal
-										? 'bg-accent text-white'
-										: 'bg-surface-0 text-ink-faint hover:text-ink'
-								)}
-								onClick={() => setTrainingGoal(goal)}
-							>
-								{goal}
-							</button>
-						))}
+			<div className="flex flex-wrap justify-center gap-x-8 gap-y-4 sm:justify-between">
+				<div className="flex-1 space-y-3">
+					<div className="space-y-1">
+						<label className="text-ink-muted text-sm" htmlFor="workout-name">
+							Name
+						</label>
+						<Input
+							id="workout-name"
+							placeholder="Push A, Pull B, Upper, Lower..."
+							value={name}
+							onChange={e => setName(e.target.value)}
+						/>
 					</div>
-					<p className="text-ink-faint text-xs">
-						{trainingGoal === 'hypertrophy'
-							? 'Default 3×8-12 (compound) / 3×12-15 (isolation)'
-							: 'Default 5×3-5 (compound) / 5×6-8 (isolation)'}
-					</p>
+					<div className="space-y-1">
+						<span className="text-ink-muted text-sm">Training Goal</span>
+						<div className="flex">
+							{(['hypertrophy', 'strength'] as const).map(goal => (
+								<button
+									key={goal}
+									type="button"
+									className={cn(
+										'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
+										trainingGoal === goal
+											? 'bg-accent text-white'
+											: 'bg-surface-0 text-ink-faint hover:text-ink'
+									)}
+									onClick={() => setTrainingGoal(goal)}
+								>
+									{goal}
+								</button>
+							))}
+						</div>
+						<p className="text-ink-faint text-xs">
+							{trainingGoal === 'hypertrophy'
+								? 'Default 3×10, dynamic rest'
+								: 'Default 5×5, dynamic rest (1.5×)'}
+						</p>
+					</div>
 				</div>
+				{exercises.length > 0 && (
+					<div
+						ref={bodyMapRef}
+						role="img"
+						aria-label="Muscle coverage preview"
+						className="relative"
+						onMouseMove={handleBodyMapMouseMove}
+					>
+						<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
+						{hoveredMuscle && (
+							<div
+								className="pointer-events-none absolute z-10 rounded-sm border border-edge bg-surface-1 px-2 py-1"
+								style={{ left: mousePos.x + 12, top: mousePos.y - 8 }}
+							>
+								<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
+							</div>
+						)}
+					</div>
+				)}
 			</div>
-
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 				<div className="space-y-0">
 					<h2 className="mb-2 font-medium text-ink text-sm">Exercises</h2>
@@ -354,7 +402,6 @@ export function WorkoutTemplatePage() {
 					</SortableContext>
 				</div>
 			</DndContext>
-
 			{exercisesQuery.data && (
 				<ExerciseSearch
 					exercises={exercisesQuery.data}
@@ -382,7 +429,6 @@ export function WorkoutTemplatePage() {
 			{(createMutation.isError || updateMutation.isError) && (
 				<TRPCError error={createMutation.error ?? updateMutation.error!} />
 			)}
-
 			<SaveButton
 				mutation={isEditing ? updateMutation : createMutation}
 				disabled={!name || exercises.length === 0 || !dirty}

@@ -1,4 +1,4 @@
-import { recipes, type TypeIDString } from '@macromaxxing/db'
+import { type HttpsUrl, recipes, type TypeIDString } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq } from 'drizzle-orm'
@@ -205,6 +205,7 @@ export const aiRouter = router({
 						ingredients: ingredients.map(i => ({ ...i, preparation: i.preparation ?? null })),
 						instructions: jsonLd.instructions,
 						servings: jsonLd.servings,
+						imageUrl: jsonLd.image,
 						source: 'structured' as const
 					}
 				}
@@ -243,6 +244,7 @@ export const aiRouter = router({
 
 			return {
 				...output,
+				imageUrl: output.imageUrl as HttpsUrl | null,
 				ingredients: output.ingredients.map(ing => {
 					if (ing.preparation) return ing
 					const { name, preparation } = extractPreparation(ing.name)
