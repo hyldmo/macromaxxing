@@ -66,7 +66,7 @@ export function Nav() {
 						</SignedIn>
 						<SignedOut>
 							<SignInButton mode="modal">
-								<WebLink className="max-md:hidden" to="/sign-in" icon={LogIn} label="Sign in" />
+								<WebLink icon={LogIn} label="Sign in" />
 							</SignInButton>
 						</SignedOut>
 					</div>
@@ -82,7 +82,7 @@ export function Nav() {
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
-							<AppLink to="/sign-in" icon={LogIn} label="Sign in" />
+							<AppLink icon={LogIn} label="Sign in" />
 						</SignInButton>
 					</SignedOut>
 				</div>
@@ -93,19 +93,20 @@ export function Nav() {
 
 interface LinkProps {
 	className?: string
-	to: string | (() => void)
+	to?: string | (() => void)
 	label?: string
 	icon: LucideIcon
 	end?: boolean
 }
 
-const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => {
+const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest }) => {
 	const Elem =
 		typeof to === 'string'
 			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
 			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
 	return (
 		<Elem
+			{...rest}
 			className={cn(
 				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink active:bg-surface-2 active:font-medium active:text-ink',
 				className
@@ -117,13 +118,14 @@ const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => {
 	)
 }
 
-const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end }) => {
+const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest }) => {
 	const Elem =
 		typeof to === 'string'
 			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
 			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
 	return (
 		<Elem
+			{...rest}
 			className={cn(
 				'mx-auto space-y-0.5 py-2 text-center 2xs:text-sm text-ink-muted text-xs transition-colors active:font-medium active:text-accent',
 				className
