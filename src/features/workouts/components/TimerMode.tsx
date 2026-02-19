@@ -55,6 +55,16 @@ export const TimerMode: FC = () => {
 		}
 	}, [sessionId, session.startedAt, restTimer.setSession, restTimer])
 
+	// Lock background scroll while timer overlay is open
+	useEffect(() => {
+		const html = document.documentElement
+		const originalOverflow = html.style.overflow
+		html.style.overflow = 'hidden'
+		return () => {
+			html.style.overflow = originalOverflow
+		}
+	}, [])
+
 	const [editWeight, setEditWeight] = useState<number | null>(null)
 	const [editReps, setEditReps] = useState<number>(0)
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
@@ -212,7 +222,7 @@ export const TimerMode: FC = () => {
 	const isSetPaused = setStartedAt !== null && isPaused && !isResting
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col bg-surface-0">
+		<div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
 			<div className="mx-auto flex h-full w-full max-w-sm flex-col">
 				{/* Main content */}
 				<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
