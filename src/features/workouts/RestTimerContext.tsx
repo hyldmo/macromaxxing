@@ -90,11 +90,11 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 				if ('Notification' in window && Notification.permission === 'granted') {
 					// Use SW showNotification — works even when app is backgrounded
 					if ('serviceWorker' in navigator) {
-						navigator.serviceWorker.ready.then((reg) => {
+						navigator.serviceWorker.ready.then(reg => {
 							reg.showNotification('Rest timer done', {
 								body: 'Time for your next set',
 								tag: 'rest-timer',
-								icon: '/pwa-192x192.png',
+								icon: '/pwa-192x192.png'
 							})
 						})
 					} else {
