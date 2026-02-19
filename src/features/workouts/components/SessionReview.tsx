@@ -5,6 +5,7 @@ import { Button, Modal, Spinner, Switch } from '~/components/ui'
 import { cn } from '~/lib/cn'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { estimated1RM, totalVolume } from '../utils/formulas'
 import { TRAINING_DEFAULTS } from '../utils/sets'
 
 type Session = RouterOutput['workout']['getSession']
@@ -82,6 +83,43 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 		return result
 	}, [session.logs, template.exercises, template.trainingGoal])
 
+	const exerciseStats = useMemo(() => {
+		const byExercise = new Map<string, { name: string; logs: Log[] }>()
+
+		for (const log of session.logs) {
+			const existing = byExercise.get(log.exerciseId)
+			if (existing) {
+				existing.logs.push(log)
+			} else {
+				byExercise.set(log.exerciseId, { name: log.exercise.name, logs: [log] })
+			}
+		}
+
+		const stats: Array<{ name: string; weightKg: number; reps: number; e1rm: number; volume: number }> = []
+
+		for (const [, { name, logs }] of byExercise) {
+			let bestE1rm = 0
+			let bestWeight = 0
+			let bestReps = 0
+
+			for (const log of logs) {
+				if (log.weightKg <= 0 || log.reps <= 0) continue
+				const e1rm = estimated1RM(log.weightKg, log.reps)
+				if (e1rm > bestE1rm) {
+					bestE1rm = e1rm
+					bestWeight = log.weightKg
+					bestReps = log.reps
+				}
+			}
+
+			if (bestE1rm > 0) {
+				stats.push({ name, weightKg: bestWeight, reps: bestReps, e1rm: bestE1rm, volume: totalVolume(logs) })
+			}
+		}
+
+		return stats.sort((a, b) => b.e1rm - a.e1rm)
+	}, [session.logs])
+
 	// Toggle states: on for improvements, off for decreases by default
 	const [updates, setUpdates] = useState<Map<string, boolean>>(
 		() => new Map(divergences.map(d => [d.exerciseId, d.improved]))
@@ -145,6 +183,25 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 					<X className="size-4" />
 				</Button>
 			</div>
+
+			{exerciseStats.length > 0 && (
+				<div className="mb-4 rounded-sm border border-edge bg-surface-0 p-3">
+					<p className="mb-2 text-ink-muted text-xs">Estimated 1RM</p>
+					<div className="space-y-1.5">
+						{exerciseStats.map(s => (
+							<div key={s.name} className="flex items-baseline justify-between gap-2">
+								<span className="min-w-0 truncate text-ink text-sm">{s.name}</span>
+								<div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px] tabular-nums">
+									<span className="text-ink-faint">
+										{s.weightKg}kg × {s.reps}
+									</span>
+									<span className="font-semibold text-accent">{s.e1rm.toFixed(0)}kg</span>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
 
 			{!hasDivergences ? (
 				<p className="mb-4 text-ink-muted text-sm">All sets matched the plan. Complete the session?</p>
