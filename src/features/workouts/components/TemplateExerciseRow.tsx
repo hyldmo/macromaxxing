@@ -4,7 +4,7 @@ import type { TrainingGoal } from '@macromaxxing/db'
 import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button, NumberInput } from '~/components/ui'
-import { cn, estimated1RM, TRAINING_DEFAULTS } from '~/lib'
+import { cn, estimated1RM, getRepRange, TRAINING_DEFAULTS } from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
@@ -36,6 +36,17 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	const style = { transform: CSS.Translate.toString(transform), transition }
 	const effectiveGoal = exercise.trainingGoal ?? trainingGoal
 	const defaults = TRAINING_DEFAULTS[effectiveGoal]
+	const range = getRepRange(
+		{
+			type: exercise.exerciseType,
+			strengthRepsMin: exercise.strengthRepsMin,
+			strengthRepsMax: exercise.strengthRepsMax,
+			hypertrophyRepsMin: exercise.hypertrophyRepsMin,
+			hypertrophyRepsMax: exercise.hypertrophyRepsMax
+		},
+		effectiveGoal
+	)
+	const aboveRange = exercise.targetReps != null && exercise.targetReps > range.max
 	return (
 		<div
 			ref={setNodeRef}
@@ -97,7 +108,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			<span className="text-ink-faint text-xs">sets</span>
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
-				className="w-14"
+				className={cn('w-14', aboveRange && 'border-amber-400/60')}
 				value={exercise.targetReps ?? ''}
 				placeholder={String(defaults.targetReps)}
 				onChange={e => {

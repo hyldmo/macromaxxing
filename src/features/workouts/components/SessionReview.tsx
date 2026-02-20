@@ -59,9 +59,9 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			.filter(d => updates.get(d.exerciseId))
 			.map(d => ({
 				exerciseId: d.exerciseId,
-				targetSets: d.actual.sets,
-				targetReps: d.actual.reps,
-				targetWeight: d.actual.weight > 0 ? d.actual.weight : null
+				targetSets: d.suggestion.targetSets,
+				targetReps: d.suggestion.targetReps,
+				targetWeight: d.suggestion.targetWeight
 			}))
 
 		const addExercises = extraExercises
@@ -146,8 +146,9 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 											</span>
 											<ArrowRight className="size-3 text-ink-faint" />
 											<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
-												{d.actual.sets}×{d.actual.reps}
-												{d.actual.weight > 0 && ` @${d.actual.weight}kg`}
+												{d.suggestion.targetSets}×{d.suggestion.targetReps}
+												{d.suggestion.targetWeight != null &&
+													` @${d.suggestion.targetWeight}kg`}
 											</span>
 										</div>
 									</div>
