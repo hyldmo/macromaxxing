@@ -11,7 +11,7 @@ import { router } from '~/router'
 import '@mdxeditor/editor/style.css'
 import '~/index.css'
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 const ONE_DAY = 1000 * 60 * 60 * 24
 

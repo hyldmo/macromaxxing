@@ -1,27 +1,30 @@
 import {
+	type ExerciseType,
 	exerciseMuscles,
 	exercises,
+	exerciseType,
 	type FatigueTier,
 	MUSCLE_GROUPS,
 	type MuscleGroup,
 	type SetType,
 	sessionPlannedExercises,
+	setMode,
 	type TypeIDString,
+	trainingGoal,
 	workoutExercises,
 	workoutLogs,
 	workoutSessions,
 	workouts
 } from '@macromaxxing/db'
+import { TRPCError } from '@trpc/server'
 import { and, desc, eq, gte, isNull, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
-const zExerciseType = z.enum(['compound', 'isolation'])
 const zSetType = z.enum(['warmup', 'working', 'backoff'])
-const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
-const zTrainingGoal = z.enum(['hypertrophy', 'strength'])
+
 type InferredMuscle = { muscleGroup: MuscleGroup; intensity: number }
-type InferredExercise = { type: 'compound' | 'isolation'; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
+type InferredExercise = { type: ExerciseType; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
 
 /** Keyword-based muscle group inference from exercise name */
 function inferExercise(name: string): InferredExercise {
@@ -178,7 +181,7 @@ export const workoutsRouter = router({
 	// ─── Exercise CRUD ────────────────────────────────────────────
 
 	listExercises: protectedProcedure
-		.input(z.object({ type: zExerciseType.optional() }).optional())
+		.input(z.object({ type: exerciseType.optional() }).optional())
 		.query(async ({ ctx, input }) => {
 			const typeFilter = input?.type ? eq(exercises.type, input.type) : undefined
 			const userFilter = or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
@@ -195,13 +198,13 @@ export const workoutsRouter = router({
 		.input(
 			z.object({
 				name: z.string().min(1),
-				type: zExerciseType,
+				type: exerciseType,
 				fatigueTier: z.number().int().min(1).max(4).optional(),
 				muscles: z.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) })),
-				strengthRepsMin: z.number().int().min(1).optional(),
-				strengthRepsMax: z.number().int().min(1).optional(),
-				hypertrophyRepsMin: z.number().int().min(1).optional(),
-				hypertrophyRepsMax: z.number().int().min(1).optional()
+				strengthRepsMin: z.number().int().min(1).nullable(),
+				strengthRepsMax: z.number().int().min(1).nullable(),
+				hypertrophyRepsMin: z.number().int().min(1).nullable(),
+				hypertrophyRepsMax: z.number().int().min(1).nullable()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -209,17 +212,7 @@ export const workoutsRouter = router({
 			const tier = (input.fatigueTier ?? (input.type === 'compound' ? 2 : 4)) as FatigueTier
 			const [exercise] = await ctx.db
 				.insert(exercises)
-				.values({
-					userId: ctx.user.id,
-					name: input.name,
-					type: input.type,
-					fatigueTier: tier,
-					strengthRepsMin: input.strengthRepsMin ?? null,
-					strengthRepsMax: input.strengthRepsMax ?? null,
-					hypertrophyRepsMin: input.hypertrophyRepsMin ?? null,
-					hypertrophyRepsMax: input.hypertrophyRepsMax ?? null,
-					createdAt: now
-				})
+				.values({ ...input, userId: ctx.user.id, fatigueTier: tier, createdAt: now })
 				.returning()
 
 			if (input.muscles.length > 0) {
@@ -236,6 +229,93 @@ export const workoutsRouter = router({
 				where: eq(exercises.id, exercise.id),
 				with: { muscles: true }
 			})
+		}),
+
+	updateExercise: protectedProcedure
+		.input(
+			z.object({
+				id: z.custom<TypeIDString<'exc'>>(),
+				name: z.string().min(1).optional(),
+				type: exerciseType.optional(),
+				fatigueTier: z.number().int().min(1).max(4).optional(),
+				strengthRepsMin: z.number().int().min(1).nullable().optional(),
+				strengthRepsMax: z.number().int().min(1).nullable().optional(),
+				hypertrophyRepsMin: z.number().int().min(1).nullable().optional(),
+				hypertrophyRepsMax: z.number().int().min(1).nullable().optional(),
+				muscles: z
+					.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
+					.optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.exercises.findFirst({
+				where: eq(exercises.id, input.id)
+			})
+			if (!existing || existing.userId !== ctx.user.id) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+
+			const { id, muscles, ...fields } = input
+			const set: Record<string, unknown> = {}
+			if (fields.name !== undefined) set.name = fields.name
+			if (fields.type !== undefined) set.type = fields.type
+			if (fields.fatigueTier !== undefined) set.fatigueTier = fields.fatigueTier
+			if (fields.strengthRepsMin !== undefined) set.strengthRepsMin = fields.strengthRepsMin
+			if (fields.strengthRepsMax !== undefined) set.strengthRepsMax = fields.strengthRepsMax
+			if (fields.hypertrophyRepsMin !== undefined) set.hypertrophyRepsMin = fields.hypertrophyRepsMin
+			if (fields.hypertrophyRepsMax !== undefined) set.hypertrophyRepsMax = fields.hypertrophyRepsMax
+
+			if (Object.keys(set).length > 0) {
+				await ctx.db.update(exercises).set(set).where(eq(exercises.id, id))
+			}
+
+			if (muscles !== undefined) {
+				await ctx.db.delete(exerciseMuscles).where(eq(exerciseMuscles.exerciseId, id))
+				if (muscles.length > 0) {
+					await ctx.db.insert(exerciseMuscles).values(
+						muscles.map(m => ({
+							exerciseId: id,
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity
+						}))
+					)
+				}
+			}
+
+			return ctx.db.query.exercises.findFirst({
+				where: eq(exercises.id, id),
+				with: { muscles: true }
+			})
+		}),
+
+	deleteExercise: protectedProcedure
+		.input(z.object({ id: z.custom<TypeIDString<'exc'>>() }))
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.exercises.findFirst({
+				where: eq(exercises.id, input.id)
+			})
+			if (!existing || existing.userId !== ctx.user.id) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+
+			// Check if exercise is used in any workout templates or session plans
+			const [templateRef] = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(workoutExercises)
+				.where(eq(workoutExercises.exerciseId, input.id))
+			const [sessionRef] = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(sessionPlannedExercises)
+				.where(eq(sessionPlannedExercises.exerciseId, input.id))
+
+			if ((templateRef?.count ?? 0) > 0 || (sessionRef?.count ?? 0) > 0) {
+				throw new TRPCError({
+					code: 'PRECONDITION_FAILED',
+					message: 'Exercise is used in workout templates. Remove it first.'
+				})
+			}
+
+			await ctx.db.delete(exercises).where(eq(exercises.id, input.id))
 		}),
 
 	// ─── Workout Templates ────────────────────────────────────────
@@ -273,15 +353,15 @@ export const workoutsRouter = router({
 		.input(
 			z.object({
 				name: z.string().min(1),
-				trainingGoal: zTrainingGoal.default('hypertrophy'),
+				trainingGoal: trainingGoal.default('hypertrophy'),
 				exercises: z.array(
 					z.object({
 						exerciseId: z.custom<TypeIDString<'exc'>>(),
 						targetSets: z.number().int().min(1).nullable(),
 						targetReps: z.number().int().min(1).nullable(),
 						targetWeight: z.number().min(0).nullable(),
-						setMode: zSetMode.default('working'),
-						trainingGoal: zTrainingGoal.nullable().default(null),
+						setMode: setMode.default('working'),
+						trainingGoal: trainingGoal.nullable().default(null),
 						supersetGroup: z.number().int().nullable().default(null)
 					})
 				)
@@ -345,7 +425,7 @@ export const workoutsRouter = router({
 			z.object({
 				id: z.custom<TypeIDString<'wkt'>>(),
 				name: z.string().min(1).optional(),
-				trainingGoal: zTrainingGoal.optional(),
+				trainingGoal: trainingGoal.optional(),
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
@@ -354,8 +434,8 @@ export const workoutsRouter = router({
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
-							setMode: zSetMode.default('working'),
-							trainingGoal: zTrainingGoal.nullable().default(null),
+							setMode: setMode.default('working'),
+							trainingGoal: trainingGoal.nullable().default(null),
 							supersetGroup: z.number().int().nullable().default(null)
 						})
 					)
@@ -542,7 +622,7 @@ export const workoutsRouter = router({
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
-							setMode: zSetMode.default('working')
+							setMode: setMode.default('working')
 						})
 					)
 					.optional()

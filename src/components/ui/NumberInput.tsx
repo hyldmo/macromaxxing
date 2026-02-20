@@ -28,7 +28,10 @@ function autoStep(value: number): number {
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
-	({ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, onFocus, onChange, value, ...props }, ref) => {
+	(
+		{ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, onFocus, onChange, value, placeholder, ...props },
+		ref
+	) => {
 		const innerRef = useRef<HTMLInputElement | null>(null)
 		// While focused, hold the raw string so parent's numeric round-trip
 		// (e.g. "22." → 22 → "22") doesn't clobber in-progress typing
@@ -36,7 +39,9 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
 		const bump = useCallback(
 			(direction: 1 | -1, input: HTMLInputElement) => {
-				const current = Number.parseFloat(input.value) || 0
+				const placeholderNumber = placeholder ? Number.parseFloat(placeholder) : NaN
+				const defaultNumber = Number.isNaN(placeholderNumber) ? 0 : placeholderNumber
+				const current = Number.parseFloat(input.value) || defaultNumber
 				const s = step === 'auto' ? autoStep(current) : step
 				const stepDecimals = String(s).split('.')[1]?.length ?? 0
 				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
@@ -45,7 +50,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 				triggerChange(input, formatted)
 				setLocalValue(formatted)
 			},
-			[step, min]
+			[step, min, placeholder]
 		)
 
 		const handleKeyDown = useCallback(
@@ -128,6 +133,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					onBlur={handleBlur}
+					placeholder={placeholder}
 					{...props}
 				/>
 				<div
@@ -135,7 +141,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 						'group-focus-within:border-edge group-hover:border-edge': enabled
 					})}
 				>
-					{unit && (props.placeholder === unit ? !!value : true) && (
+					{unit && (placeholder === unit ? !!value : true) && (
 						<span
 							className={cn(
 								'pointer-events-none absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',

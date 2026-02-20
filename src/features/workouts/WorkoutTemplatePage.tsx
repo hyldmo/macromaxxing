@@ -1,9 +1,8 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
-import { startCase } from 'es-toolkit'
+import type { ExerciseType, MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
@@ -46,9 +45,6 @@ export function WorkoutTemplatePage() {
 	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
-	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
-	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-	const bodyMapRef = useRef<HTMLDivElement>(null)
 	const sex = profileQuery.data?.sex ?? 'male'
 
 	useEffect(() => {
@@ -233,12 +229,6 @@ export function WorkoutTemplatePage() {
 		setExercises(next)
 	}
 
-	function handleBodyMapMouseMove(e: React.MouseEvent) {
-		if (!bodyMapRef.current) return
-		const rect = bodyMapRef.current.getBoundingClientRect()
-		setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-	}
-
 	if (isEditing && workoutQuery.isLoading) {
 		return (
 			<div className="flex justify-center py-12">
@@ -310,23 +300,19 @@ export function WorkoutTemplatePage() {
 					</div>
 				</div>
 				{exercises.length > 0 && (
-					<div
-						ref={bodyMapRef}
-						role="img"
-						aria-label="Muscle coverage preview"
-						className="relative"
-						onMouseMove={handleBodyMapMouseMove}
-					>
-						<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
-						{hoveredMuscle && (
-							<div
-								className="pointer-events-none absolute z-10 rounded-sm border border-edge bg-surface-1 px-2 py-1"
-								style={{ left: mousePos.x + 12, top: mousePos.y - 8 }}
-							>
-								<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
-							</div>
-						)}
-					</div>
+					<BodyMap
+						muscleVolumes={muscleVolumes}
+						sex={sex}
+						renderTooltip={muscle => {
+							const volume = muscleVolumes.get(muscle)
+							if (!volume) return null
+							return (
+								<div className="font-mono text-[10px] text-ink-muted tabular-nums">
+									{volume.toFixed(1)} effective sets
+								</div>
+							)
+						}}
+					/>
 				)}
 			</div>
 

@@ -3,6 +3,7 @@
 @theme {
 	--breakpoint-2xs: 375px; /* 375px */
 	--breakpoint-xs: 30rem; /* 480px — between default and sm */
+	--spacing-e: 1em;
 
 	/* Surfaces — dark soapstone with warm undertone */
 	--color-surface-0: oklch(0.13 0.008 60);

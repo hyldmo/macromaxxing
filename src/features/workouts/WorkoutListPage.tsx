@@ -1,7 +1,7 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { TypeIDString } from '@macromaxxing/db'
-import { Plus, Upload } from 'lucide-react'
+import { Dumbbell, Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, LinkButton, Spinner, TRPCError } from '~/components/ui'
@@ -67,6 +67,10 @@ export function WorkoutListPage() {
 				<div className="flex items-center justify-between gap-2">
 					<h1 className="font-semibold text-ink">Workouts</h1>
 					<div className="flex items-center gap-2">
+						<LinkButton to="/exercises" variant="outline">
+							<Dumbbell className="size-4" />
+							Exercises
+						</LinkButton>
 						<Button variant="outline" onClick={() => setShowImport(true)}>
 							<Upload className="size-4" />
 							Import

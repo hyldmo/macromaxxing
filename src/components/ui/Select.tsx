@@ -5,6 +5,7 @@ import { cn } from '~/lib'
 export interface SelectProps<T extends string | number>
 	extends Except<React.SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'> {
 	value?: T
+	label?: string
 	options: ReadonlyArray<{ label: string; value: T } | T>
 	onChange?: (value: T) => void
 }

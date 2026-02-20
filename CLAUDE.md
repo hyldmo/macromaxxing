@@ -89,6 +89,9 @@ src/
     ingredients/
       IngredientListPage.tsx                # List with All/Mine filter, inline edit form
       components/IngredientForm.tsx          # Add/edit ingredient form
+    exercises/
+      ExerciseListPage.tsx                  # List with search, sort, BodyMap sidebar, inline edit form
+      components/ExerciseForm.tsx            # Add/edit exercise form (name, type, tier, rep ranges, muscles)
     mealPlans/
       MealPlanListPage.tsx                  # List/create/delete meal plans
       MealPlannerPage.tsx                   # Weekly planner: inventory sidebar + 7-day grid
@@ -163,6 +166,7 @@ scripts/
 /recipes/:id                         → RecipeEditorPage
 /recipes/:id/cook                    → CookModePage
 /ingredients                         → IngredientListPage
+/exercises                           → ExerciseListPage
 /plans                               → MealPlanListPage
 /plans/:id                           → MealPlannerPage
 /workouts                            → WorkoutListPage
@@ -262,7 +266,7 @@ trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
-trpc.workout.listExercises/createExercise   # System + user exercises with muscle mappings
+trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
 trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
 trpc.workout.addSet/updateSet/removeSet
