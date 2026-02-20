@@ -180,6 +180,10 @@ export const exercises = sqliteTable(
 		name: text('name').notNull(),
 		type: text('type').notNull().$type<'compound' | 'isolation'>(),
 		fatigueTier: integer('fatigue_tier').notNull().default(2).$type<FatigueTier>(),
+		strengthRepsMin: integer('strength_reps_min'),
+		strengthRepsMax: integer('strength_reps_max'),
+		hypertrophyRepsMin: integer('hypertrophy_reps_min'),
+		hypertrophyRepsMax: integer('hypertrophy_reps_max'),
 		createdAt: integer('created_at').notNull()
 	},
 	t => [

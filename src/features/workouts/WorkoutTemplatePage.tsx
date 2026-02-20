@@ -23,6 +23,10 @@ export interface TemplateExercise {
 	setMode: SetMode
 	trainingGoal: TrainingGoal | null
 	supersetGroup: number | null
+	strengthRepsMin: number | null
+	strengthRepsMax: number | null
+	hypertrophyRepsMin: number | null
+	hypertrophyRepsMax: number | null
 }
 
 export function WorkoutTemplatePage() {
@@ -62,7 +66,11 @@ export function WorkoutTemplatePage() {
 					targetWeight: e.targetWeight,
 					setMode: e.setMode ?? 'working',
 					trainingGoal: e.trainingGoal ?? null,
-					supersetGroup: e.supersetGroup
+					supersetGroup: e.supersetGroup,
+					strengthRepsMin: e.exercise.strengthRepsMin,
+					strengthRepsMax: e.exercise.strengthRepsMax,
+					hypertrophyRepsMin: e.exercise.hypertrophyRepsMin,
+					hypertrophyRepsMax: e.exercise.hypertrophyRepsMax
 				}))
 			)
 		}
@@ -414,7 +422,11 @@ export function WorkoutTemplatePage() {
 								targetWeight: null,
 								setMode: exercise.type === 'compound' ? 'warmup' : 'working',
 								trainingGoal: null,
-								supersetGroup: null
+								supersetGroup: null,
+								strengthRepsMin: exercise.strengthRepsMin,
+								strengthRepsMax: exercise.strengthRepsMax,
+								hypertrophyRepsMin: exercise.hypertrophyRepsMin,
+								hypertrophyRepsMax: exercise.hypertrophyRepsMax
 							}
 						])
 					}}

@@ -1,4 +1,38 @@
-import type { SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+import type { Exercise, SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+
+// ─── Rep Range Resolution ───────────────────────────────────────────
+
+type RepRangeExercise = Pick<
+	Exercise,
+	'type' | 'strengthRepsMin' | 'strengthRepsMax' | 'hypertrophyRepsMin' | 'hypertrophyRepsMax'
+>
+
+/**
+ * Resolve the rep range for an exercise + training goal.
+ *
+ * Resolution order:
+ * 1. Explicit DB value for the goal → use directly
+ * 2. Derive hypertrophy from strength → { min: strengthMax, max: strengthMax * 2 }
+ * 3. Type-based fallback → compound strength 3–5, compound hypertrophy 8–12, isolation 10–15
+ */
+export function getRepRange(exercise: RepRangeExercise, goal: TrainingGoal): { min: number; max: number } {
+	if (goal === 'strength') {
+		if (exercise.strengthRepsMin != null && exercise.strengthRepsMax != null) {
+			return { min: exercise.strengthRepsMin, max: exercise.strengthRepsMax }
+		}
+		return exercise.type === 'compound' ? { min: 3, max: 5 } : { min: 10, max: 15 }
+	}
+
+	// Hypertrophy
+	if (exercise.hypertrophyRepsMin != null && exercise.hypertrophyRepsMax != null) {
+		return { min: exercise.hypertrophyRepsMin, max: exercise.hypertrophyRepsMax }
+	}
+	// Derive from strength range
+	if (exercise.strengthRepsMax != null) {
+		return { min: exercise.strengthRepsMax, max: exercise.strengthRepsMax * 2 }
+	}
+	return exercise.type === 'compound' ? { min: 8, max: 12 } : { min: 10, max: 15 }
+}
 
 /** Brzycki 1RM estimate: weight * 36 / (37 - reps) */
 export function estimated1RM(weightKg: number, reps: number): number {
@@ -165,11 +199,12 @@ export interface Divergence {
 	planned: { sets: number; reps: number; weight: number | null }
 	actual: { sets: number; reps: number; weight: number }
 	improved: boolean
+	suggestion: { targetSets: number; targetReps: number; targetWeight: number | null }
 }
 
 interface PlannedExerciseInput {
 	exerciseId: TypeIDString<'exc'>
-	exercise: { name: string }
+	exercise: RepRangeExercise & { name: string }
 	targetSets: number | null
 	targetReps: number | null
 	targetWeight: number | null
@@ -182,11 +217,6 @@ interface LogInput {
 	setType: string
 	weightKg: number
 	reps: number
-}
-
-const DIVERGENCE_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
-	hypertrophy: { targetSets: 3, targetReps: 10 },
-	strength: { targetSets: 5, targetReps: 5 }
 }
 
 /** Compute per-exercise divergences between planned and actual performance */
@@ -202,13 +232,14 @@ export function computeDivergences(
 		if (exerciseLogs.length === 0) continue
 
 		const exerciseGoal = we.trainingGoal ?? workoutGoal
-		const defaults = DIVERGENCE_DEFAULTS[exerciseGoal]
+		const range = getRepRange(we.exercise, exerciseGoal)
+		const defaultSets = exerciseGoal === 'strength' ? 5 : 3
 
 		const templateMode = we.setMode ?? 'working'
 		const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
-		const totalSets = we.targetSets ?? defaults.targetSets
+		const totalSets = we.targetSets ?? defaultSets
 		const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
-		const effectiveReps = we.targetReps ?? defaults.targetReps
+		const effectiveReps = we.targetReps ?? range.max
 
 		const bestSet = exerciseLogs.reduce((best, l) =>
 			l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
@@ -223,12 +254,30 @@ export function computeDivergences(
 				bestSet.weightKg >= (we.targetWeight ?? 0) &&
 				bestSet.reps >= effectiveReps &&
 				exerciseLogs.length >= effectiveSets
+
+			// Double progression: if reps hit the ceiling, suggest bumping weight and resetting reps
+			const hitCeiling = bestSet.reps >= range.max && bestSet.weightKg > 0
+			const currentWeight = we.targetWeight ?? bestSet.weightKg
+			const suggestion: Divergence['suggestion'] =
+				hitCeiling && currentWeight > 0
+					? {
+							targetSets: exerciseLogs.length,
+							targetReps: range.min,
+							targetWeight: roundWeight(currentWeight + plateIncrement(currentWeight, 'kg'), 'kg', 'up')
+						}
+					: {
+							targetSets: exerciseLogs.length,
+							targetReps: bestSet.reps,
+							targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
+						}
+
 			result.push({
 				exerciseId: we.exerciseId,
 				exerciseName: we.exercise.name,
 				planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
 				actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
-				improved
+				improved,
+				suggestion
 			})
 		}
 	}
