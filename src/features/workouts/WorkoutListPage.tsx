@@ -66,7 +66,7 @@ export function WorkoutListPage() {
 			<div className="flex-1 space-y-4">
 				<div className="flex items-center justify-between gap-2">
 					<h1 className="font-semibold text-ink">Workouts</h1>
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center gap-2">
 						<LinkButton to="/exercises" variant="outline">
 							<Dumbbell className="size-4" />
 							Exercises
