@@ -64,22 +64,20 @@ export function WorkoutListPage() {
 	return (
 		<div className="flex flex-col gap-3 lg:flex-row lg:gap-6">
 			<div className="flex-1 space-y-4">
-				<div className="flex items-center justify-between gap-2">
-					<h1 className="font-semibold text-ink">Workouts</h1>
-					<div className="flex flex-wrap items-center gap-2">
-						<LinkButton to="/exercises" variant="outline">
-							<Dumbbell className="size-4" />
-							Exercises
-						</LinkButton>
-						<Button variant="outline" onClick={() => setShowImport(true)}>
-							<Upload className="size-4" />
-							Import
-						</Button>
-						<LinkButton to="/workouts/new">
-							<Plus className="size-4" />
-							New Workout
-						</LinkButton>
-					</div>
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<h1 className="flex-1 font-semibold text-ink">Workouts</h1>
+					<LinkButton to="/exercises" variant="outline">
+						<Dumbbell className="size-4" />
+						Exercises
+					</LinkButton>
+					<Button variant="outline" onClick={() => setShowImport(true)}>
+						<Upload className="size-4" />
+						Import
+					</Button>
+					<LinkButton to="/workouts/new">
+						<Plus className="size-4" />
+						New Workout
+					</LinkButton>
 				</div>
 
 				{workoutsQuery.isLoading ? (

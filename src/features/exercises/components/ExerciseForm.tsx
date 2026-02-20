@@ -139,7 +139,7 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 										const v = Number.parseInt(e.target.value, 10)
 										setRanges(ranges => ({
 											...ranges,
-											[goal]: { ...ranges[goal], [cap]: isNaN(v) ? null : v }
+											[goal]: { ...ranges[goal], [cap]: Number.isNaN(v) ? null : v }
 										}))
 									}}
 									placeholder={getRepRange(editExercise!, goal)[cap].toString()}
