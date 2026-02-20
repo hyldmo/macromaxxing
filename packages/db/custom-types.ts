@@ -3,6 +3,7 @@ import { startCase } from 'es-toolkit'
 import { typeid } from 'typeid-js'
 import { z } from 'zod'
 
+export type Nullable<T> = T | null | undefined
 // Defines the strict TS type: e.g. "ing_01h2x..."
 export type TypeIDString<T extends string> = `${T}_${string}`
 
@@ -34,7 +35,11 @@ export type ImageSource = HttpsUrl | TypeIDString<'rcp'>
 export const trainingGoal = z.enum(['hypertrophy', 'strength'])
 export type TrainingGoal = z.infer<typeof trainingGoal>
 
-export type FatigueTier = 1 | 2 | 3 | 4
+export const exerciseType = z.enum(['compound', 'isolation'])
+export type ExerciseType = z.infer<typeof exerciseType>
+
+export const fatigueTier = z.literal([1, 2, 3, 4])
+export type FatigueTier = z.infer<typeof fatigueTier>
 
 export const MUSCLE_GROUPS = [
 	'chest',

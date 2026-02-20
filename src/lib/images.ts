@@ -1,6 +1,6 @@
 import type { ImageSource } from '@macromaxxing/db'
 
-export const R2_BASE_URL = import.meta.env.VITE_R2_BASE_URL ?? ''
+export const R2_BASE_URL = import.meta.env.VITE_R2_BASE_URL
 
 /** Resolve a recipe image value to a renderable URL */
 export const getImageUrl = (image: ImageSource): string =>

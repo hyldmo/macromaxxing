@@ -16,7 +16,7 @@ export interface TemplateExercise {
 	uid: string
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
-	exerciseType: 'compound' | 'isolation'
+	exerciseType: ExerciseType
 	targetSets: number | null
 	targetReps: number | null
 	targetWeight: number | null

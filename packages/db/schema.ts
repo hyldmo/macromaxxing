@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
+	ExerciseType,
 	type FatigueTier,
 	type ImageSource,
 	type MuscleGroup,
@@ -178,7 +179,7 @@ export const exercises = sqliteTable(
 			.$defaultFn(() => newId('exc')),
 		userId: text('user_id').references(() => users.id), // null = system exercise
 		name: text('name').notNull(),
-		type: text('type').notNull().$type<'compound' | 'isolation'>(),
+		type: text('type').notNull().$type<ExerciseType>(),
 		fatigueTier: integer('fatigue_tier').notNull().default(2).$type<FatigueTier>(),
 		strengthRepsMin: integer('strength_reps_min'),
 		strengthRepsMax: integer('strength_reps_max'),

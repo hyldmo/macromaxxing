@@ -3,9 +3,13 @@ import tailwind from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import pkg from './package.json' with { type: 'json' }
 
 // https://vitejs.dev/config/
 export default defineConfig({
+	define: {
+		'import.meta.env.VITE_REPO_URL': JSON.stringify(pkg.repository.url.replace(/\.git$/, ''))
+	},
 	build: {
 		outDir: 'workers/dist',
 		sourcemap: true

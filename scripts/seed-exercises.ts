@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/suspicious/noConsole: <console is fine for scripts> */
 import { execSync } from 'node:child_process'
-import type { MuscleGroup } from '@macromaxxing/db'
+import type { ExerciseType, FatigueTier, MuscleGroup } from '@macromaxxing/db'
 
 const WRANGLER = 'yarn workspace @macromaxxing/workers wrangler'
 
@@ -15,8 +15,8 @@ function exec(sql: string) {
 
 interface ExerciseDef {
 	name: string
-	type: 'compound' | 'isolation'
-	fatigueTier: 1 | 2 | 3 | 4
+	type: ExerciseType
+	fatigueTier: FatigueTier
 	muscles: Array<{ group: MuscleGroup; intensity: number }>
 	strengthRepsMin?: number
 	strengthRepsMax?: number
