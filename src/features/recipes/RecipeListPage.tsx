@@ -50,14 +50,11 @@ export function RecipeListPage() {
 			return r.recipe.type !== 'premade'
 		})
 		return filtered.toSorted(
-			by(
-				v => {
-					if (sort in v.portion) return v.portion[sort as keyof typeof v.portion]
-					if (sort in v.recipe) return v.recipe[sort as keyof typeof v.recipe]
-					return v.recipe.createdAt
-				},
-				sort === 'recent' ? Order.Asc : Order.Desc
-			)
+			by(v => {
+				if (sort in v.portion) return v.portion[sort as keyof typeof v.portion]
+				if (sort in v.recipe) return v.recipe[sort as keyof typeof v.recipe]
+				return v.recipe.createdAt
+			}, Order.Desc)
 		)
 	}, [recipesWithMacros, filter, sort])
 
