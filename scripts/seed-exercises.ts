@@ -20,15 +20,19 @@ interface ExerciseDef {
 	muscles: Array<{ group: MuscleGroup; intensity: number }>
 	strengthRepsMin?: number
 	strengthRepsMax?: number
+	hypertrophyRepsMin?: number
+	hypertrophyRepsMax?: number
 }
 
 const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Bench Press',
 		type: 'compound',
-		fatigueTier: 2,
+		fatigueTier: 1,
 		strengthRepsMin: 3,
 		strengthRepsMax: 5,
+		hypertrophyRepsMin: 8,
+		hypertrophyRepsMax: 12,
 		muscles: [
 			{ group: 'chest', intensity: 1.0 },
 			{ group: 'triceps', intensity: 0.5 },
@@ -41,6 +45,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 2,
 		strengthRepsMin: 3,
 		strengthRepsMax: 5,
+		hypertrophyRepsMin: 8,
+		hypertrophyRepsMax: 12,
 		muscles: [
 			{ group: 'chest', intensity: 0.8 },
 			{ group: 'front_delts', intensity: 0.5 },
@@ -53,6 +59,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 2,
 		strengthRepsMin: 3,
 		strengthRepsMax: 5,
+		hypertrophyRepsMin: 8,
+		hypertrophyRepsMax: 12,
 		muscles: [
 			{ group: 'front_delts', intensity: 1.0 },
 			{ group: 'side_delts', intensity: 0.5 },
@@ -65,6 +73,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 2,
 		strengthRepsMin: 5,
 		strengthRepsMax: 8,
+		hypertrophyRepsMin: 8,
+		hypertrophyRepsMax: 15,
 		muscles: [
 			{ group: 'upper_back', intensity: 0.8 },
 			{ group: 'lats', intensity: 0.8 },
@@ -78,6 +88,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 2,
 		strengthRepsMin: 3,
 		strengthRepsMax: 6,
+		hypertrophyRepsMin: 6,
+		hypertrophyRepsMax: 12,
 		muscles: [
 			{ group: 'lats', intensity: 1.0 },
 			{ group: 'upper_back', intensity: 0.6 },
@@ -90,6 +102,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 1,
 		strengthRepsMin: 3,
 		strengthRepsMax: 5,
+		hypertrophyRepsMin: 8,
+		hypertrophyRepsMax: 12,
 		muscles: [
 			{ group: 'quads', intensity: 1.0 },
 			{ group: 'glutes', intensity: 0.7 },
@@ -103,6 +117,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 1,
 		strengthRepsMin: 1,
 		strengthRepsMax: 5,
+		hypertrophyRepsMin: 8,
+		hypertrophyRepsMax: 12,
 		muscles: [
 			{ group: 'hamstrings', intensity: 0.8 },
 			{ group: 'glutes', intensity: 0.8 },
@@ -117,6 +133,8 @@ const EXERCISES: ExerciseDef[] = [
 		fatigueTier: 2,
 		strengthRepsMin: 6,
 		strengthRepsMax: 10,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [
 			{ group: 'hamstrings', intensity: 1.0 },
 			{ group: 'glutes', intensity: 0.7 },
@@ -127,48 +145,64 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Lateral Raise',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 12,
+		hypertrophyRepsMax: 20,
 		muscles: [{ group: 'side_delts', intensity: 1.0 }]
 	},
 	{
 		name: 'Bicep Curl',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [{ group: 'biceps', intensity: 1.0 }]
 	},
 	{
 		name: 'Tricep Extension',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [{ group: 'triceps', intensity: 1.0 }]
 	},
 	{
 		name: 'Leg Curl',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [{ group: 'hamstrings', intensity: 1.0 }]
 	},
 	{
 		name: 'Leg Extension',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [{ group: 'quads', intensity: 1.0 }]
 	},
 	{
 		name: 'Calf Raise',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 12,
+		hypertrophyRepsMax: 20,
 		muscles: [{ group: 'calves', intensity: 1.0 }]
 	},
 	{
 		name: 'Rear Delt Fly',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 12,
+		hypertrophyRepsMax: 20,
 		muscles: [{ group: 'rear_delts', intensity: 1.0 }]
 	},
 	{
 		name: 'Face Pull',
 		type: 'isolation',
 		fatigueTier: 3,
+		hypertrophyRepsMin: 15,
+		hypertrophyRepsMax: 25,
 		muscles: [
 			{ group: 'rear_delts', intensity: 0.7 },
 			{ group: 'upper_back', intensity: 0.3 }
@@ -178,18 +212,24 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Cable Fly',
 		type: 'isolation',
 		fatigueTier: 3,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [{ group: 'chest', intensity: 1.0 }]
 	},
 	{
 		name: 'Preacher Curl',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [{ group: 'biceps', intensity: 1.0 }]
 	},
 	{
 		name: 'Hammer Curl',
 		type: 'isolation',
 		fatigueTier: 3,
+		hypertrophyRepsMin: 10,
+		hypertrophyRepsMax: 15,
 		muscles: [
 			{ group: 'biceps', intensity: 0.7 },
 			{ group: 'forearms', intensity: 0.5 }
@@ -199,6 +239,8 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Wrist Curl',
 		type: 'isolation',
 		fatigueTier: 4,
+		hypertrophyRepsMin: 15,
+		hypertrophyRepsMax: 25,
 		muscles: [{ group: 'forearms', intensity: 1.0 }]
 	}
 ]
@@ -229,8 +271,10 @@ for (const ex of EXERCISES) {
 		.replace(/_+$/, '')}`
 	const strMin = ex.strengthRepsMin ?? 'NULL'
 	const strMax = ex.strengthRepsMax ?? 'NULL'
+	const hypMin = ex.hypertrophyRepsMin ?? 'NULL'
+	const hypMax = ex.hypertrophyRepsMax ?? 'NULL'
 	exec(
-		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, strength_reps_min, strength_reps_max, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${strMin}, ${strMax}, ${now})`
+		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, strength_reps_min, strength_reps_max, hypertrophy_reps_min, hypertrophy_reps_max, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${strMin}, ${strMax}, ${hypMin}, ${hypMax}, ${now})`
 	)
 	for (const m of ex.muscles) {
 		const mid = `exm_${id.slice(4)}_${m.group}`
