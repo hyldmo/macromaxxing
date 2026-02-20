@@ -1,12 +1,13 @@
 import type { MuscleGroup, Sex } from '@macromaxxing/db'
-import { type FC, type SVGAttributes, useMemo } from 'react'
+import { startCase } from 'es-toolkit'
+import { type FC, type ReactNode, type SVGAttributes, useMemo, useRef, useState } from 'react'
 import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
 import { intensityClass } from '~/lib'
 
 export interface BodyMapProps {
 	muscleVolumes: Map<MuscleGroup, number>
-	onHover: (muscleGroup: MuscleGroup | null) => void
 	sex: Sex
+	renderTooltip?: (muscleGroup: MuscleGroup) => ReactNode
 }
 
 const BodyFigure: FC<{
@@ -33,7 +34,11 @@ const BodyFigure: FC<{
 	)
 }
 
-export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, onHover, sex }) => {
+export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip }) => {
+	const containerRef = useRef<HTMLDivElement>(null)
+	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
+	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+
 	const muscleColors = useMemo(() => {
 		const max = Math.max(...muscleVolumes.values(), 1)
 		const colors = new Map<MuscleGroup, string>()
@@ -43,12 +48,38 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, onHover, sex }) => {
 		return colors
 	}, [muscleVolumes])
 
+	function handleMouseMove(e: React.MouseEvent) {
+		if (!containerRef.current) return
+		const rect = containerRef.current.getBoundingClientRect()
+		setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+	}
+
 	const Front = sex === 'female' ? BodyFrontFemale : BodyFrontMale
 	const Back = sex === 'female' ? BodyBackFemale : BodyBackMale
+
+	const tooltipContent = hoveredMuscle ? renderTooltip?.(hoveredMuscle) : null
+
 	return (
-		<div className="flex justify-center gap-4">
-			<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={onHover} label="front" />
-			<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={onHover} label="back" />
+		<div
+			ref={containerRef}
+			role="img"
+			aria-label="Muscle coverage preview"
+			className="relative"
+			onMouseMove={handleMouseMove}
+		>
+			<div className="flex justify-center gap-4">
+				<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={setHoveredMuscle} label="front" />
+				<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={setHoveredMuscle} label="back" />
+			</div>
+			{hoveredMuscle && (
+				<div
+					className="pointer-events-none absolute z-10 w-36 rounded-sm border border-edge bg-surface-1 p-2"
+					style={{ left: mousePos.x - 144, top: mousePos.y + 16 }}
+				>
+					<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
+					{tooltipContent}
+				</div>
+			)}
 		</div>
 	)
 }

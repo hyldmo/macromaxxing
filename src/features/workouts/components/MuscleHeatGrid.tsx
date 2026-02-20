@@ -1,6 +1,5 @@
 import type { MuscleGroup } from '@macromaxxing/db'
-import { startCase } from 'es-toolkit'
-import { type FC, useMemo, useRef, useState } from 'react'
+import { type FC, useMemo } from 'react'
 import { Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 import { BodyMap } from './BodyMap'
@@ -8,9 +7,6 @@ import { BodyMap } from './BodyMap'
 export const MuscleHeatGrid: FC = () => {
 	const coverageQuery = trpc.workout.coverageStats.useQuery()
 	const profileQuery = trpc.settings.getProfile.useQuery()
-	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
-	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-	const containerRef = useRef<HTMLDivElement>(null)
 	const sex = profileQuery.data?.sex ?? 'male'
 
 	const muscleVolumes = useMemo(() => {
@@ -24,38 +20,25 @@ export const MuscleHeatGrid: FC = () => {
 		return volumes
 	}, [coverageQuery.data])
 
-	const hovered = hoveredMuscle ? coverageQuery.data?.find(s => s.muscleGroup === hoveredMuscle) : null
-
-	function handleMouseMove(e: React.MouseEvent) {
-		if (!containerRef.current) return
-		const rect = containerRef.current.getBoundingClientRect()
-		setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-	}
-
 	return coverageQuery.isLoading ? (
 		<div className="flex justify-center py-6">
 			<Spinner />
 		</div>
 	) : coverageQuery.data ? (
-		<div
-			ref={containerRef}
-			role="img"
-			aria-label="Muscle coverage heatmap"
-			className="relative py-12"
-			onMouseMove={handleMouseMove}
-		>
-			<BodyMap muscleVolumes={muscleVolumes} onHover={setHoveredMuscle} sex={sex} />
-			{hovered && hoveredMuscle && (
-				<div
-					className="pointer-events-none absolute z-10 w-36 rounded-sm border border-edge bg-surface-1 p-2"
-					style={{ left: mousePos.x - 144, top: mousePos.y + 16 }}
-				>
-					<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
-					<div className="mt-1 font-mono text-[10px] text-ink-muted tabular-nums">
-						{hovered.weeklySets.toFixed(1)} effective sets/wk
-					</div>
-				</div>
-			)}
+		<div className="py-12">
+			<BodyMap
+				muscleVolumes={muscleVolumes}
+				sex={sex}
+				renderTooltip={muscle => {
+					const stat = coverageQuery.data.find(s => s.muscleGroup === muscle)
+					if (!stat) return null
+					return (
+						<div className="font-mono text-[10px] text-ink-muted tabular-nums">
+							{stat.weeklySets.toFixed(1)} effective sets/wk
+						</div>
+					)
+				}}
+			/>
 		</div>
 	) : null
 }
