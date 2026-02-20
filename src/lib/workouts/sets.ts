@@ -1,4 +1,4 @@
-import type { Exercise, FatigueTier, SetType, TrainingGoal } from '@macromaxxing/db'
+import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 import { roundWeight } from './formulas'
 
@@ -102,6 +102,67 @@ export function generateBackoffSets(workingWeight: number, workingReps: number, 
 		})
 	}
 	return sets
+}
+
+// --- Planned set generation ---
+
+interface MuscleMapping {
+	muscleGroup: string
+	intensity: number
+}
+
+export interface GeneratePlannedSetsInput {
+	setMode: SetMode
+	sets: number
+	reps: number
+	weightKg: number | null
+	muscles: MuscleMapping[]
+	warmedUpMuscles: Map<string, number>
+}
+
+/**
+ * Generate the full planned set list (warmup + working + backoff) for an exercise.
+ * Also updates warmedUpMuscles in-place to track cross-exercise warmup coverage.
+ */
+export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet[] {
+	const { setMode, sets: targetSets, reps, weightKg, muscles, warmedUpMuscles } = input
+	const result: PlannedSet[] = []
+	let setNum = 1
+
+	const hasWarmup = setMode === 'warmup' || setMode === 'full'
+	const hasBackoff = setMode === 'backoff' || setMode === 'full'
+
+	// Generate warmup sets
+	if (hasWarmup && weightKg != null && weightKg > 0) {
+		const skipWarmup = shouldSkipWarmup(muscles, warmedUpMuscles)
+		if (!skipWarmup) {
+			const warmups = generateWarmupSets(weightKg, reps)
+			for (const wu of warmups) {
+				result.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
+			}
+		}
+		// Track warmed-up muscles
+		for (const m of muscles) {
+			const existing = warmedUpMuscles.get(m.muscleGroup) ?? 0
+			warmedUpMuscles.set(m.muscleGroup, Math.max(existing, m.intensity))
+		}
+	}
+
+	// Generate working sets (subtract 1 if backoff)
+	const workingCount = hasBackoff ? Math.max(1, targetSets - 1) : targetSets
+	for (let i = 0; i < workingCount; i++) {
+		result.push({ setNumber: setNum++, weightKg, reps, setType: 'working' })
+	}
+
+	// Generate backoff set
+	if (hasBackoff && weightKg != null && weightKg > 0) {
+		const backoffs = generateBackoffSets(weightKg, reps, 1)
+		for (const bo of backoffs) {
+			result.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
+		}
+	}
+
+	return result
 }
 
 // --- Shared superset round-building ---

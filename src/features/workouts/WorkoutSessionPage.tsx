@@ -7,10 +7,8 @@ import {
 	calculateRest,
 	estimateReplacementWeight,
 	formatSession,
-	generateBackoffSets,
-	generateWarmupSets,
+	generatePlannedSets,
 	type PlannedSet,
-	shouldSkipWarmup,
 	TRAINING_DEFAULTS,
 	totalVolume,
 	useDocumentTitle
@@ -301,7 +299,6 @@ export function WorkoutSessionPage() {
 
 				// When exercise is replaced, don't carry over the old exercise's targets —
 				// instead estimate weight from other template exercises via strength standards
-				const effectiveSets = (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets
 				const effectiveReps = (replacement ? null : we.targetReps) ?? exerciseDefaults.targetReps
 				const effectiveTargetWeight = replacement
 					? estimateReplacementWeight(
@@ -318,45 +315,14 @@ export function WorkoutSessionPage() {
 						)
 					: we.targetWeight
 
-				const sets: PlannedSet[] = []
-				let setNum = 1
-				const hasWarmup = effectiveMode === 'warmup' || effectiveMode === 'full'
-				const hasBackoff = effectiveMode === 'backoff' || effectiveMode === 'full'
-
-				// Generate warmup sets
-				if (hasWarmup && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
-					const skipWarmup = shouldSkipWarmup(effectiveExercise.muscles, warmedUpMuscles)
-					if (!skipWarmup) {
-						const warmups = generateWarmupSets(effectiveTargetWeight, effectiveReps)
-						for (const wu of warmups) {
-							sets.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
-						}
-					}
-					// Track warmed-up muscles
-					for (const m of effectiveExercise.muscles) {
-						const existing = warmedUpMuscles.get(m.muscleGroup) ?? 0
-						warmedUpMuscles.set(m.muscleGroup, Math.max(existing, m.intensity))
-					}
-				}
-
-				// Generate working sets (subtract 1 if backoff)
-				const workingCount = hasBackoff ? Math.max(1, effectiveSets - 1) : effectiveSets
-				for (let i = 0; i < workingCount; i++) {
-					sets.push({
-						setNumber: setNum++,
-						weightKg: effectiveTargetWeight,
-						reps: effectiveReps,
-						setType: 'working'
-					})
-				}
-
-				// Generate backoff set
-				if (hasBackoff && effectiveTargetWeight != null && effectiveTargetWeight > 0) {
-					const backoffs = generateBackoffSets(effectiveTargetWeight, effectiveReps, 1)
-					for (const bo of backoffs) {
-						sets.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
-					}
-				}
+				const sets = generatePlannedSets({
+					setMode: effectiveMode,
+					sets: (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets,
+					reps: effectiveReps,
+					weightKg: effectiveTargetWeight,
+					muscles: effectiveExercise.muscles,
+					warmedUpMuscles
+				})
 
 				planned.set(effectiveExerciseId, sets)
 

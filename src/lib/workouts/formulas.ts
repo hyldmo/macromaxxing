@@ -1,4 +1,5 @@
 import type { Exercise, SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+import { midpoint } from '../math'
 
 // ─── Rep Range Resolution ───────────────────────────────────────────
 
@@ -165,8 +166,8 @@ export function limbLengthFactor(heightCm: number): number {
 }
 
 /** Total volume = Σ(weight * reps) */
-export function totalVolume(logs: Array<{ weightKg: number; reps: number }>): number {
-	return logs.reduce((sum, l) => sum + l.weightKg * l.reps, 0)
+export function totalVolume(logs: Array<{ weightKg: number; reps: number; sets?: number }>): number {
+	return logs.reduce((sum, { weightKg, reps, sets = 1 }) => sum + weightKg * reps * sets, 0)
 }
 
 /** Work done in Joules: weight * 9.81 * ROM_meters * reps */
@@ -189,6 +190,32 @@ export function estimateTDEE(bmr: number, activityMultiplier: number): number {
 export function proteinPerKg(proteinGrams: number, weightKg: number): number {
 	if (weightKg <= 0) return 0
 	return proteinGrams / weightKg
+}
+
+export function defaultSets(goal: TrainingGoal): number {
+	return goal === 'strength' ? 5 : 3
+}
+
+// ─── Target Resolution ──────────────────────────────────────────────
+
+interface TargetExercise {
+	exercise: RepRangeExercise
+	targetSets: number | null
+	targetReps: number | null
+	targetWeight: number | null
+}
+
+/** Resolve effective sets/reps/weight for a workout exercise, filling in defaults from training goal. */
+export function resolveExerciseTargets(
+	we: TargetExercise,
+	goal: TrainingGoal
+): { sets: number; reps: number; weightKg: number } {
+	const range = getRepRange(we.exercise, goal)
+	return {
+		sets: we.targetSets ?? defaultSets(goal),
+		reps: we.targetReps ?? Math.round(midpoint(range)),
+		weightKg: we.targetWeight ?? 0
+	}
 }
 
 // ─── Divergence Calculation ──────────────────────────────────────────
@@ -233,11 +260,10 @@ export function computeDivergences(
 
 		const exerciseGoal = we.trainingGoal ?? workoutGoal
 		const range = getRepRange(we.exercise, exerciseGoal)
-		const defaultSets = exerciseGoal === 'strength' ? 5 : 3
 
 		const templateMode = we.setMode ?? 'working'
 		const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
-		const totalSets = we.targetSets ?? defaultSets
+		const totalSets = we.targetSets ?? defaultSets(exerciseGoal)
 		const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
 		const effectiveReps = we.targetReps ?? range.max
 
