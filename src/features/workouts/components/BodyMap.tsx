@@ -1,5 +1,5 @@
 import type { MuscleGroup, Sex } from '@macromaxxing/db'
-import { startCase } from 'es-toolkit'
+import { clamp, startCase } from 'es-toolkit'
 import { type FC, type ReactNode, type SVGAttributes, useMemo, useRef, useState } from 'react'
 import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
 import { intensityClass } from '~/lib'
@@ -37,6 +37,7 @@ const BodyFigure: FC<{
 export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip }) => {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
+	const tooltipRef = useRef<HTMLDivElement>(null)
 	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
 
 	const muscleColors = useMemo(() => {
@@ -58,6 +59,8 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip })
 	const Back = sex === 'female' ? BodyBackFemale : BodyBackMale
 
 	const tooltipContent = hoveredMuscle ? renderTooltip?.(hoveredMuscle) : null
+	const tooltipWidth = tooltipRef.current?.clientWidth ?? 144
+	const tooltipHeight = tooltipRef.current?.clientHeight ?? 16
 
 	return (
 		<div
@@ -73,8 +76,12 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip })
 			</div>
 			{hoveredMuscle && (
 				<div
-					className="pointer-events-none absolute z-10 w-36 rounded-sm border border-edge bg-surface-1 p-2"
-					style={{ left: mousePos.x - 144, top: mousePos.y + 16 }}
+					className="pointer-events-none absolute z-90 w-36 rounded-sm border border-edge bg-surface-1 p-2"
+					ref={tooltipRef}
+					style={{
+						left: clamp(mousePos.x - tooltipWidth, 0, window.innerWidth - tooltipWidth),
+						top: clamp(mousePos.y + 16, 0, window.innerHeight - tooltipHeight)
+					}}
 				>
 					<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
 					{tooltipContent}
