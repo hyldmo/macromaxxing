@@ -197,7 +197,15 @@ export function RecipeEditorPage() {
 
 			{!isNew && recipeQuery.data && calculations && (
 				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
-					<div className="space-y-4 lg:order-last">
+					<div className="flex flex-col gap-4 lg:order-last lg:flex-col-reverse">
+						{!isNew && recipeQuery.data && (
+							<RecipeImageUpload
+								recipeId={id!}
+								image={recipeQuery.data.image}
+								onImageChange={() => recipeQuery.refetch()}
+								readOnly={!isOwner}
+							/>
+						)}
 						<PortionPanel
 							portion={calculations.portion}
 							cookedWeight={recipeQuery.data.cookedWeight}
@@ -209,15 +217,6 @@ export function RecipeEditorPage() {
 							ingredients={isOwner ? ingredients : undefined}
 							instructions={isOwner ? instructions : undefined}
 						/>
-
-						{!isNew && recipeQuery.data && (
-							<RecipeImageUpload
-								recipeId={id!}
-								image={recipeQuery.data.image}
-								onImageChange={() => recipeQuery.refetch()}
-								readOnly={!isOwner}
-							/>
-						)}
 					</div>
 
 					{/* Left column: ingredients */}
