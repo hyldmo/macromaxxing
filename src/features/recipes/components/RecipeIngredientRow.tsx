@@ -185,7 +185,14 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 								{itemName}
 							</Link>
 						) : (
-							<span className="text-ink">{itemName}</span>
+							<a
+								href={`/ingredients?search=${encodeURIComponent(itemName)}`}
+								target="_blank"
+								rel="noreferrer"
+								className="cursor-pointer text-ink hover:underline"
+							>
+								{itemName}
+							</a>
 						)}
 						{!isSubrecipe &&
 							(readOnly ? (
