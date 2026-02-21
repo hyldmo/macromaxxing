@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
+import { ExerciseForm } from './ExerciseForm'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
 
@@ -22,6 +23,8 @@ type SortKey = 'name' | 'type' | 'tier'
 export interface ExerciseTableProps {
 	exercises: Exercise[]
 	userId: string | undefined
+	editId: string | null
+	onCloseEdit: () => void
 	sortKey: SortKey
 	sortDir: 'asc' | 'desc'
 	onToggleSort: (key: SortKey) => void
@@ -33,6 +36,8 @@ export interface ExerciseTableProps {
 export const ExerciseTable: FC<ExerciseTableProps> = ({
 	exercises,
 	userId,
+	editId,
+	onCloseEdit,
 	sortKey,
 	sortDir,
 	onToggleSort,
@@ -75,6 +80,15 @@ export const ExerciseTable: FC<ExerciseTableProps> = ({
 			</thead>
 			<tbody>
 				{exercises.map(exercise => {
+					if (exercise.id === editId) {
+						return (
+							<tr key={exercise.id}>
+								<td colSpan={7} className="p-4">
+									<ExerciseForm editExercise={exercise} onClose={onCloseEdit} />
+								</td>
+							</tr>
+						)
+					}
 					const isMine = exercise.userId === userId
 					const primary = exercise.muscles.filter(m => m.intensity >= 0.7)
 					const secondary = exercise.muscles.filter(m => m.intensity >= 0.5 && m.intensity < 0.7)

@@ -1,7 +1,7 @@
 import { ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
-import { and, eq, inArray, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { isPresent } from 'ts-extras'
 import { z } from 'zod'
 import {
@@ -19,9 +19,98 @@ import {
 	searchUSDA
 } from '../ai-utils'
 import { batchIngredientAiSchema, ingredientAiSchema } from '../constants'
-import { protectedProcedure, publicProcedure, router } from '../trpc'
+import { protectedProcedure, publicProcedure, router, type TRPCContext } from '../trpc'
 import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
+
+type UnitSource = 'usda' | 'ai'
+type PortionUnit = { name: string; grams: number; isDefault: boolean; source: UnitSource }
+
+function portionsToUnits(portions: Array<{ name: string; grams: number }>): PortionUnit[] {
+	return portions.filter(p => !isVolumeUnit(p.name)).map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+}
+
+/** Try AI to fill in missing density or piece units (e.g. pcs, large). Silently returns nulls if AI is unavailable. */
+async function tryAiEnrichment(
+	ctx: { db: TRPCContext['db']; user: { id: string }; env: { ENCRYPTION_SECRET?: string } },
+	ingredientName: string,
+	existingUnits: Array<{ name: string }>
+) {
+	const encSecret = ctx.env.ENCRYPTION_SECRET
+	if (!encSecret) return { density: null as number | null, units: [] as PortionUnit[] }
+
+	const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encSecret)
+	if (!settings) return { density: null as number | null, units: [] as PortionUnit[] }
+
+	try {
+		const { output } = await generateTextWithFallback({
+			provider: settings.provider,
+			apiKey: settings.apiKey,
+			output: Output.object({ schema: ingredientAiSchema }),
+			prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${ingredientName}`,
+			fallback: settings.modelFallback
+		})
+
+		const existingNames = new Set(existingUnits.map(u => u.name.toLowerCase()))
+		const units: PortionUnit[] = output.units
+			.filter(
+				u => !isVolumeUnit(u.name) && u.name.toLowerCase() !== 'g' && !existingNames.has(u.name.toLowerCase())
+			)
+			.map(u => ({ ...u, source: 'ai' as const }))
+
+		return { density: output.density, units }
+	} catch {
+		return { density: null as number | null, units: [] as PortionUnit[] }
+	}
+}
+
+/** Insert ingredient + unit rows, return ingredient with units loaded */
+async function insertIngredientWithUnits(
+	db: TRPCContext['db'],
+	userId: string,
+	data: {
+		name: string
+		macros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
+		fdcId?: number | null
+		density: number | null
+		source: UnitSource
+		units: PortionUnit[]
+	}
+) {
+	const [ingredient] = await db
+		.insert(ingredients)
+		.values({
+			userId,
+			name: data.name,
+			...data.macros,
+			fdcId: data.fdcId ?? null,
+			density: data.density,
+			source: data.source,
+			createdAt: Date.now()
+		})
+		.returning()
+
+	const hasDefault = data.units.some(u => u.isDefault)
+	const unitRows = [
+		{ name: 'g', grams: 1, isDefault: !hasDefault, source: data.source },
+		...data.units.filter(u => u.name.toLowerCase() !== 'g')
+	]
+	await db.insert(ingredientUnits).values(
+		unitRows.map(unit => ({
+			ingredientId: ingredient.id,
+			name: unit.name,
+			grams: unit.grams,
+			isDefault: unit.isDefault ? 1 : 0,
+			source: unit.source,
+			createdAt: Date.now()
+		}))
+	)
+
+	return (await db.query.ingredients.findFirst({
+		where: { id: ingredient.id },
+		with: { units: true }
+	}))!
+}
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -68,9 +157,9 @@ const updateUnitSchema = z.object({
 export const ingredientsRouter = router({
 	list: publicProcedure.query(async ({ ctx }) => {
 		return ctx.db.query.ingredients.findMany({
-			where: ne(ingredients.source, 'label'),
+			where: { source: { ne: 'label' } },
 			with: { units: true },
-			orderBy: (ingredients, { asc }) => [asc(ingredients.name)],
+			orderBy: { name: 'asc' },
 			limit: 200
 		})
 	}),
@@ -91,118 +180,53 @@ export const ingredientsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Check if ingredient with same fdcId already exists
 			const existing = await ctx.db.query.ingredients.findFirst({
-				where: eq(ingredients.fdcId, input.fdcId),
+				where: { fdcId: input.fdcId },
 				with: { units: true }
 			})
 			if (existing) {
 				return { ingredient: existing, source: 'existing' as const }
 			}
 
-			// ---- USDA resolution (local by fdcId → API by name) ----
-			let usdaMacros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
+			// Resolve USDA data (local by fdcId → API by name)
+			let macros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
 			let density: number | null = null
-			let nonVolumeUnits: Array<{ name: string; grams: number; isDefault: boolean; source: 'usda' }> = []
+			let nonVolumeUnits: PortionUnit[] = []
 
 			const localFood = await getLocalUsdaFood(ctx.db, input.fdcId)
 			if (localFood) {
-				const { density: localDensity, ...macros } = localFood
-				usdaMacros = macros
-				density = localDensity
+				;({ density, ...macros } = localFood)
 				const localPortions = await fetchLocalUsdaPortions(ctx.db, input.fdcId)
 				if (!density) density = densityFromPortions(localPortions)
-				nonVolumeUnits = localPortions
-					.filter(p => !isVolumeUnit(p.name))
-					.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+				nonVolumeUnits = portionsToUnits(localPortions)
 			} else {
-				// Fall back to USDA API
 				const apiKey = ctx.env.USDA_API_KEY
-				if (!apiKey) {
+				if (!apiKey)
 					throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'USDA API key not configured' })
-				}
-
 				const usdaResult = await lookupUSDA(input.name, apiKey)
-				if (!usdaResult) {
-					throw new TRPCError({ code: 'NOT_FOUND', message: 'USDA food not found' })
-				}
-
-				const { fdcId: _, description: __, ...macros } = usdaResult
-				usdaMacros = macros
+				if (!usdaResult) throw new TRPCError({ code: 'NOT_FOUND', message: 'USDA food not found' })
+				const { fdcId: _, description: __, ...m } = usdaResult
+				macros = m
 				const usdaPortions = await fetchUsdaPortions(input.fdcId, apiKey)
 				density = densityFromPortions(usdaPortions)
-				nonVolumeUnits = usdaPortions
-					.filter(p => !isVolumeUnit(p.name))
-					.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+				nonVolumeUnits = portionsToUnits(usdaPortions)
 			}
 
 			// AI enrichment if missing density or physical units
-			let aiPieceUnits: Array<{ name: string; grams: number; isDefault: boolean; source: 'ai' }> = []
 			if (!density || nonVolumeUnits.length === 0) {
-				const encSecret = ctx.env.ENCRYPTION_SECRET
-				if (encSecret) {
-					const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encSecret)
-					if (settings) {
-						try {
-							const { output } = await generateTextWithFallback({
-								provider: settings.provider,
-								apiKey: settings.apiKey,
-								output: Output.object({ schema: ingredientAiSchema }),
-								prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${input.name}`,
-								fallback: settings.modelFallback
-							})
-							if (!density) density = output.density
-							const existingNames = new Set(nonVolumeUnits.map(u => u.name.toLowerCase()))
-							aiPieceUnits = output.units
-								.filter(
-									u =>
-										!isVolumeUnit(u.name) &&
-										u.name.toLowerCase() !== 'g' &&
-										!existingNames.has(u.name.toLowerCase())
-								)
-								.map(u => ({ ...u, source: 'ai' as const }))
-						} catch {
-							// AI unavailable
-						}
-					}
-				}
+				const ai = await tryAiEnrichment(ctx, input.name, nonVolumeUnits)
+				if (!density) density = ai.density
+				nonVolumeUnits = [...nonVolumeUnits, ...ai.units]
 			}
 
-			const extraUnits = [...nonVolumeUnits, ...aiPieceUnits]
-
-			const [ingredient] = await ctx.db
-				.insert(ingredients)
-				.values({
-					userId: ctx.user.id,
-					name: normalizeIngredientName(input.name),
-					...usdaMacros,
-					fdcId: input.fdcId,
-					density,
-					source: 'usda',
-					createdAt: Date.now()
-				})
-				.returning()
-
-			const hasDefault = extraUnits.some(u => u.isDefault)
-			const unitRows = [
-				{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
-				...extraUnits.filter(u => u.name.toLowerCase() !== 'g')
-			]
-			await ctx.db.insert(ingredientUnits).values(
-				unitRows.map(unit => ({
-					ingredientId: ingredient.id,
-					name: unit.name,
-					grams: unit.grams,
-					isDefault: unit.isDefault ? 1 : 0,
-					source: unit.source,
-					createdAt: Date.now()
-				}))
-			)
-
-			const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-				where: eq(ingredients.id, ingredient.id),
-				with: { units: true }
+			const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
+				name: normalizeIngredientName(input.name),
+				macros,
+				fdcId: input.fdcId,
+				density,
+				source: 'usda',
+				units: nonVolumeUnits
 			})
-
-			return { ingredient: ingredientWithUnits!, source: 'usda' as const }
+			return { ingredient, source: 'usda' as const }
 		}),
 
 	create: protectedProcedure.input(createIngredientSchema).mutation(async ({ ctx, input }) => {
@@ -224,7 +248,7 @@ export const ingredientsRouter = router({
 			.update(ingredients)
 			.set(updates)
 			.where(and(eq(ingredients.id, id), eq(ingredients.userId, ctx.user.id)))
-		return ctx.db.query.ingredients.findFirst({ where: eq(ingredients.id, id) })
+		return ctx.db.query.ingredients.findFirst({ where: { id } })
 	}),
 
 	delete: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
@@ -237,7 +261,7 @@ export const ingredientsRouter = router({
 
 		// Check for existing ingredient (case-insensitive)
 		const existing = await ctx.db.query.ingredients.findFirst({
-			where: sql`lower(${ingredients.name}) = lower(${normalizedName})`,
+			where: { RAW: t => sql`lower(${t.name}) = lower(${normalizedName})` },
 			with: { units: true }
 		})
 
@@ -245,15 +269,14 @@ export const ingredientsRouter = router({
 			return { ingredient: existing, source: 'existing' as const }
 		}
 
-		// ---- USDA resolution (local exact match → API) ----
+		// USDA resolution (local exact match → API)
 		let usdaData: {
 			fdcId: number
 			macros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
 			density: number | null
-			nonVolumeUnits: Array<{ name: string; grams: number; isDefault: boolean; source: 'usda' }>
+			nonVolumeUnits: PortionUnit[]
 		} | null = null
 
-		// Try local USDA exact match first (instant, no API call)
 		const localUsda = await lookupLocalUSDA(ctx.db, normalizedName)
 		if (localUsda) {
 			const { fdcId, description: _, ...macros } = localUsda
@@ -262,14 +285,9 @@ export const ingredientsRouter = router({
 				fdcId,
 				macros,
 				density: densityFromPortions(localPortions),
-				nonVolumeUnits: localPortions
-					.filter(p => !isVolumeUnit(p.name))
-					.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+				nonVolumeUnits: portionsToUnits(localPortions)
 			}
-		}
-
-		// Try USDA API if no local match
-		if (!usdaData) {
+		} else {
 			const usdaKey = ctx.env.USDA_API_KEY
 			if (usdaKey) {
 				const usdaResult = await lookupUSDA(normalizedName, usdaKey)
@@ -280,9 +298,7 @@ export const ingredientsRouter = router({
 						fdcId,
 						macros,
 						density: densityFromPortions(usdaPortions),
-						nonVolumeUnits: usdaPortions
-							.filter(p => !isVolumeUnit(p.name))
-							.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+						nonVolumeUnits: portionsToUnits(usdaPortions)
 					}
 				}
 			}
@@ -290,77 +306,23 @@ export const ingredientsRouter = router({
 
 		if (usdaData) {
 			let { density } = usdaData
+			let units = usdaData.nonVolumeUnits
 
-			// If missing density or physical units, try AI enrichment
-			let aiPieceUnits: Array<{ name: string; grams: number; isDefault: boolean; source: 'ai' }> = []
-			if (!density || usdaData.nonVolumeUnits.length === 0) {
-				const encSecret = ctx.env.ENCRYPTION_SECRET
-				if (encSecret) {
-					const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encSecret)
-					if (settings) {
-						try {
-							const { output } = await generateTextWithFallback({
-								provider: settings.provider,
-								apiKey: settings.apiKey,
-								output: Output.object({ schema: ingredientAiSchema }),
-								prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${normalizedName}`,
-								fallback: settings.modelFallback
-							})
-							if (!density) density = output.density
-							// Only take non-volume units from AI that USDA doesn't already have
-							const existingNames = new Set(usdaData.nonVolumeUnits.map(u => u.name.toLowerCase()))
-							aiPieceUnits = output.units
-								.filter(
-									u =>
-										!isVolumeUnit(u.name) &&
-										u.name.toLowerCase() !== 'g' &&
-										!existingNames.has(u.name.toLowerCase())
-								)
-								.map(u => ({ ...u, source: 'ai' as const }))
-						} catch {
-							// AI unavailable
-						}
-					}
-				}
+			if (!density || units.length === 0) {
+				const ai = await tryAiEnrichment(ctx, normalizedName, units)
+				if (!density) density = ai.density
+				units = [...units, ...ai.units]
 			}
 
-			const extraUnits = [...usdaData.nonVolumeUnits, ...aiPieceUnits]
-
-			const [ingredient] = await ctx.db
-				.insert(ingredients)
-				.values({
-					userId: ctx.user.id,
-					name: normalizedName,
-					...usdaData.macros,
-					fdcId: usdaData.fdcId,
-					density,
-					source: 'usda',
-					createdAt: Date.now()
-				})
-				.returning()
-
-			const hasDefault = extraUnits.some(u => u.isDefault)
-			const unitRows = [
-				{ name: 'g', grams: 1, isDefault: !hasDefault, source: 'usda' as const },
-				...extraUnits.filter(u => u.name.toLowerCase() !== 'g')
-			]
-			await ctx.db.insert(ingredientUnits).values(
-				unitRows.map(unit => ({
-					ingredientId: ingredient.id,
-					name: unit.name,
-					grams: unit.grams,
-					isDefault: unit.isDefault ? 1 : 0,
-					source: unit.source,
-					createdAt: Date.now()
-				}))
-			)
-
-			const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-				where: eq(ingredients.id, ingredient.id),
-				with: { units: true }
+			const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
+				name: normalizedName,
+				macros: usdaData.macros,
+				fdcId: usdaData.fdcId,
+				density,
+				source: 'usda',
+				units
 			})
-
-			return { ingredient: ingredientWithUnits!, source: 'usda' as const }
+			return { ingredient, source: 'usda' as const }
 		}
 
 		// Fall back to AI
@@ -385,39 +347,15 @@ export const ingredientsRouter = router({
 			fallback: settings.modelFallback
 		})
 
-		const { units, ...macros } = aiResult
-		const [ingredient] = await ctx.db
-			.insert(ingredients)
-			.values({
-				userId: ctx.user.id,
-				name: normalizedName,
-				...macros,
-				source: 'ai',
-				createdAt: Date.now()
-			})
-			.returning()
-
-		// Only store non-volume units (volume units are derived from density at read time)
-		const nonVolumeAiUnits = units.filter(u => !isVolumeUnit(u.name))
-		if (nonVolumeAiUnits.length > 0) {
-			await ctx.db.insert(ingredientUnits).values(
-				nonVolumeAiUnits.map(unit => ({
-					ingredientId: ingredient.id,
-					name: unit.name,
-					grams: unit.grams,
-					isDefault: unit.isDefault ? 1 : 0,
-					source: 'ai' as const,
-					createdAt: Date.now()
-				}))
-			)
-		}
-
-		const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-			where: eq(ingredients.id, ingredient.id),
-			with: { units: true }
+		const { units: aiUnits, density: aiDensity, ...macros } = aiResult
+		const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
+			name: normalizedName,
+			macros,
+			density: aiDensity,
+			source: 'ai',
+			units: aiUnits.filter(u => !isVolumeUnit(u.name)).map(u => ({ ...u, source: 'ai' as const }))
 		})
-
-		return { ingredient: ingredientWithUnits!, source: 'ai' as const }
+		return { ingredient, source: 'ai' as const }
 	}),
 
 	/** Batch find or create multiple ingredients — single AI call for all unknowns */
@@ -428,10 +366,13 @@ export const ingredientsRouter = router({
 
 			// 1. DB lookup all (case-insensitive)
 			const existingAll = await ctx.db.query.ingredients.findMany({
-				where: inArray(
-					sql`lower(${ingredients.name})`,
-					normalizedNames.map(n => n.toLowerCase())
-				),
+				where: {
+					RAW: t =>
+						inArray(
+							sql`lower(${t.name})`,
+							normalizedNames.map(n => n.toLowerCase())
+						)
+				},
 				with: { units: true }
 			})
 			const existingMap = new Map(existingAll.map(e => [e.name.toLowerCase(), e]))
@@ -586,34 +527,30 @@ export const ingredientsRouter = router({
 				let density: number | null = null
 				let fdcId: number | null = null
 				let source: 'usda' | 'ai'
-				let allUnits: Array<{ name: string; grams: number; isDefault: boolean; source: 'usda' | 'ai' }> = []
+				let units: PortionUnit[] = []
 
 				if (usdaData) {
 					macros = usdaData.macros
 					fdcId = usdaData.fdcId
 					source = 'usda'
-
 					const portions = usdaPortionsMap.get(idx) ?? []
 					density = densityFromPortions(portions)
-					const nonVolumeUnits = portions
-						.filter(p => !isVolumeUnit(p.name))
-						.map(p => ({ ...p, isDefault: false, source: 'usda' as const }))
+					units = portionsToUnits(portions)
 
-					// Merge AI density/units if available
 					if (aiData) {
 						if (!density) density = aiData.density
-						const existingNames = new Set(nonVolumeUnits.map(u => u.name.toLowerCase()))
-						const aiPieceUnits = aiData.units
-							.filter(
-								u =>
-									!isVolumeUnit(u.name) &&
-									u.name.toLowerCase() !== 'g' &&
-									!existingNames.has(u.name.toLowerCase())
-							)
-							.map(u => ({ ...u, source: 'ai' as const }))
-						allUnits = [...nonVolumeUnits, ...aiPieceUnits]
-					} else {
-						allUnits = nonVolumeUnits
+						const existingNames = new Set(units.map(u => u.name.toLowerCase()))
+						units = [
+							...units,
+							...aiData.units
+								.filter(
+									u =>
+										!isVolumeUnit(u.name) &&
+										u.name.toLowerCase() !== 'g' &&
+										!existingNames.has(u.name.toLowerCase())
+								)
+								.map(u => ({ ...u, source: 'ai' as const }))
+						]
 					}
 				} else if (aiData) {
 					macros = {
@@ -625,50 +562,20 @@ export const ingredientsRouter = router({
 					}
 					density = aiData.density
 					source = 'ai'
-					allUnits = aiData.units
-						.filter(u => !isVolumeUnit(u.name))
-						.map(u => ({ ...u, source: 'ai' as const }))
+					units = aiData.units.filter(u => !isVolumeUnit(u.name)).map(u => ({ ...u, source: 'ai' as const }))
 				} else {
-					// No data at all — skip (shouldn't happen if AI was called)
 					continue
 				}
 
-				const [ingredient] = await ctx.db
-					.insert(ingredients)
-					.values({
-						userId: ctx.user.id,
-						name,
-						...macros,
-						fdcId,
-						density,
-						source,
-						createdAt: Date.now()
-					})
-					.returning()
-
-				// Build unit rows (always include 'g')
-				const hasDefault = allUnits.some(u => u.isDefault)
-				const unitRows = [
-					{ name: 'g', grams: 1, isDefault: !hasDefault, source: source },
-					...allUnits.filter(u => u.name.toLowerCase() !== 'g')
-				]
-				await ctx.db.insert(ingredientUnits).values(
-					unitRows.map(unit => ({
-						ingredientId: ingredient.id,
-						name: unit.name,
-						grams: unit.grams,
-						isDefault: unit.isDefault ? 1 : 0,
-						source: unit.source,
-						createdAt: Date.now()
-					}))
-				)
-
-				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-					where: eq(ingredients.id, ingredient.id),
-					with: { units: true }
+				const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
+					name,
+					macros,
+					fdcId,
+					density,
+					source,
+					units
 				})
-
-				results[idx] = { ingredient: ingredientWithUnits!, source }
+				results[idx] = { ingredient, source }
 			}
 
 			return results.filter(isPresent)
@@ -677,15 +584,15 @@ export const ingredientsRouter = router({
 	// Unit CRUD operations
 	listUnits: protectedProcedure.input(zodTypeID('ing')).query(async ({ ctx, input }) => {
 		return ctx.db.query.ingredientUnits.findMany({
-			where: eq(ingredientUnits.ingredientId, input),
-			orderBy: (units, { desc, asc }) => [desc(units.isDefault), asc(units.name)]
+			where: { ingredientId: input },
+			orderBy: { isDefault: 'desc', name: 'asc' }
 		})
 	}),
 
 	createUnit: protectedProcedure.input(createUnitSchema).mutation(async ({ ctx, input }) => {
 		// Verify user owns the ingredient
 		const ingredient = await ctx.db.query.ingredients.findFirst({
-			where: and(eq(ingredients.id, input.ingredientId), eq(ingredients.userId, ctx.user.id))
+			where: { id: input.ingredientId, userId: ctx.user.id }
 		})
 		if (!ingredient) {
 			throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
@@ -719,7 +626,7 @@ export const ingredientsRouter = router({
 
 		// Verify user owns the ingredient
 		const unit = await ctx.db.query.ingredientUnits.findFirst({
-			where: eq(ingredientUnits.id, id),
+			where: { id },
 			with: { ingredient: true }
 		})
 		if (!unit || unit.ingredient.userId !== ctx.user.id) {
@@ -739,13 +646,13 @@ export const ingredientsRouter = router({
 			.set({ ...updates, isDefault: updates.isDefault ? 1 : 0 })
 			.where(eq(ingredientUnits.id, id))
 
-		return ctx.db.query.ingredientUnits.findFirst({ where: eq(ingredientUnits.id, id) })
+		return ctx.db.query.ingredientUnits.findFirst({ where: { id } })
 	}),
 
 	deleteUnit: protectedProcedure.input(zodTypeID('inu')).mutation(async ({ ctx, input }) => {
 		// Verify user owns the ingredient
 		const unit = await ctx.db.query.ingredientUnits.findFirst({
-			where: eq(ingredientUnits.id, input),
+			where: { id: input },
 			with: { ingredient: true }
 		})
 		if (!unit || unit.ingredient.userId !== ctx.user.id) {
