@@ -7,18 +7,38 @@ import {
 	type TypeIDString
 } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { and, eq, isNotNull, or } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Database } from '../db'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 
 async function assertRecipeOwnership(db: Database, recipeId: TypeIDString<'rcp'>, userId: string) {
 	const recipe = await db.query.recipes.findFirst({
-		where: and(eq(recipes.id, recipeId), eq(recipes.userId, userId))
+		where: { id: recipeId, userId }
 	})
 	if (!recipe) throw new TRPCError({ code: 'NOT_FOUND' })
 	return recipe
 }
+
+/** Shared `with` shape for recipe queries that load full ingredient data */
+const recipeIngredientsWith = {
+	recipeIngredients: {
+		with: {
+			ingredient: { with: { units: true } },
+			subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+		}
+	}
+} as const
+
+const recipeIngredientsWithOrdered = {
+	recipeIngredients: {
+		with: {
+			ingredient: { with: { units: true } },
+			subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+		},
+		orderBy: { sortOrder: 'asc' as const }
+	}
+} as const
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -60,17 +80,10 @@ export const recipesRouter = router({
 	list: publicProcedure.query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
 			where: ctx.user
-				? or(and(eq(recipes.isPublic, 1), eq(recipes.type, 'recipe')), eq(recipes.userId, ctx.user.id))
-				: and(eq(recipes.isPublic, 1), eq(recipes.type, 'recipe')),
-			with: {
-				recipeIngredients: {
-					with: {
-						ingredient: { with: { units: true } },
-						subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-					}
-				}
-			},
-			orderBy: (recipes, { desc }) => [desc(recipes.updatedAt)],
+				? { OR: [{ isPublic: 1, type: 'recipe' }, { userId: ctx.user.id }] }
+				: { isPublic: 1, type: 'recipe' },
+			with: recipeIngredientsWith,
+			orderBy: { updatedAt: 'desc' },
 			limit: 50
 		})
 		return result
@@ -78,16 +91,8 @@ export const recipesRouter = router({
 
 	get: publicProcedure.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() })).query(async ({ ctx, input }) => {
 		const recipe = await ctx.db.query.recipes.findFirst({
-			where: eq(recipes.id, input.id),
-			with: {
-				recipeIngredients: {
-					with: {
-						ingredient: { with: { units: true } },
-						subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-					},
-					orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
-				}
-			}
+			where: { id: input.id },
+			with: recipeIngredientsWithOrdered
 		})
 		if (!recipe) throw new Error('Recipe not found')
 		const isOwner = ctx.user && recipe.userId === ctx.user.id
@@ -123,16 +128,8 @@ export const recipesRouter = router({
 			})
 			.where(and(eq(recipes.id, id), eq(recipes.userId, ctx.user.id)))
 		return ctx.db.query.recipes.findFirst({
-			where: eq(recipes.id, id),
-			with: {
-				recipeIngredients: {
-					with: {
-						ingredient: { with: { units: true } },
-						subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-					},
-					orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
-				}
-			}
+			where: { id },
+			with: recipeIngredientsWithOrdered
 		})
 	}),
 
@@ -140,7 +137,7 @@ export const recipesRouter = router({
 		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			const recipe = await ctx.db.query.recipes.findFirst({
-				where: and(eq(recipes.id, input.id), eq(recipes.userId, ctx.user.id))
+				where: { id: input.id, userId: ctx.user.id }
 			})
 			if (!recipe) throw new TRPCError({ code: 'NOT_FOUND' })
 
@@ -178,7 +175,7 @@ export const recipesRouter = router({
 		await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, input.recipeId))
 
 		return ctx.db.query.recipeIngredients.findFirst({
-			where: eq(recipeIngredients.id, newIngredient.id),
+			where: { id: newIngredient.id },
 			with: {
 				ingredient: { with: { units: true } },
 				subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
@@ -204,7 +201,7 @@ export const recipesRouter = router({
 			// Cycle detection: walk subrecipeId's own subrecipes recursively
 			async function hasCycle(currentId: TypeIDString<'rcp'>, targetId: TypeIDString<'rcp'>): Promise<boolean> {
 				const rows = await ctx.db.query.recipeIngredients.findMany({
-					where: and(eq(recipeIngredients.recipeId, currentId), isNotNull(recipeIngredients.subrecipeId))
+					where: { recipeId: currentId, subrecipeId: { isNotNull: true } }
 				})
 				for (const row of rows) {
 					if (row.subrecipeId === targetId) return true
@@ -219,7 +216,7 @@ export const recipesRouter = router({
 
 			// Load subrecipe to compute effective portion size
 			const subrecipe = await ctx.db.query.recipes.findFirst({
-				where: eq(recipes.id, input.subrecipeId),
+				where: { id: input.subrecipeId },
 				with: { recipeIngredients: { with: { ingredient: true } } }
 			})
 			if (!subrecipe) throw new Error('Subrecipe not found')
@@ -253,7 +250,7 @@ export const recipesRouter = router({
 			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, input.recipeId))
 
 			return ctx.db.query.recipeIngredients.findFirst({
-				where: eq(recipeIngredients.id, newRow.id),
+				where: { id: newRow.id },
 				with: {
 					ingredient: { with: { units: true } },
 					subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
@@ -263,7 +260,7 @@ export const recipesRouter = router({
 
 	updateIngredient: protectedProcedure.input(updateIngredientSchema).mutation(async ({ ctx, input }) => {
 		const { id, ...updates } = input
-		const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, id) })
+		const ri = await ctx.db.query.recipeIngredients.findFirst({ where: { id } })
 		if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
 		await assertRecipeOwnership(ctx.db, ri.recipeId, ctx.user.id)
 
@@ -273,7 +270,7 @@ export const recipesRouter = router({
 		await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
 
 		return ctx.db.query.recipeIngredients.findFirst({
-			where: eq(recipeIngredients.id, id),
+			where: { id },
 			with: {
 				ingredient: { with: { units: true } },
 				subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
@@ -284,7 +281,7 @@ export const recipesRouter = router({
 	removeIngredient: protectedProcedure
 		.input(z.object({ id: z.custom<TypeIDString<'rci'>>() }))
 		.mutation(async ({ ctx, input }) => {
-			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: eq(recipeIngredients.id, input.id) })
+			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: { id: input.id } })
 			if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
 			await assertRecipeOwnership(ctx.db, ri.recipeId, ctx.user.id)
 
@@ -361,16 +358,8 @@ export const recipesRouter = router({
 
 			// 5. Return with populated relations
 			return ctx.db.query.recipes.findFirst({
-				where: eq(recipes.id, recipe.id),
-				with: {
-					recipeIngredients: {
-						with: {
-							ingredient: { with: { units: true } },
-							subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-						},
-						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
-					}
-				}
+				where: { id: recipe.id },
+				with: recipeIngredientsWithOrdered
 			})
 		})
 })

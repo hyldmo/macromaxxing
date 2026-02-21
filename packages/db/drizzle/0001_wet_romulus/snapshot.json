@@ -1,0 +1,419 @@
+{
+	"dialect": "sqlite",
+	"id": "e739f18e-09be-4123-a629-6fd39573ca09",
+	"prevIds": ["00000000-0000-0000-0000-000000000000"],
+	"version": "7",
+	"ddl": [
+		{
+			"name": "ingredients",
+			"entityType": "tables"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "ingredients_pk",
+			"table": "ingredients",
+			"entityType": "pks"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "protein",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "carbs",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fat",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "kcal",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fiber",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "source",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"table": "ingredients",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "ingredients_user_id_users_id_fk",
+			"table": "ingredients",
+			"entityType": "fks"
+		},
+		{
+			"name": "recipe_ingredients",
+			"entityType": "tables"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"table": "recipe_ingredients",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "recipe_ingredients_pk",
+			"table": "recipe_ingredients",
+			"entityType": "pks"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "recipe_id",
+			"table": "recipe_ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ingredient_id",
+			"table": "recipe_ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "amount_grams",
+			"table": "recipe_ingredients",
+			"entityType": "columns"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "sort_order",
+			"table": "recipe_ingredients",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["recipe_id"],
+			"tableTo": "recipes",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "recipe_ingredients_recipe_id_recipes_id_fk",
+			"table": "recipe_ingredients",
+			"entityType": "fks"
+		},
+		{
+			"columns": ["ingredient_id"],
+			"tableTo": "ingredients",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "recipe_ingredients_ingredient_id_ingredients_id_fk",
+			"table": "recipe_ingredients",
+			"entityType": "fks"
+		},
+		{
+			"name": "recipes",
+			"entityType": "tables"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "recipes_pk",
+			"table": "recipes",
+			"entityType": "pks"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "cooked_weight",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "100",
+			"generated": null,
+			"name": "portion_size",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "updated_at",
+			"table": "recipes",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "recipes_user_id_users_id_fk",
+			"table": "recipes",
+			"entityType": "fks"
+		},
+		{
+			"name": "user_settings",
+			"entityType": "tables"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"table": "user_settings",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["user_id"],
+			"nameExplicit": false,
+			"name": "user_settings_pk",
+			"table": "user_settings",
+			"entityType": "pks"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_provider",
+			"table": "user_settings",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_api_key",
+			"table": "user_settings",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_key_iv",
+			"table": "user_settings",
+			"entityType": "columns"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_model",
+			"table": "user_settings",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "user_settings_user_id_users_id_fk",
+			"table": "user_settings",
+			"entityType": "fks"
+		},
+		{
+			"name": "users",
+			"entityType": "tables"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"table": "users",
+			"entityType": "columns"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "users_pk",
+			"table": "users",
+			"entityType": "pks"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "email",
+			"table": "users",
+			"entityType": "columns"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"table": "users",
+			"entityType": "columns"
+		}
+	],
+	"renames": []
+}

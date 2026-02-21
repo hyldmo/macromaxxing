@@ -43,7 +43,7 @@ const saveSettingsSchema = z.object({
 export const settingsRouter = router({
 	get: protectedProcedure.query(async ({ ctx }) => {
 		const settings = await ctx.db.query.userSettings.findFirst({
-			where: eq(userSettings.userId, ctx.user.id)
+			where: { userId: ctx.user.id }
 		})
 		if (!settings) return null
 		return {
@@ -59,7 +59,7 @@ export const settingsRouter = router({
 
 	getProfile: protectedProcedure.query(async ({ ctx }) => {
 		const settings = await ctx.db.query.userSettings.findFirst({
-			where: eq(userSettings.userId, ctx.user.id)
+			where: { userId: ctx.user.id }
 		})
 		if (!settings) return null
 		return {
@@ -79,7 +79,7 @@ export const settingsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.userSettings.findFirst({
-				where: eq(userSettings.userId, ctx.user.id)
+				where: { userId: ctx.user.id }
 			})
 			if (existing) {
 				await ctx.db
@@ -102,7 +102,7 @@ export const settingsRouter = router({
 
 	save: protectedProcedure.input(saveSettingsSchema).mutation(async ({ ctx, input }) => {
 		const existing = await ctx.db.query.userSettings.findFirst({
-			where: eq(userSettings.userId, ctx.user.id)
+			where: { userId: ctx.user.id }
 		})
 
 		const toggleUpdates = {
@@ -152,7 +152,7 @@ export async function getDecryptedApiKey(
 	encryptionSecret: string
 ): Promise<{ apiKey: string; provider: AiProvider; batchLookups: boolean; modelFallback: boolean } | null> {
 	const settings = await db.query.userSettings.findFirst({
-		where: eq(userSettings.userId, userId)
+		where: { userId }
 	})
 	if (!settings) return null
 

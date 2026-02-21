@@ -17,7 +17,7 @@ import {
 	workouts
 } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { and, desc, eq, gte, isNull, or, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
@@ -177,20 +177,28 @@ function inferExercise(name: string): InferredExercise {
 	return { type: 'compound', fatigueTier: 2, muscles: [] }
 }
 
+/** Shared `with` for workout template queries */
+const workoutExercisesWith = {
+	exercises: {
+		with: { exercise: { with: { muscles: true } } },
+		orderBy: { sortOrder: 'asc' as const }
+	}
+} as const
+
 export const workoutsRouter = router({
 	// ─── Exercise CRUD ────────────────────────────────────────────
 
 	listExercises: protectedProcedure
 		.input(z.object({ type: exerciseType.optional() }).optional())
 		.query(async ({ ctx, input }) => {
-			const typeFilter = input?.type ? eq(exercises.type, input.type) : undefined
-			const userFilter = or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
-			const where = typeFilter ? and(userFilter, typeFilter) : userFilter
-
+			const typeFilter = input?.type ? { type: input.type } : {}
 			return ctx.db.query.exercises.findMany({
-				where,
+				where: {
+					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }],
+					...typeFilter
+				},
 				with: { muscles: true },
-				orderBy: [exercises.name]
+				orderBy: { name: 'asc' }
 			})
 		}),
 
@@ -226,7 +234,7 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.exercises.findFirst({
-				where: eq(exercises.id, exercise.id),
+				where: { id: exercise.id },
 				with: { muscles: true }
 			})
 		}),
@@ -249,7 +257,7 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.exercises.findFirst({
-				where: eq(exercises.id, input.id)
+				where: { id: input.id }
 			})
 			if (!existing || existing.userId !== ctx.user.id) {
 				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
@@ -283,7 +291,7 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.exercises.findFirst({
-				where: eq(exercises.id, id),
+				where: { id },
 				with: { muscles: true }
 			})
 		}),
@@ -292,7 +300,7 @@ export const workoutsRouter = router({
 		.input(z.object({ id: z.custom<TypeIDString<'exc'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.exercises.findFirst({
-				where: eq(exercises.id, input.id)
+				where: { id: input.id }
 			})
 			if (!existing || existing.userId !== ctx.user.id) {
 				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
@@ -322,14 +330,9 @@ export const workoutsRouter = router({
 
 	listWorkouts: protectedProcedure.query(async ({ ctx }) =>
 		ctx.db.query.workouts.findMany({
-			where: eq(workouts.userId, ctx.user.id),
-			with: {
-				exercises: {
-					with: { exercise: { with: { muscles: true } } },
-					orderBy: [workoutExercises.sortOrder]
-				}
-			},
-			orderBy: [workouts.sortOrder]
+			where: { userId: ctx.user.id },
+			with: workoutExercisesWith,
+			orderBy: { sortOrder: 'asc' }
 		})
 	),
 
@@ -337,13 +340,8 @@ export const workoutsRouter = router({
 		.input(z.object({ id: z.custom<TypeIDString<'wkt'>>() }))
 		.query(async ({ ctx, input }) => {
 			const workout = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id)),
-				with: {
-					exercises: {
-						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutExercises.sortOrder]
-					}
-				}
+				where: { id: input.id, userId: ctx.user.id },
+				with: workoutExercisesWith
 			})
 			if (!workout) throw new Error('Workout not found')
 			return workout
@@ -410,13 +408,8 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.workouts.findFirst({
-				where: eq(workouts.id, workout.id),
-				with: {
-					exercises: {
-						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutExercises.sortOrder]
-					}
-				}
+				where: { id: workout.id },
+				with: workoutExercisesWith
 			})
 		}),
 
@@ -444,7 +437,7 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id))
+				where: { id: input.id, userId: ctx.user.id }
 			})
 			if (!existing) throw new Error('Workout not found')
 
@@ -480,13 +473,8 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.workouts.findFirst({
-				where: eq(workouts.id, input.id),
-				with: {
-					exercises: {
-						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutExercises.sortOrder]
-					}
-				}
+				where: { id: input.id },
+				with: workoutExercisesWith
 			})
 		}),
 
@@ -514,15 +502,15 @@ export const workoutsRouter = router({
 		.input(z.object({ limit: z.number().min(1).max(100).default(20) }).optional())
 		.query(async ({ ctx, input }) =>
 			ctx.db.query.workoutSessions.findMany({
-				where: eq(workoutSessions.userId, ctx.user.id),
+				where: { userId: ctx.user.id },
 				with: {
 					workout: true,
 					logs: {
 						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutLogs.createdAt]
+						orderBy: { createdAt: 'asc' }
 					}
 				},
-				orderBy: [desc(workoutSessions.startedAt)],
+				orderBy: { startedAt: 'desc' },
 				limit: input?.limit ?? 20
 			})
 		),
@@ -531,23 +519,18 @@ export const workoutsRouter = router({
 		.input(z.object({ id: z.custom<TypeIDString<'wks'>>() }))
 		.query(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
-				where: and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id)),
+				where: { id: input.id, userId: ctx.user.id },
 				with: {
 					workout: {
-						with: {
-							exercises: {
-								with: { exercise: { with: { muscles: true } } },
-								orderBy: [workoutExercises.sortOrder]
-							}
-						}
+						with: workoutExercisesWith
 					},
 					logs: {
 						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutLogs.createdAt]
+						orderBy: { createdAt: 'asc' }
 					},
 					plannedExercises: {
 						with: { exercise: { with: { muscles: true } } },
-						orderBy: [sessionPlannedExercises.sortOrder]
+						orderBy: { sortOrder: 'asc' }
 					}
 				}
 			})
@@ -560,8 +543,8 @@ export const workoutsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Verify workout ownership and load template exercises
 			const workout = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.workoutId), eq(workouts.userId, ctx.user.id)),
-				with: { exercises: { orderBy: [workoutExercises.sortOrder] } }
+				where: { id: input.workoutId, userId: ctx.user.id },
+				with: { exercises: { orderBy: { sortOrder: 'asc' } } }
 			})
 			if (!workout) throw new Error('Workout not found')
 
@@ -630,7 +613,7 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
-				where: and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id))
+				where: { id: input.id, userId: ctx.user.id }
 			})
 			if (!session) throw new Error('Session not found')
 
@@ -761,7 +744,7 @@ export const workoutsRouter = router({
 
 			// Verify ownership via session
 			const log = await ctx.db.query.workoutLogs.findFirst({
-				where: eq(workoutLogs.id, id),
+				where: { id },
 				with: { session: true }
 			})
 			if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
@@ -773,7 +756,7 @@ export const workoutsRouter = router({
 		.input(z.object({ id: z.custom<TypeIDString<'wkl'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			const log = await ctx.db.query.workoutLogs.findFirst({
-				where: eq(workoutLogs.id, input.id),
+				where: { id: input.id },
 				with: { session: true }
 			})
 			if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
@@ -790,7 +773,7 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
-				where: eq(workoutSessions.id, input.sessionId)
+				where: { id: input.sessionId }
 			})
 			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
 			await ctx.db
@@ -817,7 +800,7 @@ export const workoutsRouter = router({
 			const since = Date.now() - days * 24 * 60 * 60 * 1000
 
 			const sessions = await ctx.db.query.workoutSessions.findMany({
-				where: and(eq(workoutSessions.userId, ctx.user.id), gte(workoutSessions.startedAt, since)),
+				where: { userId: ctx.user.id, startedAt: { gte: since } },
 				with: {
 					logs: {
 						with: { exercise: { with: { muscles: true } } }
@@ -860,13 +843,13 @@ export const workoutsRouter = router({
 	/** Coverage stats: weekly sets per muscle assuming all templates are done once */
 	coverageStats: protectedProcedure.query(async ({ ctx }) => {
 		const userWorkouts = await ctx.db.query.workouts.findMany({
-			where: eq(workouts.userId, ctx.user.id),
+			where: { userId: ctx.user.id },
 			with: {
 				exercises: {
 					with: { exercise: { with: { muscles: true } } }
 				}
 			},
-			orderBy: [workouts.sortOrder]
+			orderBy: { sortOrder: 'asc' }
 		})
 
 		// Initialize all muscle groups to 0
@@ -952,7 +935,7 @@ export const workoutsRouter = router({
 
 	importWorkouts: protectedProcedure.input(z.object({ text: z.string().min(1) })).mutation(async ({ ctx, input }) => {
 		const allExercises = await ctx.db.query.exercises.findMany({
-			where: or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
+			where: { OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }] }
 		})
 		const exerciseCache = new Map(allExercises.map(e => [e.name.toLowerCase(), e]))
 
@@ -1107,7 +1090,7 @@ export const workoutsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Load all available exercises for matching
 			const allExercises = await ctx.db.query.exercises.findMany({
-				where: or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
+				where: { OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }] }
 			})
 			const exerciseCache = new Map(allExercises.map(e => [e.name.toLowerCase(), e]))
 

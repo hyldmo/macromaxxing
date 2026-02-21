@@ -1,144 +1,217 @@
-import { relations } from 'drizzle-orm'
-import {
-	exerciseMuscles,
-	exercises,
-	ingredients,
-	ingredientUnits,
-	mealPlanInventory,
-	mealPlanSlots,
-	mealPlans,
-	recipeIngredients,
-	recipes,
-	sessionPlannedExercises,
-	strengthStandards,
-	usdaFoods,
-	usdaPortions,
-	userSettings,
-	users,
-	workoutExercises,
-	workoutLogs,
-	workoutSessions,
-	workouts
-} from './schema'
+import { defineRelations } from 'drizzle-orm'
+import * as schema from './schema'
 
-export const usersRelations = relations(users, ({ one, many }) => ({
-	settings: one(userSettings, { fields: [users.id], references: [userSettings.userId] }),
-	recipes: many(recipes),
-	ingredients: many(ingredients),
-	mealPlans: many(mealPlans),
-	exercises: many(exercises),
-	workouts: many(workouts),
-	workoutSessions: many(workoutSessions)
-}))
+export const relations = defineRelations(schema, r => ({
+	users: {
+		settings: r.one.userSettings({
+			from: r.users.id,
+			to: r.userSettings.userId
+		}),
+		recipes: r.many.recipes(),
+		ingredients: r.many.ingredients(),
+		mealPlans: r.many.mealPlans(),
+		exercises: r.many.exercises(),
+		workouts: r.many.workouts(),
+		workoutSessions: r.many.workoutSessions()
+	},
 
-export const userSettingsRelations = relations(userSettings, ({ one }) => ({
-	user: one(users, { fields: [userSettings.userId], references: [users.id] })
-}))
+	userSettings: {
+		user: r.one.users({
+			from: r.userSettings.userId,
+			to: r.users.id,
+			optional: false
+		})
+	},
 
-export const recipesRelations = relations(recipes, ({ one, many }) => ({
-	user: one(users, { fields: [recipes.userId], references: [users.id] }),
-	recipeIngredients: many(recipeIngredients, { relationName: 'parentRecipe' }),
-	usedAsSubrecipeIn: many(recipeIngredients, { relationName: 'subrecipe' })
-}))
+	recipes: {
+		user: r.one.users({
+			from: r.recipes.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		recipeIngredients: r.many.recipeIngredients({ alias: 'parentRecipe' }),
+		usedAsSubrecipeIn: r.many.recipeIngredients({ alias: 'subrecipe' })
+	},
 
-export const ingredientsRelations = relations(ingredients, ({ one, many }) => ({
-	user: one(users, { fields: [ingredients.userId], references: [users.id] }),
-	units: many(ingredientUnits)
-}))
+	ingredients: {
+		user: r.one.users({
+			from: r.ingredients.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		units: r.many.ingredientUnits()
+	},
 
-export const ingredientUnitsRelations = relations(ingredientUnits, ({ one }) => ({
-	ingredient: one(ingredients, { fields: [ingredientUnits.ingredientId], references: [ingredients.id] })
-}))
+	ingredientUnits: {
+		ingredient: r.one.ingredients({
+			from: r.ingredientUnits.ingredientId,
+			to: r.ingredients.id,
+			optional: false
+		})
+	},
 
-export const recipeIngredientsRelations = relations(recipeIngredients, ({ one }) => ({
-	recipe: one(recipes, {
-		fields: [recipeIngredients.recipeId],
-		references: [recipes.id],
-		relationName: 'parentRecipe'
-	}),
-	ingredient: one(ingredients, { fields: [recipeIngredients.ingredientId], references: [ingredients.id] }),
-	subrecipe: one(recipes, {
-		fields: [recipeIngredients.subrecipeId],
-		references: [recipes.id],
-		relationName: 'subrecipe'
-	})
-}))
+	recipeIngredients: {
+		recipe: r.one.recipes({
+			from: r.recipeIngredients.recipeId,
+			to: r.recipes.id,
+			alias: 'parentRecipe',
+			optional: false
+		}),
+		// ingredientId is nullable (null when subrecipe)
+		ingredient: r.one.ingredients({
+			from: r.recipeIngredients.ingredientId,
+			to: r.ingredients.id
+		}),
+		// subrecipeId is nullable (null when ingredient)
+		subrecipe: r.one.recipes({
+			from: r.recipeIngredients.subrecipeId,
+			to: r.recipes.id,
+			alias: 'subrecipe'
+		})
+	},
 
-export const mealPlansRelations = relations(mealPlans, ({ one, many }) => ({
-	user: one(users, { fields: [mealPlans.userId], references: [users.id] }),
-	inventory: many(mealPlanInventory)
-}))
+	mealPlans: {
+		user: r.one.users({
+			from: r.mealPlans.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		inventory: r.many.mealPlanInventory()
+	},
 
-export const mealPlanInventoryRelations = relations(mealPlanInventory, ({ one, many }) => ({
-	mealPlan: one(mealPlans, { fields: [mealPlanInventory.mealPlanId], references: [mealPlans.id] }),
-	recipe: one(recipes, { fields: [mealPlanInventory.recipeId], references: [recipes.id] }),
-	slots: many(mealPlanSlots)
-}))
+	mealPlanInventory: {
+		mealPlan: r.one.mealPlans({
+			from: r.mealPlanInventory.mealPlanId,
+			to: r.mealPlans.id,
+			optional: false
+		}),
+		recipe: r.one.recipes({
+			from: r.mealPlanInventory.recipeId,
+			to: r.recipes.id,
+			optional: false
+		}),
+		slots: r.many.mealPlanSlots()
+	},
 
-export const mealPlanSlotsRelations = relations(mealPlanSlots, ({ one }) => ({
-	inventory: one(mealPlanInventory, { fields: [mealPlanSlots.inventoryId], references: [mealPlanInventory.id] })
-}))
+	mealPlanSlots: {
+		inventory: r.one.mealPlanInventory({
+			from: r.mealPlanSlots.inventoryId,
+			to: r.mealPlanInventory.id,
+			optional: false
+		})
+	},
 
-// ─── Workout Tracking ────────────────────────────────────────────────
+	// ─── Workout Tracking ────────────────────────────────────────────────
 
-export const exercisesRelations = relations(exercises, ({ one, many }) => ({
-	user: one(users, { fields: [exercises.userId], references: [users.id] }),
-	muscles: many(exerciseMuscles),
-	logs: many(workoutLogs),
-	workoutExercises: many(workoutExercises)
-}))
+	exercises: {
+		// userId is nullable (null = system exercise)
+		user: r.one.users({
+			from: r.exercises.userId,
+			to: r.users.id
+		}),
+		muscles: r.many.exerciseMuscles(),
+		logs: r.many.workoutLogs(),
+		workoutExercises: r.many.workoutExercises()
+	},
 
-export const exerciseMusclesRelations = relations(exerciseMuscles, ({ one }) => ({
-	exercise: one(exercises, { fields: [exerciseMuscles.exerciseId], references: [exercises.id] })
-}))
+	exerciseMuscles: {
+		exercise: r.one.exercises({
+			from: r.exerciseMuscles.exerciseId,
+			to: r.exercises.id,
+			optional: false
+		})
+	},
 
-export const workoutsRelations = relations(workouts, ({ one, many }) => ({
-	user: one(users, { fields: [workouts.userId], references: [users.id] }),
-	exercises: many(workoutExercises),
-	sessions: many(workoutSessions)
-}))
+	workouts: {
+		user: r.one.users({
+			from: r.workouts.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		exercises: r.many.workoutExercises(),
+		sessions: r.many.workoutSessions()
+	},
 
-export const workoutExercisesRelations = relations(workoutExercises, ({ one }) => ({
-	workout: one(workouts, { fields: [workoutExercises.workoutId], references: [workouts.id] }),
-	exercise: one(exercises, { fields: [workoutExercises.exerciseId], references: [exercises.id] })
-}))
+	workoutExercises: {
+		workout: r.one.workouts({
+			from: r.workoutExercises.workoutId,
+			to: r.workouts.id,
+			optional: false
+		}),
+		exercise: r.one.exercises({
+			from: r.workoutExercises.exerciseId,
+			to: r.exercises.id,
+			optional: false
+		})
+	},
 
-export const strengthStandardsRelations = relations(strengthStandards, ({ one }) => ({
-	compound: one(exercises, {
-		fields: [strengthStandards.compoundId],
-		references: [exercises.id],
-		relationName: 'compound'
-	}),
-	isolation: one(exercises, {
-		fields: [strengthStandards.isolationId],
-		references: [exercises.id],
-		relationName: 'isolation'
-	})
-}))
+	strengthStandards: {
+		compound: r.one.exercises({
+			from: r.strengthStandards.compoundId,
+			to: r.exercises.id,
+			alias: 'compound',
+			optional: false
+		}),
+		isolation: r.one.exercises({
+			from: r.strengthStandards.isolationId,
+			to: r.exercises.id,
+			alias: 'isolation',
+			optional: false
+		})
+	},
 
-export const workoutSessionsRelations = relations(workoutSessions, ({ one, many }) => ({
-	user: one(users, { fields: [workoutSessions.userId], references: [users.id] }),
-	workout: one(workouts, { fields: [workoutSessions.workoutId], references: [workouts.id] }),
-	logs: many(workoutLogs),
-	plannedExercises: many(sessionPlannedExercises)
-}))
+	workoutSessions: {
+		user: r.one.users({
+			from: r.workoutSessions.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		// workoutId is nullable (null = legacy session)
+		workout: r.one.workouts({
+			from: r.workoutSessions.workoutId,
+			to: r.workouts.id
+		}),
+		logs: r.many.workoutLogs(),
+		plannedExercises: r.many.sessionPlannedExercises()
+	},
 
-export const sessionPlannedExercisesRelations = relations(sessionPlannedExercises, ({ one }) => ({
-	session: one(workoutSessions, { fields: [sessionPlannedExercises.sessionId], references: [workoutSessions.id] }),
-	exercise: one(exercises, { fields: [sessionPlannedExercises.exerciseId], references: [exercises.id] })
-}))
+	sessionPlannedExercises: {
+		session: r.one.workoutSessions({
+			from: r.sessionPlannedExercises.sessionId,
+			to: r.workoutSessions.id,
+			optional: false
+		}),
+		exercise: r.one.exercises({
+			from: r.sessionPlannedExercises.exerciseId,
+			to: r.exercises.id,
+			optional: false
+		})
+	},
 
-export const workoutLogsRelations = relations(workoutLogs, ({ one }) => ({
-	session: one(workoutSessions, { fields: [workoutLogs.sessionId], references: [workoutSessions.id] }),
-	exercise: one(exercises, { fields: [workoutLogs.exerciseId], references: [exercises.id] })
-}))
+	workoutLogs: {
+		session: r.one.workoutSessions({
+			from: r.workoutLogs.sessionId,
+			to: r.workoutSessions.id,
+			optional: false
+		}),
+		exercise: r.one.exercises({
+			from: r.workoutLogs.exerciseId,
+			to: r.exercises.id,
+			optional: false
+		})
+	},
 
-// ─── USDA Local Data ────────────────────────────────────────────────
+	// ─── USDA Local Data ────────────────────────────────────────────────
 
-export const usdaFoodsRelations = relations(usdaFoods, ({ many }) => ({
-	portions: many(usdaPortions)
-}))
+	usdaFoods: {
+		portions: r.many.usdaPortions()
+	},
 
-export const usdaPortionsRelations = relations(usdaPortions, ({ one }) => ({
-	food: one(usdaFoods, { fields: [usdaPortions.fdcId], references: [usdaFoods.fdcId] })
+	usdaPortions: {
+		food: r.one.usdaFoods({
+			from: r.usdaPortions.fdcId,
+			to: r.usdaFoods.fdcId,
+			optional: false
+		})
+	}
 }))

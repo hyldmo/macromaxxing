@@ -1,7 +1,7 @@
 import { clerkMiddleware } from '@hono/clerk-auth'
 import { trpcServer } from '@hono/trpc-server'
 import { recipes, type TypeIDString } from '@macromaxxing/db'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import type { ExecutionContext as HonoExecutionContext } from 'hono'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -26,7 +26,7 @@ app.post('/api/recipes/:id/image', async c => {
 
 	const recipeId = c.req.param('id') as TypeIDString<'rcp'>
 	const recipe = await db.query.recipes.findFirst({
-		where: and(eq(recipes.id, recipeId), eq(recipes.userId, user.id))
+		where: { id: recipeId, userId: user.id }
 	})
 	if (!recipe) return c.json({ error: 'Not found' }, 404)
 
@@ -59,7 +59,7 @@ app.delete('/api/recipes/:id/image', async c => {
 
 	const recipeId = c.req.param('id') as TypeIDString<'rcp'>
 	const recipe = await db.query.recipes.findFirst({
-		where: and(eq(recipes.id, recipeId), eq(recipes.userId, user.id))
+		where: { id: recipeId, userId: user.id }
 	})
 	if (!recipe) return c.json({ error: 'Not found' }, 404)
 

@@ -1,14 +1,14 @@
-import { mealPlanInventory, mealPlanSlots, mealPlans, recipes, type TypeIDString } from '@macromaxxing/db'
-import { and, eq, inArray } from 'drizzle-orm'
+import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString } from '@macromaxxing/db'
+import { eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
 export const mealPlansRouter = router({
 	list: protectedProcedure.query(async ({ ctx }) => {
 		const result = await ctx.db.query.mealPlans.findMany({
-			where: eq(mealPlans.userId, ctx.user.id),
+			where: { userId: ctx.user.id },
 			with: { inventory: true },
-			orderBy: (mealPlans, { desc }) => [desc(mealPlans.updatedAt)]
+			orderBy: { updatedAt: 'desc' }
 		})
 		return result
 	}),
@@ -17,25 +17,28 @@ export const mealPlansRouter = router({
 		const [plan, allRecipes] = await ctx.db.batch([
 			// Q1: Plan + inventory + slots (2 levels, shallow)
 			ctx.db.query.mealPlans.findFirst({
-				where: and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)),
+				where: { id: input.id, userId: ctx.user.id },
 				with: { inventory: { with: { slots: true } } }
 			}),
 			// Q2: Recipes via subquery on inventory (3 levels, no dependency on Q1)
 			ctx.db.query.recipes.findMany({
-				where: inArray(
-					recipes.id,
-					ctx.db
-						.select({ id: mealPlanInventory.recipeId })
-						.from(mealPlanInventory)
-						.where(eq(mealPlanInventory.mealPlanId, input.id))
-				),
+				where: {
+					RAW: t =>
+						inArray(
+							t.id,
+							ctx.db
+								.select({ id: mealPlanInventory.recipeId })
+								.from(mealPlanInventory)
+								.where(eq(mealPlanInventory.mealPlanId, input.id))
+						)
+				},
 				with: {
 					recipeIngredients: {
 						with: {
 							ingredient: true,
 							subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
 						},
-						orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
+						orderBy: { sortOrder: 'asc' }
 					}
 				}
 			})
@@ -78,16 +81,16 @@ export const mealPlansRouter = router({
 			await ctx.db
 				.update(mealPlans)
 				.set({ ...updates, updatedAt: Date.now() })
-				.where(and(eq(mealPlans.id, id), eq(mealPlans.userId, ctx.user.id)))
+				.where(eq(mealPlans.id, id))
 			return ctx.db.query.mealPlans.findFirst({
-				where: eq(mealPlans.id, id)
+				where: { id }
 			})
 		}),
 
 	delete: protectedProcedure
 		.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() }))
 		.mutation(async ({ ctx, input }) => {
-			await ctx.db.delete(mealPlans).where(and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)))
+			await ctx.db.delete(mealPlans).where(eq(mealPlans.id, input.id))
 		}),
 
 	duplicate: protectedProcedure
@@ -100,7 +103,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get source plan with all data
 			const source = await ctx.db.query.mealPlans.findFirst({
-				where: and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)),
+				where: { id: input.id, userId: ctx.user.id },
 				with: {
 					inventory: {
 						with: { slots: true }
@@ -165,7 +168,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Verify plan ownership
 			const plan = await ctx.db.query.mealPlans.findFirst({
-				where: and(eq(mealPlans.id, input.planId), eq(mealPlans.userId, ctx.user.id))
+				where: { id: input.planId, userId: ctx.user.id }
 			})
 			if (!plan) throw new Error('Meal plan not found')
 
@@ -184,7 +187,7 @@ export const mealPlansRouter = router({
 			await ctx.db.update(mealPlans).set({ updatedAt: now }).where(eq(mealPlans.id, input.planId))
 
 			return ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, inv.id),
+				where: { id: inv.id },
 				with: {
 					recipe: {
 						with: {
@@ -211,7 +214,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get inventory item and verify ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: { mealPlan: true }
 			})
 			if (!inv || inv.mealPlan.userId !== ctx.user.id) {
@@ -227,7 +230,7 @@ export const mealPlansRouter = router({
 			await ctx.db.update(mealPlans).set({ updatedAt: Date.now() }).where(eq(mealPlans.id, inv.mealPlanId))
 
 			return ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: {
 					recipe: {
 						with: {
@@ -249,7 +252,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get inventory item and verify ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: { mealPlan: true }
 			})
 			if (!inv || inv.mealPlan.userId !== ctx.user.id) {
@@ -275,7 +278,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Verify inventory ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: { mealPlan: true }
 			})
 			if (!inv || inv.mealPlan.userId !== ctx.user.id) {
@@ -311,7 +314,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId),
+				where: { id: input.slotId },
 				with: {
 					inventory: {
 						with: { mealPlan: true }
@@ -337,7 +340,7 @@ export const mealPlansRouter = router({
 				.where(eq(mealPlans.id, slot.inventory.mealPlanId))
 
 			return ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId)
+				where: { id: input.slotId }
 			})
 		}),
 
@@ -346,7 +349,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId),
+				where: { id: input.slotId },
 				with: {
 					inventory: {
 						with: { mealPlan: true }
@@ -377,7 +380,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get source slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId),
+				where: { id: input.slotId },
 				with: {
 					inventory: {
 						with: { mealPlan: true }

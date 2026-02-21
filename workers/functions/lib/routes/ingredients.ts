@@ -1,7 +1,7 @@
 import { ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
-import { and, eq, inArray, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { isPresent } from 'ts-extras'
 import { z } from 'zod'
 import {
@@ -68,9 +68,9 @@ const updateUnitSchema = z.object({
 export const ingredientsRouter = router({
 	list: publicProcedure.query(async ({ ctx }) => {
 		return ctx.db.query.ingredients.findMany({
-			where: ne(ingredients.source, 'label'),
+			where: { source: { ne: 'label' } },
 			with: { units: true },
-			orderBy: (ingredients, { asc }) => [asc(ingredients.name)],
+			orderBy: { name: 'asc' },
 			limit: 200
 		})
 	}),
@@ -91,7 +91,7 @@ export const ingredientsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Check if ingredient with same fdcId already exists
 			const existing = await ctx.db.query.ingredients.findFirst({
-				where: eq(ingredients.fdcId, input.fdcId),
+				where: { fdcId: input.fdcId },
 				with: { units: true }
 			})
 			if (existing) {
@@ -137,7 +137,7 @@ export const ingredientsRouter = router({
 				)
 
 				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-					where: eq(ingredients.id, ingredient.id),
+					where: { id: ingredient.id },
 					with: { units: true }
 				})
 
@@ -192,7 +192,7 @@ export const ingredientsRouter = router({
 			)
 
 			const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-				where: eq(ingredients.id, ingredient.id),
+				where: { id: ingredient.id },
 				with: { units: true }
 			})
 
@@ -218,7 +218,7 @@ export const ingredientsRouter = router({
 			.update(ingredients)
 			.set(updates)
 			.where(and(eq(ingredients.id, id), eq(ingredients.userId, ctx.user.id)))
-		return ctx.db.query.ingredients.findFirst({ where: eq(ingredients.id, id) })
+		return ctx.db.query.ingredients.findFirst({ where: { id } })
 	}),
 
 	delete: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
@@ -231,7 +231,7 @@ export const ingredientsRouter = router({
 
 		// Check for existing ingredient (case-insensitive)
 		const existing = await ctx.db.query.ingredients.findFirst({
-			where: sql`lower(${ingredients.name}) = lower(${normalizedName})`,
+			where: { RAW: t => sql`lower(${t.name}) = lower(${normalizedName})` },
 			with: { units: true }
 		})
 
@@ -279,7 +279,7 @@ export const ingredientsRouter = router({
 			)
 
 			const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-				where: eq(ingredients.id, ingredient.id),
+				where: { id: ingredient.id },
 				with: { units: true }
 			})
 
@@ -368,7 +368,7 @@ export const ingredientsRouter = router({
 				)
 
 				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-					where: eq(ingredients.id, ingredient.id),
+					where: { id: ingredient.id },
 					with: { units: true }
 				})
 
@@ -426,7 +426,7 @@ export const ingredientsRouter = router({
 		}
 
 		const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-			where: eq(ingredients.id, ingredient.id),
+			where: { id: ingredient.id },
 			with: { units: true }
 		})
 
@@ -441,10 +441,13 @@ export const ingredientsRouter = router({
 
 			// 1. DB lookup all (case-insensitive)
 			const existingAll = await ctx.db.query.ingredients.findMany({
-				where: inArray(
-					sql`lower(${ingredients.name})`,
-					normalizedNames.map(n => n.toLowerCase())
-				),
+				where: {
+					RAW: t =>
+						inArray(
+							sql`lower(${t.name})`,
+							normalizedNames.map(n => n.toLowerCase())
+						)
+				},
 				with: { units: true }
 			})
 			const existingMap = new Map(existingAll.map(e => [e.name.toLowerCase(), e]))
@@ -506,7 +509,7 @@ export const ingredientsRouter = router({
 				)
 
 				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-					where: eq(ingredients.id, ingredient.id),
+					where: { id: ingredient.id },
 					with: { units: true }
 				})
 
@@ -705,7 +708,7 @@ export const ingredientsRouter = router({
 				)
 
 				const ingredientWithUnits = await ctx.db.query.ingredients.findFirst({
-					where: eq(ingredients.id, ingredient.id),
+					where: { id: ingredient.id },
 					with: { units: true }
 				})
 
@@ -718,15 +721,15 @@ export const ingredientsRouter = router({
 	// Unit CRUD operations
 	listUnits: protectedProcedure.input(zodTypeID('ing')).query(async ({ ctx, input }) => {
 		return ctx.db.query.ingredientUnits.findMany({
-			where: eq(ingredientUnits.ingredientId, input),
-			orderBy: (units, { desc, asc }) => [desc(units.isDefault), asc(units.name)]
+			where: { ingredientId: input },
+			orderBy: { isDefault: 'desc', name: 'asc' }
 		})
 	}),
 
 	createUnit: protectedProcedure.input(createUnitSchema).mutation(async ({ ctx, input }) => {
 		// Verify user owns the ingredient
 		const ingredient = await ctx.db.query.ingredients.findFirst({
-			where: and(eq(ingredients.id, input.ingredientId), eq(ingredients.userId, ctx.user.id))
+			where: { id: input.ingredientId, userId: ctx.user.id }
 		})
 		if (!ingredient) {
 			throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
@@ -760,7 +763,7 @@ export const ingredientsRouter = router({
 
 		// Verify user owns the ingredient
 		const unit = await ctx.db.query.ingredientUnits.findFirst({
-			where: eq(ingredientUnits.id, id),
+			where: { id },
 			with: { ingredient: true }
 		})
 		if (!unit || unit.ingredient.userId !== ctx.user.id) {
@@ -780,13 +783,13 @@ export const ingredientsRouter = router({
 			.set({ ...updates, isDefault: updates.isDefault ? 1 : 0 })
 			.where(eq(ingredientUnits.id, id))
 
-		return ctx.db.query.ingredientUnits.findFirst({ where: eq(ingredientUnits.id, id) })
+		return ctx.db.query.ingredientUnits.findFirst({ where: { id } })
 	}),
 
 	deleteUnit: protectedProcedure.input(zodTypeID('inu')).mutation(async ({ ctx, input }) => {
 		// Verify user owns the ingredient
 		const unit = await ctx.db.query.ingredientUnits.findFirst({
-			where: eq(ingredientUnits.id, input),
+			where: { id: input },
 			with: { ingredient: true }
 		})
 		if (!unit || unit.ingredient.userId !== ctx.user.id) {

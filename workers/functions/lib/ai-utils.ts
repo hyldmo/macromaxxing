@@ -2,9 +2,9 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import { type AiProvider, extractPreparation, type HttpsUrl, usdaFoods, usdaPortions } from '@macromaxxing/db'
+import { type AiProvider, extractPreparation, type HttpsUrl } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
-import { eq, sql } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { FALLBACK_MODELS, MODELS, type macroSchema } from './constants'
 import type { Database } from './db'
@@ -520,7 +520,7 @@ export async function searchLocalUSDA(db: Database, query: string, limit = 5): P
 /** Exact case-insensitive match on local usda_foods table */
 export async function lookupLocalUSDA(db: Database, name: string): Promise<UsdaResult | null> {
 	const row = await db.query.usdaFoods.findFirst({
-		where: sql`lower(${usdaFoods.description}) = lower(${name})`
+		where: { RAW: t => sql`lower(${t.description}) = lower(${name})` }
 	})
 	if (!row) return null
 	return {
@@ -547,7 +547,7 @@ export async function getLocalUsdaFood(
 	density: number | null
 } | null> {
 	const row = await db.query.usdaFoods.findFirst({
-		where: eq(usdaFoods.fdcId, fdcId)
+		where: { fdcId }
 	})
 	if (!row) return null
 	return {
@@ -563,7 +563,7 @@ export async function getLocalUsdaFood(
 /** Fetch portions for a food from local usda_portions table */
 export async function fetchLocalUsdaPortions(db: Database, fdcId: number): Promise<UsdaPortion[]> {
 	const rows = await db.query.usdaPortions.findMany({
-		where: eq(usdaPortions.fdcId, fdcId)
+		where: { fdcId }
 	})
 	return rows.map(r => ({ name: r.name, grams: r.grams }))
 }

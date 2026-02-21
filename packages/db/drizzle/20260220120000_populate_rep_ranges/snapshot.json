@@ -1,0 +1,2218 @@
+{
+	"version": "7",
+	"dialect": "sqlite",
+	"id": "3655bd01-e9d7-4d52-ac46-7884aaf48334",
+	"prevIds": ["25f36048-3488-4641-8dbd-c053d0f41b97"],
+	"ddl": [
+		{
+			"name": "exercise_muscles",
+			"entityType": "tables"
+		},
+		{
+			"name": "exercises",
+			"entityType": "tables"
+		},
+		{
+			"name": "ingredient_units",
+			"entityType": "tables"
+		},
+		{
+			"name": "ingredients",
+			"entityType": "tables"
+		},
+		{
+			"name": "meal_plan_inventory",
+			"entityType": "tables"
+		},
+		{
+			"name": "meal_plan_slots",
+			"entityType": "tables"
+		},
+		{
+			"name": "meal_plans",
+			"entityType": "tables"
+		},
+		{
+			"name": "recipe_ingredients",
+			"entityType": "tables"
+		},
+		{
+			"name": "recipes",
+			"entityType": "tables"
+		},
+		{
+			"name": "session_planned_exercises",
+			"entityType": "tables"
+		},
+		{
+			"name": "strength_standards",
+			"entityType": "tables"
+		},
+		{
+			"name": "usda_foods",
+			"entityType": "tables"
+		},
+		{
+			"name": "usda_portions",
+			"entityType": "tables"
+		},
+		{
+			"name": "user_settings",
+			"entityType": "tables"
+		},
+		{
+			"name": "users",
+			"entityType": "tables"
+		},
+		{
+			"name": "workout_exercises",
+			"entityType": "tables"
+		},
+		{
+			"name": "workout_logs",
+			"entityType": "tables"
+		},
+		{
+			"name": "workout_sessions",
+			"entityType": "tables"
+		},
+		{
+			"name": "workouts",
+			"entityType": "tables"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "exercise_muscles"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "exercise_id",
+			"entityType": "columns",
+			"table": "exercise_muscles"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "muscle_group",
+			"entityType": "columns",
+			"table": "exercise_muscles"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "intensity",
+			"entityType": "columns",
+			"table": "exercise_muscles"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "type",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "2",
+			"generated": null,
+			"name": "fatigue_tier",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "strength_reps_min",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "strength_reps_max",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "hypertrophy_reps_min",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "hypertrophy_reps_max",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "exercises"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ingredient_id",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "grams",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "is_default",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "source",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "ingredient_units"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "protein",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "carbs",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fat",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "kcal",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fiber",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "density",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fdc_id",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "source",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "meal_plan_id",
+			"entityType": "columns",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "recipe_id",
+			"entityType": "columns",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "total_portions",
+			"entityType": "columns",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "meal_plan_slots"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "inventory_id",
+			"entityType": "columns",
+			"table": "meal_plan_slots"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "day_of_week",
+			"entityType": "columns",
+			"table": "meal_plan_slots"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "slot_index",
+			"entityType": "columns",
+			"table": "meal_plan_slots"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "1",
+			"generated": null,
+			"name": "portions",
+			"entityType": "columns",
+			"table": "meal_plan_slots"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "meal_plan_slots"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "meal_plans"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "meal_plans"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "meal_plans"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "meal_plans"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"table": "meal_plans"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "recipe_id",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ingredient_id",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "subrecipe_id",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "amount_grams",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "display_unit",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "display_amount",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "preparation",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "sort_order",
+			"entityType": "columns",
+			"table": "recipe_ingredients"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'recipe'",
+			"generated": null,
+			"name": "type",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "instructions",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "cooked_weight",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "portion_size",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "is_public",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "source_url",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "image",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"table": "recipes"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "session_id",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "exercise_id",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "sort_order",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "target_sets",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "target_reps",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "target_weight",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'working'",
+			"generated": null,
+			"name": "set_mode",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "training_goal",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "superset_group",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "session_planned_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "strength_standards"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "compound_id",
+			"entityType": "columns",
+			"table": "strength_standards"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "isolation_id",
+			"entityType": "columns",
+			"table": "strength_standards"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "max_ratio",
+			"entityType": "columns",
+			"table": "strength_standards"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "strength_standards"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fdc_id",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "description",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "data_type",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "protein",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "carbs",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fat",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "kcal",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fiber",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "density",
+			"entityType": "columns",
+			"table": "usda_foods"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": true,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "usda_portions"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "fdc_id",
+			"entityType": "columns",
+			"table": "usda_portions"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "usda_portions"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "grams",
+			"entityType": "columns",
+			"table": "usda_portions"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "is_volume",
+			"entityType": "columns",
+			"table": "usda_portions"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_provider",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_api_key",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_key_iv",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "ai_model",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "batch_lookups",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "model_fallback",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "height_cm",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "weight_kg",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'male'",
+			"generated": null,
+			"name": "sex",
+			"entityType": "columns",
+			"table": "user_settings"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "users"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "email",
+			"entityType": "columns",
+			"table": "users"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "users"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "workout_id",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "exercise_id",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "sort_order",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "target_sets",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "target_reps",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "target_weight",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'warmup'",
+			"generated": null,
+			"name": "set_mode",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "training_goal",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "superset_group",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "workout_exercises"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "session_id",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "exercise_id",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "set_number",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'working'",
+			"generated": null,
+			"name": "set_type",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "real",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "weight_kg",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "reps",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "real",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "rpe",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "failure_flag",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "workout_logs"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "workout_id",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "started_at",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "completed_at",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "notes",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "workout_sessions"
+		},
+		{
+			"type": "text",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "id",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "name",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"type": "text",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "'hypertrophy'",
+			"generated": null,
+			"name": "training_goal",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": "0",
+			"generated": null,
+			"name": "sort_order",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"type": "integer",
+			"notNull": true,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "updated_at",
+			"entityType": "columns",
+			"table": "workouts"
+		},
+		{
+			"columns": ["exercise_id"],
+			"tableTo": "exercises",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "exercise_muscles_exercise_id_exercises_id_fk",
+			"entityType": "fks",
+			"table": "exercise_muscles"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "exercises_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "exercises"
+		},
+		{
+			"columns": ["ingredient_id"],
+			"tableTo": "ingredients",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "ingredient_units_ingredient_id_ingredients_id_fk",
+			"entityType": "fks",
+			"table": "ingredient_units"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "ingredients_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "ingredients"
+		},
+		{
+			"columns": ["meal_plan_id"],
+			"tableTo": "meal_plans",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "meal_plan_inventory_meal_plan_id_meal_plans_id_fk",
+			"entityType": "fks",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"columns": ["recipe_id"],
+			"tableTo": "recipes",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "meal_plan_inventory_recipe_id_recipes_id_fk",
+			"entityType": "fks",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"columns": ["inventory_id"],
+			"tableTo": "meal_plan_inventory",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "meal_plan_slots_inventory_id_meal_plan_inventory_id_fk",
+			"entityType": "fks",
+			"table": "meal_plan_slots"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "meal_plans_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "meal_plans"
+		},
+		{
+			"columns": ["recipe_id"],
+			"tableTo": "recipes",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "recipe_ingredients_recipe_id_recipes_id_fk",
+			"entityType": "fks",
+			"table": "recipe_ingredients"
+		},
+		{
+			"columns": ["ingredient_id"],
+			"tableTo": "ingredients",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "recipe_ingredients_ingredient_id_ingredients_id_fk",
+			"entityType": "fks",
+			"table": "recipe_ingredients"
+		},
+		{
+			"columns": ["subrecipe_id"],
+			"tableTo": "recipes",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "recipe_ingredients_subrecipe_id_recipes_id_fk",
+			"entityType": "fks",
+			"table": "recipe_ingredients"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "recipes_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "recipes"
+		},
+		{
+			"columns": ["session_id"],
+			"tableTo": "workout_sessions",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "session_planned_exercises_session_id_workout_sessions_id_fk",
+			"entityType": "fks",
+			"table": "session_planned_exercises"
+		},
+		{
+			"columns": ["exercise_id"],
+			"tableTo": "exercises",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "session_planned_exercises_exercise_id_exercises_id_fk",
+			"entityType": "fks",
+			"table": "session_planned_exercises"
+		},
+		{
+			"columns": ["compound_id"],
+			"tableTo": "exercises",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "strength_standards_compound_id_exercises_id_fk",
+			"entityType": "fks",
+			"table": "strength_standards"
+		},
+		{
+			"columns": ["isolation_id"],
+			"tableTo": "exercises",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "strength_standards_isolation_id_exercises_id_fk",
+			"entityType": "fks",
+			"table": "strength_standards"
+		},
+		{
+			"columns": ["fdc_id"],
+			"tableTo": "usda_foods",
+			"columnsTo": ["fdc_id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "usda_portions_fdc_id_usda_foods_fdc_id_fk",
+			"entityType": "fks",
+			"table": "usda_portions"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "user_settings_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "user_settings"
+		},
+		{
+			"columns": ["workout_id"],
+			"tableTo": "workouts",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "workout_exercises_workout_id_workouts_id_fk",
+			"entityType": "fks",
+			"table": "workout_exercises"
+		},
+		{
+			"columns": ["exercise_id"],
+			"tableTo": "exercises",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "workout_exercises_exercise_id_exercises_id_fk",
+			"entityType": "fks",
+			"table": "workout_exercises"
+		},
+		{
+			"columns": ["session_id"],
+			"tableTo": "workout_sessions",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"nameExplicit": false,
+			"name": "workout_logs_session_id_workout_sessions_id_fk",
+			"entityType": "fks",
+			"table": "workout_logs"
+		},
+		{
+			"columns": ["exercise_id"],
+			"tableTo": "exercises",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "workout_logs_exercise_id_exercises_id_fk",
+			"entityType": "fks",
+			"table": "workout_logs"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "workout_sessions_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "workout_sessions"
+		},
+		{
+			"columns": ["workout_id"],
+			"tableTo": "workouts",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "workout_sessions_workout_id_workouts_id_fk",
+			"entityType": "fks",
+			"table": "workout_sessions"
+		},
+		{
+			"columns": ["user_id"],
+			"tableTo": "users",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"nameExplicit": false,
+			"name": "workouts_user_id_users_id_fk",
+			"entityType": "fks",
+			"table": "workouts"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "exercise_muscles_pk",
+			"table": "exercise_muscles",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "exercises_pk",
+			"table": "exercises",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "ingredient_units_pk",
+			"table": "ingredient_units",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "ingredients_pk",
+			"table": "ingredients",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "meal_plan_inventory_pk",
+			"table": "meal_plan_inventory",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "meal_plan_slots_pk",
+			"table": "meal_plan_slots",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "meal_plans_pk",
+			"table": "meal_plans",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "recipe_ingredients_pk",
+			"table": "recipe_ingredients",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "recipes_pk",
+			"table": "recipes",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "session_planned_exercises_pk",
+			"table": "session_planned_exercises",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "strength_standards_pk",
+			"table": "strength_standards",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["fdc_id"],
+			"nameExplicit": false,
+			"name": "usda_foods_pk",
+			"table": "usda_foods",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "usda_portions_pk",
+			"table": "usda_portions",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["user_id"],
+			"nameExplicit": false,
+			"name": "user_settings_pk",
+			"table": "user_settings",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "users_pk",
+			"table": "users",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "workout_exercises_pk",
+			"table": "workout_exercises",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "workout_logs_pk",
+			"table": "workout_logs",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "workout_sessions_pk",
+			"table": "workout_sessions",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "workouts_pk",
+			"table": "workouts",
+			"entityType": "pks"
+		},
+		{
+			"columns": [
+				{
+					"value": "name",
+					"isExpression": false
+				}
+			],
+			"isUnique": true,
+			"where": "user_id IS NULL",
+			"origin": "manual",
+			"name": "exercises_name_system_idx",
+			"entityType": "indexes",
+			"table": "exercises"
+		},
+		{
+			"columns": [
+				{
+					"value": "name",
+					"isExpression": false
+				},
+				{
+					"value": "user_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": true,
+			"where": "user_id IS NOT NULL",
+			"origin": "manual",
+			"name": "exercises_name_user_idx",
+			"entityType": "indexes",
+			"table": "exercises"
+		},
+		{
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "ingredients_user_id_idx",
+			"entityType": "indexes",
+			"table": "ingredients"
+		},
+		{
+			"columns": [
+				{
+					"value": "meal_plan_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "meal_plan_inventory_meal_plan_id_idx",
+			"entityType": "indexes",
+			"table": "meal_plan_inventory"
+		},
+		{
+			"columns": [
+				{
+					"value": "inventory_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "meal_plan_slots_inventory_id_idx",
+			"entityType": "indexes",
+			"table": "meal_plan_slots"
+		},
+		{
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "meal_plans_user_id_idx",
+			"entityType": "indexes",
+			"table": "meal_plans"
+		},
+		{
+			"columns": [
+				{
+					"value": "recipe_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "recipe_ingredients_recipe_id_idx",
+			"entityType": "indexes",
+			"table": "recipe_ingredients"
+		},
+		{
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "recipes_user_id_idx",
+			"entityType": "indexes",
+			"table": "recipes"
+		},
+		{
+			"columns": [
+				{
+					"value": "session_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "session_planned_exercises_session_idx",
+			"entityType": "indexes",
+			"table": "session_planned_exercises"
+		},
+		{
+			"columns": [
+				{
+					"value": "lower(\"description\")",
+					"isExpression": true
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "usda_foods_description_idx",
+			"entityType": "indexes",
+			"table": "usda_foods"
+		},
+		{
+			"columns": [
+				{
+					"value": "fdc_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "usda_portions_fdc_id_idx",
+			"entityType": "indexes",
+			"table": "usda_portions"
+		},
+		{
+			"columns": [
+				{
+					"value": "workout_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "workout_exercises_workout_id_idx",
+			"entityType": "indexes",
+			"table": "workout_exercises"
+		},
+		{
+			"columns": [
+				{
+					"value": "session_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "workout_logs_session_id_idx",
+			"entityType": "indexes",
+			"table": "workout_logs"
+		},
+		{
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "workout_sessions_user_id_idx",
+			"entityType": "indexes",
+			"table": "workout_sessions"
+		},
+		{
+			"columns": [
+				{
+					"value": "workout_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "workout_sessions_workout_id_idx",
+			"entityType": "indexes",
+			"table": "workout_sessions"
+		},
+		{
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"origin": "manual",
+			"name": "workouts_user_id_idx",
+			"entityType": "indexes",
+			"table": "workouts"
+		},
+		{
+			"columns": ["email"],
+			"nameExplicit": false,
+			"name": "users_email_unique",
+			"entityType": "uniques",
+			"table": "users"
+		}
+	],
+	"renames": []
+}
