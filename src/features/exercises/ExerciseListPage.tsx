@@ -51,8 +51,6 @@ export function ExerciseListPage() {
 		})
 	}, [exercisesQuery.data, search, sortKey, sortDir])
 
-	const editExercise = editId ? exercisesQuery.data?.find(e => e.id === editId) : undefined
-
 	const hoveredVolumes = useMemo(() => {
 		const volumes = new Map<MuscleGroup, number>()
 		if (!hoveredExercise) return volumes
@@ -89,15 +87,9 @@ export function ExerciseListPage() {
 					)}
 				</div>
 
-				{(showForm || editId) && (
+				{showForm && !editId && (
 					<Card className="p-4">
-						<ExerciseForm
-							editExercise={editExercise}
-							onClose={() => {
-								setShowForm(false)
-								setEditId(null)
-							}}
-						/>
+						<ExerciseForm onClose={() => setShowForm(false)} />
 					</Card>
 				)}
 
@@ -140,15 +132,24 @@ export function ExerciseListPage() {
 
 				{filtered.length > 0 && (
 					<div className="grid gap-2 md:hidden">
-						{filtered.map(exercise => (
-							<ExerciseCard
-								key={exercise.id}
-								exercise={exercise}
-								isMine={exercise.userId === userId}
-								onEdit={handleEdit}
-								onDelete={handleDelete}
-							/>
-						))}
+						{filtered.map(exercise => {
+							if (exercise.id === editId) {
+								return (
+									<Card key={exercise.id} className="p-4">
+										<ExerciseForm editExercise={exercise} onClose={() => setEditId(null)} />
+									</Card>
+								)
+							}
+							return (
+								<ExerciseCard
+									key={exercise.id}
+									exercise={exercise}
+									isMine={exercise.userId === userId}
+									onEdit={handleEdit}
+									onDelete={handleDelete}
+								/>
+							)
+						})}
 					</div>
 				)}
 
@@ -156,6 +157,8 @@ export function ExerciseListPage() {
 					<ExerciseTable
 						exercises={filtered}
 						userId={userId}
+						editId={editId}
+						onCloseEdit={() => setEditId(null)}
 						sortKey={sortKey}
 						sortDir={sortDir}
 						onToggleSort={toggleSort}
