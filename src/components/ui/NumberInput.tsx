@@ -67,6 +67,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		const handleFocus = useCallback(
 			(e: React.FocusEvent<HTMLInputElement>) => {
 				setLocalValue(String(value ?? ''))
+				e.target.select()
 				onFocus?.(e)
 			},
 			[value, onFocus]
