@@ -1,6 +1,6 @@
 import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle, useUser } from '~/lib'
@@ -43,8 +43,6 @@ export function IngredientListPage() {
 		})
 	}, [ingredientsQuery.data, search, sortKey, sortDir])
 
-	const editIngredient = editId ? ingredientsQuery.data?.find(i => i.id === editId) : undefined
-
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
@@ -62,15 +60,9 @@ export function IngredientListPage() {
 				)}
 			</div>
 
-			{(showForm || editId) && (
+			{showForm && !editId && (
 				<Card className="p-4">
-					<IngredientForm
-						editIngredient={editIngredient}
-						onClose={() => {
-							setShowForm(false)
-							setEditId(null)
-						}}
-					/>
+					<IngredientForm onClose={() => setShowForm(false)} />
 				</Card>
 			)}
 
@@ -112,6 +104,13 @@ export function IngredientListPage() {
 				<div className="grid gap-2 md:hidden">
 					{filtered.map(ingredient => {
 						const isMine = ingredient.userId === userId
+						if (ingredient.id === editId) {
+							return (
+								<Card key={ingredient.id} className="p-4">
+									<IngredientForm editIngredient={ingredient} onClose={() => setEditId(null)} />
+								</Card>
+							)
+						}
 						return (
 							<Card key={ingredient.id} className="p-3">
 								<div className="flex items-start justify-between gap-2">
@@ -207,12 +206,21 @@ export function IngredientListPage() {
 						<tbody>
 							{filtered.map(ingredient => {
 								const isMine = ingredient.userId === userId
+								if (ingredient.id === editId) {
+									return (
+										<tr key={ingredient.id}>
+											<td colSpan={8} className="p-4">
+												<IngredientForm
+													editIngredient={ingredient}
+													onClose={() => setEditId(null)}
+												/>
+											</td>
+										</tr>
+									)
+								}
 								return (
-									<>
-										<tr
-											key={ingredient.id + ingredient.name}
-											className="transition-colors hover:bg-surface-2/50"
-										>
+									<Fragment key={ingredient.id}>
+										<tr className="transition-colors hover:bg-surface-2/50">
 											<td className="px-2 py-1.5 font-medium text-ink">{ingredient.name}</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-protein">
 												{ingredient.protein}
@@ -264,12 +272,12 @@ export function IngredientListPage() {
 												)}
 											</td>
 										</tr>
-										<tr key={`${ingredient.id}-bar`} className="border-edge/30 border-b">
+										<tr className="border-edge/30 border-b">
 											<td colSpan={8} className="px-2 pb-1">
 												<MacroBar macros={ingredient} />
 											</td>
 										</tr>
-									</>
+									</Fragment>
 								)
 							})}
 						</tbody>
