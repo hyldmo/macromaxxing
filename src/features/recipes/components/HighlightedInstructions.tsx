@@ -1,98 +1,36 @@
 import { type FC, type ReactNode, useMemo } from 'react'
-import { Tooltip } from '~/components/ui'
-import type { RouterOutput } from '~/lib/trpc'
-import { formatIngredientAmount } from '../utils/format'
-
-type RecipeIngredient = RouterOutput['recipe']['get']['recipeIngredients'][number]
+import { type RecipeIngredient, renderInline } from '../utils/inline'
 
 export interface HighlightedInstructionsProps {
 	markdown: string
 	ingredients: RecipeIngredient[]
 }
 
-function escapeRegex(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** Collect indented list sub-items following a parent item */
+function collectSubLines(lines: string[], start: number): string[] {
+	const items: string[] = []
+	let i = start
+	while (i < lines.length) {
+		const match = lines[i].match(/^[\t ]+(?:\d+\.\s+|[-*]\s+)(.+)/)
+		if (match) {
+			items.push(match[1])
+			i++
+		} else {
+			break
+		}
+	}
+	return items
 }
 
-function formatTooltip(ri: RecipeIngredient): string {
-	if (ri.displayUnit && ri.displayAmount) {
-		return `${formatIngredientAmount(ri.displayAmount, ri.displayUnit)} (${Math.round(ri.amountGrams)}g)`
-	}
-	return `${Math.round(ri.amountGrams)}g`
-}
-
-function highlightText(text: string, ingredients: RecipeIngredient[], keyPrefix: string): ReactNode[] {
-	const withIngredient = ingredients.filter(i => i.ingredient != null)
-	if (withIngredient.length === 0) return [text]
-
-	const sorted = withIngredient.toSorted((a, b) => b.ingredient!.name.length - a.ingredient!.name.length)
-	const pattern = sorted.map(i => escapeRegex(i.ingredient!.name)).join('|')
-	const regex = new RegExp(`\\b(${pattern})\\b`, 'gi')
-
-	const result: ReactNode[] = []
-	let lastIndex = 0
-	let match: RegExpExecArray | null
-
-	while (true) {
-		match = regex.exec(text)
-		if (match === null) break
-		if (match.index > lastIndex) {
-			result.push(text.slice(lastIndex, match.index))
-		}
-		const ri = sorted.find(i => i.ingredient!.name.toLowerCase() === match![1].toLowerCase())
-		if (ri) {
-			result.push(
-				<Tooltip key={`${keyPrefix}-${match.index}`} content={formatTooltip(ri)}>
-					<span className="cursor-help text-accent underline decoration-accent/30 underline-offset-2">
-						{match[0]}
-					</span>
-				</Tooltip>
-			)
-		}
-		lastIndex = regex.lastIndex
-	}
-
-	if (lastIndex < text.length) {
-		result.push(text.slice(lastIndex))
-	}
-
-	return result
-}
-
-/** Handles **bold**, *italic*, and ingredient highlighting within a line of text */
-function renderInline(text: string, ingredients: RecipeIngredient[], keyPrefix: string): ReactNode[] {
-	const regex = /\*\*(.+?)\*\*|\*(.+?)\*/g
-	const segments: ReactNode[] = []
-	let lastIndex = 0
-	let match: RegExpExecArray | null
-	let key = 0
-
-	while (true) {
-		match = regex.exec(text)
-		if (match === null) break
-		if (match.index > lastIndex) {
-			segments.push(...highlightText(text.slice(lastIndex, match.index), ingredients, `${keyPrefix}-${key}`))
-		}
-		if (match[1] !== undefined) {
-			segments.push(
-				<strong key={`${keyPrefix}-b${key}`}>
-					{highlightText(match[1], ingredients, `${keyPrefix}-b${key}`)}
-				</strong>
-			)
-		} else if (match[2] !== undefined) {
-			segments.push(
-				<em key={`${keyPrefix}-i${key}`}>{highlightText(match[2], ingredients, `${keyPrefix}-i${key}`)}</em>
-			)
-		}
-		key++
-		lastIndex = regex.lastIndex
-	}
-
-	if (lastIndex < text.length) {
-		segments.push(...highlightText(text.slice(lastIndex), ingredients, `${keyPrefix}-e`))
-	}
-
-	return segments
+/** Render collected sub-items as a nested ordered list */
+function renderSubList(subItems: string[], ingredients: RecipeIngredient[], keyPrefix: string): ReactNode {
+	return (
+		<ol className="mt-1 list-[lower-alpha] space-y-0.5 pl-5">
+			{subItems.map((item, idx) => (
+				<li key={item}>{renderInline(item, ingredients, `${keyPrefix}-${idx}`)}</li>
+			))}
+		</ol>
+	)
 }
 
 export const HighlightedInstructions: FC<HighlightedInstructionsProps> = ({ markdown, ingredients }) => {
@@ -140,9 +78,16 @@ export const HighlightedInstructions: FC<HighlightedInstructionsProps> = ({ mark
 				let itemKey = 0
 				while (i < lines.length && /^[-*]\s/.test(lines[i])) {
 					const content = lines[i].replace(/^[-*]\s+/, '')
-					items.push(<li key={itemKey}>{renderInline(content, ingredients, `ul${blockKey}-${itemKey}`)}</li>)
+					const subItems = collectSubLines(lines, i + 1)
+					i += 1 + subItems.length
+					items.push(
+						<li key={itemKey}>
+							{renderInline(content, ingredients, `ul${blockKey}-${itemKey}`)}
+							{subItems.length > 0 &&
+								renderSubList(subItems, ingredients, `ul${blockKey}-${itemKey}-sub`)}
+						</li>
+					)
 					itemKey++
-					i++
 				}
 				blocks.push(
 					<ul key={blockKey} className="list-disc space-y-0.5 pl-5">
@@ -159,9 +104,16 @@ export const HighlightedInstructions: FC<HighlightedInstructionsProps> = ({ mark
 				let itemKey = 0
 				while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
 					const content = lines[i].replace(/^\d+\.\s+/, '')
-					items.push(<li key={itemKey}>{renderInline(content, ingredients, `ol${blockKey}-${itemKey}`)}</li>)
+					const subItems = collectSubLines(lines, i + 1)
+					i += 1 + subItems.length
+					items.push(
+						<li key={itemKey}>
+							{renderInline(content, ingredients, `ol${blockKey}-${itemKey}`)}
+							{subItems.length > 0 &&
+								renderSubList(subItems, ingredients, `ol${blockKey}-${itemKey}-sub`)}
+						</li>
+					)
 					itemKey++
-					i++
 				}
 				blocks.push(
 					<ol key={blockKey} className="list-decimal space-y-0.5 pl-5">

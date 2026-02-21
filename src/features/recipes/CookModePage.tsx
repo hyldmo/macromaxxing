@@ -86,7 +86,9 @@ export function CookModePage() {
 			)}
 
 			{/* Method steps */}
-			{recipe.instructions?.trim() && <CookInstructionSteps markdown={recipe.instructions} />}
+			{recipe.instructions?.trim() && (
+				<CookInstructionSteps markdown={recipe.instructions} ingredients={recipe.recipeIngredients} />
+			)}
 
 			{/* Per-portion macro summary */}
 			<CookPortionSummary portion={calculations.portion} />
