@@ -1,6 +1,7 @@
 import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle, useUser } from '~/lib'
@@ -10,7 +11,9 @@ import { IngredientForm } from './components/IngredientForm'
 
 export function IngredientListPage() {
 	useDocumentTitle('Ingredients')
-	const [search, setSearch] = useState('')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const search = searchParams.get('search') ?? ''
+	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
 	const [sortKey, setSortKey] = useState<'recent' | 'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('recent')

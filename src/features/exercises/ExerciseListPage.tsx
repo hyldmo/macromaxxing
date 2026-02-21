@@ -2,6 +2,7 @@ import type { MuscleGroup } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle, useUser } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
@@ -16,7 +17,9 @@ export function ExerciseListPage() {
 	useDocumentTitle('Exercises')
 	const { user } = useUser()
 	const userId = user?.id
-	const [search, setSearch] = useState('')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const search = searchParams.get('search') ?? ''
+	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [showForm, setShowForm] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
 	const [sortKey, setSortKey] = useState<'name' | 'type' | 'tier'>('name')
