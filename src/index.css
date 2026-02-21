@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
 	--breakpoint-2xs: 375px; /* 375px */
