@@ -197,7 +197,7 @@ export function RecipeEditorPage() {
 
 			{!isNew && recipeQuery.data && calculations && (
 				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
-					<div className="flex flex-col gap-4 lg:order-last lg:flex-col-reverse">
+					<div className="flex flex-col gap-4 lg:order-last lg:flex-col-reverse lg:justify-end">
 						{!isNew && recipeQuery.data && (
 							<RecipeImageUpload
 								recipeId={id!}
