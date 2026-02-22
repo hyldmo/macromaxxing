@@ -15,7 +15,7 @@
 		],
 		"PostToolUse": [
 			{
-				"matcher": "Edit|Write",
+				"matcher": "Stop",
 				"hooks": [
 					{
 						"type": "command",
