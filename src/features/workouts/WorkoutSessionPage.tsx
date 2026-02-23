@@ -574,9 +574,9 @@ export function WorkoutSessionPage() {
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
-								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
-								restingExerciseId={
-									isResting && remaining > 0 ? (activeExerciseId ?? undefined) : undefined
+								active={
+									item.exercises.some(e => e.exerciseId === activeExerciseId) &&
+									!(isResting && remaining > 0)
 								}
 								onAddSet={data => {
 									transitionRef.current = data.transition ?? false

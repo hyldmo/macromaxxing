@@ -33,8 +33,6 @@ export interface SupersetFormProps {
 	onRemoveSet: (id: Log['id']) => void
 	onReplace?: (exerciseId: Exercise['id']) => void
 	onTrainingGoalChange?: (exerciseId: Exercise['id'], goal: TrainingGoal | null) => void
-	/** When set, rest is active — highlight last done set for this exercise instead of next pending */
-	restingExerciseId?: Exercise['id']
 }
 
 export const SupersetForm: FC<SupersetFormProps> = ({
@@ -47,8 +45,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	onUpdateSet,
 	onRemoveSet,
 	onReplace,
-	onTrainingGoalChange,
-	restingExerciseId
+	onTrainingGoalChange
 }) => {
 	const [collapsed, setCollapsed] = useState(false)
 	const [editableTargets, setEditableTargets] = useState<Map<string, { weight: number | null; reps: number }>>(
@@ -62,20 +59,6 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')
 
 	const { rounds, extraLogs } = useMemo(() => buildSupersetRounds(exercises), [exercises])
-
-	// During rest, highlight the last completed set for the resting exercise
-	const restingLogId = useMemo(() => {
-		if (!restingExerciseId) return null
-		let lastId: string | null = null
-		for (const round of rounds) {
-			for (const entry of round.sets) {
-				if (entry.log && entry.exerciseId === restingExerciseId) {
-					lastId = entry.log.id
-				}
-			}
-		}
-		return lastId
-	}, [restingExerciseId, rounds])
 
 	// Find the first pending set across all rounds for active highlight
 	let firstPendingFound = false
@@ -169,7 +152,6 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														rpe={entry.log.rpe}
 														failureFlag={entry.log.failureFlag}
 														done
-														active={entry.log.id === restingLogId}
 														onWeightChange={v => {
 															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
 														}}
@@ -200,7 +182,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 													weightKg={weightKg}
 													reps={reps}
 													setType={entry.planned.setType}
-													active={active && isFirstPending && !restingExerciseId}
+													active={active && isFirstPending}
 													onConfirm={() => {
 														onAddSet({
 															exerciseId: entry.exerciseId,
