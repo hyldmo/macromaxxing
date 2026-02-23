@@ -278,8 +278,6 @@ export interface FlatSet {
 	setNumber: number
 	totalSets: number
 	transition: boolean
-	/** For end-of-round superset sets: the exercise to base rest duration on (first in next round) */
-	restExerciseId?: Exercise['id']
 	itemIndex: number
 	completed: boolean
 }
@@ -331,7 +329,6 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 			)
 			const totalSets = item.exercises.reduce((sum, e) => sum + e.planned.length, 0)
 			let setNum = 0
-			const firstExerciseId = item.exercises[0].exerciseId
 			for (const round of rounds) {
 				for (let setIdx = 0; setIdx < round.sets.length; setIdx++) {
 					setNum++
@@ -346,7 +343,6 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 						setNumber: setNum,
 						totalSets,
 						transition: !isLastInRound,
-						restExerciseId: isLastInRound ? firstExerciseId : undefined,
 						itemIndex: itemIdx,
 						completed: entry.log !== null
 					})
