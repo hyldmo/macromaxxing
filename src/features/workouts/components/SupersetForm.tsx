@@ -4,7 +4,6 @@ import { type FC, useMemo, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
 import { buildSupersetRounds, cn, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
-import { useRestTimer } from '../RestTimerContext'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { SetRow } from './SetRow'
 
@@ -60,16 +59,6 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')
 
 	const { rounds, extraLogs } = useMemo(() => buildSupersetRounds(exercises), [exercises])
-	const { isRunning, remaining } = useRestTimer()
-	const isCurrentlyResting = active && isRunning && remaining > 0
-
-	// During rest, keep the most recently completed set highlighted
-	const lastLogId = isCurrentlyResting
-		? allLogs.reduce<Log | null>(
-				(latest, log) => (!latest || log.createdAt > latest.createdAt ? log : latest),
-				null
-			)?.id
-		: null
 
 	// Find the first pending set across all rounds for active highlight
 	let firstPendingFound = false
@@ -163,7 +152,6 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														rpe={entry.log.rpe}
 														failureFlag={entry.log.failureFlag}
 														done
-														active={entry.log.id === lastLogId}
 														onWeightChange={v => {
 															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
 														}}
@@ -194,7 +182,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 													weightKg={weightKg}
 													reps={reps}
 													setType={entry.planned.setType}
-													active={active && isFirstPending && !isCurrentlyResting}
+													active={active && isFirstPending}
 													onConfirm={() => {
 														onAddSet({
 															exerciseId: entry.exerciseId,

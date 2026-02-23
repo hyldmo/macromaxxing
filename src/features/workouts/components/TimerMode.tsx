@@ -81,6 +81,13 @@ export const TimerMode: FC = () => {
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
 	const [setElapsedMs, setSetElapsedMs] = useState(0)
 	const rafRef = useRef(0)
+	const pendingConfirmRef = useRef<{
+		exerciseId: Exercise['id']
+		weightKg: number
+		reps: number
+		setType: SetType
+		transition?: boolean
+	} | null>(null)
 
 	// Initialize queue from exerciseGroups on mount
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
@@ -138,41 +145,46 @@ export const TimerMode: FC = () => {
 		if (!currentSet || isResting) return
 		const { exerciseId, setType, transition } = currentSet
 
-		dispatch({ type: 'CONFIRM' })
-		setSetElapsedMs(0)
-		setActiveExerciseId(exerciseId)
-
-		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
-
-		onConfirmSet({
+		// Defer CONFIRM dispatch + logging until rest completes — store pending data
+		pendingConfirmRef.current = {
 			exerciseId,
 			weightKg: state.editWeight ?? 0,
 			reps: state.editReps,
 			setType,
 			transition
-		})
-	}, [
-		currentSet,
-		isResting,
-		state.editWeight,
-		state.editReps,
-		dispatch,
-		setActiveExerciseId,
-		getRestDuration,
-		restTimer,
-		onConfirmSet
-	])
+		}
+		setSetElapsedMs(0)
+		setActiveExerciseId(exerciseId)
+
+		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
+	}, [currentSet, isResting, state.editWeight, state.editReps, setActiveExerciseId, getRestDuration, restTimer])
+
+	const advanceToNextSet = useCallback(() => {
+		const pending = pendingConfirmRef.current
+		if (!pending) return
+		pendingConfirmRef.current = null
+		dispatch({ type: 'CONFIRM' })
+		onConfirmSet(pending)
+	}, [dispatch, onConfirmSet])
 
 	const handleUndo = useCallback(() => {
-		dispatch({ type: 'UNDO' })
-		restTimer.dismiss()
-		setSetElapsedMs(0)
-		onUndoSet()
+		if (pendingConfirmRef.current) {
+			// Undo during rest — nothing was logged yet, just cancel
+			pendingConfirmRef.current = null
+			restTimer.dismiss()
+			setSetElapsedMs(0)
+		} else {
+			dispatch({ type: 'UNDO' })
+			restTimer.dismiss()
+			setSetElapsedMs(0)
+			onUndoSet()
+		}
 	}, [dispatch, restTimer, onUndoSet])
 
 	const handleDismissTimer = useCallback(() => {
+		advanceToNextSet()
 		restTimer.dismiss()
-	}, [restTimer])
+	}, [advanceToNextSet, restTimer])
 
 	const handleStopSet = useCallback(() => {
 		dispatch({ type: 'STOP_SET' })
@@ -330,7 +342,7 @@ export const TimerMode: FC = () => {
 								)}
 							</TimerRing>
 
-							{/* Weight x Reps inputs — editable for upcoming set */}
+							{/* Weight x Reps inputs — editable during rest (set hasn't been logged yet) */}
 							<div className="flex items-center gap-3">
 								<NumberInput
 									className="w-28 text-center text-2xl"
@@ -370,7 +382,7 @@ export const TimerMode: FC = () => {
 										<Square className="size-4" />
 									</Button>
 								)}
-								{!(isDoingSet || isSetPaused || isResting) && hasConfirmedSets && (
+								{!(isDoingSet || isSetPaused) && (hasConfirmedSets || pendingConfirmRef.current) && (
 									<Button variant="outline" size="icon" onClick={handleUndo}>
 										<Undo2 className="size-4" />
 									</Button>
