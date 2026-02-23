@@ -69,8 +69,10 @@ export function roundWeight(
 	direction: 'nearest' | 'up' | 'down' = 'nearest'
 ): number {
 	const inc = plateIncrement(Math.abs(weight), unit)
+	// Snap ratio to avoid floating-point errors (e.g. 20*0.7=14.0000000002 → 14/2=7.0000000001 → ceil=8)
+	const ratio = Math.round((weight / inc) * 1e10) / 1e10
 	const fn = direction === 'up' ? Math.ceil : direction === 'down' ? Math.floor : Math.round
-	return fn(weight / inc) * inc
+	return fn(ratio) * inc
 }
 
 /**
@@ -282,20 +284,19 @@ export function computeDivergences(
 				exerciseLogs.length >= effectiveSets
 
 			// Double progression: if reps hit the ceiling, suggest bumping weight and resetting reps
+			// Always base on logged weight — it reflects real available equipment better than template targets
 			const hitCeiling = bestSet.reps >= range.max && bestSet.weightKg > 0
-			const currentWeight = we.targetWeight ?? bestSet.weightKg
-			const suggestion: Divergence['suggestion'] =
-				hitCeiling && currentWeight > 0
-					? {
-							targetSets: exerciseLogs.length,
-							targetReps: range.min,
-							targetWeight: roundWeight(currentWeight + plateIncrement(currentWeight, 'kg'), 'kg', 'up')
-						}
-					: {
-							targetSets: exerciseLogs.length,
-							targetReps: bestSet.reps,
-							targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
-						}
+			const suggestion: Divergence['suggestion'] = hitCeiling
+				? {
+						targetSets: exerciseLogs.length,
+						targetReps: range.max,
+						targetWeight: roundWeight(bestSet.weightKg + plateIncrement(bestSet.weightKg, 'kg'), 'kg', 'up')
+					}
+				: {
+						targetSets: exerciseLogs.length,
+						targetReps: bestSet.reps,
+						targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
+					}
 
 			result.push({
 				exerciseId: we.exerciseId,
