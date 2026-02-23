@@ -28,6 +28,7 @@ export interface SupersetFormProps {
 		reps: number
 		setType: SetType
 		transition?: boolean
+		restExerciseId?: Exercise['id']
 	}) => void
 	onUpdateSet: (id: Log['id'], updates: { weightKg?: number; reps?: number; rpe?: number | null }) => void
 	onRemoveSet: (id: Log['id']) => void
@@ -189,7 +190,10 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 															weightKg: weightKg ?? 0,
 															reps,
 															setType: entry.planned.setType,
-															transition: !isLastInRound
+															transition: !isLastInRound,
+															restExerciseId: isLastInRound
+																? exercises[0].exercise.id
+																: undefined
 														})
 														setEditableTargets(prev => {
 															const next = new Map(prev)

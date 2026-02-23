@@ -55,6 +55,7 @@ export function WorkoutSessionPage() {
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
 	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
 	const transitionRef = useRef(false)
+	const restExerciseIdRef = useRef<Exercise['id'] | undefined>(undefined)
 	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
@@ -153,10 +154,12 @@ export function WorkoutSessionPage() {
 					variables.exerciseId,
 					variables.reps,
 					variables.setType ?? 'working',
-					transitionRef.current
+					transitionRef.current,
+					restExerciseIdRef.current
 				)
 				startTimer(rest, variables.setType ?? 'working', transitionRef.current)
 				transitionRef.current = false
+				restExerciseIdRef.current = undefined
 			}
 		},
 		onError: (_err, _variables, context) => {
@@ -396,17 +399,25 @@ export function WorkoutSessionPage() {
 
 	// Compute rest duration for an exercise — used by both addSetMutation.onSuccess and TimerMode
 	const getRestDuration = useCallback(
-		(exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => {
+		(
+			exerciseId: Exercise['id'],
+			reps: number,
+			setType: SetType,
+			transition: boolean,
+			restExerciseId?: Exercise['id']
+		) => {
 			if (transition) return 15
+			// For end-of-round superset sets, use the next round's first exercise for rest calculation
+			const lookupId = restExerciseId ?? exerciseId
 			const exercise = exerciseGroups.find(g => {
-				if (g.type === 'standalone') return g.exerciseId === exerciseId
-				return g.exercises.some(e => e.exerciseId === exerciseId)
+				if (g.type === 'standalone') return g.exerciseId === lookupId
+				return g.exercises.some(e => e.exerciseId === lookupId)
 			})
 			const tier: FatigueTier =
 				exercise?.type === 'standalone'
 					? exercise.exercise.fatigueTier
-					: (exercise?.exercises.find(e => e.exerciseId === exerciseId)?.exercise.fatigueTier ?? 2)
-			const exerciseGoal = exerciseGoals.get(exerciseId) ?? goal
+					: (exercise?.exercises.find(e => e.exerciseId === lookupId)?.exercise.fatigueTier ?? 2)
+			const exerciseGoal = exerciseGoals.get(lookupId) ?? goal
 			return calculateRest(reps, tier, exerciseGoal, setType)
 		},
 		[exerciseGroups, exerciseGoals, goal]
@@ -577,6 +588,7 @@ export function WorkoutSessionPage() {
 								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
 								onAddSet={data => {
 									transitionRef.current = data.transition ?? false
+									restExerciseIdRef.current = data.restExerciseId
 									addSetMutation.mutate({
 										sessionId: session.id,
 										exerciseId: data.exerciseId,

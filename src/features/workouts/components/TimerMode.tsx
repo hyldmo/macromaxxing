@@ -27,7 +27,13 @@ export interface TimerModeContext {
 		transition?: boolean
 	}) => void
 	onUndoSet: () => void
-	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => number
+	getRestDuration: (
+		exerciseId: Exercise['id'],
+		reps: number,
+		setType: SetType,
+		transition: boolean,
+		restExerciseId?: Exercise['id']
+	) => number
 	timerModeActiveRef: MutableRefObject<boolean>
 }
 
@@ -136,13 +142,17 @@ export const TimerMode: FC = () => {
 
 	const handleConfirm = useCallback(() => {
 		if (!currentSet || isResting) return
-		const { exerciseId, setType, transition } = currentSet
+		const { exerciseId, setType, transition, restExerciseId } = currentSet
 
 		dispatch({ type: 'CONFIRM' })
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
-		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
+		restTimer.start(
+			getRestDuration(exerciseId, state.editReps, setType, transition, restExerciseId),
+			setType,
+			transition
+		)
 
 		onConfirmSet({
 			exerciseId,
