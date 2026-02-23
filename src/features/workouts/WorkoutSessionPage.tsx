@@ -53,7 +53,7 @@ export function WorkoutSessionPage() {
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
-	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
+	const { setSession, startedAt: timerActive, start: startTimer, isRunning: isResting, remaining } = useRestTimer()
 	const transitionRef = useRef(false)
 	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
@@ -574,7 +574,10 @@ export function WorkoutSessionPage() {
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
-								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
+								active={
+									item.exercises.some(e => e.exerciseId === activeExerciseId) &&
+									!(isResting && remaining > 0)
+								}
 								onAddSet={data => {
 									transitionRef.current = data.transition ?? false
 									addSetMutation.mutate({
