@@ -8,6 +8,13 @@ export interface OFFProduct {
 	fat: number
 	kcal: number
 	fiber: number
+	per100g: {
+		protein: number
+		carbs: number
+		fat: number
+		kcal: number
+		fiber: number
+	}
 	barcode: string
 }
 
@@ -75,6 +82,13 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 			fat: round1(per100.fat * factor),
 			kcal: round1(per100.kcal * factor),
 			fiber: round1(per100.fiber * factor),
+			per100g: {
+				protein: round1(per100.protein),
+				carbs: round1(per100.carbs),
+				fat: round1(per100.fat),
+				kcal: round1(per100.kcal),
+				fiber: round1(per100.fiber)
+			},
 			barcode
 		}
 	}
