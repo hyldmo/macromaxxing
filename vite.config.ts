@@ -32,7 +32,7 @@ export default defineConfig({
 				theme_color: '#1f1d1b',
 				background_color: '#1f1d1b',
 				display: 'standalone',
-				start_url: undefined,
+				start_url: '/',
 				icons: [
 					{ src: '/pwa-64x64.png', sizes: '64x64', type: 'image/png' },
 					{ src: '/apple-touch-icon-180x180.png', sizes: '180x180', type: 'image/png' },
