@@ -74,7 +74,13 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 
 	return (
 		<div className="relative overflow-hidden rounded-sm border border-edge bg-surface-0">
-			<div id={elementId} className={cn('h-48 [&>img]:hidden [&_video]:object-cover', loading && 'invisible')} />
+			<div
+				id={elementId}
+				className={cn(
+					'h-48 [&>img]:hidden [&_video]:object-cover md:[&_video]:-scale-x-100',
+					loading && 'invisible'
+				)}
+			/>
 			{loading && (
 				<div className="absolute inset-0 flex items-center justify-center">
 					<Spinner className="size-5" />

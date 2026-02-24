@@ -606,8 +606,9 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						className="pl-8"
 					/>
 				</div>
-				<Button variant="outline" size="icon" onClick={() => setShowBarcodeDialog(true)}>
+				<Button variant="outline" onClick={() => setShowBarcodeDialog(true)}>
 					<ScanLine className="size-4" />
+					Scan
 				</Button>
 			</div>
 			<BarcodeScanDialog

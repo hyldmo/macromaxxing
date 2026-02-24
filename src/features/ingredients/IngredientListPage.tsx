@@ -74,8 +74,9 @@ export function IngredientListPage() {
 				<h1 className="font-semibold text-ink">Ingredients</h1>
 				{user && (
 					<div className="flex items-center gap-2">
-						<Button variant="outline" size="icon" onClick={() => setShowBarcodeDialog(true)}>
+						<Button variant="outline" onClick={() => setShowBarcodeDialog(true)}>
 							<ScanLine className="size-4" />
+							Scan
 						</Button>
 						<Button
 							onClick={() => {
