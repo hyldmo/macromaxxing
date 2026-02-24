@@ -1,11 +1,13 @@
 import { startCase } from 'es-toolkit'
-import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { Fragment, useMemo, useState } from 'react'
+import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, ScanLine, Sparkles, Trash2 } from 'lucide-react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import type { OFFProduct } from '~/lib'
 import { useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
+import { BarcodeScanDialog } from '../recipes/components/BarcodeScanDialog'
 import { MacroBar } from '../recipes/components/MacroBar'
 import { IngredientForm } from './components/IngredientForm'
 
@@ -15,6 +17,7 @@ export function IngredientListPage() {
 	const search = searchParams.get('search') ?? ''
 	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [showForm, setShowForm] = useState(false)
+	const [showBarcodeDialog, setShowBarcodeDialog] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
 	const [sortKey, setSortKey] = useState<'recent' | 'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('recent')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -26,6 +29,25 @@ export function IngredientListPage() {
 	const deleteMutation = trpc.ingredient.delete.useMutation({
 		onSuccess: () => utils.ingredient.list.invalidate()
 	})
+	const createIngredient = trpc.ingredient.create.useMutation({
+		onSuccess: () => utils.ingredient.list.invalidate()
+	})
+
+	const handleBarcodeProduct = useCallback(
+		(product: OFFProduct) => {
+			createIngredient.mutate({
+				name: product.name,
+				protein: product.per100g.protein,
+				carbs: product.per100g.carbs,
+				fat: product.per100g.fat,
+				kcal: product.per100g.kcal,
+				fiber: product.per100g.fiber,
+				source: 'manual'
+			})
+			setShowBarcodeDialog(false)
+		},
+		[createIngredient]
+	)
 
 	const toggleSort = (key: typeof sortKey) => {
 		if (sortKey === key) {
@@ -51,17 +73,30 @@ export function IngredientListPage() {
 			<div className="flex items-center justify-between">
 				<h1 className="font-semibold text-ink">Ingredients</h1>
 				{user && (
-					<Button
-						onClick={() => {
-							setEditId(null)
-							setShowForm(true)
-						}}
-					>
-						<Plus className="size-4" />
-						Add Ingredient
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button variant="outline" onClick={() => setShowBarcodeDialog(true)}>
+							<ScanLine className="size-4" />
+							Scan
+						</Button>
+						<Button
+							onClick={() => {
+								setEditId(null)
+								setShowForm(true)
+							}}
+						>
+							<Plus className="size-4" />
+							Add Ingredient
+						</Button>
+					</div>
 				)}
 			</div>
+
+			<BarcodeScanDialog
+				open={showBarcodeDialog}
+				onClose={() => setShowBarcodeDialog(false)}
+				onProductFound={handleBarcodeProduct}
+			/>
+			{createIngredient.error && <TRPCError error={createIngredient.error} />}
 
 			{showForm && !editId && (
 				<Card className="p-4">

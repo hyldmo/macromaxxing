@@ -1,10 +1,12 @@
 import { extractPreparation, type Ingredient } from '@macromaxxing/db'
-import { BookOpen, ClipboardPaste, Database, Plus, Search, Sparkles } from 'lucide-react'
-import { type FC, useEffect, useRef, useState } from 'react'
+import { BookOpen, ClipboardPaste, Database, Plus, ScanLine, Search, Sparkles } from 'lucide-react'
+import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import type { OFFProduct } from '~/lib'
 import { FuzzyHighlight, fuzzyMatch, useUser } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { calculateRecipeTotals, getEffectiveCookedWeight, getEffectivePortionSize } from '../utils/macros'
+import { BarcodeScanDialog } from './BarcodeScanDialog'
 import { MacroBar } from './MacroBar'
 
 export interface IngredientSearchInputProps {
@@ -194,6 +196,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	const [isProcessingPaste, setIsProcessingPaste] = useState(false)
 	const [pasteError, setPasteError] = useState<Error | null>(null)
 	const [creatingFdcId, setCreatingFdcId] = useState<number | null>(null)
+	const [showBarcodeDialog, setShowBarcodeDialog] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
 	const { isSignedIn } = useUser()
@@ -230,6 +233,33 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 			utils.recipe.get.invalidate({ id: recipeId })
 		}
 	})
+	const createIngredient = trpc.ingredient.create.useMutation({
+		onSuccess: () => utils.ingredient.list.invalidate()
+	})
+
+	const handleBarcodeProduct = useCallback(
+		async (product: OFFProduct) => {
+			setShowBarcodeDialog(false)
+			const ingredient = await createIngredient.mutateAsync({
+				name: product.name,
+				protein: product.per100g.protein,
+				carbs: product.per100g.carbs,
+				fat: product.per100g.fat,
+				kcal: product.per100g.kcal,
+				fiber: product.per100g.fiber,
+				source: 'manual'
+			})
+			addIngredient.mutate({
+				recipeId,
+				ingredientId: ingredient.id,
+				amountGrams: product.servingSize,
+				displayUnit: null,
+				displayAmount: null,
+				preparation: null
+			})
+		},
+		[createIngredient, addIngredient, recipeId]
+	)
 
 	// Parse search input for amount/unit
 	const parsedSearch = parseSingleIngredient(search)
@@ -556,25 +586,36 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 
 	return (
 		<div className="relative" ref={containerRef}>
-			<div className="relative">
-				<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
-				<Input
-					ref={inputRef}
-					placeholder="Search, add, or paste ingredient list..."
-					value={search}
-					onChange={e => {
-						setSearch(e.target.value)
-						setShowDropdown(true)
-					}}
-					onFocus={() => setShowDropdown(true)}
-					onBlur={e => {
-						if (containerRef.current?.contains(e.relatedTarget as Node)) return
-						setShowDropdown(false)
-					}}
-					onPaste={handlePaste}
-					className="pl-8"
-				/>
+			<div className="flex gap-2">
+				<div className="relative flex-1">
+					<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
+					<Input
+						ref={inputRef}
+						placeholder="Search, add, or paste ingredient list..."
+						value={search}
+						onChange={e => {
+							setSearch(e.target.value)
+							setShowDropdown(true)
+						}}
+						onFocus={() => setShowDropdown(true)}
+						onBlur={e => {
+							if (containerRef.current?.contains(e.relatedTarget as Node)) return
+							setShowDropdown(false)
+						}}
+						onPaste={handlePaste}
+						className="pl-8"
+					/>
+				</div>
+				<Button variant="outline" onClick={() => setShowBarcodeDialog(true)}>
+					<ScanLine className="size-4" />
+					Scan
+				</Button>
 			</div>
+			<BarcodeScanDialog
+				open={showBarcodeDialog}
+				onClose={() => setShowBarcodeDialog(false)}
+				onProductFound={handleBarcodeProduct}
+			/>
 			{showDropdown && search.length > 0 && (
 				<Card className="absolute top-full z-10 mt-1 w-full shadow-black/30 shadow-lg">
 					{searchResults.map(({ ingredient, match }) => {
@@ -760,6 +801,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					{addIngredient.isError && <TRPCError error={addIngredient.error} />}
 				</Card>
 			)}
+			{createIngredient.isError && <TRPCError error={createIngredient.error} />}
 		</div>
 	)
 }
