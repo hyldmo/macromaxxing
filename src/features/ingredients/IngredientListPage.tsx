@@ -22,7 +22,7 @@ export function IngredientListPage() {
 	const userId = user?.id
 	const utils = trpc.useUtils()
 
-	const ingredientsQuery = trpc.ingredient.list.useQuery()
+	const ingredientsQuery = trpc.ingredient.list.useQuery(search ? { search } : undefined)
 	const deleteMutation = trpc.ingredient.delete.useMutation({
 		onSuccess: () => utils.ingredient.list.invalidate()
 	})

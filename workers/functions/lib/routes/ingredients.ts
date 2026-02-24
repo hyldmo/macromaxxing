@@ -155,14 +155,19 @@ const updateUnitSchema = z.object({
 })
 
 export const ingredientsRouter = router({
-	list: publicProcedure.query(async ({ ctx }) => {
-		return ctx.db.query.ingredients.findMany({
-			where: { source: { ne: 'label' } },
-			with: { units: true },
-			orderBy: { name: 'asc' },
-			limit: 200
-		})
-	}),
+	list: publicProcedure
+		.input(z.object({ search: z.string().optional() }).optional())
+		.query(async ({ ctx, input }) => {
+			const search = input?.search?.trim()
+			return ctx.db.query.ingredients.findMany({
+				where: search
+					? { OR: [{ source: { ne: 'label' } }, { source: 'label', name: search }] }
+					: { source: { ne: 'label' } },
+				with: { units: true },
+				orderBy: { name: 'asc' },
+				limit: 200
+			})
+		}),
 
 	searchUSDA: publicProcedure.input(z.object({ query: z.string().min(2) })).query(async ({ ctx, input }) => {
 		// Search local USDA tables first
