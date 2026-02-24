@@ -11,7 +11,7 @@
     "url": "https://github.com/hyldmo/macromaxxing.git"
   },
   "scripts": {
-    "dev": "concurrently -k -c 'green,#CA7B38,#C5F74F' 'yarn:dev:*'",
+    "dev": "numux 'dev:*'",
     "dev:web": "vite",
     "dev:api": "yarn workspace @macromaxxing/workers dev",
     "dev:db": "yarn workspace @macromaxxing/db dev",
@@ -84,6 +84,7 @@
     "@vite-pwa/assets-generator": "^1.0.2",
     "@vitejs/plugin-react": "^5.1.3",
     "concurrently": "^9.2.1",
+    "numux": "^1.10.3",
     "semantic-release": "^25.0.3",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
