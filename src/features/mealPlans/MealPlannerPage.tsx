@@ -141,7 +141,7 @@ export const MealPlannerPage: FC = () => {
 
 				{/* Week grid */}
 				<div className="min-w-0 flex-1">
-					<WeekGrid inventory={planQuery.data.inventory} onDrop={handleDrop} />
+					<WeekGrid planId={id!} inventory={planQuery.data.inventory} onDrop={handleDrop} />
 					<div className="mt-3">
 						<WeeklyAverages inventory={planQuery.data.inventory} />
 					</div>

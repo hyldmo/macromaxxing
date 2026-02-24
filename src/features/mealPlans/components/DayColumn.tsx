@@ -1,3 +1,4 @@
+import type { MealPlan } from '@macromaxxing/db'
 import type { FC } from 'react'
 import {
 	calculateDayTotals,
@@ -16,6 +17,7 @@ type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type SlotWithInventory = InventoryItem['slots'][number] & { inventory: InventoryItem }
 
 export interface DayColumnProps {
+	planId: MealPlan['id']
 	dayName: string
 	dayOfWeek: number
 	slots: SlotWithInventory[]
@@ -25,7 +27,7 @@ export interface DayColumnProps {
 
 const MIN_SLOTS = 3
 
-export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inventory, onDrop }) => {
+export const DayColumn: FC<DayColumnProps> = ({ planId, dayName, dayOfWeek, slots, inventory, onDrop }) => {
 	// Sort slots by index
 	const sortedSlots = slots.toSorted((a, b) => a.slotIndex - b.slotIndex)
 
@@ -63,6 +65,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 				{slotArray.map((slot, index) => (
 					<MealSlot
 						key={slot?.id ?? `empty-${dayOfWeek}-${index}`}
+						planId={planId}
 						dayOfWeek={dayOfWeek}
 						slotIndex={index}
 						slot={slot}

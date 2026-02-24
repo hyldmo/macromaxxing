@@ -1,4 +1,4 @@
-import type { AbsoluteMacros } from '@macromaxxing/db'
+import type { AbsoluteMacros, MealPlan } from '@macromaxxing/db'
 import { type FC, type PropsWithChildren, useState } from 'react'
 import { objectKeys } from 'ts-extras'
 import {
@@ -17,6 +17,7 @@ import { DayColumn } from './DayColumn'
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 
 export interface WeekGridProps {
+	planId: MealPlan['id']
 	inventory: InventoryItem[]
 	onDrop: (
 		dayOfWeek: number,
@@ -32,7 +33,7 @@ function todayDayIndex() {
 	return d === 0 ? 6 : d - 1
 }
 
-export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
+export const WeekGrid: FC<WeekGridProps> = ({ planId, inventory, onDrop }) => {
 	const [selectedDay, setSelectedDay] = useState(todayDayIndex)
 
 	// Collect all slots from inventory
@@ -97,6 +98,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 					))}
 				</div>
 				<DayColumn
+					planId={planId}
 					dayName={DAYS_SHORT[selectedDay]}
 					dayOfWeek={selectedDay}
 					slots={slotsByDay[selectedDay]}
@@ -112,6 +114,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ inventory, onDrop }) => {
 				{DAYS_SHORT.map((day, dayIndex) => (
 					<DayColumn
 						key={day}
+						planId={planId}
 						dayName={day}
 						dayOfWeek={dayIndex}
 						slots={slotsByDay[dayIndex]}

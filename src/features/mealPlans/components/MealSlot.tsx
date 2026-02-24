@@ -1,14 +1,16 @@
+import type { MealPlan } from '@macromaxxing/db'
 import { Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { cn } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { AddToInventoryModal } from './AddToInventoryModal'
 import { MealCard } from './MealCard'
-import { SlotPickerPopover } from './SlotPickerPopover'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type SlotWithInventory = InventoryItem['slots'][number] & { inventory: InventoryItem }
 
 export interface MealSlotProps {
+	planId: MealPlan['id']
 	dayOfWeek: number
 	slotIndex: number
 	slot: SlotWithInventory | null
@@ -16,7 +18,7 @@ export interface MealSlotProps {
 	onDrop: (inventoryId: InventoryItem['id'], sourceSlotId?: SlotWithInventory['id']) => void
 }
 
-export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, inventory, onDrop }) => {
+export const MealSlot: FC<MealSlotProps> = ({ planId, dayOfWeek, slotIndex, slot, inventory, onDrop }) => {
 	const [showPicker, setShowPicker] = useState(false)
 	const [isDragOver, setIsDragOver] = useState(false)
 
@@ -71,11 +73,10 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 			</div>
 
 			{showPicker && (
-				<SlotPickerPopover
-					dayOfWeek={dayOfWeek}
-					slotIndex={slotIndex}
-					inventory={inventory}
+				<AddToInventoryModal
+					planId={planId}
 					onClose={() => setShowPicker(false)}
+					slotAllocation={{ dayOfWeek, slotIndex, inventory }}
 				/>
 			)}
 		</>
