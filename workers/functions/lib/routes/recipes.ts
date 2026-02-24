@@ -340,7 +340,7 @@ export const recipesRouter = router({
 					userId: ctx.user.id,
 					name: input.name,
 					type: 'premade',
-					portionSize: input.servingSize,
+					portionSize: null,
 					isPublic: 0,
 					sourceUrl: input.sourceUrl ?? null,
 					createdAt: now,
