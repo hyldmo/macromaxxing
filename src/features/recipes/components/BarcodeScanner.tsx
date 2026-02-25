@@ -65,9 +65,17 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 
 		return () => {
 			cancelled = true
-			scanner.isScanning &&
-				scanner.stop().catch(() => {
-					// ignore cleanup errors
+			scanner
+				.stop()
+				.catch(() => {
+					// may not have been scanning yet
+				})
+				.finally(() => {
+					try {
+						scanner.clear()
+					} catch {
+						// element may already be unmounted
+					}
 				})
 		}
 	}, [active, elementId, onScan, onError])

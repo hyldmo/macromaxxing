@@ -1,11 +1,13 @@
-import { ScanLine, Search, X } from 'lucide-react'
-import { type FC, useCallback, useState } from 'react'
+import { Search } from 'lucide-react'
+import { type FC, useCallback, useEffect, useState } from 'react'
 import { Button, Input, Spinner } from '~/components/ui'
 import { isValidBarcode, lookupBarcode, type OFFProduct } from '~/lib'
 import { BarcodeScanner } from './BarcodeScanner'
 
 export interface BarcodeLookupProps {
+	active: boolean
 	onProductFound: (product: OFFProduct) => void
+	onClose?: () => void
 }
 
 type LookupState =
@@ -14,12 +16,22 @@ type LookupState =
 	| { status: 'not-found' }
 	| { status: 'error'; message: string }
 
-export const BarcodeLookup: FC<BarcodeLookupProps> = ({ onProductFound }) => {
-	const [expanded, setExpanded] = useState(false)
+export const BarcodeLookup: FC<BarcodeLookupProps> = ({ active, onProductFound, onClose }) => {
 	const [scanning, setScanning] = useState(false)
 	const [manualBarcode, setManualBarcode] = useState('')
 	const [lookup, setLookup] = useState<LookupState>({ status: 'idle' })
 	const [cameraError, setCameraError] = useState<string | null>(null)
+
+	useEffect(() => {
+		if (active) {
+			setScanning(true)
+			setManualBarcode('')
+			setLookup({ status: 'idle' })
+			setCameraError(null)
+		} else {
+			setScanning(false)
+		}
+	}, [active])
 
 	const doLookup = useCallback(
 		async (barcode: string) => {
@@ -29,9 +41,7 @@ export const BarcodeLookup: FC<BarcodeLookupProps> = ({ onProductFound }) => {
 				const result = await lookupBarcode(barcode)
 				if (result.found) {
 					onProductFound(result.product)
-					setExpanded(false)
-					setManualBarcode('')
-					setLookup({ status: 'idle' })
+					onClose?.()
 				} else {
 					setLookup({ status: 'not-found' })
 				}
@@ -39,7 +49,7 @@ export const BarcodeLookup: FC<BarcodeLookupProps> = ({ onProductFound }) => {
 				setLookup({ status: 'error', message: err instanceof Error ? err.message : 'Lookup failed' })
 			}
 		},
-		[onProductFound]
+		[onProductFound, onClose]
 	)
 
 	const handleScan = useCallback(
@@ -57,39 +67,14 @@ export const BarcodeLookup: FC<BarcodeLookupProps> = ({ onProductFound }) => {
 	function handleManualSubmit() {
 		const trimmed = manualBarcode.trim()
 		if (!isValidBarcode(trimmed)) {
-			setLookup({ status: 'error', message: 'Enter a valid barcode (8–13 digits)' })
+			setLookup({ status: 'error', message: 'Enter a valid barcode (8\u201313 digits)' })
 			return
 		}
 		doLookup(trimmed)
 	}
 
-	function handleClose() {
-		setExpanded(false)
-		setScanning(false)
-		setManualBarcode('')
-		setLookup({ status: 'idle' })
-		setCameraError(null)
-	}
-
-	if (!expanded) {
-		return (
-			<Button
-				type="button"
-				variant="outline"
-				className="w-full"
-				onClick={() => {
-					setExpanded(true)
-					setScanning(true)
-				}}
-			>
-				<ScanLine className="size-4" />
-				Scan barcode
-			</Button>
-		)
-	}
-
 	return (
-		<div className="space-y-2">
+		<div className="space-y-3">
 			{scanning && !cameraError && <BarcodeScanner active onScan={handleScan} onError={handleCameraError} />}
 
 			{cameraError && (
@@ -121,9 +106,6 @@ export const BarcodeLookup: FC<BarcodeLookupProps> = ({ onProductFound }) => {
 					) : (
 						<Search className="size-4" />
 					)}
-				</Button>
-				<Button type="button" variant="ghost" size="icon" onClick={handleClose}>
-					<X className="size-4" />
 				</Button>
 			</div>
 

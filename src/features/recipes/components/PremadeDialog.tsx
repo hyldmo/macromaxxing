@@ -1,4 +1,4 @@
-import { Globe, X } from 'lucide-react'
+import { Globe, ScanLine, X } from 'lucide-react'
 import { type FC, useCallback, useEffect, useState } from 'react'
 import { Button, Input, Modal, NumberInput, Spinner, TRPCError } from '~/components/ui'
 import { MacroInput } from '~/features/ingredients'
@@ -24,6 +24,7 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 	const [fat, setFat] = useState('')
 	const [kcal, setKcal] = useState('')
 	const [fiber, setFiber] = useState('')
+	const [barcodeActive, setBarcodeActive] = useState(false)
 
 	const utils = trpc.useUtils()
 
@@ -63,6 +64,7 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 			setFat('')
 			setKcal('')
 			setFiber('')
+			setBarcodeActive(false)
 			resetAdd()
 			resetParse()
 		}
@@ -125,7 +127,21 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 
 			{/* Content */}
 			<form onSubmit={handleSubmit} className="space-y-3 p-4">
-				<BarcodeLookup onProductFound={handleBarcodeProduct} />
+				{barcodeActive ? (
+					<BarcodeLookup
+						active
+						onProductFound={p => {
+							handleBarcodeProduct(p)
+							setBarcodeActive(false)
+						}}
+						onClose={() => setBarcodeActive(false)}
+					/>
+				) : (
+					<Button type="button" variant="outline" className="w-full" onClick={() => setBarcodeActive(true)}>
+						<ScanLine className="size-4" />
+						Scan barcode
+					</Button>
+				)}
 
 				<div className="flex items-center gap-3">
 					<div className="h-px flex-1 bg-edge" />
