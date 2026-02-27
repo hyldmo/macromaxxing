@@ -41,16 +41,37 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 	const [startedAt, setStartedAt] = useState<number | null>(null)
 	const [isTransition, setIsTransition] = useState(false)
 	const completedRef = useRef(false)
+	const endAtRef = useRef<number | null>(null)
+	const isTransitionRef = useRef(false)
+	const transitionOvershootRef = useRef(0)
 
 	const start = useCallback((durationSec: number, type: SetType, transition = false) => {
 		// Request notification permission on first use
 		if ('Notification' in window && Notification.permission === 'default') {
 			Notification.requestPermission()
 		}
-		setEndAt(Date.now() + durationSec * 1000)
-		setTotal(durationSec)
+
+		// If replacing an overshot transition timer, accumulate the overshoot
+		if (endAtRef.current !== null && isTransitionRef.current) {
+			const overshoot = (Date.now() - endAtRef.current) / 1000
+			if (overshoot > 0) transitionOvershootRef.current += overshoot
+		}
+
+		// Subtract accumulated transition overshoot from non-transition rests (superset flow)
+		let adjusted = durationSec
+		if (!transition && transitionOvershootRef.current > 0) {
+			adjusted = Math.max(0, Math.round(durationSec - transitionOvershootRef.current))
+			transitionOvershootRef.current = 0
+		}
+
+		const now = Date.now()
+		endAtRef.current = now + adjusted * 1000
+		isTransitionRef.current = transition
+
+		setEndAt(now + adjusted * 1000)
+		setTotal(adjusted)
 		setSetType(type)
-		setRemaining(durationSec)
+		setRemaining(adjusted)
 		setIsTransition(transition)
 		completedRef.current = false
 	}, [])
@@ -66,12 +87,27 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 			setRemaining(0)
 			setIsTransition(false)
 			completedRef.current = false
+			endAtRef.current = null
+			isTransitionRef.current = false
+			transitionOvershootRef.current = 0
 		} else if (session.startedAt !== undefined) {
 			setStartedAt(session.startedAt)
 		}
 	}, [])
 
 	const dismiss = useCallback(() => {
+		// If dismissing an overshot transition, store overshoot for timer mode flow
+		if (endAtRef.current !== null && isTransitionRef.current) {
+			const overshoot = (Date.now() - endAtRef.current) / 1000
+			if (overshoot > 0) transitionOvershootRef.current += overshoot
+		} else if (endAtRef.current !== null) {
+			// Dismissing a non-transition timer clears accumulated overshoot
+			transitionOvershootRef.current = 0
+		}
+
+		endAtRef.current = null
+		isTransitionRef.current = false
+
 		setEndAt(null)
 		setTotal(0)
 		setSetType(null)
