@@ -51,9 +51,10 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const [editableTargets, setEditableTargets] = useState<Map<string, { weight: number | null; reps: number }>>(
 		new Map()
 	)
+	const [uncheckedIds, setUncheckedIds] = useState<Set<string>>(new Set())
 
 	const allLogs = exercises.flatMap(e => e.logs)
-	const vol = totalVolume(allLogs.filter(l => l.setType !== 'warmup'))
+	const vol = totalVolume(allLogs.filter(l => l.setType !== 'warmup' && !uncheckedIds.has(l.id)))
 	const totalSets = allLogs.length
 	const totalPlanned = exercises.reduce((sum, e) => sum + e.plannedSets.length, 0)
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')
@@ -141,6 +142,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 									const isLastInRound = setIdx === round.sets.length - 1
 
 									if (entry.log) {
+										const isUnchecked = uncheckedIds.has(entry.log.id)
 										return (
 											<div key={entry.log.id} className="flex items-center gap-1.5">
 												<ExerciseLabel index={entry.exerciseIndex} />
@@ -149,14 +151,26 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														weightKg={entry.log.weightKg}
 														reps={entry.log.reps}
 														setType={entry.log.setType}
-														rpe={entry.log.rpe}
-														failureFlag={entry.log.failureFlag}
-														done
+														rpe={isUnchecked ? undefined : entry.log.rpe}
+														failureFlag={isUnchecked ? undefined : entry.log.failureFlag}
+														done={!isUnchecked}
 														onWeightChange={v => {
 															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
 														}}
 														onRepsChange={v => onUpdateSet(entry.log!.id, { reps: v })}
-														onConfirm={() => onRemoveSet(entry.log!.id)}
+														onConfirm={() => {
+															if (isUnchecked) {
+																setUncheckedIds(prev => {
+																	const next = new Set(prev)
+																	next.delete(entry.log!.id)
+																	return next
+																})
+															} else {
+																setUncheckedIds(prev =>
+																	new Set(prev).add(entry.log!.id)
+																)
+															}
+														}}
 													/>
 												</div>
 											</div>
@@ -237,31 +251,44 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 							<div className="my-1.5 border-edge border-t" />
 							<div className="mb-0.5 font-mono text-[10px] text-ink-faint">Extra sets</div>
 							<div className="space-y-0.5">
-								{extraLogs.map(({ log, exercise }) => (
-									<div key={log.id} className="flex items-center gap-1.5">
-										<span
-											className="w-4 shrink-0 text-center font-medium font-mono text-[10px] text-accent"
-											title={exercise.name}
-										>
-											{exercise.name.slice(0, 1)}
-										</span>
-										<div className="min-w-0 flex-1">
-											<SetRow
-												weightKg={log.weightKg}
-												reps={log.reps}
-												setType={log.setType}
-												rpe={log.rpe}
-												failureFlag={log.failureFlag}
-												done
-												onWeightChange={v => {
-													if (v != null) onUpdateSet(log.id, { weightKg: v })
-												}}
-												onRepsChange={v => onUpdateSet(log.id, { reps: v })}
-												onConfirm={() => onRemoveSet(log.id)}
-											/>
+								{extraLogs.map(({ log, exercise }) => {
+									const isUnchecked = uncheckedIds.has(log.id)
+									return (
+										<div key={log.id} className="flex items-center gap-1.5">
+											<span
+												className="w-4 shrink-0 text-center font-medium font-mono text-[10px] text-accent"
+												title={exercise.name}
+											>
+												{exercise.name.slice(0, 1)}
+											</span>
+											<div className="min-w-0 flex-1">
+												<SetRow
+													weightKg={log.weightKg}
+													reps={log.reps}
+													setType={log.setType}
+													rpe={isUnchecked ? undefined : log.rpe}
+													failureFlag={isUnchecked ? undefined : log.failureFlag}
+													done={!isUnchecked}
+													onWeightChange={v => {
+														if (v != null) onUpdateSet(log.id, { weightKg: v })
+													}}
+													onRepsChange={v => onUpdateSet(log.id, { reps: v })}
+													onConfirm={() => {
+														if (isUnchecked) {
+															setUncheckedIds(prev => {
+																const next = new Set(prev)
+																next.delete(log.id)
+																return next
+															})
+														} else {
+															setUncheckedIds(prev => new Set(prev).add(log.id))
+														}
+													}}
+												/>
+											</div>
 										</div>
-									</div>
-								))}
+									)
+								})}
 							</div>
 						</>
 					)}
