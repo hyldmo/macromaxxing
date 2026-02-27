@@ -50,8 +50,9 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	const [editableTargets, setEditableTargets] = useState<Map<number, { weight: number | null; reps: number }>>(
 		new Map()
 	)
+	const [uncheckedIds, setUncheckedIds] = useState<Set<string>>(new Set())
 
-	const vol = totalVolume(logs.filter(l => l.setType !== 'warmup'))
+	const vol = totalVolume(logs.filter(l => l.setType !== 'warmup' && !uncheckedIds.has(l.id)))
 
 	// Track fulfillment per set type
 	const warmupLogs = logs.filter(l => l.setType === 'warmup')
@@ -145,22 +146,35 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 
 					{/* Logged sets */}
 					<div className="space-y-0.5">
-						{logs.map(log => (
-							<SetRow
-								key={log.id}
-								weightKg={log.weightKg}
-								reps={log.reps}
-								setType={log.setType}
-								rpe={log.rpe}
-								failureFlag={log.failureFlag}
-								done
-								onWeightChange={v => {
-									if (v != null) onUpdateSet(log.id, { weightKg: v })
-								}}
-								onRepsChange={v => onUpdateSet(log.id, { reps: v })}
-								onConfirm={() => onRemoveSet(log.id)}
-							/>
-						))}
+						{logs.map(log => {
+							const isUnchecked = uncheckedIds.has(log.id)
+							return (
+								<SetRow
+									key={log.id}
+									weightKg={log.weightKg}
+									reps={log.reps}
+									setType={log.setType}
+									rpe={isUnchecked ? undefined : log.rpe}
+									failureFlag={isUnchecked ? undefined : log.failureFlag}
+									done={!isUnchecked}
+									onWeightChange={v => {
+										if (v != null) onUpdateSet(log.id, { weightKg: v })
+									}}
+									onRepsChange={v => onUpdateSet(log.id, { reps: v })}
+									onConfirm={() => {
+										if (isUnchecked) {
+											setUncheckedIds(prev => {
+												const next = new Set(prev)
+												next.delete(log.id)
+												return next
+											})
+										} else {
+											setUncheckedIds(prev => new Set(prev).add(log.id))
+										}
+									}}
+								/>
+							)
+						})}
 					</div>
 
 					{/* Remaining planned sets (not yet confirmed) */}
