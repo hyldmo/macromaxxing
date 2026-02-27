@@ -153,11 +153,21 @@ export const TimerMode: FC = () => {
 			setType,
 			transition
 		}
+		dispatch({ type: 'STOP_SET' })
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
 		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
-	}, [currentSet, isResting, state.editWeight, state.editReps, setActiveExerciseId, getRestDuration, restTimer])
+	}, [
+		currentSet,
+		isResting,
+		state.editWeight,
+		state.editReps,
+		setActiveExerciseId,
+		getRestDuration,
+		restTimer,
+		dispatch
+	])
 
 	const advanceToNextSet = useCallback(() => {
 		const pending = pendingConfirmRef.current
@@ -184,6 +194,7 @@ export const TimerMode: FC = () => {
 	const handleDismissTimer = useCallback(() => {
 		advanceToNextSet()
 		restTimer.dismiss()
+		setSetElapsedMs(0)
 	}, [advanceToNextSet, restTimer])
 
 	const handleStopSet = useCallback(() => {
