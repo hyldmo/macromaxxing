@@ -139,7 +139,8 @@ function parseIngredientList(
 						})
 					} else {
 						// No unit specified - check if ingredient has a default piece unit
-						const defaultUnit = ingUnits.find(u => u.isDefault && u.name !== 'g')
+						const defaultUnit =
+							ingUnits.find(u => u.isDefault && u.name !== 'g') ?? ingUnits.find(u => u.name === 'pcs')
 						if (defaultUnit) {
 							results.push({
 								grams: amount * defaultUnit.grams,
@@ -645,7 +646,9 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							}
 						} else {
 							// No parsed input - use default unit if available
-							const defaultUnit = ingredient.units?.find(u => u.isDefault)
+							const defaultUnit =
+								ingredient.units?.find(u => u.isDefault) ??
+								ingredient.units?.find(u => u.name === 'pcs')
 							amountGrams = defaultUnit ? defaultUnit.grams : 100
 							displayUnit = defaultUnit && defaultUnit.name !== 'g' ? defaultUnit.name : undefined
 							displayAmount = displayUnit ? 1 : undefined
