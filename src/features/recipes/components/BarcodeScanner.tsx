@@ -32,7 +32,14 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 		scanner
 			.start(
 				{ facingMode: 'environment' },
-				{ fps: 10, qrbox: { width: 250, height: 120 }, aspectRatio: 1.5 },
+				{
+					fps: 10,
+					qrbox: (w, h) => ({
+						width: Math.min(250, Math.floor(w * 0.8)),
+						height: Math.min(120, Math.floor(h * 0.6))
+					}),
+					aspectRatio: 1.5
+				},
 				decodedText => {
 					if (!cancelled) {
 						onScan(decodedText)
@@ -84,10 +91,7 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 		<div className="relative overflow-hidden rounded-sm border border-edge bg-surface-0">
 			<div
 				id={elementId}
-				className={cn(
-					'h-48 [&>img]:hidden [&_video]:object-cover md:[&_video]:-scale-x-100',
-					loading && 'invisible'
-				)}
+				className={cn('h-48 [&>img]:hidden md:[&_video]:-scale-x-100', loading && 'invisible')}
 			/>
 			{loading && (
 				<div className="absolute inset-0 flex items-center justify-center">
