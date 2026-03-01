@@ -35,10 +35,13 @@ export function getRepRange(exercise: RepRangeExercise, goal: TrainingGoal): { m
 	return exercise.type === 'compound' ? { min: 8, max: 12 } : { min: 10, max: 15 }
 }
 
-/** Brzycki 1RM estimate: weight * 36 / (37 - reps) */
+/** Brzycki 1RM estimate: weight × 36 / (37 − reps), capped at 12 reps to avoid inflated estimates */
+const BRZYCKI_REP_CAP = 12
+
 export function estimated1RM(weightKg: number, reps: number): number {
-	if (reps <= 0 || reps >= 37) return weightKg
-	return weightKg * (36 / (37 - reps))
+	if (reps <= 0) return weightKg
+	const capped = Math.min(reps, BRZYCKI_REP_CAP)
+	return weightKg * (36 / (37 - capped))
 }
 
 /** Inverse Brzycki: working weight for a given 1RM and target reps */
