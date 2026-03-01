@@ -27,7 +27,7 @@ export interface TimerModeContext {
 		transition?: boolean
 	}) => void
 	onUndoSet: () => void
-	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => number
+	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 	timerModeActiveRef: MutableRefObject<boolean>
 }
 
@@ -145,19 +145,31 @@ export const TimerMode: FC = () => {
 		if (!currentSet || isResting) return
 		const { exerciseId, setType, transition } = currentSet
 
-		// Defer CONFIRM dispatch + logging until rest completes — store pending data
-		pendingConfirmRef.current = {
-			exerciseId,
-			weightKg: state.editWeight ?? 0,
-			reps: state.editReps,
-			setType,
-			transition
-		}
 		dispatch({ type: 'STOP_SET' })
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
-		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
+		if (transition) {
+			// Skip rest timer between superset exercises — immediately log and advance
+			dispatch({ type: 'CONFIRM' })
+			onConfirmSet({
+				exerciseId,
+				weightKg: state.editWeight ?? 0,
+				reps: state.editReps,
+				setType,
+				transition
+			})
+		} else {
+			// Defer CONFIRM dispatch + logging until rest completes — store pending data
+			pendingConfirmRef.current = {
+				exerciseId,
+				weightKg: state.editWeight ?? 0,
+				reps: state.editReps,
+				setType,
+				transition
+			}
+			restTimer.start(getRestDuration(exerciseId, state.editReps, setType), setType)
+		}
 	}, [
 		currentSet,
 		isResting,
@@ -166,7 +178,8 @@ export const TimerMode: FC = () => {
 		setActiveExerciseId,
 		getRestDuration,
 		restTimer,
-		dispatch
+		dispatch,
+		onConfirmSet
 	])
 
 	const advanceToNextSet = useCallback(() => {

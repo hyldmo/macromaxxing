@@ -147,16 +147,16 @@ export function WorkoutSessionPage() {
 		},
 		onSuccess: (_data, variables) => {
 			setActiveExerciseId(variables.exerciseId)
-			// Auto-start rest timer (skip when TimerMode handles it locally)
-			if (!(isCompleteSession || timerModeActiveRef.current)) {
+			// Auto-start rest timer (skip when TimerMode handles it locally, or between superset exercises)
+			const transition = transitionRef.current
+			transitionRef.current = false
+			if (!(isCompleteSession || timerModeActiveRef.current || transition)) {
 				const rest = getRestDuration(
 					variables.exerciseId,
 					variables.reps,
-					variables.setType ?? 'working',
-					transitionRef.current
+					variables.setType ?? 'working'
 				)
-				startTimer(rest, variables.setType ?? 'working', transitionRef.current)
-				transitionRef.current = false
+				startTimer(rest, variables.setType ?? 'working')
 			}
 		},
 		onError: (_err, _variables, context) => {
@@ -396,8 +396,7 @@ export function WorkoutSessionPage() {
 
 	// Compute rest duration for an exercise — used by both addSetMutation.onSuccess and TimerMode
 	const getRestDuration = useCallback(
-		(exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => {
-			if (transition) return 15
+		(exerciseId: Exercise['id'], reps: number, setType: SetType) => {
 			const exercise = exerciseGroups.find(g => {
 				if (g.type === 'standalone') return g.exerciseId === exerciseId
 				return g.exercises.some(e => e.exerciseId === exerciseId)
