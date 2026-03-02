@@ -72,9 +72,9 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 			{/* Estimated 1RM */}
 			{e1rmStats.length > 0 && (
 				<div className="rounded-sm border border-edge bg-surface-1 p-3">
-					<div className="mb-2 flex items-center gap-1.5">
+					<div className="mb-2 flex items-center justify-end gap-1.5 text-accent">
 						<TrendingUp className="size-3.5 text-ink-faint" />
-						<span className="text-ink-muted text-xs">Estimated 1RM</span>
+						<span className="text-xs">Estimated 1RM</span>
 					</div>
 					<div className="space-y-1.5">
 						{e1rmStats.map(s => (
