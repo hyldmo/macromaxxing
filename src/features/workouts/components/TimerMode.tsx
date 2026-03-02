@@ -68,11 +68,12 @@ export const TimerMode: FC = () => {
 	}, [timerModeActiveRef])
 
 	// Activate nav elapsed display on mount
+	const { setSession } = restTimer
 	useEffect(() => {
 		if (sessionId) {
-			restTimer.setSession({ id: sessionId, startedAt: session.startedAt })
+			setSession({ id: sessionId, startedAt: session.startedAt })
 		}
-	}, [sessionId, session.startedAt, restTimer.setSession, restTimer])
+	}, [sessionId, session.startedAt, setSession])
 
 	useScrollLock()
 
