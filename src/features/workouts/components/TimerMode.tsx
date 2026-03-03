@@ -3,10 +3,11 @@ import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lu
 import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
-import { cn, flattenSets, type RenderItem, useScrollLock } from '~/lib'
+import { cn, flattenSets, formatTimer, type RenderItem, useScrollLock } from '~/lib'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
 import { useWakeLock } from '../useWakeLock'
+import { SecondaryTimer } from './SecondaryTimer'
 import { TimerRing } from './TimerRing'
 
 const SET_TYPE_STYLES: Record<SetType, string> = {
@@ -27,19 +28,8 @@ export interface TimerModeContext {
 		transition?: boolean
 	}) => void
 	onUndoSet: () => void
-	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => number
+	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 	timerModeActiveRef: MutableRefObject<boolean>
-}
-
-function formatTime(seconds: number): string {
-	const sign = seconds < 0 ? '-' : ''
-	const abs = Math.abs(seconds)
-	const h = Math.floor(abs / 3600)
-	const m = Math.floor((abs % 3600) / 60)
-	const s = Math.floor(abs % 60)
-	const cs = Math.floor((abs * 100) % 100)
-	const hm = h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `${m}`
-	return `${sign}${hm}:${s.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`
 }
 
 export const TimerMode: FC = () => {
@@ -81,6 +71,7 @@ export const TimerMode: FC = () => {
 	const [state, dispatch] = useTimerState()
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
 	const [setElapsedMs, setSetElapsedMs] = useState(0)
+	const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null)
 	const rafRef = useRef(0)
 	const pendingConfirmRef = useRef<{
 		exerciseId: Exercise['id']
@@ -129,7 +120,15 @@ export const TimerMode: FC = () => {
 		return () => cancelAnimationFrame(rafRef.current)
 	}, [needsRaf, restTimer.endAt, state.setStartedAt, state.isPaused])
 
+	// Detect if current set is part of a superset (has transition or follows a transition)
+	const isInSuperset = useMemo(() => {
+		if (!currentSet) return false
+		if (currentSet.transition) return true
+		return state.currentIndex > 0 && state.queue[state.currentIndex - 1]?.transition === true
+	}, [currentSet, state.currentIndex, state.queue])
+
 	const handleStartSet = useCallback(() => {
+		setRoundStartedAt(prev => prev ?? Date.now())
 		dispatch({ type: 'START_SET' })
 		setSetElapsedMs(0)
 	}, [dispatch])
@@ -146,19 +145,34 @@ export const TimerMode: FC = () => {
 		if (!currentSet || isResting) return
 		const { exerciseId, setType, transition } = currentSet
 
-		// Defer CONFIRM dispatch + logging until rest completes — store pending data
-		pendingConfirmRef.current = {
-			exerciseId,
-			weightKg: state.editWeight ?? 0,
-			reps: state.editReps,
-			setType,
-			transition
-		}
 		dispatch({ type: 'STOP_SET' })
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
-		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
+		if (transition) {
+			// Mid-superset: record timestamp, log set, advance and auto-start next exercise
+			restTimer.recordTransition()
+			dispatch({ type: 'CONFIRM' })
+			dispatch({ type: 'START_SET' })
+			onConfirmSet({
+				exerciseId,
+				weightKg: state.editWeight ?? 0,
+				reps: state.editReps,
+				setType,
+				transition
+			})
+		} else {
+			// End of round or solo: defer CONFIRM until rest completes
+			pendingConfirmRef.current = {
+				exerciseId,
+				weightKg: state.editWeight ?? 0,
+				reps: state.editReps,
+				setType,
+				transition
+			}
+			const dur = getRestDuration(exerciseId, state.editReps, setType)
+			restTimer.start(dur, setType)
+		}
 	}, [
 		currentSet,
 		isResting,
@@ -167,7 +181,8 @@ export const TimerMode: FC = () => {
 		setActiveExerciseId,
 		getRestDuration,
 		restTimer,
-		dispatch
+		dispatch,
+		onConfirmSet
 	])
 
 	const advanceToNextSet = useCallback(() => {
@@ -196,6 +211,7 @@ export const TimerMode: FC = () => {
 		advanceToNextSet()
 		restTimer.dismiss()
 		setSetElapsedMs(0)
+		setRoundStartedAt(null)
 	}, [advanceToNextSet, restTimer])
 
 	const handleStopSet = useCallback(() => {
@@ -266,7 +282,7 @@ export const TimerMode: FC = () => {
 							</div>
 							<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
 							<div className="font-mono text-ink-muted text-sm tabular-nums">
-								{formatTime((Date.now() - session.startedAt) / 1000)} elapsed
+								{formatTimer((Date.now() - session.startedAt) / 1000, { subseconds: true })} elapsed
 							</div>
 							<Button onClick={onClose} className="w-full">
 								Close
@@ -275,7 +291,7 @@ export const TimerMode: FC = () => {
 					) : (
 						<>
 							<h2 className="font-mono text-ink-muted text-sm tabular-nums">
-								{currentSet.itemIndex + 1} / {exerciseGroups.length}
+								Exercise {currentSet.itemIndex + 1} / {exerciseGroups.length}
 							</h2>
 							{/* Exercise name with nav arrows */}
 							<div className="flex w-full items-center justify-center gap-2">
@@ -324,19 +340,18 @@ export const TimerMode: FC = () => {
 							>
 								{isResting ? (
 									<>
-										<span className="text-ink-faint text-xs">
-											{restTimer.isTransition ? 'Transition' : 'Rest'}
-										</span>
+										<span className="text-ink-faint text-xs">Rest</span>
 										<span
 											className={cn(
 												'font-mono text-5xl tabular-nums',
 												preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
 											)}
 										>
-											{formatTime(preciseRemaining)}
+											{formatTimer(preciseRemaining, { subseconds: true })}
 										</span>
 										<span className="font-mono text-ink-faint text-xs tabular-nums">
-											{formatTime(restTimer.total - preciseRemaining)} rested
+											{formatTimer(restTimer.total - preciseRemaining, { subseconds: true })}{' '}
+											rested
 										</span>
 									</>
 								) : (
@@ -348,8 +363,9 @@ export const TimerMode: FC = () => {
 												isSetPaused ? 'text-ink-muted' : 'text-ink'
 											)}
 										>
-											{formatTime(setElapsedMs / 1000)}
+											{formatTimer(setElapsedMs / 1000, { subseconds: true })}
 										</span>
+										{isInSuperset && <SecondaryTimer startedAt={roundStartedAt} label="round" />}
 									</>
 								)}
 							</TimerRing>
@@ -418,7 +434,9 @@ export const TimerMode: FC = () => {
 										: isSetPaused
 											? 'Resume'
 											: isDoingSet
-												? 'Done'
+												? currentSet?.transition
+													? 'Next'
+													: 'Done'
 												: 'Start'}
 								</Button>
 							</div>
