@@ -100,6 +100,8 @@ export function WorkoutSessionPage() {
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
 			setSession({ id: sessionQuery.data.id })
+		} else if (isCompleteSession) {
+			setSession(null)
 		}
 	}, [sessionQuery.data, isCompleteSession, setSession])
 
