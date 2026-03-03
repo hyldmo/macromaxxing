@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lu
 import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
-import { cn, flattenSets, type RenderItem, useScrollLock } from '~/lib'
+import { cn, flattenSets, formatTimer, type RenderItem, useScrollLock } from '~/lib'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
 import { useWakeLock } from '../useWakeLock'
@@ -30,17 +30,6 @@ export interface TimerModeContext {
 	onUndoSet: () => void
 	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 	timerModeActiveRef: MutableRefObject<boolean>
-}
-
-function formatTime(seconds: number): string {
-	const sign = seconds < 0 ? '-' : ''
-	const abs = Math.abs(seconds)
-	const h = Math.floor(abs / 3600)
-	const m = Math.floor((abs % 3600) / 60)
-	const s = Math.floor(abs % 60)
-	const cs = Math.floor((abs * 100) % 100)
-	const hm = h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `${m}`
-	return `${sign}${hm}:${s.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`
 }
 
 export const TimerMode: FC = () => {
@@ -292,7 +281,7 @@ export const TimerMode: FC = () => {
 							</div>
 							<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
 							<div className="font-mono text-ink-muted text-sm tabular-nums">
-								{formatTime((Date.now() - session.startedAt) / 1000)} elapsed
+								{formatTimer((Date.now() - session.startedAt) / 1000, { subseconds: true })} elapsed
 							</div>
 							<Button onClick={onClose} className="w-full">
 								Close
@@ -357,10 +346,11 @@ export const TimerMode: FC = () => {
 												preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
 											)}
 										>
-											{formatTime(preciseRemaining)}
+											{formatTimer(preciseRemaining, { subseconds: true })}
 										</span>
 										<span className="font-mono text-ink-faint text-xs tabular-nums">
-											{formatTime(restTimer.total - preciseRemaining)} rested
+											{formatTimer(restTimer.total - preciseRemaining, { subseconds: true })}{' '}
+											rested
 										</span>
 									</>
 								) : (
@@ -372,7 +362,7 @@ export const TimerMode: FC = () => {
 												isSetPaused ? 'text-ink-muted' : 'text-ink'
 											)}
 										>
-											{formatTime(setElapsedMs / 1000)}
+											{formatTimer(setElapsedMs / 1000, { subseconds: true })}
 										</span>
 										{isInSuperset && <SecondaryTimer startedAt={roundStartedAt} label="round" />}
 									</>

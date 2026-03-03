@@ -1,8 +1,8 @@
 import { Dumbbell } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cn } from '~/lib'
-import { formatElapsed, useElapsedTimer } from '../hooks/useElapsedTimer'
+import { cn, formatTimer } from '~/lib'
+import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import { useRestTimer } from '../RestTimerContext'
 
 const SET_TYPE_COLORS = {
@@ -23,10 +23,7 @@ export const RestTimer: FC = () => {
 	// Active timer (counting down or overshot)
 	if (isRunning && setType) {
 		const overshot = remaining <= 0
-		const abs = Math.abs(remaining)
-		const minutes = Math.floor(abs / 60)
-		const seconds = abs % 60
-		const display = `${overshot ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`
+		const display = formatTimer(remaining)
 
 		return (
 			<div
@@ -65,7 +62,7 @@ export const RestTimer: FC = () => {
 				onClick={goToTimer}
 			>
 				<Dumbbell className="size-3.5" />
-				<span className="font-mono text-sm tabular-nums">{formatElapsed(elapsed)}</span>
+				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000)}</span>
 			</button>
 		)
 	}
