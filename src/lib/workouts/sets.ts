@@ -269,6 +269,12 @@ export function buildSupersetRounds(exercises: SupersetExerciseInput[]): {
 
 // --- Flat set list for TimerMode ---
 
+export interface SupersetInfo {
+	group: number
+	exerciseLetter: string
+	exercises: Array<{ exerciseId: Exercise['id']; name: string; letter: string }>
+}
+
 export interface FlatSet {
 	exerciseId: Exercise['id']
 	exerciseName: string
@@ -280,6 +286,7 @@ export interface FlatSet {
 	transition: boolean
 	itemIndex: number
 	completed: boolean
+	superset: SupersetInfo | null
 }
 
 export type RenderItem =
@@ -320,7 +327,8 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 					totalSets: item.planned.length,
 					transition: false,
 					itemIndex: itemIdx,
-					completed: i < item.logs.length
+					completed: i < item.logs.length,
+					superset: null
 				})
 			}
 		} else {
@@ -328,12 +336,19 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 				item.exercises.map(e => ({ exercise: e.exercise, logs: e.logs, plannedSets: e.planned }))
 			)
 			const totalSets = item.exercises.reduce((sum, e) => sum + e.planned.length, 0)
+			const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+			const supersetExercises = item.exercises.map((e, i) => ({
+				exerciseId: e.exerciseId,
+				name: e.exercise.name,
+				letter: LETTERS[i]
+			}))
 			let setNum = 0
 			for (const round of rounds) {
 				for (let setIdx = 0; setIdx < round.sets.length; setIdx++) {
 					setNum++
 					const entry = round.sets[setIdx]
 					const isLastInRound = setIdx === round.sets.length - 1
+					const exerciseIndex = item.exercises.findIndex(e => e.exerciseId === entry.exerciseId)
 					result.push({
 						exerciseId: entry.exerciseId,
 						exerciseName: entry.exercise.name,
@@ -344,7 +359,12 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 						totalSets,
 						transition: !isLastInRound,
 						itemIndex: itemIdx,
-						completed: entry.log !== null
+						completed: entry.log !== null,
+						superset: {
+							group: item.group,
+							exerciseLetter: LETTERS[exerciseIndex],
+							exercises: supersetExercises
+						}
 					})
 				}
 			}
