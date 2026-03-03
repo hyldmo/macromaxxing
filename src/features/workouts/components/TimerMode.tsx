@@ -1,8 +1,8 @@
 import type { Exercise, SetType } from '@macromaxxing/db'
-import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
 import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
-import { Button, NumberInput } from '~/components/ui'
+import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { cn, flattenSets, formatTimer, type RenderItem, useScrollLock } from '~/lib'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
@@ -312,6 +312,18 @@ export const TimerMode: FC = () => {
 								</button>
 							</div>
 
+							{/* Superset exercise strip */}
+							{currentSet.superset && (
+								<ButtonGroup
+									options={currentSet.superset.exercises.map(ex => ({
+										value: ex.exerciseId,
+										label: ex.letter
+									}))}
+									value={currentSet.exerciseId}
+									size="sm"
+								/>
+							)}
+
 							{/* Badge + set progress + target */}
 							<div className="flex flex-col items-center gap-1">
 								<div className="flex items-center gap-2">
@@ -323,6 +335,11 @@ export const TimerMode: FC = () => {
 									>
 										{currentSet.setType}
 									</span>
+									{currentSet.superset && (
+										<span className="rounded-full bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
+											SS{currentSet.superset.group}
+										</span>
+									)}
 									<span className="font-mono text-ink-muted text-sm tabular-nums">
 										Set {currentSet.setNumber} of {currentSet.totalSets}
 									</span>
@@ -445,7 +462,16 @@ export const TimerMode: FC = () => {
 							{nextSet && (
 								<div className="flex w-full items-center gap-3 rounded-md border border-edge bg-surface-1 px-3 py-2.5">
 									<div className="min-w-0 flex-1">
-										<div className="text-[10px] text-ink-faint">NEXT UP</div>
+										<div className="flex items-center gap-1.5 text-[10px] text-ink-faint">
+											{currentSet.transition ? (
+												<>
+													<ArrowLeftRight className="size-3 text-accent" />
+													<span className="text-accent">SWITCH</span>
+												</>
+											) : (
+												'NEXT UP'
+											)}
+										</div>
 										<div className="font-medium text-ink text-sm">{nextSet.exerciseName}</div>
 									</div>
 									<span

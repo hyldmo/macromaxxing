@@ -4,7 +4,7 @@ import type { ExerciseType, MuscleGroup, SetMode, TrainingGoal, TypeIDString, Wo
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
+import { Button, ButtonGroup, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { BodyMap } from './components/BodyMap'
@@ -275,23 +275,14 @@ export function WorkoutTemplatePage() {
 					</div>
 					<div className="space-y-1">
 						<span className="text-ink-muted text-sm">Training Goal</span>
-						<div className="flex">
-							{(['hypertrophy', 'strength'] as const).map(goal => (
-								<button
-									key={goal}
-									type="button"
-									className={cn(
-										'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
-										trainingGoal === goal
-											? 'bg-accent text-white'
-											: 'bg-surface-0 text-ink-faint hover:text-ink'
-									)}
-									onClick={() => setTrainingGoal(goal)}
-								>
-									{goal}
-								</button>
-							))}
-						</div>
+						<ButtonGroup
+							options={[
+								{ value: 'hypertrophy', label: 'Hypertrophy' },
+								{ value: 'strength', label: 'Strength' }
+							]}
+							value={trainingGoal}
+							onChange={v => setTrainingGoal(v as TrainingGoal)}
+						/>
 						<p className="text-ink-faint text-xs">
 							{trainingGoal === 'hypertrophy'
 								? 'Default 3×10, dynamic rest'

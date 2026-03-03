@@ -1,8 +1,8 @@
 import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
-import { Button, NumberInput } from '~/components/ui'
-import { buildSupersetRounds, cn, type PlannedSet, totalVolume } from '~/lib'
+import { Button, ButtonGroup, NumberInput } from '~/components/ui'
+import { buildSupersetRounds, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { SetRow } from './SetRow'
@@ -338,27 +338,19 @@ const AddSetRow: FC<{
 		}
 	}
 
+	const exerciseOptions = exercises.map((_e, i) => ({
+		value: String(i),
+		label: String.fromCharCode(65 + i)
+	}))
+
 	return (
 		<div className="flex items-center gap-1.5">
-			<div className="flex shrink-0">
-				{exercises.map((_, i) => (
-					<button
-						key={exercises[i].exercise.id}
-						type="button"
-						className={cn(
-							'px-3 py-1 font-medium font-mono transition-colors',
-							i === 0 && 'rounded-l-sm',
-							i === exercises.length - 1 && 'rounded-r-sm',
-							selectedIdx === i
-								? 'bg-accent text-white'
-								: 'bg-surface-2 text-ink-faint hover:text-ink-muted'
-						)}
-						onClick={() => setSelectedIdx(i)}
-					>
-						{String.fromCharCode(65 + i)}
-					</button>
-				))}
-			</div>
+			<ButtonGroup
+				options={exerciseOptions}
+				value={String(selectedIdx)}
+				onChange={v => setSelectedIdx(Number(v))}
+			/>
+
 			<NumberInput
 				className="w-24"
 				placeholder="reps"
