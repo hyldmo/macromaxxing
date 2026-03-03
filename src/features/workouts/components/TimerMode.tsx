@@ -145,20 +145,34 @@ export const TimerMode: FC = () => {
 		if (!currentSet || isResting) return
 		const { exerciseId, setType, transition } = currentSet
 
-		// Defer CONFIRM dispatch + logging until rest completes — store pending data
-		pendingConfirmRef.current = {
-			exerciseId,
-			weightKg: state.editWeight ?? 0,
-			reps: state.editReps,
-			setType,
-			transition
-		}
 		dispatch({ type: 'STOP_SET' })
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
-		const dur = transition ? 0 : getRestDuration(exerciseId, state.editReps, setType)
-		restTimer.start(dur, setType, transition)
+		if (transition) {
+			// Mid-superset: record transition start time, advance immediately
+			restTimer.start(0, setType, true)
+			restTimer.dismiss()
+			dispatch({ type: 'CONFIRM' })
+			onConfirmSet({
+				exerciseId,
+				weightKg: state.editWeight ?? 0,
+				reps: state.editReps,
+				setType,
+				transition
+			})
+		} else {
+			// End of round or solo: defer CONFIRM until rest completes
+			pendingConfirmRef.current = {
+				exerciseId,
+				weightKg: state.editWeight ?? 0,
+				reps: state.editReps,
+				setType,
+				transition
+			}
+			const dur = getRestDuration(exerciseId, state.editReps, setType)
+			restTimer.start(dur, setType)
+		}
 	}, [
 		currentSet,
 		isResting,
@@ -167,7 +181,8 @@ export const TimerMode: FC = () => {
 		setActiveExerciseId,
 		getRestDuration,
 		restTimer,
-		dispatch
+		dispatch,
+		onConfirmSet
 	])
 
 	const advanceToNextSet = useCallback(() => {
