@@ -433,15 +433,15 @@ export const TimerMode: FC = () => {
 									className="flex-1"
 								>
 									{isResting
-										? restTimer.isTransition
-											? 'Next'
-											: preciseRemaining <= 0
-												? 'Next Set'
-												: 'Skip Rest'
+										? preciseRemaining <= 0
+											? 'Next Set'
+											: 'Skip Rest'
 										: isSetPaused
 											? 'Resume'
 											: isDoingSet
-												? 'Done'
+												? currentSet?.transition
+													? 'Next'
+													: 'Done'
 												: 'Start'}
 								</Button>
 							</div>
