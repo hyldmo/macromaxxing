@@ -2,7 +2,7 @@ import type { Exercise, SetType } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
 import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
-import { Button, NumberInput } from '~/components/ui'
+import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { cn, flattenSets, type RenderItem, useScrollLock } from '~/lib'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
@@ -297,21 +297,14 @@ export const TimerMode: FC = () => {
 
 							{/* Superset exercise strip */}
 							{currentSet.superset && (
-								<div className="flex items-center gap-1.5">
-									{currentSet.superset.exercises.map(ex => (
-										<span
-											key={ex.exerciseId}
-											className={cn(
-												'rounded-full px-2 py-0.5 font-mono text-xs',
-												ex.exerciseId === currentSet.exerciseId
-													? 'bg-accent/15 text-accent'
-													: 'text-ink-faint'
-											)}
-										>
-											{ex.letter} {ex.name}
-										</span>
-									))}
-								</div>
+								<ButtonGroup
+									options={currentSet.superset.exercises.map(ex => ({
+										value: ex.exerciseId,
+										label: ex.letter
+									}))}
+									value={currentSet.exerciseId}
+									size="sm"
+								/>
 							)}
 
 							{/* Badge + set progress + target */}
