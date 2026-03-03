@@ -7,6 +7,7 @@ import { cn, flattenSets, type RenderItem, useScrollLock } from '~/lib'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
 import { useWakeLock } from '../useWakeLock'
+import { SecondaryTimer } from './SecondaryTimer'
 import { TimerRing } from './TimerRing'
 
 const SET_TYPE_STYLES: Record<SetType, string> = {
@@ -29,15 +30,6 @@ export interface TimerModeContext {
 	onUndoSet: () => void
 	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 	timerModeActiveRef: MutableRefObject<boolean>
-}
-
-function formatElapsed(ms: number): string {
-	const totalSeconds = Math.floor(ms / 1000)
-	const hours = Math.floor(totalSeconds / 3600)
-	const minutes = Math.floor((totalSeconds % 3600) / 60)
-	const seconds = totalSeconds % 60
-	if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-	return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function formatTime(seconds: number): string {
@@ -90,7 +82,6 @@ export const TimerMode: FC = () => {
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
 	const [setElapsedMs, setSetElapsedMs] = useState(0)
 	const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null)
-	const [roundElapsedMs, setRoundElapsedMs] = useState(0)
 	const rafRef = useRef(0)
 	const pendingConfirmRef = useRef<{
 		exerciseId: Exercise['id']
@@ -146,18 +137,6 @@ export const TimerMode: FC = () => {
 		return state.currentIndex > 0 && state.queue[state.currentIndex - 1]?.transition === true
 	}, [currentSet, state.currentIndex, state.queue])
 
-	// Round-level elapsed timer (1s precision, tracks time since first set in the current superset round)
-	useEffect(() => {
-		if (!roundStartedAt) {
-			setRoundElapsedMs(0)
-			return
-		}
-		const tick = () => setRoundElapsedMs(Date.now() - roundStartedAt)
-		tick()
-		const id = setInterval(tick, 1000)
-		return () => clearInterval(id)
-	}, [roundStartedAt])
-
 	const handleStartSet = useCallback(() => {
 		setRoundStartedAt(prev => prev ?? Date.now())
 		dispatch({ type: 'START_SET' })
@@ -181,9 +160,10 @@ export const TimerMode: FC = () => {
 		setActiveExerciseId(exerciseId)
 
 		if (transition) {
-			// Mid-superset: record timestamp, log set, advance immediately (no rest screen)
+			// Mid-superset: record timestamp, log set, advance and auto-start next exercise
 			restTimer.recordTransition()
 			dispatch({ type: 'CONFIRM' })
+			dispatch({ type: 'START_SET' })
 			onConfirmSet({
 				exerciseId,
 				weightKg: state.editWeight ?? 0,
@@ -394,11 +374,7 @@ export const TimerMode: FC = () => {
 										>
 											{formatTime(setElapsedMs / 1000)}
 										</span>
-										{roundStartedAt !== null && isInSuperset && (
-											<span className="font-mono text-ink-faint text-xs tabular-nums">
-												{formatElapsed(roundElapsedMs)} round
-											</span>
-										)}
+										{isInSuperset && <SecondaryTimer startedAt={roundStartedAt} label="round" />}
 									</>
 								)}
 							</TimerRing>
