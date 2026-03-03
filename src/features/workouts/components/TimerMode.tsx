@@ -31,6 +31,15 @@ export interface TimerModeContext {
 	timerModeActiveRef: MutableRefObject<boolean>
 }
 
+function formatElapsed(ms: number): string {
+	const totalSeconds = Math.floor(ms / 1000)
+	const hours = Math.floor(totalSeconds / 3600)
+	const minutes = Math.floor((totalSeconds % 3600) / 60)
+	const seconds = totalSeconds % 60
+	if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+	return `${minutes}:${seconds.toString().padStart(2, '0')}`
+}
+
 function formatTime(seconds: number): string {
 	const sign = seconds < 0 ? '-' : ''
 	const abs = Math.abs(seconds)
@@ -80,6 +89,8 @@ export const TimerMode: FC = () => {
 	const [state, dispatch] = useTimerState()
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
 	const [setElapsedMs, setSetElapsedMs] = useState(0)
+	const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null)
+	const [roundElapsedMs, setRoundElapsedMs] = useState(0)
 	const rafRef = useRef(0)
 	const pendingConfirmRef = useRef<{
 		exerciseId: Exercise['id']
@@ -128,7 +139,27 @@ export const TimerMode: FC = () => {
 		return () => cancelAnimationFrame(rafRef.current)
 	}, [needsRaf, restTimer.endAt, state.setStartedAt, state.isPaused])
 
+	// Detect if current set is part of a superset (has transition or follows a transition)
+	const isInSuperset = useMemo(() => {
+		if (!currentSet) return false
+		if (currentSet.transition) return true
+		return state.currentIndex > 0 && state.queue[state.currentIndex - 1]?.transition === true
+	}, [currentSet, state.currentIndex, state.queue])
+
+	// Round-level elapsed timer (1s precision, tracks time since first set in the current superset round)
+	useEffect(() => {
+		if (!roundStartedAt) {
+			setRoundElapsedMs(0)
+			return
+		}
+		const tick = () => setRoundElapsedMs(Date.now() - roundStartedAt)
+		tick()
+		const id = setInterval(tick, 1000)
+		return () => clearInterval(id)
+	}, [roundStartedAt])
+
 	const handleStartSet = useCallback(() => {
+		setRoundStartedAt(prev => prev ?? Date.now())
 		dispatch({ type: 'START_SET' })
 		setSetElapsedMs(0)
 	}, [dispatch])
@@ -150,9 +181,8 @@ export const TimerMode: FC = () => {
 		setActiveExerciseId(exerciseId)
 
 		if (transition) {
-			// Mid-superset: record transition start time, advance immediately
-			restTimer.start(0, setType, true)
-			restTimer.dismiss()
+			// Mid-superset: record timestamp, log set, advance immediately (no rest screen)
+			restTimer.recordTransition()
 			dispatch({ type: 'CONFIRM' })
 			onConfirmSet({
 				exerciseId,
@@ -211,6 +241,7 @@ export const TimerMode: FC = () => {
 		advanceToNextSet()
 		restTimer.dismiss()
 		setSetElapsedMs(0)
+		setRoundStartedAt(null)
 	}, [advanceToNextSet, restTimer])
 
 	const handleStopSet = useCallback(() => {
@@ -290,7 +321,7 @@ export const TimerMode: FC = () => {
 					) : (
 						<>
 							<h2 className="font-mono text-ink-muted text-sm tabular-nums">
-								{currentSet.itemIndex + 1} / {exerciseGroups.length}
+								Exercise {currentSet.itemIndex + 1} / {exerciseGroups.length}
 							</h2>
 							{/* Exercise name with nav arrows */}
 							<div className="flex w-full items-center justify-center gap-2">
@@ -333,32 +364,24 @@ export const TimerMode: FC = () => {
 
 							{/* Timer ring — always rendered, content crossfades */}
 							<TimerRing
-								remaining={isResting && !restTimer.isTransition ? preciseRemaining : 0}
-								total={isResting && !restTimer.isTransition ? restTimer.total : 0}
+								remaining={isResting ? preciseRemaining : 0}
+								total={isResting ? restTimer.total : 0}
 								setType={restTimer.setType ?? 'working'}
 							>
 								{isResting ? (
 									<>
-										<span className="text-ink-faint text-xs">
-											{restTimer.isTransition ? 'Switch' : 'Rest'}
-										</span>
+										<span className="text-ink-faint text-xs">Rest</span>
 										<span
 											className={cn(
 												'font-mono text-5xl tabular-nums',
-												preciseRemaining <= 0 && !restTimer.isTransition
-													? 'text-destructive'
-													: 'text-ink'
+												preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
 											)}
 										>
-											{restTimer.isTransition
-												? formatTime(-preciseRemaining)
-												: formatTime(preciseRemaining)}
+											{formatTime(preciseRemaining)}
 										</span>
-										{!restTimer.isTransition && (
-											<span className="font-mono text-ink-faint text-xs tabular-nums">
-												{formatTime(restTimer.total - preciseRemaining)} rested
-											</span>
-										)}
+										<span className="font-mono text-ink-faint text-xs tabular-nums">
+											{formatTime(restTimer.total - preciseRemaining)} rested
+										</span>
 									</>
 								) : (
 									<>
@@ -371,6 +394,11 @@ export const TimerMode: FC = () => {
 										>
 											{formatTime(setElapsedMs / 1000)}
 										</span>
+										{roundStartedAt !== null && isInSuperset && (
+											<span className="font-mono text-ink-faint text-xs tabular-nums">
+												{formatElapsed(roundElapsedMs)} round
+											</span>
+										)}
 									</>
 								)}
 							</TimerRing>

@@ -53,7 +53,7 @@ export function WorkoutSessionPage() {
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
-	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
+	const { setSession, startedAt: timerActive, start: startTimer, recordTransition } = useRestTimer()
 	const transitionQueueRef = useRef<boolean[]>([])
 	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
@@ -151,10 +151,10 @@ export function WorkoutSessionPage() {
 			// Auto-start rest timer (skip when TimerMode handles it locally)
 			if (!(isCompleteSession || timerModeActiveRef.current)) {
 				if (transition) {
-					// Mid-superset: count-up timer (duration 0 → immediately counts elapsed)
-					startTimer(0, variables.setType ?? 'working', true)
+					// Mid-superset: just record the timestamp, no visible timer
+					recordTransition()
 				} else {
-					// End of round (or solo exercise): transition time subtracted by startTimer
+					// End of round (or solo exercise): elapsed transition time subtracted automatically
 					const rest = getRestDuration(variables.exerciseId, variables.reps, variables.setType ?? 'working')
 					startTimer(rest, variables.setType ?? 'working')
 				}

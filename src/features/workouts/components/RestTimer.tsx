@@ -20,7 +20,7 @@ function formatElapsed(ms: number): string {
 }
 
 export const RestTimer: FC = () => {
-	const { remaining, setType, isRunning, isTransition, sessionId, startedAt, dismiss } = useRestTimer()
+	const { remaining, setType, isRunning, sessionId, startedAt, dismiss } = useRestTimer()
 	const navigate = useNavigate()
 	const [elapsed, setElapsed] = useState(0)
 
@@ -43,26 +43,23 @@ export const RestTimer: FC = () => {
 		const abs = Math.abs(remaining)
 		const minutes = Math.floor(abs / 60)
 		const seconds = abs % 60
-		// Transitions count up from 0 (no negative sign), regular overshot shows negative
-		const display = isTransition
-			? `${minutes}:${seconds.toString().padStart(2, '0')}`
-			: `${overshot ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`
+		const display = `${overshot ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`
 
 		return (
 			<div
 				className={cn(
 					'flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1',
-					overshot && !isTransition && 'animate-pulse'
+					overshot && 'animate-pulse'
 				)}
 			>
 				<span className={cn('rounded-full px-1.5 py-0.5 font-mono text-[10px]', SET_TYPE_COLORS[setType])}>
-					{isTransition ? 'switch' : setType}
+					{setType}
 				</span>
 				<button
 					type="button"
 					className={cn(
 						'font-mono text-sm tabular-nums',
-						overshot && !isTransition ? 'text-destructive' : 'text-ink',
+						overshot ? 'text-destructive' : 'text-ink',
 						sessionId && 'hover:text-accent'
 					)}
 					onClick={goToTimer}

@@ -16,11 +16,13 @@ interface RestTimerState {
 	endAt: number | null // absolute timestamp when timer reaches 0
 	setType: SetType | null
 	isRunning: boolean // true while timer is active (even when negative)
-	isTransition: boolean
 	sessionId: string | null
 	startedAt: number | null
 	setSession: (session: { id: string; startedAt?: number } | null) => void
-	start: (durationSec: number, setType: SetType, transition?: boolean) => void
+	/** Start a rest countdown. Automatically subtracts any elapsed superset transition time. */
+	start: (durationSec: number, setType: SetType) => void
+	/** Record a superset transition (no visible timer). Elapsed time is subtracted from the next start(). */
+	recordTransition: () => void
 	dismiss: () => void
 }
 
@@ -39,24 +41,23 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 	const [remaining, setRemaining] = useState(0)
 	const [sessionId, setSessionId] = useState<string | null>(null)
 	const [startedAt, setStartedAt] = useState<number | null>(null)
-	const [isTransition, setIsTransition] = useState(false)
-	const isTransitionRef = useRef(false)
 	const completedRef = useRef(false)
 	// Tracks when the first superset transition in a round started
 	const transitionStartedAtRef = useRef<number | null>(null)
 
-	const start = useCallback((durationSec: number, type: SetType, transition = false) => {
+	const recordTransition = useCallback(() => {
+		transitionStartedAtRef.current ??= Date.now()
+	}, [])
+
+	const start = useCallback((durationSec: number, type: SetType) => {
 		// Request notification permission on first use
 		if ('Notification' in window && Notification.permission === 'default') {
 			Notification.requestPermission()
 		}
 
+		// Subtract elapsed superset transition time
 		let adjusted = durationSec
-		if (transition) {
-			// Record when the superset round started (first transition only)
-			transitionStartedAtRef.current ??= Date.now()
-		} else if (transitionStartedAtRef.current !== null) {
-			// End of superset round: subtract time spent on other exercises
+		if (transitionStartedAtRef.current !== null) {
 			const elapsed = Math.round((Date.now() - transitionStartedAtRef.current) / 1000)
 			adjusted = Math.max(0, durationSec - elapsed)
 			transitionStartedAtRef.current = null
@@ -67,8 +68,6 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		setTotal(adjusted)
 		setSetType(type)
 		setRemaining(adjusted)
-		setIsTransition(transition)
-		isTransitionRef.current = transition
 		completedRef.current = false
 	}, [])
 
@@ -76,13 +75,10 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		setSessionId(session?.id ?? null)
 		if (session === null) {
 			setStartedAt(null)
-			// Dismiss any running rest timer when session ends
 			setEndAt(null)
 			setTotal(0)
 			setSetType(null)
 			setRemaining(0)
-			setIsTransition(false)
-			isTransitionRef.current = false
 			completedRef.current = false
 			transitionStartedAtRef.current = null
 		} else if (session.startedAt !== undefined) {
@@ -95,8 +91,6 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		setTotal(0)
 		setSetType(null)
 		setRemaining(0)
-		setIsTransition(false)
-		isTransitionRef.current = false
 		completedRef.current = false
 	}, [])
 
@@ -104,11 +98,10 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		if (endAt === null) return
 
 		const fireNotification = () => {
-			if (!(completedRef.current || isTransitionRef.current)) {
+			if (!completedRef.current) {
 				completedRef.current = true
 				if (navigator.vibrate) navigator.vibrate(200)
 				if ('Notification' in window && Notification.permission === 'granted') {
-					// Use SW showNotification — works even when app is backgrounded
 					if ('serviceWorker' in navigator) {
 						navigator.serviceWorker.ready.then(reg => {
 							reg.showNotification('Rest timer done', {
@@ -132,9 +125,6 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		tick()
 		const intervalId = setInterval(tick, 1000)
 
-		// Schedule a direct timeout for when the timer expires.
-		// setInterval ticks are throttled to ~1/min in background tabs,
-		// but a one-shot setTimeout with exact delay is scheduled more reliably.
 		const delay = endAt - Date.now()
 		const timeoutId =
 			delay > 0
@@ -158,11 +148,11 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 				endAt,
 				setType,
 				isRunning: endAt !== null,
-				isTransition,
 				sessionId,
 				startedAt,
 				setSession,
 				start,
+				recordTransition,
 				dismiss
 			}}
 		>
