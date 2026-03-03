@@ -241,6 +241,7 @@ No shadows — borders-only depth strategy.
 - Shared types live in `@macromaxxing/db` (packages/db/types.ts), re-exported via `~/lib/` for frontend (e.g. `~/lib/macros`)
 - Forms use `Input` from `~/components/ui/Input`
 - Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`
+- Connected toggle groups use `ButtonGroup` from `~/components/ui` — supports `size` (`sm`/`md`), `expandedLabel` for hover-to-expand, and read-only mode (omit `onChange`). Do NOT use inline button groups.
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`
 - tRPC client: `import { trpc } from '~/lib/trpc'`
 - React components should have this style, using implicit return if possible:
