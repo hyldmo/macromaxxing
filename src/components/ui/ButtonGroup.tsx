@@ -14,7 +14,7 @@ export interface ButtonGroupProps<T extends string> {
 }
 
 const SIZE_STYLES = {
-	sm: 'px-1.5 py-0.5 text-[10px]',
+	sm: 'px-1.5 py-0.5 font-mono text-[10px]',
 	md: 'px-3 py-1 text-sm'
 } as const
 
@@ -27,7 +27,7 @@ export function ButtonGroup<T extends string>({ options, value, onChange, size =
 				const isActive = opt.value === value
 				const base = cn(
 					SIZE_STYLES[size],
-					'font-mono first:rounded-l-sm last:rounded-r-sm',
+					'first:rounded-l-sm last:rounded-r-sm',
 					readOnly
 						? cn(isActive ? 'bg-accent/15 text-accent' : 'text-ink-faint')
 						: cn(
