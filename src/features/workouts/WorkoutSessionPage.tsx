@@ -53,8 +53,8 @@ export function WorkoutSessionPage() {
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
-	const { setSession, startedAt: timerActive, start: startTimer } = useRestTimer()
-	const transitionRef = useRef(false)
+	const { setSession, startedAt: timerActive, start: startTimer, recordTransition } = useRestTimer()
+	const transitionQueueRef = useRef<boolean[]>([])
 	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
@@ -100,6 +100,8 @@ export function WorkoutSessionPage() {
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
 			setSession({ id: sessionQuery.data.id })
+		} else if (isCompleteSession) {
+			setSession(null)
 		}
 	}, [sessionQuery.data, isCompleteSession, setSession])
 
@@ -147,16 +149,17 @@ export function WorkoutSessionPage() {
 		},
 		onSuccess: (_data, variables) => {
 			setActiveExerciseId(variables.exerciseId)
+			const transition = transitionQueueRef.current.shift() ?? false
 			// Auto-start rest timer (skip when TimerMode handles it locally)
 			if (!(isCompleteSession || timerModeActiveRef.current)) {
-				const rest = getRestDuration(
-					variables.exerciseId,
-					variables.reps,
-					variables.setType ?? 'working',
-					transitionRef.current
-				)
-				startTimer(rest, variables.setType ?? 'working', transitionRef.current)
-				transitionRef.current = false
+				if (transition) {
+					// Mid-superset: just record the timestamp, no visible timer
+					recordTransition()
+				} else {
+					// End of round (or solo exercise): elapsed transition time subtracted automatically
+					const rest = getRestDuration(variables.exerciseId, variables.reps, variables.setType ?? 'working')
+					startTimer(rest, variables.setType ?? 'working')
+				}
 			}
 		},
 		onError: (_err, _variables, context) => {
@@ -396,8 +399,7 @@ export function WorkoutSessionPage() {
 
 	// Compute rest duration for an exercise — used by both addSetMutation.onSuccess and TimerMode
 	const getRestDuration = useCallback(
-		(exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => {
-			if (transition) return 15
+		(exerciseId: Exercise['id'], reps: number, setType: SetType) => {
 			const exercise = exerciseGroups.find(g => {
 				if (g.type === 'standalone') return g.exerciseId === exerciseId
 				return g.exercises.some(e => e.exerciseId === exerciseId)
@@ -576,7 +578,7 @@ export function WorkoutSessionPage() {
 								readOnly={isCompleted}
 								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
 								onAddSet={data => {
-									transitionRef.current = data.transition ?? false
+									transitionQueueRef.current.push(data.transition ?? false)
 									addSetMutation.mutate({
 										sessionId: session.id,
 										exerciseId: data.exerciseId,
@@ -659,7 +661,7 @@ export function WorkoutSessionPage() {
 						setType: import('@macromaxxing/db').SetType
 						transition?: boolean
 					}) => {
-						transitionRef.current = data.transition ?? false
+						transitionQueueRef.current.push(data.transition ?? false)
 						addSetMutation.mutate({
 							sessionId: session.id,
 							exerciseId: data.exerciseId,

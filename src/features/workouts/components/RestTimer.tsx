@@ -1,7 +1,8 @@
 import { Dumbbell } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import type { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cn } from '~/lib'
+import { cn, formatTimer } from '~/lib'
+import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import { useRestTimer } from '../RestTimerContext'
 
 const SET_TYPE_COLORS = {
@@ -10,40 +11,19 @@ const SET_TYPE_COLORS = {
 	backoff: 'bg-macro-fat/15 text-macro-fat'
 } as const
 
-function formatElapsed(ms: number): string {
-	const totalSeconds = Math.floor(ms / 1000)
-	const hours = Math.floor(totalSeconds / 3600)
-	const minutes = Math.floor((totalSeconds % 3600) / 60)
-	const seconds = totalSeconds % 60
-	if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-	return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
 export const RestTimer: FC = () => {
-	const { remaining, setType, isRunning, isTransition, sessionId, startedAt, dismiss } = useRestTimer()
+	const { remaining, setType, isRunning, sessionId, startedAt, dismiss } = useRestTimer()
 	const navigate = useNavigate()
-	const [elapsed, setElapsed] = useState(0)
+	const elapsed = useElapsedTimer(!isRunning && startedAt ? startedAt : null)
 
 	const goToTimer = () => {
 		if (sessionId) navigate(`/workouts/sessions/${sessionId}/timer`)
 	}
 
-	// Tick elapsed every second when session active but no rest timer
-	useEffect(() => {
-		if (!startedAt || isRunning) return
-		const tick = () => setElapsed(Date.now() - startedAt)
-		tick()
-		const id = setInterval(tick, 1000)
-		return () => clearInterval(id)
-	}, [startedAt, isRunning])
-
 	// Active timer (counting down or overshot)
 	if (isRunning && setType) {
 		const overshot = remaining <= 0
-		const abs = Math.abs(remaining)
-		const minutes = Math.floor(abs / 60)
-		const seconds = abs % 60
-		const display = `${overshot ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`
+		const display = formatTimer(remaining)
 
 		return (
 			<div
@@ -53,7 +33,7 @@ export const RestTimer: FC = () => {
 				)}
 			>
 				<span className={cn('rounded-full px-1.5 py-0.5 font-mono text-[10px]', SET_TYPE_COLORS[setType])}>
-					{isTransition ? 'switch' : setType}
+					{setType}
 				</span>
 				<button
 					type="button"
@@ -82,7 +62,7 @@ export const RestTimer: FC = () => {
 				onClick={goToTimer}
 			>
 				<Dumbbell className="size-3.5" />
-				<span className="font-mono text-sm tabular-nums">{formatElapsed(elapsed)}</span>
+				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000)}</span>
 			</button>
 		)
 	}
