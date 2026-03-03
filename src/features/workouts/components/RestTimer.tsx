@@ -43,13 +43,16 @@ export const RestTimer: FC = () => {
 		const abs = Math.abs(remaining)
 		const minutes = Math.floor(abs / 60)
 		const seconds = abs % 60
-		const display = `${overshot ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`
+		// Transitions count up from 0 (no negative sign), regular overshot shows negative
+		const display = isTransition
+			? `${minutes}:${seconds.toString().padStart(2, '0')}`
+			: `${overshot ? '-' : ''}${minutes}:${seconds.toString().padStart(2, '0')}`
 
 		return (
 			<div
 				className={cn(
 					'flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1',
-					overshot && 'animate-pulse'
+					overshot && !isTransition && 'animate-pulse'
 				)}
 			>
 				<span className={cn('rounded-full px-1.5 py-0.5 font-mono text-[10px]', SET_TYPE_COLORS[setType])}>
@@ -59,7 +62,7 @@ export const RestTimer: FC = () => {
 					type="button"
 					className={cn(
 						'font-mono text-sm tabular-nums',
-						overshot ? 'text-destructive' : 'text-ink',
+						overshot && !isTransition ? 'text-destructive' : 'text-ink',
 						sessionId && 'hover:text-accent'
 					)}
 					onClick={goToTimer}

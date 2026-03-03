@@ -27,7 +27,7 @@ export interface TimerModeContext {
 		transition?: boolean
 	}) => void
 	onUndoSet: () => void
-	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType, transition: boolean) => number
+	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 	timerModeActiveRef: MutableRefObject<boolean>
 }
 
@@ -157,7 +157,8 @@ export const TimerMode: FC = () => {
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
-		restTimer.start(getRestDuration(exerciseId, state.editReps, setType, transition), setType, transition)
+		const dur = transition ? 0 : getRestDuration(exerciseId, state.editReps, setType)
+		restTimer.start(dur, setType, transition)
 	}, [
 		currentSet,
 		isResting,
@@ -317,26 +318,32 @@ export const TimerMode: FC = () => {
 
 							{/* Timer ring — always rendered, content crossfades */}
 							<TimerRing
-								remaining={isResting ? preciseRemaining : 0}
-								total={isResting ? restTimer.total : 0}
+								remaining={isResting && !restTimer.isTransition ? preciseRemaining : 0}
+								total={isResting && !restTimer.isTransition ? restTimer.total : 0}
 								setType={restTimer.setType ?? 'working'}
 							>
 								{isResting ? (
 									<>
 										<span className="text-ink-faint text-xs">
-											{restTimer.isTransition ? 'Transition' : 'Rest'}
+											{restTimer.isTransition ? 'Switch' : 'Rest'}
 										</span>
 										<span
 											className={cn(
 												'font-mono text-5xl tabular-nums',
-												preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
+												preciseRemaining <= 0 && !restTimer.isTransition
+													? 'text-destructive'
+													: 'text-ink'
 											)}
 										>
-											{formatTime(preciseRemaining)}
+											{restTimer.isTransition
+												? formatTime(-preciseRemaining)
+												: formatTime(preciseRemaining)}
 										</span>
-										<span className="font-mono text-ink-faint text-xs tabular-nums">
-											{formatTime(restTimer.total - preciseRemaining)} rested
-										</span>
+										{!restTimer.isTransition && (
+											<span className="font-mono text-ink-faint text-xs tabular-nums">
+												{formatTime(restTimer.total - preciseRemaining)} rested
+											</span>
+										)}
 									</>
 								) : (
 									<>
@@ -411,9 +418,11 @@ export const TimerMode: FC = () => {
 									className="flex-1"
 								>
 									{isResting
-										? preciseRemaining <= 0
-											? 'Next Set'
-											: 'Skip Rest'
+										? restTimer.isTransition
+											? 'Next'
+											: preciseRemaining <= 0
+												? 'Next Set'
+												: 'Skip Rest'
 										: isSetPaused
 											? 'Resume'
 											: isDoingSet

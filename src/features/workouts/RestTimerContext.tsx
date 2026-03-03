@@ -40,39 +40,37 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 	const [sessionId, setSessionId] = useState<string | null>(null)
 	const [startedAt, setStartedAt] = useState<number | null>(null)
 	const [isTransition, setIsTransition] = useState(false)
+	const isTransitionRef = useRef(false)
 	const completedRef = useRef(false)
-	const transitionOvershootRef = useRef(0)
+	// Tracks when the first superset transition in a round started
+	const transitionStartedAtRef = useRef<number | null>(null)
 
-	const start = useCallback(
-		(durationSec: number, type: SetType, transition = false) => {
-			// Request notification permission on first use
-			if ('Notification' in window && Notification.permission === 'default') {
-				Notification.requestPermission()
-			}
+	const start = useCallback((durationSec: number, type: SetType, transition = false) => {
+		// Request notification permission on first use
+		if ('Notification' in window && Notification.permission === 'default') {
+			Notification.requestPermission()
+		}
 
-			// If replacing an overshot transition timer, accumulate the overshoot
-			if (endAt !== null && isTransition) {
-				const overshoot = (Date.now() - endAt) / 1000
-				if (overshoot > 0) transitionOvershootRef.current += overshoot
-			}
+		let adjusted = durationSec
+		if (transition) {
+			// Record when the superset round started (first transition only)
+			transitionStartedAtRef.current ??= Date.now()
+		} else if (transitionStartedAtRef.current !== null) {
+			// End of superset round: subtract time spent on other exercises
+			const elapsed = Math.round((Date.now() - transitionStartedAtRef.current) / 1000)
+			adjusted = Math.max(0, durationSec - elapsed)
+			transitionStartedAtRef.current = null
+		}
 
-			// Subtract accumulated transition overshoot from non-transition rests (superset flow)
-			let adjusted = durationSec
-			if (!transition && transitionOvershootRef.current > 0) {
-				adjusted = Math.max(0, Math.round(durationSec - transitionOvershootRef.current))
-				transitionOvershootRef.current = 0
-			}
-
-			const now = Date.now()
-			setEndAt(now + adjusted * 1000)
-			setTotal(adjusted)
-			setSetType(type)
-			setRemaining(adjusted)
-			setIsTransition(transition)
-			completedRef.current = false
-		},
-		[endAt, isTransition]
-	)
+		const now = Date.now()
+		setEndAt(now + adjusted * 1000)
+		setTotal(adjusted)
+		setSetType(type)
+		setRemaining(adjusted)
+		setIsTransition(transition)
+		isTransitionRef.current = transition
+		completedRef.current = false
+	}, [])
 
 	const setSession = useCallback((session: { id: string; startedAt?: number } | null) => {
 		setSessionId(session?.id ?? null)
@@ -84,36 +82,29 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 			setSetType(null)
 			setRemaining(0)
 			setIsTransition(false)
+			isTransitionRef.current = false
 			completedRef.current = false
-			transitionOvershootRef.current = 0
+			transitionStartedAtRef.current = null
 		} else if (session.startedAt !== undefined) {
 			setStartedAt(session.startedAt)
 		}
 	}, [])
 
 	const dismiss = useCallback(() => {
-		// If dismissing an overshot transition, store overshoot for timer mode flow
-		if (endAt !== null && isTransition) {
-			const overshoot = (Date.now() - endAt) / 1000
-			if (overshoot > 0) transitionOvershootRef.current += overshoot
-		} else if (endAt !== null) {
-			// Dismissing a non-transition timer clears accumulated overshoot
-			transitionOvershootRef.current = 0
-		}
-
 		setEndAt(null)
 		setTotal(0)
 		setSetType(null)
 		setRemaining(0)
 		setIsTransition(false)
+		isTransitionRef.current = false
 		completedRef.current = false
-	}, [endAt, isTransition])
+	}, [])
 
 	useEffect(() => {
 		if (endAt === null) return
 
 		const fireNotification = () => {
-			if (!completedRef.current) {
+			if (!(completedRef.current || isTransitionRef.current)) {
 				completedRef.current = true
 				if (navigator.vibrate) navigator.vibrate(200)
 				if ('Notification' in window && Notification.permission === 'granted') {
