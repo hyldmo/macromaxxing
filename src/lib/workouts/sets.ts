@@ -51,13 +51,14 @@ export function generateWarmupSets(workingWeight: number, workingReps: number): 
 	const sets: GeneratedSet[] = []
 
 	// Heavy barbell lifts: bar → 50% → 75%
+	// Warmup reps scale with working reps so higher-rep sets get adequate movement prep
 	if (workingWeight > 60) {
-		sets.push({ weightKg: 20, reps: 10, setType: 'warmup' })
+		sets.push({ weightKg: 20, reps: Math.min(workingReps, 10), setType: 'warmup' })
 		const half = roundWeight(workingWeight * 0.5)
-		if (half > 20) sets.push({ weightKg: half, reps: 5, setType: 'warmup' })
+		if (half > 20) sets.push({ weightKg: half, reps: Math.max(3, Math.round(workingReps * 0.6)), setType: 'warmup' })
 		const three4 = roundWeight(workingWeight * 0.75)
 		if (three4 > half && workingWeight - three4 >= 5) {
-			sets.push({ weightKg: three4, reps: 3, setType: 'warmup' })
+			sets.push({ weightKg: three4, reps: Math.max(2, Math.round(workingReps * 0.4)), setType: 'warmup' })
 		}
 	} else {
 		// Light/dumbbell: single set at ~60%
