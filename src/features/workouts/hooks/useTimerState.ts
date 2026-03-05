@@ -57,7 +57,9 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 		case 'CONFIRM': {
 			if (state.currentIndex < 0) return state
 			const confirmed = [...state.locallyConfirmed, state.currentIndex]
-			const next = findNextPending(state.queue, 0, confirmed)
+			// Search forward from the current position first, then wrap around
+			let next = findNextPending(state.queue, state.currentIndex + 1, confirmed)
+			if (next < 0) next = findNextPending(state.queue, 0, confirmed)
 			return {
 				...state,
 				locallyConfirmed: confirmed,

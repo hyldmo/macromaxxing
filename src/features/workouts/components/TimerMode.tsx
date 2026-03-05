@@ -44,16 +44,34 @@ export const TimerMode: FC = () => {
 	} = useOutletContext<TimerModeContext>()
 	const { sessionId } = useParams<{ sessionId: string }>()
 	const navigate = useNavigate()
-	const onClose = useCallback(() => navigate('..'), [navigate])
+	const onClose = useCallback(() => {
+		// Flush any pending confirm (set confirmed during rest) before leaving
+		const pending = pendingConfirmRef.current
+		if (pending) {
+			pendingConfirmRef.current = null
+			onConfirmSet(pending)
+		}
+		navigate('..')
+	}, [navigate, onConfirmSet])
 
 	const restTimer = useRestTimer()
 	useWakeLock()
 
+	// Keep a stable ref to onConfirmSet for the unmount cleanup
+	const onConfirmSetRef = useRef(onConfirmSet)
+	onConfirmSetRef.current = onConfirmSet
+
 	// Signal to parent that TimerMode is active (skip auto-timer in addSetMutation.onSuccess)
+	// Also flush any pending confirm on unmount (e.g. browser back during rest)
 	useEffect(() => {
 		timerModeActiveRef.current = true
 		return () => {
 			timerModeActiveRef.current = false
+			const pending = pendingConfirmRef.current
+			if (pending) {
+				pendingConfirmRef.current = null
+				onConfirmSetRef.current(pending)
+			}
 		}
 	}, [timerModeActiveRef])
 
