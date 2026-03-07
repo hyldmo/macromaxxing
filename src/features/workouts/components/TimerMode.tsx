@@ -4,6 +4,7 @@ import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { cn, flattenSets, formatTimer, type RenderItem, useScrollLock } from '~/lib'
+import type { PendingConfirm } from '../hooks/useTimerState'
 import { useTimerState } from '../hooks/useTimerState'
 import { useRestTimer } from '../RestTimerContext'
 import { useWakeLock } from '../useWakeLock'
@@ -44,22 +45,38 @@ export const TimerMode: FC = () => {
 	} = useOutletContext<TimerModeContext>()
 	const { sessionId } = useParams<{ sessionId: string }>()
 	const navigate = useNavigate()
-	const onClose = useCallback(() => {
-		// Flush any pending confirm (set confirmed during rest) before leaving
-		const pending = pendingConfirmRef.current
-		if (pending) {
-			pendingConfirmRef.current = null
-			onConfirmSet(pending)
-		}
-		navigate('..')
-	}, [navigate, onConfirmSet])
 
 	const restTimer = useRestTimer()
 	useWakeLock()
 
-	// Keep a stable ref to onConfirmSet for the unmount cleanup
+	// --- Local-first state via reducer ---
+	const [state, dispatch] = useTimerState()
+	const [preciseRemaining, setPreciseRemaining] = useState(0)
+	const [setElapsedMs, setSetElapsedMs] = useState(0)
+	const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null)
+	const rafRef = useRef(0)
+
+	// Refs for unmount cleanup (stable references to latest values)
 	const onConfirmSetRef = useRef(onConfirmSet)
 	onConfirmSetRef.current = onConfirmSet
+	const pendingRef = useRef(state.pendingConfirm)
+	pendingRef.current = state.pendingConfirm
+
+	const flushPending = useCallback(
+		(pending: PendingConfirm) => {
+			dispatch({ type: 'CONFIRM' })
+			onConfirmSet(pending)
+		},
+		[dispatch, onConfirmSet]
+	)
+
+	const onClose = useCallback(() => {
+		// Flush any pending confirm (set confirmed during rest) before leaving
+		if (state.pendingConfirm) {
+			flushPending(state.pendingConfirm)
+		}
+		navigate('..')
+	}, [navigate, state.pendingConfirm, flushPending])
 
 	// Signal to parent that TimerMode is active (skip auto-timer in addSetMutation.onSuccess)
 	// Also flush any pending confirm on unmount (e.g. browser back during rest)
@@ -67,10 +84,8 @@ export const TimerMode: FC = () => {
 		timerModeActiveRef.current = true
 		return () => {
 			timerModeActiveRef.current = false
-			const pending = pendingConfirmRef.current
-			if (pending) {
-				pendingConfirmRef.current = null
-				onConfirmSetRef.current(pending)
+			if (pendingRef.current) {
+				onConfirmSetRef.current(pendingRef.current)
 			}
 		}
 	}, [timerModeActiveRef])
@@ -84,20 +99,6 @@ export const TimerMode: FC = () => {
 	}, [sessionId, session.startedAt, setSession])
 
 	useScrollLock()
-
-	// --- Local-first state via reducer ---
-	const [state, dispatch] = useTimerState()
-	const [preciseRemaining, setPreciseRemaining] = useState(0)
-	const [setElapsedMs, setSetElapsedMs] = useState(0)
-	const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null)
-	const rafRef = useRef(0)
-	const pendingConfirmRef = useRef<{
-		exerciseId: Exercise['id']
-		weightKg: number
-		reps: number
-		setType: SetType
-		transition?: boolean
-	} | null>(null)
 
 	// Initialize queue from exerciseGroups on mount
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
@@ -181,13 +182,16 @@ export const TimerMode: FC = () => {
 			})
 		} else {
 			// End of round or solo: defer CONFIRM until rest completes
-			pendingConfirmRef.current = {
-				exerciseId,
-				weightKg: state.editWeight ?? 0,
-				reps: state.editReps,
-				setType,
-				transition
-			}
+			dispatch({
+				type: 'DEFER_CONFIRM',
+				data: {
+					exerciseId,
+					weightKg: state.editWeight ?? 0,
+					reps: state.editReps,
+					setType,
+					transition
+				}
+			})
 			const dur = getRestDuration(exerciseId, state.editReps, setType)
 			restTimer.start(dur, setType)
 		}
@@ -203,18 +207,19 @@ export const TimerMode: FC = () => {
 		onConfirmSet
 	])
 
-	const advanceToNextSet = useCallback(() => {
-		const pending = pendingConfirmRef.current
-		if (!pending) return
-		pendingConfirmRef.current = null
-		dispatch({ type: 'CONFIRM' })
-		onConfirmSet(pending)
-	}, [dispatch, onConfirmSet])
+	const handleDismissTimer = useCallback(() => {
+		if (state.pendingConfirm) {
+			flushPending(state.pendingConfirm)
+		}
+		restTimer.dismiss()
+		setSetElapsedMs(0)
+		setRoundStartedAt(null)
+	}, [state.pendingConfirm, flushPending, restTimer])
 
 	const handleUndo = useCallback(() => {
-		if (pendingConfirmRef.current) {
+		if (state.pendingConfirm) {
 			// Undo during rest — nothing was logged yet, just cancel
-			pendingConfirmRef.current = null
+			dispatch({ type: 'CLEAR_PENDING' })
 			restTimer.dismiss()
 			setSetElapsedMs(0)
 		} else {
@@ -223,14 +228,7 @@ export const TimerMode: FC = () => {
 			setSetElapsedMs(0)
 			onUndoSet()
 		}
-	}, [dispatch, restTimer, onUndoSet])
-
-	const handleDismissTimer = useCallback(() => {
-		advanceToNextSet()
-		restTimer.dismiss()
-		setSetElapsedMs(0)
-		setRoundStartedAt(null)
-	}, [advanceToNextSet, restTimer])
+	}, [state.pendingConfirm, dispatch, restTimer, onUndoSet])
 
 	const handleStopSet = useCallback(() => {
 		dispatch({ type: 'STOP_SET' })
@@ -445,7 +443,7 @@ export const TimerMode: FC = () => {
 										<Square className="size-4" />
 									</Button>
 								)}
-								{!(isDoingSet || isSetPaused) && (hasConfirmedSets || pendingConfirmRef.current) && (
+								{!(isDoingSet || isSetPaused) && (hasConfirmedSets || state.pendingConfirm) && (
 									<Button variant="outline" size="icon" onClick={handleUndo}>
 										<Undo2 className="size-4" />
 									</Button>

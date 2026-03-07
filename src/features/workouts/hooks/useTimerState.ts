@@ -1,5 +1,14 @@
+import type { Exercise, SetType } from '@macromaxxing/db'
 import { useReducer } from 'react'
 import type { FlatSet } from '~/lib'
+
+export interface PendingConfirm {
+	exerciseId: Exercise['id']
+	weightKg: number
+	reps: number
+	setType: SetType
+	transition?: boolean
+}
 
 export interface TimerState {
 	queue: FlatSet[]
@@ -11,11 +20,15 @@ export interface TimerState {
 	editReps: number
 	setStartedAt: number | null
 	isPaused: boolean
+	/** Set data captured at confirm time, waiting for rest to complete before logging */
+	pendingConfirm: PendingConfirm | null
 }
 
 export type TimerAction =
 	| { type: 'INIT'; sets: FlatSet[] }
 	| { type: 'CONFIRM' }
+	| { type: 'DEFER_CONFIRM'; data: PendingConfirm }
+	| { type: 'CLEAR_PENDING' }
 	| { type: 'UNDO' }
 	| { type: 'EDIT_WEIGHT'; weight: number | null }
 	| { type: 'EDIT_REPS'; reps: number }
@@ -51,8 +64,15 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				currentIndex: cursor,
 				...loadSet(action.sets, cursor),
 				setStartedAt: null,
-				isPaused: false
+				isPaused: false,
+				pendingConfirm: null
 			}
+		}
+		case 'DEFER_CONFIRM': {
+			return { ...state, pendingConfirm: action.data }
+		}
+		case 'CLEAR_PENDING': {
+			return { ...state, pendingConfirm: null }
 		}
 		case 'CONFIRM': {
 			if (state.currentIndex < 0) return state
@@ -66,7 +86,8 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				currentIndex: next,
 				...loadSet(state.queue, next),
 				setStartedAt: null,
-				isPaused: false
+				isPaused: false,
+				pendingConfirm: null
 			}
 		}
 		case 'UNDO': {
@@ -79,7 +100,8 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				currentIndex: restored,
 				...loadSet(state.queue, restored),
 				setStartedAt: null,
-				isPaused: false
+				isPaused: false,
+				pendingConfirm: null
 			}
 		}
 		case 'EDIT_WEIGHT':
@@ -131,7 +153,8 @@ const INITIAL_STATE: TimerState = {
 	editWeight: null,
 	editReps: 0,
 	setStartedAt: null,
-	isPaused: false
+	isPaused: false,
+	pendingConfirm: null
 }
 
 export function useTimerState() {
