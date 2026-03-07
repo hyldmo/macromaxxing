@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import type { AbsoluteMacros } from '@macromaxxing/db'
-import { CalendarDays, ChevronRight, Dumbbell, Play, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChevronRight, Dumbbell, Play, SkipForward, UtensilsCrossed } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Button, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
@@ -106,6 +106,18 @@ const DashboardContent: FC = () => {
 
 	const dayTotals = useMemo(() => calculateDayTotals(todayMeals.map(m => m.macros)), [todayMeals])
 
+	const nextWorkout = useMemo(() => {
+		const data = summaryQuery.data
+		if (!data || data.templates.length === 0) return null
+		const { templates, sessions } = data
+		// Find the most recently completed session that references a template
+		const lastCompleted = sessions.find(s => s.completedAt && s.workoutId)
+		if (!lastCompleted) return templates[0]
+		const lastIdx = templates.findIndex(t => t.id === lastCompleted.workoutId)
+		if (lastIdx === -1) return templates[0]
+		return templates[(lastIdx + 1) % templates.length]
+	}, [summaryQuery.data])
+
 	if (summaryQuery.isLoading) {
 		return (
 			<div className="flex justify-center py-12">
@@ -136,6 +148,13 @@ const DashboardContent: FC = () => {
 				{/* Right column: Workouts */}
 				<div className="space-y-3">
 					{activeSession && <ActiveSessionBanner session={activeSession} />}
+					{!activeSession && nextWorkout && (
+						<UpNextSection
+							workout={nextWorkout}
+							onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
+							isPending={createSessionMutation.isPending}
+						/>
+					)}
 					<WorkoutTemplatesSection
 						templates={templates}
 						sessions={sessions}
@@ -248,6 +267,48 @@ const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
 		</Link>
 	)
 }
+
+// ─── Up Next ─────────────────────────────────────────────────────────
+
+interface UpNextSectionProps {
+	workout: RouterOutput['dashboard']['summary']['templates'][number]
+	onStartSession: (workoutId: RouterOutput['dashboard']['summary']['templates'][number]['id']) => void
+	isPending: boolean
+}
+
+const UpNextSection: FC<UpNextSectionProps> = ({ workout, onStartSession, isPending }) => (
+	<Card className="border-accent">
+		<CardHeader>
+			<div className="flex items-center gap-2">
+				<SkipForward className="size-4 text-accent" />
+				<h2 className="font-medium text-accent text-sm">Up Next</h2>
+			</div>
+		</CardHeader>
+		<CardContent>
+			<div className="flex items-center gap-3">
+				<div className="min-w-0 flex-1">
+					<Link to={`/workouts/${workout.id}`} className="font-medium text-ink text-sm hover:underline">
+						{workout.name}
+					</Link>
+					<div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0 font-mono text-xs tabular-nums">
+						{workout.exercises.slice(0, 6).map(we => (
+							<span key={we.id} className="text-ink-muted">
+								{we.exercise.name}
+							</span>
+						))}
+						{workout.exercises.length > 6 && (
+							<span className="text-ink-faint">+{workout.exercises.length - 6} more</span>
+						)}
+					</div>
+				</div>
+				<Button size="sm" onClick={() => onStartSession(workout.id)} disabled={isPending}>
+					<Play className="size-3.5" />
+					Start
+				</Button>
+			</div>
+		</CardContent>
+	</Card>
+)
 
 // ─── Workout Templates ───────────────────────────────────────────────
 
