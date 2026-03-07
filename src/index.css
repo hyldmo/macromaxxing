@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@custom-variant current (&[aria-current="page"]);
+
 @theme {
 	--breakpoint-2xs: 375px; /* 375px */
 	--breakpoint-xs: 30rem; /* 480px — between default and sm */
