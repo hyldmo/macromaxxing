@@ -9,7 +9,7 @@ import {
 	Settings,
 	UtensilsCrossed
 } from 'lucide-react'
-import type { FC } from 'react'
+import type { FC, HTMLAttributes } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
@@ -100,56 +100,40 @@ interface LinkProps {
 }
 
 const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest }) => {
-	const baseClass =
-		'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink active:bg-surface-2 active:font-medium active:text-ink'
-	const activeClass = 'font-medium text-ink'
-
-	if (typeof to === 'string') {
-		return (
-			<NavLink
-				to={to}
-				end={end}
-				className={({ isActive }) => cn(baseClass, isActive && activeClass, className)}
-				{...rest}
-			>
-				<Icon className="size-5" />
-				<span className="group-hover:inline max-md:hidden">{label}</span>
-			</NavLink>
-		)
-	}
-
+	const Elem =
+		typeof to === 'string'
+			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
+			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
 	return (
-		<button type="button" onClick={to} className={cn(baseClass, className)} {...rest}>
+		<Elem
+			{...rest}
+			className={cn(
+				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink active:bg-surface-2 active:font-medium active:text-ink',
+				className
+			)}
+		>
 			<Icon className="size-5" />
 			<span className="group-hover:inline max-md:hidden">{label}</span>
-		</button>
+		</Elem>
 	)
 }
 
 const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest }) => {
-	const baseClass =
-		'mx-auto space-y-0.5 py-2 text-center 2xs:text-sm text-ink-muted text-xs transition-colors active:font-medium active:text-accent'
-	const activeClass = 'font-medium text-accent'
-
-	if (typeof to === 'string') {
-		return (
-			<NavLink
-				to={to}
-				end={end}
-				className={({ isActive }) => cn(baseClass, isActive && activeClass, className)}
-				{...rest}
-			>
-				<Icon className="mx-auto 2xs:size-6 size-5" />
-				<div>{label}</div>
-			</NavLink>
-		)
-	}
-
+	const Elem =
+		typeof to === 'string'
+			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
+			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
 	return (
-		<button type="button" onClick={to} className={cn(baseClass, className)} {...rest}>
+		<Elem
+			{...rest}
+			className={cn(
+				'mx-auto space-y-0.5 py-2 text-center 2xs:text-sm text-ink-muted text-xs transition-colors active:font-medium active:text-accent',
+				className
+			)}
+		>
 			<Icon className="mx-auto 2xs:size-6 size-5" />
 			<div>{label}</div>
-		</button>
+		</Elem>
 	)
 }
 
