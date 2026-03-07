@@ -166,60 +166,50 @@ describe('calculateRest', () => {
 })
 
 describe('generateWarmupSets', () => {
-	describe('heavy barbell (>60kg)', () => {
-		it('100kg × 5 reps (strength) → bar×5, 50%×3, 75%×2', () => {
+	describe('heavy lifts (>60kg)', () => {
+		it('100kg × 5 reps (strength) → 50%×3, 75%×2', () => {
 			const sets = generateWarmupSets(100, 5)
 			expect(sets).toEqual([
-				{ weightKg: 20, reps: 5, setType: 'warmup' },
 				{ weightKg: 50, reps: 3, setType: 'warmup' },
 				{ weightKg: 75, reps: 2, setType: 'warmup' }
 			])
 		})
 
-		it('140kg × 5 reps (strength) → bar×5, 70×3, 105×2', () => {
+		it('140kg × 5 reps (strength) → 70×3, 105×2', () => {
 			const sets = generateWarmupSets(140, 5)
 			expect(sets).toEqual([
-				{ weightKg: 20, reps: 5, setType: 'warmup' },
 				{ weightKg: 70, reps: 3, setType: 'warmup' },
 				{ weightKg: 105, reps: 2, setType: 'warmup' }
 			])
 		})
 
-		it('100kg × 10 reps (hypertrophy) → bar×10, 50%×6, 75%×4', () => {
+		it('100kg × 10 reps (hypertrophy) → 50%×6, 75%×4', () => {
 			const sets = generateWarmupSets(100, 10)
 			expect(sets).toEqual([
-				{ weightKg: 20, reps: 10, setType: 'warmup' },
 				{ weightKg: 50, reps: 6, setType: 'warmup' },
 				{ weightKg: 75, reps: 4, setType: 'warmup' }
 			])
 		})
 
-		it('180kg × 10 reps (leg press scenario) → bar×10, 90×6, 135×4', () => {
+		it('180kg × 10 reps (leg press) → 90×6, 135×4', () => {
 			const sets = generateWarmupSets(180, 10)
 			expect(sets).toEqual([
-				{ weightKg: 20, reps: 10, setType: 'warmup' },
 				{ weightKg: 90, reps: 6, setType: 'warmup' },
 				{ weightKg: 135, reps: 4, setType: 'warmup' }
 			])
 		})
 
-		it('65kg × 8 reps → bar×8, 32.5×5, 50×3', () => {
-			// 65 * 0.5 = 32.5 → roundWeight(32.5) = 32.5
-			// 65 * 0.75 = 48.75 → roundWeight(48.75) = 50
-			// 65 - 50 = 15, >= 5 so it should be included
-			// reps: min(8,10)=8, max(3, round(8*0.6))=5, max(2, round(8*0.4))=3
+		it('65kg × 8 reps → 32.5×5, 50×3', () => {
 			const sets = generateWarmupSets(65, 8)
 			expect(sets).toEqual([
-				{ weightKg: 20, reps: 8, setType: 'warmup' },
 				{ weightKg: 32.5, reps: 5, setType: 'warmup' },
 				{ weightKg: 50, reps: 3, setType: 'warmup' }
 			])
 		})
 
-		it('100kg × 15 reps (high rep) → bar×10 (capped), 50%×9, 75%×6', () => {
+		it('100kg × 15 reps (high rep) → 50%×9, 75%×6', () => {
 			const sets = generateWarmupSets(100, 15)
 			expect(sets).toEqual([
-				{ weightKg: 20, reps: 10, setType: 'warmup' },
 				{ weightKg: 50, reps: 9, setType: 'warmup' },
 				{ weightKg: 75, reps: 6, setType: 'warmup' }
 			])
