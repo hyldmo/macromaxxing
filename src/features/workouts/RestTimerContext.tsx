@@ -102,12 +102,14 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 				completedRef.current = true
 				if (navigator.vibrate) navigator.vibrate(200)
 				if ('Notification' in window && Notification.permission === 'granted') {
+					const timerUrl = sessionId ? `/workouts/sessions/${sessionId}/timer` : '/'
 					if ('serviceWorker' in navigator) {
 						navigator.serviceWorker.ready.then(reg => {
 							reg.showNotification('Rest timer done', {
 								body: 'Time for your next set',
 								tag: 'rest-timer',
-								icon: '/pwa-192x192.png'
+								icon: '/pwa-192x192.png',
+								data: { url: timerUrl }
 							})
 						})
 					} else {
@@ -138,7 +140,7 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 			clearInterval(intervalId)
 			if (timeoutId) clearTimeout(timeoutId)
 		}
-	}, [endAt])
+	}, [endAt, sessionId])
 
 	return (
 		<RestTimerContext.Provider
