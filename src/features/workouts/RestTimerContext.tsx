@@ -140,7 +140,7 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 			clearInterval(intervalId)
 			if (timeoutId) clearTimeout(timeoutId)
 		}
-	}, [endAt])
+	}, [endAt, sessionId])
 
 	return (
 		<RestTimerContext.Provider
