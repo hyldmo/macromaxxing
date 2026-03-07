@@ -7,7 +7,7 @@ export const SET_MODE_OPTIONS: ButtonGroupOption<SetMode>[] = [
 	{ value: 'working', label: 'W', expandedLabel: startCase('working') },
 	{ value: 'warmup', label: 'WU', expandedLabel: startCase('warmup') },
 	{ value: 'backoff', label: 'BO', expandedLabel: startCase('backoff') },
-	{ value: 'full', label: 'Full', expandedLabel: startCase('full') }
+	{ value: 'full', label: 'F', expandedLabel: startCase('full') }
 ]
 
 export interface WorkoutModesProps {
