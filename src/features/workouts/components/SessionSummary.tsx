@@ -1,7 +1,8 @@
-import { ArrowRight, Clock, Dumbbell, TrendingUp } from 'lucide-react'
+import { ArrowRight, Clock, Dumbbell } from 'lucide-react'
 import type { FC } from 'react'
 import { cn, computeDivergences, type Divergence, exerciseE1rmStats, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { E1rmTable } from './E1rmTable'
 
 type Session = RouterOutput['workout']['getSession']
 
@@ -72,23 +73,7 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 			{/* Estimated 1RM */}
 			{e1rmStats.length > 0 && (
 				<div className="rounded-sm border border-edge bg-surface-1 p-3">
-					<div className="mb-2 flex items-center justify-end gap-1.5 text-accent">
-						<TrendingUp className="size-3.5 text-ink-faint" />
-						<span className="text-xs">Estimated 1RM</span>
-					</div>
-					<div className="space-y-1.5">
-						{e1rmStats.map(s => (
-							<div key={s.name} className="flex items-baseline justify-between gap-2">
-								<span className="min-w-0 truncate text-ink text-sm">{s.name}</span>
-								<div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px] tabular-nums">
-									<span className="text-ink-faint">
-										{s.weightKg}kg × {s.reps}
-									</span>
-									<span className="font-semibold text-accent">{s.e1rm.toFixed(0)}kg</span>
-								</div>
-							</div>
-						))}
-					</div>
+					<E1rmTable stats={e1rmStats} />
 				</div>
 			)}
 

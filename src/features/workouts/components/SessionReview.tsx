@@ -6,6 +6,7 @@ import { cn, computeDivergences, exerciseE1rmStats } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useRestTimer } from '../RestTimerContext'
+import { E1rmTable } from './E1rmTable'
 
 type Session = RouterOutput['workout']['getSession']
 type Template = NonNullable<Session['workout']>
@@ -109,20 +110,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 			{exerciseStats.length > 0 && (
 				<div className="mb-4 rounded-sm border border-edge bg-surface-0 p-3">
-					<p className="mb-2 text-ink-muted text-xs">Estimated 1RM</p>
-					<div className="space-y-1.5">
-						{exerciseStats.map(s => (
-							<div key={s.name} className="flex items-baseline justify-between gap-2">
-								<span className="min-w-0 truncate text-ink text-sm">{s.name}</span>
-								<div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px] tabular-nums">
-									<span className="text-ink-faint">
-										{s.reps} @{s.weightKg}kg
-									</span>
-									<span className="font-semibold text-accent">{s.e1rm.toFixed(0)}kg</span>
-								</div>
-							</div>
-						))}
-					</div>
+					<E1rmTable stats={exerciseStats} />
 				</div>
 			)}
 
