@@ -15,7 +15,7 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
-import { DAYS_LONG, totalVolume, useDocumentTitle } from '~/lib'
+import { cn, DAYS_LONG, totalVolume, useDocumentTitle } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 
@@ -148,16 +148,10 @@ const DashboardContent: FC = () => {
 				{/* Right column: Workouts */}
 				<div className="space-y-3">
 					{activeSession && <ActiveSessionBanner session={activeSession} />}
-					{!activeSession && nextWorkout && (
-						<UpNextSection
-							workout={nextWorkout}
-							onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
-							isPending={createSessionMutation.isPending}
-						/>
-					)}
 					<WorkoutTemplatesSection
 						templates={templates}
 						sessions={sessions}
+						nextWorkoutId={!activeSession ? (nextWorkout?.id ?? null) : null}
 						onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
 						isPending={createSessionMutation.isPending}
 					/>
@@ -268,53 +262,12 @@ const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
 	)
 }
 
-// ─── Up Next ─────────────────────────────────────────────────────────
-
-interface UpNextSectionProps {
-	workout: RouterOutput['dashboard']['summary']['templates'][number]
-	onStartSession: (workoutId: RouterOutput['dashboard']['summary']['templates'][number]['id']) => void
-	isPending: boolean
-}
-
-const UpNextSection: FC<UpNextSectionProps> = ({ workout, onStartSession, isPending }) => (
-	<Card className="border-accent">
-		<CardHeader>
-			<div className="flex items-center gap-2">
-				<SkipForward className="size-4 text-accent" />
-				<h2 className="font-medium text-accent text-sm">Up Next</h2>
-			</div>
-		</CardHeader>
-		<CardContent>
-			<div className="flex items-center gap-3">
-				<div className="min-w-0 flex-1">
-					<Link to={`/workouts/${workout.id}`} className="font-medium text-ink text-sm hover:underline">
-						{workout.name}
-					</Link>
-					<div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0 font-mono text-xs tabular-nums">
-						{workout.exercises.slice(0, 6).map(we => (
-							<span key={we.id} className="text-ink-muted">
-								{we.exercise.name}
-							</span>
-						))}
-						{workout.exercises.length > 6 && (
-							<span className="text-ink-faint">+{workout.exercises.length - 6} more</span>
-						)}
-					</div>
-				</div>
-				<Button size="sm" onClick={() => onStartSession(workout.id)} disabled={isPending}>
-					<Play className="size-3.5" />
-					Start
-				</Button>
-			</div>
-		</CardContent>
-	</Card>
-)
-
 // ─── Workout Templates ───────────────────────────────────────────────
 
 interface WorkoutTemplatesSectionProps {
 	templates: RouterOutput['dashboard']['summary']['templates']
 	sessions: RouterOutput['dashboard']['summary']['sessions']
+	nextWorkoutId: RouterOutput['dashboard']['summary']['templates'][number]['id'] | null
 	onStartSession: (workoutId: RouterOutput['dashboard']['summary']['templates'][number]['id']) => void
 	isPending: boolean
 }
@@ -322,6 +275,7 @@ interface WorkoutTemplatesSectionProps {
 const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	templates,
 	sessions,
+	nextWorkoutId,
 	onStartSession,
 	isPending
 }) => {
@@ -338,6 +292,14 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 		}
 		return map
 	}, [sessions])
+
+	// Rotate templates so the "up next" workout is first
+	const orderedTemplates = useMemo(() => {
+		if (!nextWorkoutId || templates.length === 0) return templates
+		const idx = templates.findIndex(t => t.id === nextWorkoutId)
+		if (idx <= 0) return templates
+		return [...templates.slice(idx), ...templates.slice(0, idx)]
+	}, [templates, nextWorkoutId])
 
 	return (
 		<Card>
@@ -359,20 +321,28 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 						</Link>
 					</div>
 				) : (
-					templates.map(template => {
+					orderedTemplates.map(template => {
+						const isUpNext = template.id === nextWorkoutId
 						const lastDone = lastSessionByTemplate.get(template.id)
 						return (
 							<div
 								key={template.id}
-								className="flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2"
+								className={cn(
+									'flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2',
+									isUpNext && 'border border-accent bg-accent/5'
+								)}
 							>
+								{isUpNext && <SkipForward className="size-3.5 shrink-0 text-accent" />}
 								<div className="min-w-0 flex-1">
-									<Link
-										to={`/workouts/${template.id}`}
-										className="font-medium text-ink text-sm hover:underline"
-									>
-										{template.name}
-									</Link>
+									<div className="flex items-center gap-2">
+										<Link
+											to={`/workouts/${template.id}`}
+											className="font-medium text-ink text-sm hover:underline"
+										>
+											{template.name}
+										</Link>
+										{isUpNext && <span className="text-accent text-xs">Up next</span>}
+									</div>
 									<div className="font-mono text-ink-faint text-xs tabular-nums">
 										{template.exercises.length} exercises
 										{lastDone && ` · ${formatRelativeDate(lastDone)}`}
