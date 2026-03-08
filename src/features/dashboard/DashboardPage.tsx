@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import type { AbsoluteMacros } from '@macromaxxing/db'
-import { CalendarDays, ChevronRight, Dumbbell, Play, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChevronRight, Dumbbell, Play, SkipForward, UtensilsCrossed } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Button, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
@@ -15,7 +15,7 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
-import { DAYS_LONG, totalVolume, useDocumentTitle } from '~/lib'
+import { cn, DAYS_LONG, totalVolume, useDocumentTitle } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 
@@ -106,6 +106,18 @@ const DashboardContent: FC = () => {
 
 	const dayTotals = useMemo(() => calculateDayTotals(todayMeals.map(m => m.macros)), [todayMeals])
 
+	const nextWorkout = useMemo(() => {
+		const data = summaryQuery.data
+		if (!data || data.templates.length === 0) return null
+		const { templates, sessions } = data
+		// Find the most recently completed session that references a template
+		const lastCompleted = sessions.find(s => s.completedAt && s.workoutId)
+		if (!lastCompleted) return templates[0]
+		const lastIdx = templates.findIndex(t => t.id === lastCompleted.workoutId)
+		if (lastIdx === -1) return templates[0]
+		return templates[(lastIdx + 1) % templates.length]
+	}, [summaryQuery.data])
+
 	if (summaryQuery.isLoading) {
 		return (
 			<div className="flex justify-center py-12">
@@ -139,6 +151,7 @@ const DashboardContent: FC = () => {
 					<WorkoutTemplatesSection
 						templates={templates}
 						sessions={sessions}
+						nextWorkoutId={!activeSession ? (nextWorkout?.id ?? null) : null}
 						onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
 						isPending={createSessionMutation.isPending}
 					/>
@@ -254,6 +267,7 @@ const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
 interface WorkoutTemplatesSectionProps {
 	templates: RouterOutput['dashboard']['summary']['templates']
 	sessions: RouterOutput['dashboard']['summary']['sessions']
+	nextWorkoutId: RouterOutput['dashboard']['summary']['templates'][number]['id'] | null
 	onStartSession: (workoutId: RouterOutput['dashboard']['summary']['templates'][number]['id']) => void
 	isPending: boolean
 }
@@ -261,6 +275,7 @@ interface WorkoutTemplatesSectionProps {
 const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	templates,
 	sessions,
+	nextWorkoutId,
 	onStartSession,
 	isPending
 }) => {
@@ -277,6 +292,14 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 		}
 		return map
 	}, [sessions])
+
+	// Rotate templates so the "up next" workout is first
+	const orderedTemplates = useMemo(() => {
+		if (!nextWorkoutId || templates.length === 0) return templates
+		const idx = templates.findIndex(t => t.id === nextWorkoutId)
+		if (idx <= 0) return templates
+		return [...templates.slice(idx), ...templates.slice(0, idx)]
+	}, [templates, nextWorkoutId])
 
 	return (
 		<Card>
@@ -298,20 +321,28 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 						</Link>
 					</div>
 				) : (
-					templates.map(template => {
+					orderedTemplates.map(template => {
+						const isUpNext = template.id === nextWorkoutId
 						const lastDone = lastSessionByTemplate.get(template.id)
 						return (
 							<div
 								key={template.id}
-								className="flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2"
+								className={cn(
+									'flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2',
+									isUpNext && 'border border-accent bg-accent/5'
+								)}
 							>
+								{isUpNext && <SkipForward className="size-3.5 shrink-0 text-accent" />}
 								<div className="min-w-0 flex-1">
-									<Link
-										to={`/workouts/${template.id}`}
-										className="font-medium text-ink text-sm hover:underline"
-									>
-										{template.name}
-									</Link>
+									<div className="flex items-center gap-2">
+										<Link
+											to={`/workouts/${template.id}`}
+											className="font-medium text-ink text-sm hover:underline"
+										>
+											{template.name}
+										</Link>
+										{isUpNext && <span className="text-accent text-xs">Up next</span>}
+									</div>
 									<div className="font-mono text-ink-faint text-xs tabular-nums">
 										{template.exercises.length} exercises
 										{lastDone && ` · ${formatRelativeDate(lastDone)}`}
