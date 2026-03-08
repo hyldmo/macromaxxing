@@ -15,6 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Merge main into PR branch
+        run: |
+          git config user.name "CI"
+          git config user.email "ci@localhost"
+          git merge origin/main --no-edit
       - uses: ./.github/actions/setup
       - run: yarn biome ci
       - run: yarn typecheck
@@ -35,6 +42,13 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Merge main into PR branch
+        run: |
+          git config user.name "CI"
+          git config user.email "ci@localhost"
+          git merge origin/main --no-edit
       - uses: ./.github/actions/setup
       - uses: actions/download-artifact@v4
         with:
