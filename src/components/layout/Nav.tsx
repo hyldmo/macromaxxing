@@ -108,7 +108,7 @@ const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest
 		<Elem
 			{...rest}
 			className={cn(
-				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink current:font-medium current:text-accent',
+				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 current:font-medium current:text-accent text-ink-muted text-sm transition-colors hover:text-ink',
 				className
 			)}
 		>
@@ -127,7 +127,7 @@ const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest
 		<Elem
 			{...rest}
 			className={cn(
-				'mx-auto space-y-0.5 py-2 text-center 2xs:text-sm text-ink-muted text-xs transition-colors current:font-medium current:text-accent',
+				'mx-auto space-y-0.5 py-2 text-center current:font-medium 2xs:text-sm current:text-accent text-ink-muted text-xs transition-colors',
 				className
 			)}
 		>

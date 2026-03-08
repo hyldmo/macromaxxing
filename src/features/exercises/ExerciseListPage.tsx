@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle, useUser } from '~/lib'
+import { fuzzyMatch } from '~/lib/fuzzy'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { BodyMap } from '../workouts/components/BodyMap'
 import { ExerciseCard } from './components/ExerciseCard'
@@ -45,7 +46,14 @@ export function ExerciseListPage() {
 	}
 
 	const filtered = useMemo(() => {
-		const list = exercisesQuery.data?.filter(e => e.name.toLowerCase().includes(search.toLowerCase())) ?? []
+		const all = exercisesQuery.data ?? []
+		const list = search
+			? all.filter(e => {
+					const muscles = e.muscles.map(m => m.muscleGroup.replace('_', ' ')).join(' ')
+					const text = `${e.name} ${e.type} ${muscles} tier ${e.fatigueTier}`
+					return fuzzyMatch(search, text) !== null
+				})
+			: all
 		return list.toSorted((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
