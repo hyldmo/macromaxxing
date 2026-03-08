@@ -64,19 +64,6 @@ body {
 	overflow: hidden;
 }
 
-/* Scrollbar styling for dark theme */
-::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
-}
-::-webkit-scrollbar-track {
-	background: var(--color-surface-0);
-}
-::-webkit-scrollbar-thumb {
-	background: var(--color-edge);
-	border-radius: var(--radius-sm);
-}
-
 .mdxeditor-root {
 	border: 1px solid var(--color-edge);
 	border-radius: var(--radius-sm);
