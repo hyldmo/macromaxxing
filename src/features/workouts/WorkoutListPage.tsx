@@ -4,9 +4,10 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { Dumbbell, Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, LinkButton, Spinner, TRPCError } from '~/components/ui'
+import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
+import { formatTemplate } from '~/lib/workouts/export'
 import { ImportDialog } from './components/ImportDialog'
 import { MuscleHeatGrid } from './components/MuscleHeatGrid'
 import { SessionCard } from './components/SessionCard'
@@ -70,6 +71,15 @@ export function WorkoutListPage() {
 						<Dumbbell className="size-4" />
 						Exercises
 					</LinkButton>
+					{workoutsQuery.data && workoutsQuery.data.length > 0 && (
+						<CopyButton
+							variant="outline"
+							size="default"
+							getText={() => workoutsQuery.data!.map(w => formatTemplate(w)).join('\n\n---\n\n')}
+						>
+							Copy All
+						</CopyButton>
+					)}
 					<Button variant="outline" onClick={() => setShowImport(true)}>
 						<Upload className="size-4" />
 						Import
