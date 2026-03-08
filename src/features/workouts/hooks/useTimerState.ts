@@ -11,11 +11,14 @@ export interface TimerState {
 	editReps: number
 	setStartedAt: number | null
 	isPaused: boolean
+	/** Real log ID of the last confirmed set — enables updateSet edits during rest */
+	lastLogId: string | null
 }
 
 export type TimerAction =
 	| { type: 'INIT'; sets: FlatSet[] }
 	| { type: 'CONFIRM' }
+	| { type: 'SET_LOG_ID'; id: string }
 	| { type: 'UNDO' }
 	| { type: 'EDIT_WEIGHT'; weight: number | null }
 	| { type: 'EDIT_REPS'; reps: number }
@@ -51,22 +54,27 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				currentIndex: cursor,
 				...loadSet(action.sets, cursor),
 				setStartedAt: null,
-				isPaused: false
+				isPaused: false,
+				lastLogId: null
 			}
 		}
 		case 'CONFIRM': {
 			if (state.currentIndex < 0) return state
 			const confirmed = [...state.locallyConfirmed, state.currentIndex]
-			const next = findNextPending(state.queue, 0, confirmed)
+			let next = findNextPending(state.queue, state.currentIndex + 1, confirmed)
+			if (next < 0) next = findNextPending(state.queue, 0, confirmed)
 			return {
 				...state,
 				locallyConfirmed: confirmed,
 				currentIndex: next,
 				...loadSet(state.queue, next),
 				setStartedAt: null,
-				isPaused: false
+				isPaused: false,
+				lastLogId: null
 			}
 		}
+		case 'SET_LOG_ID':
+			return { ...state, lastLogId: action.id }
 		case 'UNDO': {
 			if (state.locallyConfirmed.length === 0) return state
 			const confirmed = state.locallyConfirmed.slice(0, -1)
@@ -77,7 +85,8 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				currentIndex: restored,
 				...loadSet(state.queue, restored),
 				setStartedAt: null,
-				isPaused: false
+				isPaused: false,
+				lastLogId: null
 			}
 		}
 		case 'EDIT_WEIGHT':
@@ -129,7 +138,8 @@ const INITIAL_STATE: TimerState = {
 	editWeight: null,
 	editReps: 0,
 	setStartedAt: null,
-	isPaused: false
+	isPaused: false,
+	lastLogId: null
 }
 
 export function useTimerState() {

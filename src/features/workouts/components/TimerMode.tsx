@@ -1,6 +1,6 @@
 import type { Exercise, SetType } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
-import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type FC, type MutableRefObject, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { cn, flattenSets, formatTimer, type RenderItem, useScrollLock } from '~/lib'
@@ -20,13 +20,17 @@ export interface TimerModeContext {
 	exerciseGroups: RenderItem[]
 	setActiveExerciseId: (id: string | null) => void
 	session: { startedAt: number; name: string | null }
-	onConfirmSet: (data: {
-		exerciseId: Exercise['id']
-		weightKg: number
-		reps: number
-		setType: SetType
-		transition?: boolean
-	}) => void
+	onConfirmSet: (
+		data: {
+			exerciseId: Exercise['id']
+			weightKg: number
+			reps: number
+			setType: SetType
+			transition?: boolean
+		},
+		onLogId?: (id: string) => void
+	) => void
+	onUpdateSet: (id: string, updates: { weightKg?: number; reps?: number }) => void
 	onUndoSet: () => void
 	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 	timerModeActiveRef: MutableRefObject<boolean>
@@ -38,6 +42,7 @@ export const TimerMode: FC = () => {
 		setActiveExerciseId,
 		session,
 		onConfirmSet,
+		onUpdateSet,
 		onUndoSet,
 		getRestDuration,
 		timerModeActiveRef
@@ -72,24 +77,16 @@ export const TimerMode: FC = () => {
 	const [preciseRemaining, setPreciseRemaining] = useState(0)
 	const [setElapsedMs, setSetElapsedMs] = useState(0)
 	const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null)
-	const rafRef = useRef(0)
-	const pendingConfirmRef = useRef<{
-		exerciseId: Exercise['id']
-		weightKg: number
-		reps: number
-		setType: SetType
-		transition?: boolean
-	} | null>(null)
 
 	// Initialize queue from exerciseGroups on mount
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
-	const didInit = useRef(false)
+	const didInit = useMemo(() => ({ current: false }), [])
 	useEffect(() => {
 		if (flatSets.length > 0 && !didInit.current) {
 			didInit.current = true
 			dispatch({ type: 'INIT', sets: flatSets })
 		}
-	}, [flatSets, dispatch])
+	}, [flatSets, dispatch, didInit])
 
 	const isResting = restTimer.isRunning
 	const currentSet = state.currentIndex >= 0 ? state.queue[state.currentIndex] : null
@@ -107,6 +104,7 @@ export const TimerMode: FC = () => {
 	const needsRaf = (state.setStartedAt !== null && !state.isPaused) || restTimer.endAt !== null
 	useEffect(() => {
 		if (!needsRaf) return
+		let raf = 0
 		const tick = () => {
 			if (restTimer.endAt !== null) {
 				setPreciseRemaining((restTimer.endAt - Date.now()) / 1000)
@@ -114,10 +112,10 @@ export const TimerMode: FC = () => {
 			if (state.setStartedAt !== null && !state.isPaused) {
 				setSetElapsedMs(Date.now() - state.setStartedAt)
 			}
-			rafRef.current = requestAnimationFrame(tick)
+			raf = requestAnimationFrame(tick)
 		}
-		rafRef.current = requestAnimationFrame(tick)
-		return () => cancelAnimationFrame(rafRef.current)
+		raf = requestAnimationFrame(tick)
+		return () => cancelAnimationFrame(raf)
 	}, [needsRaf, restTimer.endAt, state.setStartedAt, state.isPaused])
 
 	// Detect if current set is part of a superset (has transition or follows a transition)
@@ -141,35 +139,52 @@ export const TimerMode: FC = () => {
 		dispatch({ type: 'RESUME', elapsedMs: setElapsedMs })
 	}, [dispatch, setElapsedMs])
 
+	// Fire updateSet when user edits weight/reps during rest (set already logged)
+	const handleEditWeight = useCallback(
+		(weight: number | null) => {
+			dispatch({ type: 'EDIT_WEIGHT', weight })
+			if (state.lastLogId && weight != null) {
+				onUpdateSet(state.lastLogId, { weightKg: weight })
+			}
+		},
+		[dispatch, state.lastLogId, onUpdateSet]
+	)
+
+	const handleEditReps = useCallback(
+		(reps: number) => {
+			dispatch({ type: 'EDIT_REPS', reps })
+			if (state.lastLogId) {
+				onUpdateSet(state.lastLogId, { reps })
+			}
+		},
+		[dispatch, state.lastLogId, onUpdateSet]
+	)
+
 	const handleConfirm = useCallback(() => {
 		if (!currentSet || isResting) return
 		const { exerciseId, setType, transition } = currentSet
+		const confirmData = {
+			exerciseId,
+			weightKg: state.editWeight ?? 0,
+			reps: state.editReps,
+			setType,
+			transition
+		}
 
 		dispatch({ type: 'STOP_SET' })
 		setSetElapsedMs(0)
 		setActiveExerciseId(exerciseId)
 
+		// Always log the set immediately
+		dispatch({ type: 'CONFIRM' })
+		onConfirmSet(confirmData, id => dispatch({ type: 'SET_LOG_ID', id }))
+
 		if (transition) {
-			// Mid-superset: record timestamp, log set, advance and auto-start next exercise
+			// Mid-superset: record timestamp, auto-start next exercise
 			restTimer.recordTransition()
-			dispatch({ type: 'CONFIRM' })
 			dispatch({ type: 'START_SET' })
-			onConfirmSet({
-				exerciseId,
-				weightKg: state.editWeight ?? 0,
-				reps: state.editReps,
-				setType,
-				transition
-			})
 		} else {
-			// End of round or solo: defer CONFIRM until rest completes
-			pendingConfirmRef.current = {
-				exerciseId,
-				weightKg: state.editWeight ?? 0,
-				reps: state.editReps,
-				setType,
-				transition
-			}
+			// End of round or solo: start rest countdown
 			const dur = getRestDuration(exerciseId, state.editReps, setType)
 			restTimer.start(dur, setType)
 		}
@@ -185,34 +200,18 @@ export const TimerMode: FC = () => {
 		onConfirmSet
 	])
 
-	const advanceToNextSet = useCallback(() => {
-		const pending = pendingConfirmRef.current
-		if (!pending) return
-		pendingConfirmRef.current = null
-		dispatch({ type: 'CONFIRM' })
-		onConfirmSet(pending)
-	}, [dispatch, onConfirmSet])
-
-	const handleUndo = useCallback(() => {
-		if (pendingConfirmRef.current) {
-			// Undo during rest — nothing was logged yet, just cancel
-			pendingConfirmRef.current = null
-			restTimer.dismiss()
-			setSetElapsedMs(0)
-		} else {
-			dispatch({ type: 'UNDO' })
-			restTimer.dismiss()
-			setSetElapsedMs(0)
-			onUndoSet()
-		}
-	}, [dispatch, restTimer, onUndoSet])
-
 	const handleDismissTimer = useCallback(() => {
-		advanceToNextSet()
 		restTimer.dismiss()
 		setSetElapsedMs(0)
 		setRoundStartedAt(null)
-	}, [advanceToNextSet, restTimer])
+	}, [restTimer])
+
+	const handleUndo = useCallback(() => {
+		dispatch({ type: 'UNDO' })
+		restTimer.dismiss()
+		setSetElapsedMs(0)
+		onUndoSet()
+	}, [dispatch, restTimer, onUndoSet])
 
 	const handleStopSet = useCallback(() => {
 		dispatch({ type: 'STOP_SET' })
@@ -387,7 +386,7 @@ export const TimerMode: FC = () => {
 								)}
 							</TimerRing>
 
-							{/* Weight x Reps inputs — editable during rest (set hasn't been logged yet) */}
+							{/* Weight x Reps inputs — editable during rest to update the logged set */}
 							<div className="flex items-center gap-3">
 								<NumberInput
 									className="w-28 text-center text-2xl"
@@ -396,7 +395,7 @@ export const TimerMode: FC = () => {
 									unit="kg"
 									onChange={e => {
 										const v = Number.parseFloat(e.target.value)
-										dispatch({ type: 'EDIT_WEIGHT', weight: Number.isNaN(v) ? null : v })
+										handleEditWeight(Number.isNaN(v) ? null : v)
 									}}
 									step={2.5}
 									min={0}
@@ -407,7 +406,7 @@ export const TimerMode: FC = () => {
 									value={state.editReps}
 									onChange={e => {
 										const v = Number.parseInt(e.target.value, 10)
-										if (!Number.isNaN(v) && v >= 0) dispatch({ type: 'EDIT_REPS', reps: v })
+										if (!Number.isNaN(v) && v >= 0) handleEditReps(v)
 									}}
 									unit="r"
 									step={1}
@@ -427,7 +426,7 @@ export const TimerMode: FC = () => {
 										<Square className="size-4" />
 									</Button>
 								)}
-								{!(isDoingSet || isSetPaused) && (hasConfirmedSets || pendingConfirmRef.current) && (
+								{!(isDoingSet || isSetPaused) && hasConfirmedSets && (
 									<Button variant="outline" size="icon" onClick={handleUndo}>
 										<Undo2 className="size-4" />
 									</Button>

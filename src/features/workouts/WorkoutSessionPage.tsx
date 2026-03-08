@@ -55,6 +55,7 @@ export function WorkoutSessionPage() {
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
 	const { setSession, startedAt: timerActive, start: startTimer, recordTransition } = useRestTimer()
 	const transitionQueueRef = useRef<boolean[]>([])
+	const logIdCallbackRef = useRef<((id: SessionLog['id']) => void) | null>(null)
 	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
@@ -147,8 +148,11 @@ export function WorkoutSessionPage() {
 			}
 			return { previous }
 		},
-		onSuccess: (_data, variables) => {
+		onSuccess: (data, variables) => {
 			setActiveExerciseId(variables.exerciseId)
+			const onLogId = logIdCallbackRef.current
+			logIdCallbackRef.current = null
+			if (onLogId) onLogId(data.id)
 			const transition = transitionQueueRef.current.shift() ?? false
 			// Auto-start rest timer (skip when TimerMode handles it locally)
 			if (!(isCompleteSession || timerModeActiveRef.current)) {
@@ -654,13 +658,17 @@ export function WorkoutSessionPage() {
 					exerciseGroups,
 					session: { startedAt: session.startedAt, name: session.name ?? null },
 					setActiveExerciseId,
-					onConfirmSet: (data: {
-						exerciseId: import('@macromaxxing/db').Exercise['id']
-						weightKg: number
-						reps: number
-						setType: import('@macromaxxing/db').SetType
-						transition?: boolean
-					}) => {
+					onConfirmSet: (
+						data: {
+							exerciseId: import('@macromaxxing/db').Exercise['id']
+							weightKg: number
+							reps: number
+							setType: import('@macromaxxing/db').SetType
+							transition?: boolean
+						},
+						onLogId?: (id: string) => void
+					) => {
+						if (onLogId) logIdCallbackRef.current = onLogId
 						transitionQueueRef.current.push(data.transition ?? false)
 						addSetMutation.mutate({
 							sessionId: session.id,
@@ -669,6 +677,9 @@ export function WorkoutSessionPage() {
 							reps: data.reps,
 							setType: data.setType
 						})
+					},
+					onUpdateSet: (id: string, updates: { weightKg?: number; reps?: number }) => {
+						updateSetMutation.mutate({ id: id as SessionLog['id'], ...updates })
 					},
 					onUndoSet: () => {
 						const lastLog = session.logs.at(-1)
