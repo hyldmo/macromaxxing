@@ -1,14 +1,5 @@
-import type { Exercise, SetType } from '@macromaxxing/db'
 import { useReducer } from 'react'
 import type { FlatSet } from '~/lib'
-
-export interface PendingConfirm {
-	exerciseId: Exercise['id']
-	weightKg: number
-	reps: number
-	setType: SetType
-	transition?: boolean
-}
 
 export interface TimerState {
 	queue: FlatSet[]
@@ -20,15 +11,14 @@ export interface TimerState {
 	editReps: number
 	setStartedAt: number | null
 	isPaused: boolean
-	/** Set data captured at confirm time, waiting for rest to complete before logging */
-	pendingConfirm: PendingConfirm | null
+	/** Real log ID of the last confirmed set — enables updateSet edits during rest */
+	lastLogId: string | null
 }
 
 export type TimerAction =
 	| { type: 'INIT'; sets: FlatSet[] }
 	| { type: 'CONFIRM' }
-	| { type: 'DEFER_CONFIRM'; data: PendingConfirm }
-	| { type: 'CLEAR_PENDING' }
+	| { type: 'SET_LOG_ID'; id: string }
 	| { type: 'UNDO' }
 	| { type: 'EDIT_WEIGHT'; weight: number | null }
 	| { type: 'EDIT_REPS'; reps: number }
@@ -65,19 +55,12 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				...loadSet(action.sets, cursor),
 				setStartedAt: null,
 				isPaused: false,
-				pendingConfirm: null
+				lastLogId: null
 			}
-		}
-		case 'DEFER_CONFIRM': {
-			return { ...state, pendingConfirm: action.data }
-		}
-		case 'CLEAR_PENDING': {
-			return { ...state, pendingConfirm: null }
 		}
 		case 'CONFIRM': {
 			if (state.currentIndex < 0) return state
 			const confirmed = [...state.locallyConfirmed, state.currentIndex]
-			// Search forward from the current position first, then wrap around
 			let next = findNextPending(state.queue, state.currentIndex + 1, confirmed)
 			if (next < 0) next = findNextPending(state.queue, 0, confirmed)
 			return {
@@ -87,9 +70,11 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				...loadSet(state.queue, next),
 				setStartedAt: null,
 				isPaused: false,
-				pendingConfirm: null
+				lastLogId: null
 			}
 		}
+		case 'SET_LOG_ID':
+			return { ...state, lastLogId: action.id }
 		case 'UNDO': {
 			if (state.locallyConfirmed.length === 0) return state
 			const confirmed = state.locallyConfirmed.slice(0, -1)
@@ -101,7 +86,7 @@ function timerReducer(state: TimerState, action: TimerAction): TimerState {
 				...loadSet(state.queue, restored),
 				setStartedAt: null,
 				isPaused: false,
-				pendingConfirm: null
+				lastLogId: null
 			}
 		}
 		case 'EDIT_WEIGHT':
@@ -154,7 +139,7 @@ const INITIAL_STATE: TimerState = {
 	editReps: 0,
 	setStartedAt: null,
 	isPaused: false,
-	pendingConfirm: null
+	lastLogId: null
 }
 
 export function useTimerState() {
