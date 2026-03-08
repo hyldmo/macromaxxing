@@ -4,8 +4,8 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { GripVertical, Pencil, Play } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card } from '~/components/ui'
-import { cn, generatePlannedSets, resolveExerciseTargets, totalVolume } from '~/lib'
+import { Button, Card, CopyButton } from '~/components/ui'
+import { cn, formatTemplate, generatePlannedSets, resolveExerciseTargets, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 
 type Workout = RouterOutput['workout']['listWorkouts'][number]
@@ -83,6 +83,7 @@ export const WorkoutCard: FC<WorkoutCardProps> = ({ label, workout, onStartSessi
 				</div>
 			</div>
 
+			<CopyButton getText={() => formatTemplate(workout)} className="size-7 text-ink-faint hover:text-ink" />
 			<Button
 				variant="ghost"
 				size="icon"
