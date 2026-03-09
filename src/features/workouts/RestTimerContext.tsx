@@ -58,7 +58,7 @@ export const RestTimerProvider: FC<PropsWithChildren> = ({ children }) => {
 		// Subtract elapsed superset transition time
 		let adjusted = durationSec
 		if (transitionStartedAtRef.current !== null) {
-			const elapsed = Math.round((Date.now() - transitionStartedAtRef.current) / 1000)
+			const elapsed = Math.floor((Date.now() - transitionStartedAtRef.current) / 1000)
 			adjusted = Math.max(0, durationSec - elapsed)
 			transitionStartedAtRef.current = null
 		}
