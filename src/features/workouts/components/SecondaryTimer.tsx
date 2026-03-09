@@ -13,7 +13,7 @@ export const SecondaryTimer: FC<SecondaryTimerProps> = ({ startedAt, label, clas
 	if (!startedAt) return null
 	return (
 		<span className={cn('font-mono text-ink-faint text-xs tabular-nums', className)}>
-			{formatTimer(elapsedMs / 1000, { subseconds: true })}
+			{formatTimer(elapsedMs / 1000)}
 			{label ? ` ${label}` : ''}
 		</span>
 	)

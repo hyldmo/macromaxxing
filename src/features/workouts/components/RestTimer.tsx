@@ -23,7 +23,7 @@ export const RestTimer: FC = () => {
 	// Active timer (counting down or overshot)
 	if (isRunning && setType) {
 		const overshot = remaining <= 0
-		const display = formatTimer(remaining)
+		const display = formatTimer(remaining, { subseconds: false })
 
 		return (
 			<div
@@ -62,7 +62,7 @@ export const RestTimer: FC = () => {
 				onClick={goToTimer}
 			>
 				<Dumbbell className="size-3.5" />
-				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000, { subseconds: true })}</span>
+				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000)}</span>
 			</button>
 		)
 	}

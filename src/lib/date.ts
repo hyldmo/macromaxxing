@@ -31,7 +31,7 @@ function getWeekStart(ts: number): number {
 	return d.getTime()
 }
 
-/** Format seconds as a clock display: M:SS or H:MM:SS, optionally with .CC centiseconds */
+/** Format seconds as a clock display: M:SS.CC or H:MM:SS.CC, with centiseconds by default */
 export function formatTimer(seconds: number, opts?: { subseconds?: boolean }): string {
 	const sign = seconds < 0 ? '-' : ''
 	const abs = Math.abs(seconds)
@@ -40,11 +40,9 @@ export function formatTimer(seconds: number, opts?: { subseconds?: boolean }): s
 	const s = Math.floor(abs % 60)
 	const hm = h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `${m}`
 	const base = `${sign}${hm}:${s.toString().padStart(2, '0')}`
-	if (opts?.subseconds) {
-		const cs = Math.floor((abs * 100) % 100)
-		return `${base}.${cs.toString().padStart(2, '0')}`
-	}
-	return base
+	if (opts?.subseconds === false) return base
+	const cs = Math.floor((abs * 100) % 100)
+	return `${base}.${cs.toString().padStart(2, '0')}`
 }
 
 export function formatAgo(ts: number): string {

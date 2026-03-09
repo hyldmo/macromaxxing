@@ -281,7 +281,7 @@ export const TimerMode: FC = () => {
 							</div>
 							<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
 							<div className="font-mono text-ink-muted text-sm tabular-nums">
-								{formatTimer((Date.now() - session.startedAt) / 1000, { subseconds: true })} elapsed
+								{formatTimer((Date.now() - session.startedAt) / 1000)} elapsed
 							</div>
 							<Button onClick={onClose} className="w-full">
 								Close
@@ -363,10 +363,10 @@ export const TimerMode: FC = () => {
 												preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
 											)}
 										>
-											{formatTimer(preciseRemaining, { subseconds: true })}
+											{formatTimer(preciseRemaining)}
 										</span>
 										<span className="font-mono text-ink-faint text-xs tabular-nums">
-											{formatTimer(restTimer.total - preciseRemaining, { subseconds: true })}{' '}
+											{formatTimer(restTimer.total - preciseRemaining)}{' '}
 											rested
 										</span>
 									</>
@@ -379,7 +379,7 @@ export const TimerMode: FC = () => {
 												isSetPaused ? 'text-ink-muted' : 'text-ink'
 											)}
 										>
-											{formatTimer(setElapsedMs / 1000, { subseconds: true })}
+											{formatTimer(setElapsedMs / 1000)}
 										</span>
 										{isInSuperset && <SecondaryTimer startedAt={roundStartedAt} label="round" />}
 									</>
