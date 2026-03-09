@@ -1,5 +1,13 @@
+import type { Exercise } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
-import { calculateRest, generateBackoffSets, generateWarmupSets, shouldSkipWarmup } from './sets'
+import {
+	calculateRest,
+	flattenSets,
+	generateBackoffSets,
+	generateWarmupSets,
+	type RenderItem,
+	shouldSkipWarmup
+} from './sets'
 
 describe('calculateRest', () => {
 	// Formula: TIER_BASE[tier] × GOAL_MULT[goal] + reps × 3
@@ -370,5 +378,133 @@ describe('shouldSkipWarmup', () => {
 		const warmed = new Map([['biceps', 1.0]])
 		// covered = min(0.3, 1.0) = 0.3, total = 0.3, ratio = 1.0 → skip
 		expect(shouldSkipWarmup(current, warmed)).toBe(true)
+	})
+})
+
+describe('flattenSets', () => {
+	const mockExercise = (id: string, name: string) =>
+		({ id: id as Exercise['id'], name, type: 'compound', fatigueTier: 2, muscles: [] }) as never
+
+	describe('superset set numbering', () => {
+		it('uses per-exercise setNumber and totalSets, not global counters', () => {
+			const exerciseA = mockExercise('exc_a', 'Bench Press')
+			const exerciseB = mockExercise('exc_b', 'Barbell Row')
+
+			const items: RenderItem[] = [
+				{
+					type: 'superset',
+					group: 1,
+					exercises: [
+						{
+							exerciseId: 'exc_a' as Exercise['id'],
+							exercise: exerciseA,
+							logs: [],
+							planned: [
+								{ setNumber: 1, weightKg: 80, reps: 8, setType: 'working' },
+								{ setNumber: 2, weightKg: 80, reps: 8, setType: 'working' },
+								{ setNumber: 3, weightKg: 80, reps: 8, setType: 'working' }
+							]
+						},
+						{
+							exerciseId: 'exc_b' as Exercise['id'],
+							exercise: exerciseB,
+							logs: [],
+							planned: [
+								{ setNumber: 1, weightKg: 60, reps: 10, setType: 'working' },
+								{ setNumber: 2, weightKg: 60, reps: 10, setType: 'working' },
+								{ setNumber: 3, weightKg: 60, reps: 10, setType: 'working' }
+							]
+						}
+					]
+				}
+			]
+
+			const flat = flattenSets(items)
+
+			// 3 rounds × 2 exercises = 6 flat sets
+			expect(flat).toHaveLength(6)
+
+			// Each exercise should have setNumber 1, 2, 3 and totalSets 3
+			const setsA = flat.filter(s => s.exerciseId === 'exc_a')
+			const setsB = flat.filter(s => s.exerciseId === 'exc_b')
+
+			expect(setsA.map(s => s.setNumber)).toEqual([1, 2, 3])
+			expect(setsA.map(s => s.totalSets)).toEqual([3, 3, 3])
+
+			expect(setsB.map(s => s.setNumber)).toEqual([1, 2, 3])
+			expect(setsB.map(s => s.totalSets)).toEqual([3, 3, 3])
+		})
+
+		it('numbers per-exercise across warmup + working phases', () => {
+			const exerciseA = mockExercise('exc_a', 'Bench Press')
+			const exerciseB = mockExercise('exc_b', 'Barbell Row')
+
+			const items: RenderItem[] = [
+				{
+					type: 'superset',
+					group: 1,
+					exercises: [
+						{
+							exerciseId: 'exc_a' as Exercise['id'],
+							exercise: exerciseA,
+							logs: [],
+							planned: [
+								{ setNumber: 1, weightKg: 40, reps: 5, setType: 'warmup' },
+								{ setNumber: 2, weightKg: 80, reps: 8, setType: 'working' },
+								{ setNumber: 3, weightKg: 80, reps: 8, setType: 'working' }
+							]
+						},
+						{
+							exerciseId: 'exc_b' as Exercise['id'],
+							exercise: exerciseB,
+							logs: [],
+							planned: [
+								{ setNumber: 1, weightKg: 60, reps: 10, setType: 'working' },
+								{ setNumber: 2, weightKg: 60, reps: 10, setType: 'working' }
+							]
+						}
+					]
+				}
+			]
+
+			const flat = flattenSets(items)
+
+			const setsA = flat.filter(s => s.exerciseId === 'exc_a')
+			const setsB = flat.filter(s => s.exerciseId === 'exc_b')
+
+			// Exercise A: 1 warmup + 2 working = 3 total
+			expect(setsA.map(s => s.setNumber)).toEqual([1, 2, 3])
+			expect(setsA.map(s => s.totalSets)).toEqual([3, 3, 3])
+
+			// Exercise B: 2 working = 2 total
+			expect(setsB.map(s => s.setNumber)).toEqual([1, 2])
+			expect(setsB.map(s => s.totalSets)).toEqual([2, 2])
+		})
+	})
+
+	describe('standalone set numbering', () => {
+		it('uses per-exercise setNumber and totalSets', () => {
+			const exercise = mockExercise('exc_a', 'Squat')
+
+			const items: RenderItem[] = [
+				{
+					type: 'standalone',
+					exerciseId: 'exc_a' as Exercise['id'],
+					exercise: exercise,
+					logs: [],
+					planned: [
+						{ setNumber: 1, weightKg: 100, reps: 5, setType: 'working' },
+						{ setNumber: 2, weightKg: 100, reps: 5, setType: 'working' },
+						{ setNumber: 3, weightKg: 100, reps: 5, setType: 'working' }
+					]
+				}
+			]
+
+			const flat = flattenSets(items)
+
+			expect(flat.map(s => s.setNumber)).toEqual([1, 2, 3])
+			expect(flat.map(s => s.totalSets)).toEqual([3, 3, 3])
+			expect(flat.every(s => s.superset === null)).toBe(true)
+		})
 	})
 })
