@@ -62,7 +62,7 @@ export const RestTimer: FC = () => {
 				onClick={goToTimer}
 			>
 				<Dumbbell className="size-3.5" />
-				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000)}</span>
+				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000, { subseconds: true })}</span>
 			</button>
 		)
 	}
