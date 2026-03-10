@@ -43,7 +43,6 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	active,
 	onAddSet,
 	onUpdateSet,
-	onRemoveSet,
 	onReplace,
 	onTrainingGoalChange
 }) => {

@@ -39,7 +39,6 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	onTrainingGoalChange,
 	onAddSet,
 	onUpdateSet,
-	onRemoveSet,
 	onReplace,
 	readOnly,
 	active

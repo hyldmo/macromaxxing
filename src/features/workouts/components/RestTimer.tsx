@@ -23,7 +23,7 @@ export const RestTimer: FC = () => {
 	// Active timer (counting down or overshot)
 	if (isRunning && setType) {
 		const overshot = remaining <= 0
-		const display = formatTimer(remaining, { subseconds: false })
+		const display = formatTimer(remaining)
 
 		return (
 			<div

@@ -366,8 +366,7 @@ export const TimerMode: FC = () => {
 											{formatTimer(preciseRemaining)}
 										</span>
 										<span className="font-mono text-ink-faint text-xs tabular-nums">
-											{formatTimer(restTimer.total - preciseRemaining)}{' '}
-											rested
+											{formatTimer(restTimer.total - preciseRemaining)} rested
 										</span>
 									</>
 								) : (
