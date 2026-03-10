@@ -269,7 +269,7 @@ export const TimerMode: FC = () => {
 	const hasConfirmedSets = state.locallyConfirmed.length > 0
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
+		<div className="fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
 			<div className="mx-auto flex h-full w-full max-w-sm flex-col">
 				{/* Main content */}
 				<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
