@@ -5,18 +5,22 @@ import { cn } from '~/lib'
 export interface BatchMultiplierPillsProps {
 	value: number
 	onChange: (value: number) => void
+	/** When set, pills show portion counts instead of batch multipliers */
+	portionMode?: boolean
 }
 
-const PRESETS = [1, 2, 3, 4]
+const BATCH_PRESETS = [1, 2, 3, 4]
+const PORTION_PRESETS = [1, 2, 4, 8, 12]
 
-export const BatchMultiplierPills: FC<BatchMultiplierPillsProps> = ({ value, onChange }) => {
+export const BatchMultiplierPills: FC<BatchMultiplierPillsProps> = ({ value, onChange, portionMode }) => {
 	const [showCustom, setShowCustom] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
-	const isPreset = PRESETS.includes(value)
+	const presets = portionMode ? PORTION_PRESETS : BATCH_PRESETS
+	const isPreset = presets.includes(value)
 
 	return (
 		<div className="flex items-center gap-2">
-			{PRESETS.map(n => (
+			{presets.map(n => (
 				<button
 					key={n}
 					type="button"
@@ -31,7 +35,7 @@ export const BatchMultiplierPills: FC<BatchMultiplierPillsProps> = ({ value, onC
 							: 'border border-edge bg-surface-1 text-ink-muted hover:bg-surface-2'
 					)}
 				>
-					{n}&times;
+					{portionMode ? n : <>{n}&times;</>}
 				</button>
 			))}
 			{showCustom ? (
@@ -56,7 +60,7 @@ export const BatchMultiplierPills: FC<BatchMultiplierPillsProps> = ({ value, onC
 					onClick={() => setShowCustom(true)}
 					className="flex size-10 items-center justify-center rounded-full bg-accent font-mono font-semibold text-sm text-surface-0"
 				>
-					{value}&times;
+					{portionMode ? value : <>{value}&times;</>}
 				</button>
 			) : (
 				<button
