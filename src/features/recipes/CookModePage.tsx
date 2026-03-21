@@ -16,6 +16,7 @@ export function CookModePage() {
 	const { id } = useParams<{ id: Recipe['id'] }>()
 	const recipeQuery = trpc.recipe.get.useQuery({ id: id! }, { enabled: !!id })
 	const [batchSize, setBatchSize] = useState(1)
+	const [targetPortions, setTargetPortions] = useState(1)
 
 	const recipe = recipeQuery.data
 	const calculations = useRecipeCalculations(recipe)
@@ -38,7 +39,10 @@ export function CookModePage() {
 
 	const cookedWeight = getEffectiveCookedWeight(calculations.totals.weight, recipe.cookedWeight)
 	const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
-	const totalPortions = Math.round((cookedWeight / portionSize) * batchSize * 10) / 10
+	const hasPortions = recipe.portionSize != null
+	const basePortions = cookedWeight / portionSize
+	const effectiveBatchSize = hasPortions ? targetPortions / basePortions : batchSize
+	const totalPortions = Math.round(basePortions * effectiveBatchSize * 10) / 10
 
 	return (
 		<div className="mx-auto max-w-2xl space-y-6">
@@ -70,7 +74,11 @@ export function CookModePage() {
 
 			{/* Batch multiplier + portion count */}
 			<div className="space-y-2">
-				<BatchMultiplierPills value={batchSize} onChange={setBatchSize} />
+				{hasPortions ? (
+					<BatchMultiplierPills value={targetPortions} onChange={setTargetPortions} portionMode />
+				) : (
+					<BatchMultiplierPills value={batchSize} onChange={setBatchSize} />
+				)}
 				<p className="text-ink-muted text-sm">
 					Makes{' '}
 					<span className="font-mono font-semibold text-ink tabular-nums">
@@ -82,7 +90,7 @@ export function CookModePage() {
 
 			{/* Ingredients checklist */}
 			{recipe.recipeIngredients.length > 0 && (
-				<CookIngredientList ingredients={recipe.recipeIngredients} batchSize={batchSize} />
+				<CookIngredientList ingredients={recipe.recipeIngredients} batchSize={effectiveBatchSize} />
 			)}
 
 			{/* Method steps */}
