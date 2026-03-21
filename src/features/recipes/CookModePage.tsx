@@ -16,7 +16,7 @@ export function CookModePage() {
 	const { id } = useParams<{ id: Recipe['id'] }>()
 	const recipeQuery = trpc.recipe.get.useQuery({ id: id! }, { enabled: !!id })
 	const [batchSize, setBatchSize] = useState(1)
-	const [targetPortions, setTargetPortions] = useState(1)
+	const [targetPortions, setTargetPortions] = useState<number | null>(null)
 
 	const recipe = recipeQuery.data
 	const calculations = useRecipeCalculations(recipe)
@@ -41,7 +41,8 @@ export function CookModePage() {
 	const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
 	const hasPortions = recipe.portionSize != null
 	const basePortions = cookedWeight / portionSize
-	const effectiveBatchSize = hasPortions ? targetPortions / basePortions : batchSize
+	const activePortions = targetPortions ?? Math.round(basePortions)
+	const effectiveBatchSize = hasPortions ? activePortions / basePortions : batchSize
 	const totalPortions = Math.round(basePortions * effectiveBatchSize * 10) / 10
 
 	return (
@@ -75,7 +76,7 @@ export function CookModePage() {
 			{/* Batch multiplier + portion count */}
 			<div className="space-y-2">
 				{hasPortions ? (
-					<BatchMultiplierPills value={targetPortions} onChange={setTargetPortions} portionMode />
+					<BatchMultiplierPills value={activePortions} onChange={setTargetPortions} portionMode />
 				) : (
 					<BatchMultiplierPills value={batchSize} onChange={setBatchSize} />
 				)}
