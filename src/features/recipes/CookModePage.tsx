@@ -1,6 +1,6 @@
 import type { Recipe } from '@macromaxxing/db'
 import { ArrowLeft } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Button, Spinner, TRPCError } from '~/components/ui'
 import { getImageAttribution, getImageUrl, isExternalImage, useDocumentTitle } from '~/lib'
@@ -16,24 +16,12 @@ export function CookModePage() {
 	const { id } = useParams<{ id: Recipe['id'] }>()
 	const recipeQuery = trpc.recipe.get.useQuery({ id: id! }, { enabled: !!id })
 	const [batchSize, setBatchSize] = useState(1)
-	const [targetPortions, setTargetPortions] = useState(1)
-	const hasInitialized = useRef(false)
+	const [targetPortions, setTargetPortions] = useState<number | null>(null)
 
 	const recipe = recipeQuery.data
 	const calculations = useRecipeCalculations(recipe)
 
 	useDocumentTitle(recipe ? `Cook: ${recipe.name}` : 'Cook Mode')
-
-	// Default targetPortions to recipe's natural portion count once data loads
-	useEffect(() => {
-		if (hasInitialized.current || !recipe || !calculations) return
-		if (recipe.portionSize != null) {
-			const cookedWeight = getEffectiveCookedWeight(calculations.totals.weight, recipe.cookedWeight)
-			const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
-			setTargetPortions(Math.round(cookedWeight / portionSize))
-			hasInitialized.current = true
-		}
-	}, [recipe, calculations])
 
 	if (recipeQuery.isLoading) {
 		return (
@@ -53,7 +41,8 @@ export function CookModePage() {
 	const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
 	const hasPortions = recipe.portionSize != null
 	const basePortions = cookedWeight / portionSize
-	const effectiveBatchSize = hasPortions ? targetPortions / basePortions : batchSize
+	const activePortions = targetPortions ?? Math.round(basePortions)
+	const effectiveBatchSize = hasPortions ? activePortions / basePortions : batchSize
 	const totalPortions = Math.round(basePortions * effectiveBatchSize * 10) / 10
 
 	return (
@@ -87,7 +76,7 @@ export function CookModePage() {
 			{/* Batch multiplier + portion count */}
 			<div className="space-y-2">
 				{hasPortions ? (
-					<BatchMultiplierPills value={targetPortions} onChange={setTargetPortions} portionMode />
+					<BatchMultiplierPills value={activePortions} onChange={setTargetPortions} portionMode />
 				) : (
 					<BatchMultiplierPills value={batchSize} onChange={setBatchSize} />
 				)}
