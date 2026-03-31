@@ -5,6 +5,7 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 ## Code Style
 
 - Indentation: tabs (not spaces) in all files
+- Always use `yarn` (the workspace package manager) — never `npx` or `npm`
 
 ## Stack
 
