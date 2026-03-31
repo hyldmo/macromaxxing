@@ -11,6 +11,10 @@ export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInp
 	unit?: string
 }
 
+function stripCommas(s: string): string {
+	return s.replace(/,/g, '')
+}
+
 function triggerChange(input: HTMLInputElement, value: string) {
 	const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
 	nativeSetter?.call(input, value)
@@ -41,7 +45,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 			(direction: 1 | -1, input: HTMLInputElement) => {
 				const placeholderNumber = placeholder ? Number.parseFloat(placeholder) : NaN
 				const defaultNumber = Number.isNaN(placeholderNumber) ? 0 : placeholderNumber
-				const current = Number.parseFloat(input.value) || defaultNumber
+				const current = Number.parseFloat(stripCommas(input.value)) || defaultNumber
 				const s = step === 'auto' ? autoStep(current) : step
 				const stepDecimals = String(s).split('.')[1]?.length ?? 0
 				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
@@ -75,8 +79,14 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
 		const handleChange = useCallback(
 			(e: React.ChangeEvent<HTMLInputElement>) => {
-				setLocalValue(e.target.value)
-				onChange?.(e)
+				const raw = e.target.value
+				setLocalValue(raw)
+				const stripped = stripCommas(raw)
+				if (stripped !== raw) {
+					triggerChange(e.target, stripped)
+				} else {
+					onChange?.(e)
+				}
 			},
 			[onChange]
 		)
@@ -84,13 +94,13 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		const handleBlur = useCallback(
 			(e: React.FocusEvent<HTMLInputElement>) => {
 				setLocalValue(null)
-				const v = e.currentTarget.value
+				const v = stripCommas(e.currentTarget.value)
 				if (v !== '') {
 					const n = Number.parseFloat(v)
 					if (!Number.isNaN(n)) {
 						// "1.00" → "1", "2.50" → "2.5", "0.25" → "0.25"
 						const clean = String(n)
-						if (clean !== v) triggerChange(e.currentTarget, clean)
+						if (clean !== e.currentTarget.value) triggerChange(e.currentTarget, clean)
 					}
 				}
 				onBlur?.(e)
