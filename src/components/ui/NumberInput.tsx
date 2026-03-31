@@ -11,8 +11,9 @@ export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInp
 	unit?: string
 }
 
-function stripCommas(s: string): string {
-	return s.replace(/,/g, '')
+/** Treat commas as decimal separators (e.g. "2,5" → "2.5") */
+function normalizeDecimal(s: string): string {
+	return s.replace(/,/g, '.')
 }
 
 function triggerChange(input: HTMLInputElement, value: string) {
@@ -45,7 +46,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 			(direction: 1 | -1, input: HTMLInputElement) => {
 				const placeholderNumber = placeholder ? Number.parseFloat(placeholder) : NaN
 				const defaultNumber = Number.isNaN(placeholderNumber) ? 0 : placeholderNumber
-				const current = Number.parseFloat(stripCommas(input.value)) || defaultNumber
+				const current = Number.parseFloat(normalizeDecimal(input.value)) || defaultNumber
 				const s = step === 'auto' ? autoStep(current) : step
 				const stepDecimals = String(s).split('.')[1]?.length ?? 0
 				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
@@ -81,9 +82,9 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 			(e: React.ChangeEvent<HTMLInputElement>) => {
 				const raw = e.target.value
 				setLocalValue(raw)
-				const stripped = stripCommas(raw)
-				if (stripped !== raw) {
-					triggerChange(e.target, stripped)
+				const normalized = normalizeDecimal(raw)
+				if (normalized !== raw) {
+					triggerChange(e.target, normalized)
 				} else {
 					onChange?.(e)
 				}
@@ -94,7 +95,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		const handleBlur = useCallback(
 			(e: React.FocusEvent<HTMLInputElement>) => {
 				setLocalValue(null)
-				const v = stripCommas(e.currentTarget.value)
+				const v = normalizeDecimal(e.currentTarget.value)
 				if (v !== '') {
 					const n = Number.parseFloat(v)
 					if (!Number.isNaN(n)) {
