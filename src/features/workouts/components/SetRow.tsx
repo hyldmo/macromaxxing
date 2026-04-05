@@ -2,13 +2,7 @@ import type { SetType } from '@macromaxxing/db'
 import { Check, Circle } from 'lucide-react'
 import type { FC } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn, estimated1RM } from '~/lib'
-
-const SET_TYPE_STYLES = {
-	warmup: 'bg-macro-carbs/15 text-macro-carbs',
-	working: 'bg-macro-protein/15 text-macro-protein',
-	backoff: 'bg-macro-fat/15 text-macro-fat'
-} satisfies Record<SetType, string>
+import { cn, estimated1RM, SET_TYPE_STYLES } from '~/lib'
 
 const CONFIRM_BORDER_STYLES = {
 	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',

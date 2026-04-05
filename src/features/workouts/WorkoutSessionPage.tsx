@@ -22,7 +22,7 @@ import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { SessionSummary } from './components/SessionSummary'
 import { SupersetForm } from './components/SupersetForm'
-import { useRestTimer } from './RestTimerContext'
+import { useWorkoutSessionStore } from './store'
 
 type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
 type SessionExercise = SessionLog['exercise']
@@ -53,10 +53,9 @@ export function WorkoutSessionPage() {
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
-	const { setSession, startedAt: timerActive, start: startTimer, recordTransition } = useRestTimer()
+	const store = useWorkoutSessionStore()
 	const transitionQueueRef = useRef<boolean[]>([])
 	const logIdCallbackRef = useRef<((id: SessionLog['id']) => void) | null>(null)
-	const timerModeActiveRef = useRef(false)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
 	const [templateReplacements, setTemplateReplacements] = useState<Map<Exercise['id'], SessionExercise>>(new Map())
@@ -72,7 +71,7 @@ export function WorkoutSessionPage() {
 
 	const completeSession = trpc.workout.completeSession.useMutation({
 		onSuccess: () => {
-			setSession(null)
+			store.reset()
 			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 			utils.workout.listSessions.invalidate()
 		}
@@ -100,11 +99,11 @@ export function WorkoutSessionPage() {
 	const isCompleteSession = !!sessionQuery.data?.completedAt
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
-			setSession({ id: sessionQuery.data.id })
+			store.setSession({ id: sessionQuery.data.id })
 		} else if (isCompleteSession) {
-			setSession(null)
+			store.reset()
 		}
-	}, [sessionQuery.data, isCompleteSession, setSession])
+	}, [sessionQuery.data, isCompleteSession, store])
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const standardsQuery = trpc.workout.listStandards.useQuery()
@@ -152,17 +151,16 @@ export function WorkoutSessionPage() {
 			setActiveExerciseId(variables.exerciseId)
 			const onLogId = logIdCallbackRef.current
 			logIdCallbackRef.current = null
+			const fromTimerMode = !!onLogId
 			if (onLogId) onLogId(data.id)
 			const transition = transitionQueueRef.current.shift() ?? false
-			// Auto-start rest timer (skip when TimerMode handles it locally)
-			if (!(isCompleteSession || timerModeActiveRef.current)) {
+			// Auto-start rest timer from checklist mode (timer mode handles its own rest)
+			if (!(isCompleteSession || fromTimerMode)) {
 				if (transition) {
-					// Mid-superset: just record the timestamp, no visible timer
-					recordTransition()
+					store.recordTransition()
 				} else {
-					// End of round (or solo exercise): elapsed transition time subtracted automatically
 					const rest = getRestDuration(variables.exerciseId, variables.reps, variables.setType ?? 'working')
-					startTimer(rest, variables.setType ?? 'working')
+					store.startRest(rest, variables.setType ?? 'working')
 				}
 			}
 		},
@@ -238,7 +236,7 @@ export function WorkoutSessionPage() {
 
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
 		onSuccess: () => {
-			setSession(null)
+			store.reset()
 			utils.workout.listSessions.invalidate()
 			navigate('/workouts')
 		}
@@ -513,7 +511,7 @@ export function WorkoutSessionPage() {
 						<>
 							<LinkButton to="timer" size="sm">
 								<Timer className="size-3.5" />
-								{timerActive ? 'Timer' : 'Start Timer'}
+								{store.sessionStartedAt ? 'Timer' : 'Start Timer'}
 							</LinkButton>
 							<Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
 								<Upload className="size-3.5" />
@@ -685,8 +683,7 @@ export function WorkoutSessionPage() {
 						const lastLog = session.logs.at(-1)
 						if (lastLog) removeSetMutation.mutate({ id: lastLog.id })
 					},
-					getRestDuration,
-					timerModeActiveRef
+					getRestDuration
 				}}
 			/>
 
