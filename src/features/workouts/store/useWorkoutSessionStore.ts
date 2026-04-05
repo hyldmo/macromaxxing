@@ -32,11 +32,7 @@ export interface WorkoutSessionStore {
 		setType: SetType
 	} | null
 
-	remaining: number
 	_roundStartedAt: number | null
-	_completedRef: boolean
-	_intervalId: ReturnType<typeof setInterval> | null
-	_timeoutId: ReturnType<typeof setTimeout> | null
 
 	// Session lifecycle
 	setSession: (session: { id: string; startedAt?: number } | null) => void
@@ -91,15 +87,7 @@ function loadActive(queue: FlatSet[], index: number): WorkoutSessionStore['activ
 	}
 }
 
-// --- Timer helpers ---
-
-function clearTimers(state: {
-	_intervalId: ReturnType<typeof setInterval> | null
-	_timeoutId: ReturnType<typeof setTimeout> | null
-}) {
-	if (state._intervalId !== null) clearInterval(state._intervalId)
-	if (state._timeoutId !== null) clearTimeout(state._timeoutId)
-}
+// --- Notification ---
 
 function fireNotification(sessionId: string | null) {
 	if (navigator.vibrate) navigator.vibrate(200)
@@ -120,35 +108,27 @@ function fireNotification(sessionId: string | null) {
 	}
 }
 
-function startTicking(endAt: number, set: (fn: (s: WorkoutSessionStore) => Partial<WorkoutSessionStore>) => void) {
-	const tick = () => {
-		set(s => {
-			const left = Math.ceil((endAt - Date.now()) / 1000)
-			if (left <= 0 && !s._completedRef) {
-				fireNotification(s.sessionId)
-				return { remaining: left, _completedRef: true }
-			}
-			return { remaining: left }
-		})
+// Notification timeout — scheduled when rest starts, cleared on dismiss/reset
+let notificationTimeoutId: ReturnType<typeof setTimeout> | null = null
+
+function clearNotificationTimeout() {
+	if (notificationTimeoutId !== null) {
+		clearTimeout(notificationTimeoutId)
+		notificationTimeoutId = null
 	}
-	tick()
-	const intervalId = setInterval(tick, 1000)
+}
 
+function scheduleNotification(endAt: number, sessionId: string | null) {
+	clearNotificationTimeout()
 	const delay = endAt - Date.now()
-	const timeoutId =
-		delay > 0
-			? setTimeout(() => {
-					set(s => {
-						if (!s._completedRef) {
-							fireNotification(s.sessionId)
-							return { remaining: Math.ceil((endAt - Date.now()) / 1000), _completedRef: true }
-						}
-						return {}
-					})
-				}, delay)
-			: undefined
-
-	return { intervalId, timeoutId: timeoutId ?? null }
+	if (delay > 0) {
+		notificationTimeoutId = setTimeout(() => {
+			fireNotification(sessionId)
+			notificationTimeoutId = null
+		}, delay)
+	} else {
+		fireNotification(sessionId)
+	}
 }
 
 // --- Initial state ---
@@ -160,11 +140,7 @@ const INITIAL_STATE = {
 	confirmedIndices: [] as number[],
 	active: null as WorkoutSessionStore['active'],
 	rest: null as WorkoutSessionStore['rest'],
-	remaining: 0,
-	_roundStartedAt: null as number | null,
-	_completedRef: false,
-	_intervalId: null as ReturnType<typeof setInterval> | null,
-	_timeoutId: null as ReturnType<typeof setTimeout> | null
+	_roundStartedAt: null as number | null
 }
 
 // --- Store ---
@@ -173,9 +149,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	...INITIAL_STATE,
 
 	setSession: session => {
-		const state = get()
 		if (session === null) {
-			clearTimers(state)
+			clearNotificationTimeout()
 			set({ ...INITIAL_STATE })
 		} else {
 			set({
@@ -186,8 +161,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	},
 
 	init: (sessionId, startedAt, sets) => {
-		const state = get()
-		clearTimers(state)
+		clearNotificationTimeout()
 		const cursor = findNextPending(sets, 0, [])
 		set({
 			...INITIAL_STATE,
@@ -199,8 +173,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	},
 
 	reset: () => {
-		const state = get()
-		clearTimers(state)
+		clearNotificationTimeout()
 		set({ ...INITIAL_STATE })
 	},
 
@@ -260,7 +233,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	undo: () => {
 		const state = get()
 		if (state.confirmedIndices.length === 0) return
-		clearTimers(state)
+		clearNotificationTimeout()
 
 		const confirmed = state.confirmedIndices.slice(0, -1)
 		const restored = state.confirmedIndices.at(-1)!
@@ -268,11 +241,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 		set({
 			confirmedIndices: confirmed,
 			active: loadActive(state.queue, restored),
-			rest: null,
-			remaining: 0,
-			_completedRef: false,
-			_intervalId: null,
-			_timeoutId: null
+			rest: null
 		})
 	},
 
@@ -333,12 +302,13 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	// --- Rest timer ---
 
 	startRest: (durationSec, setType) => {
-		const state = get()
-		clearTimers(state)
+		clearNotificationTimeout()
 
 		if ('Notification' in window && Notification.permission === 'default') {
 			Notification.requestPermission()
 		}
+
+		const state = get()
 
 		// Subtract elapsed superset transition time
 		let adjusted = durationSec
@@ -349,15 +319,12 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 
 		const now = Date.now()
 		const endAt = now + adjusted * 1000
-		const { intervalId, timeoutId } = startTicking(endAt, set)
+
+		scheduleNotification(endAt, state.sessionId)
 
 		set({
 			rest: { startedAt: now, endAt, total: adjusted, setType },
-			remaining: adjusted,
-			_completedRef: false,
-			_roundStartedAt: null,
-			_intervalId: intervalId,
-			_timeoutId: timeoutId
+			_roundStartedAt: null
 		})
 	},
 
@@ -369,7 +336,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 
 	dismissRest: () => {
 		const state = get()
-		clearTimers(state)
+		clearNotificationTimeout()
 
 		// Advance cursor to next pending set
 		const confirmed = state.confirmedIndices
@@ -379,11 +346,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 
 		set({
 			rest: null,
-			remaining: 0,
-			_completedRef: false,
 			_roundStartedAt: null,
-			_intervalId: null,
-			_timeoutId: null,
 			active: loadActive(state.queue, next)
 		})
 	},

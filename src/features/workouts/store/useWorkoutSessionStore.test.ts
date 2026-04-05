@@ -223,7 +223,7 @@ describe('startRest() [checklist mode]', () => {
 		expect(store().rest).not.toBeNull()
 		expect(store().rest!.total).toBe(60)
 		expect(store().rest!.setType).toBe('working')
-		expect(store().remaining).toBe(60)
+		expect(store().rest!.endAt).toBe(5000 + 60 * 1000)
 	})
 
 	it('T13: has _roundStartedAt → subtracts elapsed time', () => {
