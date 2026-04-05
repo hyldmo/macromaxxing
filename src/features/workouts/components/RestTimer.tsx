@@ -1,5 +1,5 @@
 import { Dumbbell } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cn, formatTimer, SET_TYPE_STYLES } from '~/lib'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
@@ -9,11 +9,20 @@ export const RestTimer: FC = () => {
 	const sessionId = useWorkoutSessionStore(s => s.sessionId)
 	const sessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
 	const rest = useWorkoutSessionStore(s => s.rest)
-	const remaining = useWorkoutSessionStore(s => s.remaining)
 	const dismissRest = useWorkoutSessionStore(s => s.dismissRest)
 	const navigate = useNavigate()
 	const isRunning = rest !== null
 	const elapsed = useElapsedTimer(!isRunning && sessionStartedAt ? sessionStartedAt : null)
+
+	// Local high-frequency countdown from rest.endAt for subsecond display
+	const [remaining, setRemaining] = useState(0)
+	useEffect(() => {
+		if (!rest) return
+		const tick = () => setRemaining((rest.endAt - Date.now()) / 1000)
+		tick()
+		const id = setInterval(tick, 100)
+		return () => clearInterval(id)
+	}, [rest])
 
 	const goToTimer = () => {
 		if (sessionId) navigate(`/workouts/sessions/${sessionId}/timer`)
