@@ -226,6 +226,21 @@ describe('startRest() [checklist mode]', () => {
 		expect(store().rest!.endAt).toBe(5000 + 60 * 1000)
 	})
 
+	it('T12b: solo exercise — set time NOT subtracted from rest', () => {
+		const sets = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
+		store().init('wks_1', 1000, sets)
+
+		vi.setSystemTime(1000)
+		store().startSet() // start doing the set
+		vi.setSystemTime(31000) // 30 seconds doing the set
+		store().confirmSet()
+		vi.setSystemTime(32000)
+		store().startRest(60, 'working')
+
+		// Full 60 seconds of rest — time spent doing the set should not be subtracted
+		expect(store().rest!.total).toBe(60)
+	})
+
 	it('T13: has _roundStartedAt → subtracts elapsed time', () => {
 		store().init('wks_1', 1000, [makeSet()])
 		vi.setSystemTime(1000)
@@ -236,6 +251,30 @@ describe('startRest() [checklist mode]', () => {
 		// 60 - 10 = 50 seconds adjusted
 		expect(store().rest!.total).toBe(50)
 		expect(store()._roundStartedAt).toBeNull() // cleared after use
+	})
+})
+
+describe('superset rest timing', () => {
+	it('T13b: superset — transition time subtracted from rest, but NOT first set time', () => {
+		const sets = [...makeSupersetPair({ group: 1, itemIndex: 0 }), ...makeSupersetPair({ group: 1, itemIndex: 0 })]
+		store().init('wks_1', 1000, sets)
+
+		// Spend 30 seconds doing the first set (A1) — should NOT count
+		vi.setSystemTime(1000)
+		store().startSet()
+		vi.setSystemTime(31000)
+
+		// Confirm A1 (transition=true) → _roundStartedAt set NOW (at 31000)
+		store().confirmSet()
+		expect(store()._roundStartedAt).toBe(31000)
+
+		// Spend 10 seconds transitioning + doing B1
+		vi.setSystemTime(41000)
+		store().confirmSet() // Confirm B1 (transition=false, last in round)
+
+		// Start rest — 10 seconds of transition time should be subtracted
+		store().startRest(60, 'working')
+		expect(store().rest!.total).toBe(50) // 60 - 10 = 50
 	})
 })
 
@@ -279,12 +318,14 @@ describe('setLogId', () => {
 })
 
 describe('set timer control', () => {
-	it('T18: startSet → sets setTimer.startedAt', () => {
+	it('T18: startSet → sets setTimer.startedAt, does NOT set _roundStartedAt', () => {
 		store().init('wks_1', 1000, [makeSet()])
 		vi.setSystemTime(5000)
 		store().startSet()
 		expect(store().active?.setTimer?.startedAt).toBe(5000)
 		expect(store().active?.setTimer?.isPaused).toBe(false)
+		// Starting a set should not begin tracking round time — only superset transitions should
+		expect(store()._roundStartedAt).toBeNull()
 	})
 
 	it('T19: pauseSet → sets isPaused', () => {

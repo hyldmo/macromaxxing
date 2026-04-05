@@ -267,8 +267,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 		set(s => {
 			if (!s.active) return {}
 			return {
-				active: { ...s.active, setTimer: { startedAt: Date.now(), isPaused: false } },
-				_roundStartedAt: s._roundStartedAt ?? Date.now()
+				active: { ...s.active, setTimer: { startedAt: Date.now(), isPaused: false } }
 			}
 		})
 	},
