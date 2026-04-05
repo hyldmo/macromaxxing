@@ -1,9 +1,10 @@
 import type { Exercise, SetType } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronLeft, ChevronRight, Dumbbell, Pause, Square, Undo2, X } from 'lucide-react'
-import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
+import { type FC, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { cn, flattenSets, formatTimer, type RenderItem, SET_TYPE_STYLES, useScrollLock } from '~/lib'
+import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import { useWorkoutSessionStore } from '../store'
 import { useWakeLock } from '../useWakeLock'
 import { SecondaryTimer } from './SecondaryTimer'
@@ -62,8 +63,15 @@ export const TimerMode: FC = () => {
 	const isResting = rest !== null
 	const currentSet = active ? queue[active.index] : null
 
-	const [preciseRemaining, setPreciseRemaining] = useState(0)
-	const [setElapsedMs, setSetElapsedMs] = useState(0)
+	const preciseRemaining = -useElapsedTimer(rest?.endAt ?? null) / 1000
+	const setTimerActive = active?.setTimer && !active.setTimer.isPaused ? active.setTimer.startedAt : null
+	const liveElapsedMs = useElapsedTimer(setTimerActive)
+	// When paused, show frozen elapsed; when active, show live; otherwise 0
+	const setElapsedMs = active?.setTimer
+		? active.setTimer.isPaused
+			? Date.now() - active.setTimer.startedAt
+			: liveElapsedMs
+		: 0
 
 	// Find next pending after current for preview
 	const nextSet = useMemo(() => {
@@ -74,25 +82,6 @@ export const TimerMode: FC = () => {
 		return null
 	}, [queue, active, confirmedIndices])
 
-	// High-frequency timer — only runs when set is active (not paused) or rest countdown is running
-	const needsRaf =
-		(active?.setTimer !== null && active?.setTimer !== undefined && !active.setTimer.isPaused) || rest !== null
-	useEffect(() => {
-		if (!needsRaf) return
-		let raf = 0
-		const tick = () => {
-			if (rest?.endAt != null) {
-				setPreciseRemaining((rest.endAt - Date.now()) / 1000)
-			}
-			if (active?.setTimer && !active.setTimer.isPaused) {
-				setSetElapsedMs(Date.now() - active.setTimer.startedAt)
-			}
-			raf = requestAnimationFrame(tick)
-		}
-		raf = requestAnimationFrame(tick)
-		return () => cancelAnimationFrame(raf)
-	}, [needsRaf, rest, active?.setTimer])
-
 	// Detect if current set is part of a superset
 	const isInSuperset = useMemo(() => {
 		if (!currentSet) return false
@@ -102,7 +91,7 @@ export const TimerMode: FC = () => {
 
 	const handleStartSet = useCallback(() => {
 		actions().startSet()
-		setSetElapsedMs(0)
+
 	}, [])
 
 	const handlePause = useCallback(() => {
@@ -110,8 +99,9 @@ export const TimerMode: FC = () => {
 	}, [])
 
 	const handleResume = useCallback(() => {
-		actions().resumeSet(setElapsedMs)
-	}, [setElapsedMs])
+		const timer = useWorkoutSessionStore.getState().active?.setTimer
+		if (timer) actions().resumeSet(Date.now() - timer.startedAt)
+	}, [])
 
 	const handleEditWeight = useCallback(
 		(weight: number | null) => {
@@ -137,7 +127,7 @@ export const TimerMode: FC = () => {
 		if (!currentSet || isResting) return
 
 		actions().stopSet()
-		setSetElapsedMs(0)
+
 		setActiveExerciseId(currentSet.exerciseId)
 
 		const data = actions().confirmSet()
@@ -154,18 +144,18 @@ export const TimerMode: FC = () => {
 
 	const handleDismissTimer = useCallback(() => {
 		actions().dismissRest()
-		setSetElapsedMs(0)
+
 	}, [])
 
 	const handleUndo = useCallback(() => {
 		actions().undo()
-		setSetElapsedMs(0)
+
 		onUndoSet()
 	}, [onUndoSet])
 
 	const handleStopSet = useCallback(() => {
 		actions().stopSet()
-		setSetElapsedMs(0)
+
 	}, [])
 
 	const handleNavigate = useCallback((direction: -1 | 1) => actions().navigate(direction), [])

@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
 
-/** Ticks every second from a start timestamp. Returns 0 when startedAt is null. */
-export function useElapsedTimer(startedAt: number | null): number {
-	const [elapsedMs, setElapsedMs] = useState(0)
+const TICK_MS = 33 // ~30fps
+
+/** Ticks at ~30fps, returning `Date.now() - timestamp` in ms. Returns 0 when null. */
+export function useElapsedTimer(timestamp: number | null): number {
+	const [elapsed, setElapsed] = useState(0)
 
 	useEffect(() => {
-		if (startedAt === null) {
-			setElapsedMs(0)
+		if (timestamp === null) {
+			setElapsed(0)
 			return
 		}
-		const tick = () => setElapsedMs(Date.now() - startedAt)
+		const tick = () => setElapsed(Date.now() - timestamp)
 		tick()
-		const id = setInterval(tick, 1000)
+		const id = setInterval(tick, TICK_MS)
 		return () => clearInterval(id)
-	}, [startedAt])
+	}, [timestamp])
 
-	return elapsedMs
+	return elapsed
 }
