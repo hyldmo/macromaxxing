@@ -35,7 +35,12 @@ export const TimerMode: FC = () => {
 	const navigate = useNavigate()
 	const onClose = useCallback(() => navigate('..'), [navigate])
 
-	const store = useWorkoutSessionStore()
+	const active = useWorkoutSessionStore(s => s.active)
+	const rest = useWorkoutSessionStore(s => s.rest)
+	const queue = useWorkoutSessionStore(s => s.queue)
+	const confirmedIndices = useWorkoutSessionStore(s => s.confirmedIndices)
+	const _roundStartedAt = useWorkoutSessionStore(s => s._roundStartedAt)
+	const actions = useWorkoutSessionStore.getState
 	useWakeLock()
 	useScrollLock()
 
@@ -46,17 +51,14 @@ export const TimerMode: FC = () => {
 		if (flatSets.length > 0 && !didInit.current && sessionId) {
 			didInit.current = true
 			// Only init if store doesn't already have this session's queue
-			if (store.queue.length === 0) {
-				store.init(sessionId, session.startedAt, flatSets)
+			if (useWorkoutSessionStore.getState().queue.length === 0) {
+				actions().init(sessionId, session.startedAt, flatSets)
 			} else {
 				// Ensure sessionStartedAt is set for elapsed display
-				store.setSession({ id: sessionId, startedAt: session.startedAt })
+				actions().setSession({ id: sessionId, startedAt: session.startedAt })
 			}
 		}
-	}, [flatSets, didInit, sessionId, session.startedAt, store])
-
-	// --- Derived state ---
-	const { active, rest, queue, confirmedIndices, _roundStartedAt } = store
+	}, [flatSets, didInit, sessionId, session.startedAt])
 	const isResting = rest !== null
 	const currentSet = active ? queue[active.index] : null
 
@@ -99,74 +101,74 @@ export const TimerMode: FC = () => {
 	}, [currentSet, active, queue])
 
 	const handleStartSet = useCallback(() => {
-		store.startSet()
+		actions().startSet()
 		setSetElapsedMs(0)
-	}, [store])
+	}, [])
 
 	const handlePause = useCallback(() => {
-		store.pauseSet()
-	}, [store])
+		actions().pauseSet()
+	}, [])
 
 	const handleResume = useCallback(() => {
-		store.resumeSet(setElapsedMs)
-	}, [store, setElapsedMs])
+		actions().resumeSet(setElapsedMs)
+	}, [setElapsedMs])
 
 	const handleEditWeight = useCallback(
 		(weight: number | null) => {
-			store.editWeight(weight)
+			actions().editWeight(weight)
 			if (active?.logId && weight != null) {
 				onUpdateSet(active.logId, { weightKg: weight })
 			}
 		},
-		[store, active?.logId, onUpdateSet]
+		[active?.logId, onUpdateSet]
 	)
 
 	const handleEditReps = useCallback(
 		(reps: number) => {
-			store.editReps(reps)
+			actions().editReps(reps)
 			if (active?.logId) {
 				onUpdateSet(active.logId, { reps })
 			}
 		},
-		[store, active?.logId, onUpdateSet]
+		[active?.logId, onUpdateSet]
 	)
 
 	const handleConfirm = useCallback(() => {
 		if (!currentSet || isResting) return
 
-		store.stopSet()
+		actions().stopSet()
 		setSetElapsedMs(0)
 		setActiveExerciseId(currentSet.exerciseId)
 
-		const data = store.confirmSet()
+		const data = actions().confirmSet()
 		if (!data) return
 
-		onConfirmSet(data, id => store.setLogId(id))
+		onConfirmSet(data, id => actions().setLogId(id))
 
 		if (!data.transition) {
 			// End of round or solo: start rest countdown
 			const dur = getRestDuration(data.exerciseId, data.reps, data.setType)
-			store.startRest(dur, data.setType)
+			actions().startRest(dur, data.setType)
 		}
-	}, [currentSet, isResting, setActiveExerciseId, getRestDuration, store, onConfirmSet])
+	}, [currentSet, isResting, setActiveExerciseId, getRestDuration, onConfirmSet])
 
 	const handleDismissTimer = useCallback(() => {
-		store.dismissRest()
+		actions().dismissRest()
 		setSetElapsedMs(0)
-	}, [store])
+	}, [])
 
 	const handleUndo = useCallback(() => {
-		store.undo()
+		actions().undo()
 		setSetElapsedMs(0)
 		onUndoSet()
-	}, [store, onUndoSet])
+	}, [onUndoSet])
 
 	const handleStopSet = useCallback(() => {
-		store.stopSet()
+		actions().stopSet()
 		setSetElapsedMs(0)
-	}, [store])
+	}, [])
 
-	const handleNavigate = useCallback((direction: -1 | 1) => store.navigate(direction), [store])
+	const handleNavigate = useCallback((direction: -1 | 1) => actions().navigate(direction), [])
 
 	// Keyboard: Enter/Space confirms or dismisses, Escape closes
 	useEffect(() => {

@@ -53,7 +53,11 @@ export function WorkoutSessionPage() {
 	const [showReview, setShowReview] = useState(false)
 	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
 	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
-	const store = useWorkoutSessionStore()
+	const storeSetSession = useWorkoutSessionStore(s => s.setSession)
+	const storeReset = useWorkoutSessionStore(s => s.reset)
+	const storeRecordTransition = useWorkoutSessionStore(s => s.recordTransition)
+	const storeStartRest = useWorkoutSessionStore(s => s.startRest)
+	const storeSessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
 	const transitionQueueRef = useRef<boolean[]>([])
 	const logIdCallbackRef = useRef<((id: SessionLog['id']) => void) | null>(null)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
@@ -71,7 +75,7 @@ export function WorkoutSessionPage() {
 
 	const completeSession = trpc.workout.completeSession.useMutation({
 		onSuccess: () => {
-			store.reset()
+			storeReset()
 			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 			utils.workout.listSessions.invalidate()
 		}
@@ -99,11 +103,11 @@ export function WorkoutSessionPage() {
 	const isCompleteSession = !!sessionQuery.data?.completedAt
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
-			store.setSession({ id: sessionQuery.data.id })
+			storeSetSession({ id: sessionQuery.data.id })
 		} else if (isCompleteSession) {
-			store.reset()
+			storeReset()
 		}
-	}, [sessionQuery.data, isCompleteSession, store])
+	}, [sessionQuery.data, isCompleteSession, storeSetSession, storeReset])
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const standardsQuery = trpc.workout.listStandards.useQuery()
@@ -157,10 +161,10 @@ export function WorkoutSessionPage() {
 			// Auto-start rest timer from checklist mode (timer mode handles its own rest)
 			if (!(isCompleteSession || fromTimerMode)) {
 				if (transition) {
-					store.recordTransition()
+					storeRecordTransition()
 				} else {
 					const rest = getRestDuration(variables.exerciseId, variables.reps, variables.setType ?? 'working')
-					store.startRest(rest, variables.setType ?? 'working')
+					storeStartRest(rest, variables.setType ?? 'working')
 				}
 			}
 		},
@@ -236,7 +240,7 @@ export function WorkoutSessionPage() {
 
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
 		onSuccess: () => {
-			store.reset()
+			storeReset()
 			utils.workout.listSessions.invalidate()
 			navigate('/workouts')
 		}
@@ -511,7 +515,7 @@ export function WorkoutSessionPage() {
 						<>
 							<LinkButton to="timer" size="sm">
 								<Timer className="size-3.5" />
-								{store.sessionStartedAt ? 'Timer' : 'Start Timer'}
+								{storeSessionStartedAt ? 'Timer' : 'Start Timer'}
 							</LinkButton>
 							<Button variant="outline" size="sm" onClick={() => setShowImport(true)}>
 								<Upload className="size-3.5" />
