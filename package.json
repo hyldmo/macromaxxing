@@ -30,6 +30,10 @@
     "db:seed:usda": "node --experimental-transform-types scripts/seed-usda.ts",
     "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
     "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
+    "check": "numux -p 'check:*'",
+    "check:lint": "biome check .",
+    "check:typecheck": "tsc && tsc -p tsconfig.node.json && yarn workspaces foreach --all --exclude macromaxxing --parallel run typecheck",
+    "check:test": "vitest run",
     "test": "vitest run",
     "pwa:generate-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
     "postinstall": "prek install && prek install --hook-type commit-msg"

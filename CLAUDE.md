@@ -23,12 +23,15 @@ yarn dev:api      # API only (wrangler + local D1 on port 8788)
 yarn dev:remote   # Frontend only (proxies to production API)
 yarn build        # Build
 yarn preview      # Preview build with local D1
+yarn check        # Run ALL checks in parallel (lint + typecheck + test) — use this to verify changes
 yarn fix          # Lint + format (Biome)
 yarn db:generate  # Generate migration from schema
 yarn db:migrate   # Apply migrations to local D1
 yarn db:seed:usda # Import USDA Foundation + SR Legacy foods into local D1
 yarn test         # Run tests (Vitest)
 ```
+
+**Always run `yarn check` to verify changes.** Do not run lint, typecheck, or test separately.
 
 Set `API_URL` env var to override the API proxy target (defaults to `http://localhost:8788`).
 
