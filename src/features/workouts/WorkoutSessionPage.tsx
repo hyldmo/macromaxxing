@@ -99,11 +99,11 @@ export function WorkoutSessionPage() {
 		{ enabled: !!effectiveSessionId }
 	)
 
-	// Signal rest timer that a session is active (sessionId only — elapsed activates from TimerMode)
+	// Signal rest timer that a session is active
 	const isCompleteSession = !!sessionQuery.data?.completedAt
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
-			storeSetSession({ id: sessionQuery.data.id })
+			storeSetSession({ id: sessionQuery.data.id, startedAt: sessionQuery.data.startedAt })
 		} else if (isCompleteSession) {
 			storeReset()
 		}

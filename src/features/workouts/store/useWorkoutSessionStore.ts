@@ -161,14 +161,17 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	},
 
 	init: (sessionId, startedAt, sets) => {
-		clearNotificationTimeout()
+		const existing = get()
+		// Preserve rest timer if one is running (e.g., started in checklist mode)
+		if (!existing.rest) clearNotificationTimeout()
 		const cursor = findNextPending(sets, 0, [])
 		set({
 			...INITIAL_STATE,
 			sessionId,
 			sessionStartedAt: startedAt,
 			queue: sets,
-			active: loadActive(sets, cursor)
+			active: loadActive(sets, cursor),
+			rest: existing.rest
 		})
 	},
 

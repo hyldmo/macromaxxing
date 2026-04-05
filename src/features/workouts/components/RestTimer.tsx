@@ -9,10 +9,14 @@ export const RestTimer: FC = () => {
 	const sessionId = useWorkoutSessionStore(s => s.sessionId)
 	const sessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
 	const rest = useWorkoutSessionStore(s => s.rest)
+	const setTimer = useWorkoutSessionStore(s => s.active?.setTimer)
 	const dismissRest = useWorkoutSessionStore(s => s.dismissRest)
 	const navigate = useNavigate()
-	const isRunning = rest !== null
-	const elapsed = useElapsedTimer(!isRunning && sessionStartedAt ? sessionStartedAt : null)
+	const isResting = rest !== null
+	const setTimerActive = setTimer && !setTimer.isPaused ? setTimer.startedAt : null
+	const sessionElapsedTimestamp = isResting || setTimerActive ? null : sessionStartedAt
+	const elapsed = useElapsedTimer(sessionElapsedTimestamp)
+	const setElapsedMs = useElapsedTimer(isResting ? null : setTimerActive)
 	const remaining = -useElapsedTimer(rest?.endAt ?? null) / 1000
 
 	const goToTimer = () => {
@@ -49,6 +53,20 @@ export const RestTimer: FC = () => {
 					×
 				</button>
 			</div>
+		)
+	}
+
+	// Active set timer — show set elapsed (matches timer mode)
+	if (sessionId && setTimerActive) {
+		return (
+			<button
+				type="button"
+				className="flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1 text-ink-faint hover:text-accent"
+				onClick={goToTimer}
+			>
+				<Dumbbell className="size-3.5" />
+				<span className="font-mono text-sm tabular-nums">{formatTimer(setElapsedMs / 1000)}</span>
+			</button>
 		)
 	}
 
