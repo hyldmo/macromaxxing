@@ -149,17 +149,11 @@ export function WorkoutSessionPage() {
 					)
 				}
 			}
-			return { previous }
-		},
-		onSuccess: (data, variables) => {
-			setActiveExerciseId(variables.exerciseId)
-			const onLogId = logIdCallbackRef.current
-			logIdCallbackRef.current = null
-			const fromTimerMode = !!onLogId
-			if (onLogId) onLogId(data.id)
-			const transition = transitionQueueRef.current.shift() ?? false
-			// Auto-start rest timer from checklist mode (timer mode handles its own rest)
+
+			// Start rest timer immediately (checklist mode only — timer mode handles its own)
+			const fromTimerMode = !!logIdCallbackRef.current
 			if (!(isCompleteSession || fromTimerMode)) {
+				const transition = transitionQueueRef.current.shift() ?? false
 				if (transition) {
 					storeRecordTransition()
 				} else {
@@ -167,11 +161,21 @@ export function WorkoutSessionPage() {
 					storeStartRest(rest, variables.setType ?? 'working')
 				}
 			}
+
+			return { previous }
+		},
+		onSuccess: (data, variables) => {
+			setActiveExerciseId(variables.exerciseId)
+			const onLogId = logIdCallbackRef.current
+			logIdCallbackRef.current = null
+			if (onLogId) onLogId(data.id)
 		},
 		onError: (_err, _variables, context) => {
 			if (context?.previous) {
 				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
 			}
+			// Clear optimistic rest timer on failure
+			useWorkoutSessionStore.getState().dismissRest()
 		},
 		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
 	})
