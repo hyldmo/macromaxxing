@@ -1,27 +1,26 @@
 import { Dumbbell } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cn, formatTimer } from '~/lib'
+import { cn, formatTimer, SET_TYPE_STYLES } from '~/lib'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
-import { useRestTimer } from '../RestTimerContext'
-
-const SET_TYPE_COLORS = {
-	warmup: 'bg-macro-carbs/15 text-macro-carbs',
-	working: 'bg-macro-protein/15 text-macro-protein',
-	backoff: 'bg-macro-fat/15 text-macro-fat'
-} as const
+import { useWorkoutSessionStore } from '../store'
 
 export const RestTimer: FC = () => {
-	const { remaining, setType, isRunning, sessionId, startedAt, dismiss } = useRestTimer()
+	const sessionId = useWorkoutSessionStore(s => s.sessionId)
+	const sessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
+	const rest = useWorkoutSessionStore(s => s.rest)
+	const dismissRest = useWorkoutSessionStore(s => s.dismissRest)
 	const navigate = useNavigate()
-	const elapsed = useElapsedTimer(!isRunning && startedAt ? startedAt : null)
+	const isRunning = rest !== null
+	const elapsed = useElapsedTimer(!isRunning && sessionStartedAt ? sessionStartedAt : null)
+	const remaining = -useElapsedTimer(rest?.endAt ?? null) / 1000
 
 	const goToTimer = () => {
 		if (sessionId) navigate(`/workouts/sessions/${sessionId}/timer`)
 	}
 
 	// Active timer (counting down or overshot)
-	if (isRunning && setType) {
+	if (rest) {
 		const overshot = remaining <= 0
 		const display = formatTimer(remaining)
 
@@ -32,8 +31,8 @@ export const RestTimer: FC = () => {
 					overshot && 'animate-pulse'
 				)}
 			>
-				<span className={cn('rounded-full px-1.5 py-0.5 font-mono text-[10px]', SET_TYPE_COLORS[setType])}>
-					{setType}
+				<span className={cn('rounded-full px-1.5 py-0.5 font-mono text-[10px]', SET_TYPE_STYLES[rest.setType])}>
+					{rest.setType}
 				</span>
 				<button
 					type="button"
@@ -46,7 +45,7 @@ export const RestTimer: FC = () => {
 				>
 					{display}
 				</button>
-				<button type="button" className="text-ink-faint text-xs hover:text-ink" onClick={dismiss}>
+				<button type="button" className="text-ink-faint text-xs hover:text-ink" onClick={dismissRest}>
 					×
 				</button>
 			</div>
@@ -54,7 +53,7 @@ export const RestTimer: FC = () => {
 	}
 
 	// Session active with timer activated — show elapsed time
-	if (sessionId && startedAt) {
+	if (sessionId && sessionStartedAt) {
 		return (
 			<button
 				type="button"

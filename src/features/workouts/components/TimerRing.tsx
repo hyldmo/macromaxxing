@@ -1,12 +1,6 @@
 import type { SetType } from '@macromaxxing/db'
 import type { FC, ReactNode } from 'react'
-import { cn } from '~/lib'
-
-const SET_TYPE_COLORS: Record<SetType, string> = {
-	warmup: 'var(--color-macro-carbs)',
-	working: 'var(--color-macro-protein)',
-	backoff: 'var(--color-macro-fat)'
-}
+import { cn, SET_TYPE_COLORS } from '~/lib'
 
 export interface TimerRingProps {
 	remaining: number

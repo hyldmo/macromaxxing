@@ -5,7 +5,7 @@ import { Button, Modal, NumberInput, Spinner, Switch } from '~/components/ui'
 import { cn, computeDivergences, exerciseE1rmStats } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
-import { useRestTimer } from '../RestTimerContext'
+import { useWorkoutSessionStore } from '../store'
 import { E1rmTable } from './E1rmTable'
 
 type Session = RouterOutput['workout']['getSession']
@@ -27,7 +27,7 @@ export interface SessionReviewProps {
 
 export const SessionReview: FC<SessionReviewProps> = ({ session, template, extraExercises, onClose }) => {
 	const utils = trpc.useUtils()
-	const { setSession } = useRestTimer()
+	const reset = useWorkoutSessionStore(s => s.reset)
 
 	const divergences = useMemo(
 		() => computeDivergences(session.logs, template.exercises, template.trainingGoal ?? 'hypertrophy'),
@@ -50,7 +50,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	const completeMutation = trpc.workout.completeSession.useMutation({
 		onSuccess: () => {
-			setSession(null)
+			reset()
 			utils.workout.getSession.invalidate({ id: session.id })
 			utils.workout.listSessions.invalidate()
 			utils.workout.listWorkouts.invalidate()
