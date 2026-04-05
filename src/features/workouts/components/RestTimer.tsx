@@ -20,7 +20,7 @@ export const RestTimer: FC = () => {
 		if (!rest) return
 		const tick = () => setRemaining((rest.endAt - Date.now()) / 1000)
 		tick()
-		const id = setInterval(tick, 100)
+		const id = setInterval(tick, 33)
 		return () => clearInterval(id)
 	}, [rest])
 
