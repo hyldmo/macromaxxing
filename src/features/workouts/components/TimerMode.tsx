@@ -91,7 +91,6 @@ export const TimerMode: FC = () => {
 
 	const handleStartSet = useCallback(() => {
 		actions().startSet()
-
 	}, [])
 
 	const handlePause = useCallback(() => {
@@ -144,7 +143,6 @@ export const TimerMode: FC = () => {
 
 	const handleDismissTimer = useCallback(() => {
 		actions().dismissRest()
-
 	}, [])
 
 	const handleUndo = useCallback(() => {
@@ -155,7 +153,6 @@ export const TimerMode: FC = () => {
 
 	const handleStopSet = useCallback(() => {
 		actions().stopSet()
-
 	}, [])
 
 	const handleNavigate = useCallback((direction: -1 | 1) => actions().navigate(direction), [])
