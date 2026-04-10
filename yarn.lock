@@ -1350,6 +1350,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@cfworker/json-schema@npm:^4.1.1":
+  version: 4.1.1
+  resolution: "@cfworker/json-schema@npm:4.1.1"
+  checksum: 10c0/b5253486d346b7de6feec9c73954f612b11019dacb9023d710a5666df2f5fc145dd88b6b913c88726c6d97e2e258a515fa2cab177f58b18da6bac3738cbc4739
+  languageName: node
+  linkType: hard
+
 "@clerk/backend@npm:^2.29.2":
   version: 2.30.1
   resolution: "@clerk/backend@npm:2.30.1"
@@ -11256,6 +11263,7 @@ __metadata:
     "@ai-sdk/google": "npm:^3.0.21"
     "@ai-sdk/openai": "npm:^3.0.25"
     "@biomejs/biome": "npm:^2.3.8"
+    "@cfworker/json-schema": "npm:^4.1.1"
     "@clerk/clerk-react": "npm:^5.60.0"
     "@clerk/themes": "npm:^2.4.51"
     "@commitlint/cli": "npm:^20.4.2"
