@@ -1,5 +1,5 @@
 import { AI_PROVIDER_OPTIONS, type AiProvider } from '@macromaxxing/db'
-import { useEffect, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { Button, Card, CardContent, CardHeader, Input, SaveButton, Switch, TRPCError } from '~/components/ui'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { useDocumentTitle, useUnsavedChanges } from '~/lib'
@@ -190,6 +190,140 @@ export function SettingsPage() {
 					</form>
 				</CardContent>
 			</Card>
+
+			<ApiTokensSection />
 		</div>
+	)
+}
+
+const ApiTokensSection: FC = () => {
+	const utils = trpc.useUtils()
+	const tokensQuery = trpc.settings.listTokens.useQuery()
+	const createMutation = trpc.settings.createToken.useMutation({
+		onSuccess: () => utils.settings.listTokens.invalidate()
+	})
+	const deleteMutation = trpc.settings.deleteToken.useMutation({
+		onSuccess: () => utils.settings.listTokens.invalidate()
+	})
+
+	const [name, setName] = useState('')
+	const [createdToken, setCreatedToken] = useState<string | null>(null)
+	const [copied, setCopied] = useState<'endpoint' | 'token' | null>(null)
+
+	const mcpEndpoint = `${window.location.origin}/api/mcp`
+
+	function handleCopy(text: string, label: 'endpoint' | 'token') {
+		navigator.clipboard.writeText(text)
+		setCopied(label)
+		setTimeout(() => setCopied(prev => (prev === label ? null : prev)), 2000)
+	}
+
+	function handleCreate(e: React.FormEvent) {
+		e.preventDefault()
+		if (!name.trim()) return
+		createMutation.mutate(
+			{ name: name.trim() },
+			{
+				onSuccess: data => {
+					setCreatedToken(data.token)
+					setName('')
+				}
+			}
+		)
+	}
+
+	return (
+		<Card>
+			<CardHeader>
+				<h2 className="font-medium text-ink text-sm">API Tokens</h2>
+				<p className="text-ink-muted text-xs">Personal access tokens for the MCP server and API access.</p>
+			</CardHeader>
+			<CardContent className="space-y-4">
+				<div className="space-y-1">
+					<span className="text-ink-muted text-sm">MCP Endpoint</span>
+					<div className="flex items-center gap-2">
+						<code className="min-w-0 flex-1 truncate rounded-sm border border-edge bg-surface-0 px-2 py-1 font-mono text-ink text-sm">
+							{mcpEndpoint}
+						</code>
+						<Button variant="outline" onClick={() => handleCopy(mcpEndpoint, 'endpoint')}>
+							{copied === 'endpoint' ? 'Copied!' : 'Copy'}
+						</Button>
+					</div>
+				</div>
+
+				{createdToken && (
+					<div className="space-y-1.5 rounded-md border border-accent bg-surface-0 p-3">
+						<p className="font-medium text-ink text-sm">Token created — copy it now!</p>
+						<p className="text-ink-muted text-xs">
+							This token will not be shown again. Store it somewhere safe.
+						</p>
+						<div className="flex items-center gap-2">
+							<code className="min-w-0 flex-1 truncate rounded-sm border border-edge bg-surface-0 px-2 py-1 font-mono text-ink text-xs">
+								{createdToken}
+							</code>
+							<Button variant="outline" onClick={() => handleCopy(createdToken, 'token')}>
+								{copied === 'token' ? 'Copied!' : 'Copy'}
+							</Button>
+						</div>
+						<Button variant="ghost" className="text-xs" onClick={() => setCreatedToken(null)}>
+							Dismiss
+						</Button>
+					</div>
+				)}
+
+				<form onSubmit={handleCreate} className="flex items-end gap-2">
+					<div className="min-w-0 flex-1 space-y-1">
+						<span className="text-ink-muted text-sm">New Token</span>
+						<Input
+							placeholder="Token name (e.g. Claude Desktop)"
+							value={name}
+							onChange={e => setName(e.target.value)}
+						/>
+					</div>
+					<Button disabled={!name.trim() || createMutation.isPending}>
+						{createMutation.isPending ? 'Creating...' : 'Create'}
+					</Button>
+				</form>
+				{createMutation.error && <TRPCError error={createMutation.error} />}
+
+				{tokensQuery.data && tokensQuery.data.length > 0 && (
+					<div className="space-y-1">
+						<span className="text-ink-muted text-sm">Active Tokens</span>
+						<div className="divide-y divide-edge rounded-md border border-edge">
+							{tokensQuery.data.map(token => (
+								<div key={token.id} className="flex items-center justify-between px-3 py-2">
+									<div className="min-w-0 flex-1">
+										<div className="text-ink text-sm">{token.name}</div>
+										<div className="text-ink-faint text-xs">
+											Created{' '}
+											<span className="font-mono tabular-nums">
+												{new Date(token.createdAt).toLocaleDateString()}
+											</span>
+											{token.lastUsedAt && (
+												<>
+													{' '}
+													· Last used{' '}
+													<span className="font-mono tabular-nums">
+														{new Date(token.lastUsedAt).toLocaleDateString()}
+													</span>
+												</>
+											)}
+										</div>
+									</div>
+									<Button
+										variant="destructive"
+										onClick={() => deleteMutation.mutate({ id: token.id })}
+										disabled={deleteMutation.isPending}
+									>
+										Delete
+									</Button>
+								</div>
+							))}
+						</div>
+					</div>
+				)}
+				{tokensQuery.error && <TRPCError error={tokensQuery.error} />}
+			</CardContent>
+		</Card>
 	)
 }
