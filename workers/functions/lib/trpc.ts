@@ -10,7 +10,11 @@ export interface TRPCContext {
 	env: Cloudflare.Env
 }
 
-const t = initTRPC.context<TRPCContext>().create()
+export interface McpMeta {
+	description: string
+}
+
+const t = initTRPC.context<TRPCContext>().meta<McpMeta>().create()
 
 export const router = t.router
 export const publicProcedure = t.procedure
