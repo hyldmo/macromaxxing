@@ -35,6 +35,23 @@ export const userSettings = sqliteTable('user_settings', {
 	sex: text('sex').notNull().default('male').$type<Sex>()
 })
 
+export const apiTokens = sqliteTable(
+	'api_tokens',
+	{
+		id: typeidCol('atok')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('atok')),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		name: text('name').notNull(),
+		tokenHash: text('token_hash').notNull().unique(),
+		lastUsedAt: integer('last_used_at'),
+		createdAt: integer('created_at').notNull()
+	},
+	t => [index('api_tokens_user_id_idx').on(t.userId), uniqueIndex('api_tokens_hash_idx').on(t.tokenHash)]
+)
+
 export const ingredients = sqliteTable(
 	'ingredients',
 	{

@@ -1,5 +1,6 @@
 import type { InferSelectModel } from 'drizzle-orm'
 import type {
+	apiTokens,
 	exerciseMuscles,
 	exercises,
 	ingredients,
@@ -23,6 +24,7 @@ import type {
 
 export type User = InferSelectModel<typeof users>
 export type UserSettings = InferSelectModel<typeof userSettings>
+export type ApiToken = InferSelectModel<typeof apiTokens>
 export type Ingredient = InferSelectModel<typeof ingredients>
 export type IngredientUnit = InferSelectModel<typeof ingredientUnits>
 export type Recipe = InferSelectModel<typeof recipes>

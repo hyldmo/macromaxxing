@@ -12,7 +12,16 @@ export const relations = defineRelations(schema, r => ({
 		mealPlans: r.many.mealPlans(),
 		exercises: r.many.exercises(),
 		workouts: r.many.workouts(),
-		workoutSessions: r.many.workoutSessions()
+		workoutSessions: r.many.workoutSessions(),
+		apiTokens: r.many.apiTokens()
+	},
+
+	apiTokens: {
+		user: r.one.users({
+			from: r.apiTokens.userId,
+			to: r.users.id,
+			optional: false
+		})
 	},
 
 	userSettings: {
