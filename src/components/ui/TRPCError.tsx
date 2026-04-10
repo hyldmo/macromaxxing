@@ -18,7 +18,7 @@ export const TRPCError: FC<TRPCErrorProps> = ({ error, type = 'error', raw, clas
 	return (
 		<div
 			className={cn(
-				'flex h-8 items-center gap-2 rounded-md px-3',
+				'flex min-h-8 items-center gap-2 rounded-md px-3 py-1.5',
 				{
 					'bg-destructive/10': type === 'error',
 					'bg-warning/10': type === 'warning',
@@ -76,6 +76,5 @@ function getFriendlyMessage(error: TRPCClientErrorLike<AppRouter>): ReactNode {
 		return friendlyMessages[code]
 	}
 
-	// Fallback to the original message, but clean it up
-	return message.length > 100 ? `${message.slice(0, 100)}...` : message
+	return message
 }

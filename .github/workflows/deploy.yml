@@ -29,7 +29,7 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Apply D1 migrations
-        run: yarn workspace @macromaxxing/workers wrangler d1 migrations apply ${{ github.event.repository.name }} --remote
+        run: yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
