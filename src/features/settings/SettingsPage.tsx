@@ -214,19 +214,20 @@ const MCP_CLIENT_OPTIONS: { value: McpClient; label: string }[] = [
 	{ value: 'cursor', label: 'Cursor' }
 ]
 
-function getMcpConfig(client: McpClient, endpoint: string): string {
+function getMcpConfig(client: McpClient, endpoint: string, token?: string): string {
+	const bearer = token ?? '<YOUR_TOKEN>'
 	switch (client) {
 		case 'claude-desktop':
 			return JSON.stringify(
-				{ mcpServers: { macromaxxing: { url: endpoint, headers: { Authorization: 'Bearer <YOUR_TOKEN>' } } } },
+				{ mcpServers: { macromaxxing: { url: endpoint, headers: { Authorization: `Bearer ${bearer}` } } } },
 				null,
 				2
 			)
 		case 'claude-code':
-			return `claude mcp add macromaxxing --transport http "${endpoint}" -- --header "Authorization: Bearer <YOUR_TOKEN>"`
+			return `claude mcp add macromaxxing --transport http "${endpoint}" --header "Authorization: Bearer ${bearer}"`
 		case 'cursor':
 			return JSON.stringify(
-				{ mcpServers: { macromaxxing: { url: endpoint, headers: { Authorization: 'Bearer <YOUR_TOKEN>' } } } },
+				{ mcpServers: { macromaxxing: { url: endpoint, headers: { Authorization: `Bearer ${bearer}` } } } },
 				null,
 				2
 			)
@@ -288,58 +289,6 @@ const ApiTokensSection: FC = () => {
 				<p className="text-ink-muted text-xs">Personal access tokens for the MCP server and API access.</p>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				<div className="space-y-1">
-					<span className="text-ink-muted text-sm">MCP Endpoint</span>
-					<div className="flex items-center gap-2">
-						<code className="min-w-0 flex-1 truncate rounded-sm border border-edge bg-surface-0 px-2 py-1 font-mono text-ink text-sm">
-							{mcpEndpoint}
-						</code>
-						<Button variant="outline" onClick={() => handleCopy(mcpEndpoint, 'endpoint')}>
-							{copied === 'endpoint' ? 'Copied!' : 'Copy'}
-						</Button>
-					</div>
-				</div>
-
-				<div className="space-y-1.5">
-					<div className="flex items-center justify-between">
-						<span className="text-ink-muted text-sm">Setup</span>
-						<ButtonGroup options={MCP_CLIENT_OPTIONS} value={mcpClient} onChange={setMcpClient} size="sm" />
-					</div>
-					<p className="text-ink-faint text-xs">{getMcpConfigPath(mcpClient)}</p>
-					<div className="relative">
-						<pre className="overflow-x-auto rounded-md border border-edge bg-surface-0 p-2 font-mono text-ink text-xs">
-							{getMcpConfig(mcpClient, mcpEndpoint)}
-						</pre>
-						<Button
-							variant="ghost"
-							className="absolute top-1 right-1 text-xs"
-							onClick={() => handleCopy(getMcpConfig(mcpClient, mcpEndpoint), 'config')}
-						>
-							{copied === 'config' ? 'Copied!' : 'Copy'}
-						</Button>
-					</div>
-				</div>
-
-				{createdToken && (
-					<div className="space-y-1.5 rounded-md border border-accent bg-surface-0 p-3">
-						<p className="font-medium text-ink text-sm">Token created — copy it now!</p>
-						<p className="text-ink-muted text-xs">
-							This token will not be shown again. Store it somewhere safe.
-						</p>
-						<div className="flex items-center gap-2">
-							<code className="min-w-0 flex-1 truncate rounded-sm border border-edge bg-surface-0 px-2 py-1 font-mono text-ink text-xs">
-								{createdToken}
-							</code>
-							<Button variant="outline" onClick={() => handleCopy(createdToken, 'token')}>
-								{copied === 'token' ? 'Copied!' : 'Copy'}
-							</Button>
-						</div>
-						<Button variant="ghost" className="text-xs" onClick={() => setCreatedToken(null)}>
-							Dismiss
-						</Button>
-					</div>
-				)}
-
 				<form onSubmit={handleCreate} className="flex items-end gap-2">
 					<div className="min-w-0 flex-1 space-y-1">
 						<span className="text-ink-muted text-sm">New Token</span>
@@ -349,11 +298,35 @@ const ApiTokensSection: FC = () => {
 							onChange={e => setName(e.target.value)}
 						/>
 					</div>
-					<Button disabled={!name.trim() || createMutation.isPending}>
+					<Button type="submit" disabled={!name.trim() || createMutation.isPending}>
 						{createMutation.isPending ? 'Creating...' : 'Create'}
 					</Button>
 				</form>
 				{createMutation.error && <TRPCError error={createMutation.error} />}
+
+				<div className="space-y-1.5">
+					<div className="flex items-center justify-between">
+						<span className="text-ink-muted text-sm">Setup</span>
+						<ButtonGroup options={MCP_CLIENT_OPTIONS} value={mcpClient} onChange={setMcpClient} size="sm" />
+					</div>
+					<p className="text-ink-faint text-xs">{getMcpConfigPath(mcpClient)}</p>
+					<pre className="overflow-x-auto rounded-md border border-edge bg-surface-0 p-2 font-mono text-ink text-xs">
+						{getMcpConfig(mcpClient, mcpEndpoint, createdToken ?? undefined)}
+					</pre>
+					<Button
+						variant="outline"
+						onClick={() =>
+							handleCopy(getMcpConfig(mcpClient, mcpEndpoint, createdToken ?? undefined), 'config')
+						}
+					>
+						{copied === 'config' ? 'Copied!' : 'Copy'}
+					</Button>
+					{createdToken && (
+						<p className="text-accent text-xs">
+							Token embedded above. Copy the config now — the token won't be shown again.
+						</p>
+					)}
+				</div>
 
 				{tokensQuery.data && tokensQuery.data.length > 0 && (
 					<div className="space-y-1">
