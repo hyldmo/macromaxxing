@@ -1,6 +1,16 @@
 import { AI_PROVIDER_OPTIONS, type AiProvider } from '@macromaxxing/db'
 import { type FC, useEffect, useState } from 'react'
-import { Button, Card, CardContent, CardHeader, Input, SaveButton, Switch, TRPCError } from '~/components/ui'
+import {
+	Button,
+	ButtonGroup,
+	Card,
+	CardContent,
+	CardHeader,
+	Input,
+	SaveButton,
+	Switch,
+	TRPCError
+} from '~/components/ui'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -196,6 +206,44 @@ export function SettingsPage() {
 	)
 }
 
+type McpClient = 'claude-desktop' | 'claude-code' | 'cursor'
+
+const MCP_CLIENT_OPTIONS: { value: McpClient; label: string }[] = [
+	{ value: 'claude-desktop', label: 'Claude Desktop' },
+	{ value: 'claude-code', label: 'Claude Code' },
+	{ value: 'cursor', label: 'Cursor' }
+]
+
+function getMcpConfig(client: McpClient, endpoint: string): string {
+	switch (client) {
+		case 'claude-desktop':
+			return JSON.stringify(
+				{ mcpServers: { macromaxxing: { url: endpoint, headers: { Authorization: 'Bearer <YOUR_TOKEN>' } } } },
+				null,
+				2
+			)
+		case 'claude-code':
+			return `claude mcp add macromaxxing --transport http "${endpoint}" -- --header "Authorization: Bearer <YOUR_TOKEN>"`
+		case 'cursor':
+			return JSON.stringify(
+				{ mcpServers: { macromaxxing: { url: endpoint, headers: { Authorization: 'Bearer <YOUR_TOKEN>' } } } },
+				null,
+				2
+			)
+	}
+}
+
+function getMcpConfigPath(client: McpClient): string {
+	switch (client) {
+		case 'claude-desktop':
+			return '~/Library/Application Support/Claude/claude_desktop_config.json'
+		case 'claude-code':
+			return 'Run in terminal'
+		case 'cursor':
+			return '.cursor/mcp.json'
+	}
+}
+
 const ApiTokensSection: FC = () => {
 	const utils = trpc.useUtils()
 	const tokensQuery = trpc.settings.listTokens.useQuery()
@@ -208,11 +256,12 @@ const ApiTokensSection: FC = () => {
 
 	const [name, setName] = useState('')
 	const [createdToken, setCreatedToken] = useState<string | null>(null)
-	const [copied, setCopied] = useState<'endpoint' | 'token' | null>(null)
+	const [copied, setCopied] = useState<'endpoint' | 'token' | 'config' | null>(null)
+	const [mcpClient, setMcpClient] = useState<McpClient>('claude-desktop')
 
 	const mcpEndpoint = `${window.location.origin}/api/mcp`
 
-	function handleCopy(text: string, label: 'endpoint' | 'token') {
+	function handleCopy(text: string, label: 'endpoint' | 'token' | 'config') {
 		navigator.clipboard.writeText(text)
 		setCopied(label)
 		setTimeout(() => setCopied(prev => (prev === label ? null : prev)), 2000)
@@ -247,6 +296,26 @@ const ApiTokensSection: FC = () => {
 						</code>
 						<Button variant="outline" onClick={() => handleCopy(mcpEndpoint, 'endpoint')}>
 							{copied === 'endpoint' ? 'Copied!' : 'Copy'}
+						</Button>
+					</div>
+				</div>
+
+				<div className="space-y-1.5">
+					<div className="flex items-center justify-between">
+						<span className="text-ink-muted text-sm">Setup</span>
+						<ButtonGroup options={MCP_CLIENT_OPTIONS} value={mcpClient} onChange={setMcpClient} size="sm" />
+					</div>
+					<p className="text-ink-faint text-xs">{getMcpConfigPath(mcpClient)}</p>
+					<div className="relative">
+						<pre className="overflow-x-auto rounded-md border border-edge bg-surface-0 p-2 font-mono text-ink text-xs">
+							{getMcpConfig(mcpClient, mcpEndpoint)}
+						</pre>
+						<Button
+							variant="ghost"
+							className="absolute top-1 right-1 text-xs"
+							onClick={() => handleCopy(getMcpConfig(mcpClient, mcpEndpoint), 'config')}
+						>
+							{copied === 'config' ? 'Copied!' : 'Copy'}
 						</Button>
 					</div>
 				</div>
