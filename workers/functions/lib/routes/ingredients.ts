@@ -156,6 +156,7 @@ const updateUnitSchema = z.object({
 
 export const ingredientsRouter = router({
 	list: publicProcedure
+		.meta({ description: 'List ingredients with nutrition data per 100g' })
 		.input(z.object({ search: z.string().optional() }).optional())
 		.query(async ({ ctx, input }) => {
 			const search = input?.search?.trim()
@@ -234,18 +235,21 @@ export const ingredientsRouter = router({
 			return { ingredient, source: 'usda' as const }
 		}),
 
-	create: protectedProcedure.input(createIngredientSchema).mutation(async ({ ctx, input }) => {
-		const [ingredient] = await ctx.db
-			.insert(ingredients)
-			.values({
-				userId: ctx.user.id,
-				...input,
-				name: normalizeIngredientName(input.name),
-				createdAt: Date.now()
-			})
-			.returning()
-		return ingredient
-	}),
+	create: protectedProcedure
+		.meta({ description: 'Create a custom ingredient with macro values' })
+		.input(createIngredientSchema)
+		.mutation(async ({ ctx, input }) => {
+			const [ingredient] = await ctx.db
+				.insert(ingredients)
+				.values({
+					userId: ctx.user.id,
+					...input,
+					name: normalizeIngredientName(input.name),
+					createdAt: Date.now()
+				})
+				.returning()
+			return ingredient
+		}),
 
 	update: protectedProcedure.input(updateIngredientSchema).mutation(async ({ ctx, input }) => {
 		const { id, ...updates } = input
@@ -261,107 +265,110 @@ export const ingredientsRouter = router({
 	}),
 
 	/** Find existing ingredient by name (case-insensitive) or create via USDA/AI lookup */
-	findOrCreate: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {
-		const normalizedName = normalizeIngredientName(input.name)
+	findOrCreate: protectedProcedure
+		.meta({ description: 'Find or create ingredient via USDA lookup then AI fallback' })
+		.input(z.object({ name: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const normalizedName = normalizeIngredientName(input.name)
 
-		// Check for existing ingredient (case-insensitive)
-		const existing = await ctx.db.query.ingredients.findFirst({
-			where: { RAW: t => sql`lower(${t.name}) = lower(${normalizedName})` },
-			with: { units: true }
-		})
+			// Check for existing ingredient (case-insensitive)
+			const existing = await ctx.db.query.ingredients.findFirst({
+				where: { RAW: t => sql`lower(${t.name}) = lower(${normalizedName})` },
+				with: { units: true }
+			})
 
-		if (existing) {
-			return { ingredient: existing, source: 'existing' as const }
-		}
-
-		// USDA resolution (local exact match → API)
-		let usdaData: {
-			fdcId: number
-			macros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
-			density: number | null
-			nonVolumeUnits: PortionUnit[]
-		} | null = null
-
-		const localUsda = await lookupLocalUSDA(ctx.db, normalizedName)
-		if (localUsda) {
-			const { fdcId, description: _, ...macros } = localUsda
-			const localPortions = await fetchLocalUsdaPortions(ctx.db, fdcId)
-			usdaData = {
-				fdcId,
-				macros,
-				density: densityFromPortions(localPortions),
-				nonVolumeUnits: portionsToUnits(localPortions)
+			if (existing) {
+				return { ingredient: existing, source: 'existing' as const }
 			}
-		} else {
-			const usdaKey = ctx.env.USDA_API_KEY
-			if (usdaKey) {
-				const usdaResult = await lookupUSDA(normalizedName, usdaKey)
-				if (usdaResult) {
-					const { fdcId, ...macros } = usdaResult
-					const usdaPortions = await fetchUsdaPortions(fdcId, usdaKey)
-					usdaData = {
-						fdcId,
-						macros,
-						density: densityFromPortions(usdaPortions),
-						nonVolumeUnits: portionsToUnits(usdaPortions)
+
+			// USDA resolution (local exact match → API)
+			let usdaData: {
+				fdcId: number
+				macros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
+				density: number | null
+				nonVolumeUnits: PortionUnit[]
+			} | null = null
+
+			const localUsda = await lookupLocalUSDA(ctx.db, normalizedName)
+			if (localUsda) {
+				const { fdcId, description: _, ...macros } = localUsda
+				const localPortions = await fetchLocalUsdaPortions(ctx.db, fdcId)
+				usdaData = {
+					fdcId,
+					macros,
+					density: densityFromPortions(localPortions),
+					nonVolumeUnits: portionsToUnits(localPortions)
+				}
+			} else {
+				const usdaKey = ctx.env.USDA_API_KEY
+				if (usdaKey) {
+					const usdaResult = await lookupUSDA(normalizedName, usdaKey)
+					if (usdaResult) {
+						const { fdcId, ...macros } = usdaResult
+						const usdaPortions = await fetchUsdaPortions(fdcId, usdaKey)
+						usdaData = {
+							fdcId,
+							macros,
+							density: densityFromPortions(usdaPortions),
+							nonVolumeUnits: portionsToUnits(usdaPortions)
+						}
 					}
 				}
 			}
-		}
 
-		if (usdaData) {
-			let { density } = usdaData
-			let units = usdaData.nonVolumeUnits
+			if (usdaData) {
+				let { density } = usdaData
+				let units = usdaData.nonVolumeUnits
 
-			if (!density || units.length === 0) {
-				const ai = await tryAiEnrichment(ctx, normalizedName, units)
-				if (!density) density = ai.density
-				units = [...units, ...ai.units]
+				if (!density || units.length === 0) {
+					const ai = await tryAiEnrichment(ctx, normalizedName, units)
+					if (!density) density = ai.density
+					units = [...units, ...ai.units]
+				}
+
+				const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
+					name: normalizedName,
+					macros: usdaData.macros,
+					fdcId: usdaData.fdcId,
+					density,
+					source: 'usda',
+					units
+				})
+				return { ingredient, source: 'usda' as const }
 			}
 
+			// Fall back to AI
+			const encryptionSecret = ctx.env.ENCRYPTION_SECRET
+			if (!encryptionSecret) {
+				throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
+			}
+
+			const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
+			if (!settings) {
+				throw new TRPCError({
+					code: 'PRECONDITION_FAILED',
+					message: 'No AI provider configured. Go to Settings to add your API key.'
+				})
+			}
+
+			const { output: aiResult } = await generateTextWithFallback({
+				provider: settings.provider,
+				apiKey: settings.apiKey,
+				output: Output.object({ schema: ingredientAiSchema }),
+				prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${normalizedName}`,
+				fallback: settings.modelFallback
+			})
+
+			const { units: aiUnits, density: aiDensity, ...macros } = aiResult
 			const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
 				name: normalizedName,
-				macros: usdaData.macros,
-				fdcId: usdaData.fdcId,
-				density,
-				source: 'usda',
-				units
+				macros,
+				density: aiDensity,
+				source: 'ai',
+				units: aiUnits.filter(u => !isVolumeUnit(u.name)).map(u => ({ ...u, source: 'ai' as const }))
 			})
-			return { ingredient, source: 'usda' as const }
-		}
-
-		// Fall back to AI
-		const encryptionSecret = ctx.env.ENCRYPTION_SECRET
-		if (!encryptionSecret) {
-			throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'ENCRYPTION_SECRET not configured' })
-		}
-
-		const settings = await getDecryptedApiKey(ctx.db, ctx.user.id, encryptionSecret)
-		if (!settings) {
-			throw new TRPCError({
-				code: 'PRECONDITION_FAILED',
-				message: 'No AI provider configured. Go to Settings to add your API key.'
-			})
-		}
-
-		const { output: aiResult } = await generateTextWithFallback({
-			provider: settings.provider,
-			apiKey: settings.apiKey,
-			output: Output.object({ schema: ingredientAiSchema }),
-			prompt: `${INGREDIENT_AI_PROMPT}\n\nIngredient: ${normalizedName}`,
-			fallback: settings.modelFallback
-		})
-
-		const { units: aiUnits, density: aiDensity, ...macros } = aiResult
-		const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
-			name: normalizedName,
-			macros,
-			density: aiDensity,
-			source: 'ai',
-			units: aiUnits.filter(u => !isVolumeUnit(u.name)).map(u => ({ ...u, source: 'ai' as const }))
-		})
-		return { ingredient, source: 'ai' as const }
-	}),
+			return { ingredient, source: 'ai' as const }
+		}),
 
 	/** Batch find or create multiple ingredients — single AI call for all unknowns */
 	batchFindOrCreate: protectedProcedure

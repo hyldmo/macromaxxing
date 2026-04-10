@@ -216,6 +216,8 @@ workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt
 
 usda_foods(fdc_id PK integer, description, data_type: foundation|sr_legacy, protein/carbs/fat/kcal/fiber per 100g, density?)
   → usda_portions(id autoincrement PK, fdc_id FK, name, grams, is_volume)
+
+apiTokens(id typeid:atok, userId FK, name, tokenHash unique, lastUsedAt?, createdAt)
 ```
 
 All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
@@ -283,6 +285,7 @@ trpc.workout.importSets                     # Import sets from CSV/spreadsheet t
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
 trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout templates
 trpc.settings.get/save
+trpc.settings.listTokens/createToken/deleteToken    # Personal access token management
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions
 trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI); returns imageUrl
@@ -291,6 +294,9 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 # Non-tRPC routes (raw Hono, multipart form data)
 POST   /api/recipes/:id/image              # Upload recipe image to R2 (max 5MB, image/* only)
 DELETE /api/recipes/:id/image              # Remove recipe image (cleans up R2 if upload)
+
+# MCP endpoint (Model Context Protocol)
+POST   /api/mcp                            # MCP server (bearer token auth, stateless)
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -332,6 +338,8 @@ DELETE /api/recipes/:id/image              # Remove recipe image (cleans up R2 i
 - `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
+
+**MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Auth via personal access tokens (bearer). Stateless mode (new server per request). Configure in Settings > API Tokens. Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`).
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 

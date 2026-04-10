@@ -31,6 +31,7 @@ import { getDecryptedApiKey } from './settings'
 
 export const aiRouter = router({
 	lookup: protectedProcedure
+		.meta({ description: 'Look up ingredient nutrition via USDA database or AI' })
 		.input(
 			z.object({
 				ingredientName: z.string().min(1),
@@ -169,6 +170,7 @@ export const aiRouter = router({
 		}),
 
 	parseRecipe: protectedProcedure
+		.meta({ description: 'Parse a recipe from URL or pasted text into structured ingredients' })
 		.input(
 			z
 				.object({

@@ -7,6 +7,8 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { authenticateRequest } from '../lib/auth'
 import { createDb } from '../lib/db'
+import { handleMcpRequest } from '../lib/mcp'
+import { authenticateByToken } from '../lib/mcp-auth'
 import { appRouter } from '../lib/router'
 
 type HonoEnv = { Bindings: Cloudflare.Env }
@@ -71,6 +73,26 @@ app.delete('/api/recipes/:id/image', async c => {
 	await db.update(recipes).set({ image: null, updatedAt: Date.now() }).where(eq(recipes.id, recipeId))
 
 	return c.json({ ok: true })
+})
+
+// MCP endpoint - route-level CORS with MCP-specific headers
+app.use(
+	'/api/mcp',
+	cors({
+		origin: '*',
+		allowMethods: ['POST', 'OPTIONS'],
+		allowHeaders: ['Content-Type', 'mcp-session-id', 'mcp-protocol-version', 'Authorization'],
+		exposeHeaders: ['mcp-session-id', 'mcp-protocol-version']
+	})
+)
+
+app.all('/api/mcp', async c => {
+	const db = createDb(c.env.DB)
+	const user = await authenticateByToken(db, c.req.header('Authorization') ?? null)
+	if (!user) {
+		return c.json({ error: 'Unauthorized. Provide a valid bearer token.' }, 401)
+	}
+	return handleMcpRequest(c.req.raw, db, user, c.env)
 })
 
 app.use(

@@ -1,9 +1,10 @@
-import { type AiProvider, userSettings, zAiProvider } from '@macromaxxing/db'
+import { type AiProvider, apiTokens, type TypeIDString, userSettings, zAiProvider } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { MODELS } from '../constants'
 import { decrypt, encrypt } from '../crypto'
+import { generateToken, hashToken } from '../mcp-auth'
 import { protectedProcedure, router } from '../trpc'
 
 async function verifyKey(provider: AiProvider, apiKey: string) {
@@ -41,21 +42,23 @@ const saveSettingsSchema = z.object({
 })
 
 export const settingsRouter = router({
-	get: protectedProcedure.query(async ({ ctx }) => {
-		const settings = await ctx.db.query.userSettings.findFirst({
-			where: { userId: ctx.user.id }
-		})
-		if (!settings) return null
-		return {
-			provider: settings.aiProvider,
-			hasKey: Boolean(settings.aiApiKey),
-			batchLookups: Boolean(settings.batchLookups),
-			modelFallback: Boolean(settings.modelFallback),
-			heightCm: settings.heightCm,
-			weightKg: settings.weightKg,
-			sex: settings.sex
-		}
-	}),
+	get: protectedProcedure
+		.meta({ description: 'Get user settings (AI provider, body profile)' })
+		.query(async ({ ctx }) => {
+			const settings = await ctx.db.query.userSettings.findFirst({
+				where: { userId: ctx.user.id }
+			})
+			if (!settings) return null
+			return {
+				provider: settings.aiProvider,
+				hasKey: Boolean(settings.aiApiKey),
+				batchLookups: Boolean(settings.batchLookups),
+				modelFallback: Boolean(settings.modelFallback),
+				heightCm: settings.heightCm,
+				weightKg: settings.weightKg,
+				sex: settings.sex
+			}
+		}),
 
 	getProfile: protectedProcedure.query(async ({ ctx }) => {
 		const settings = await ctx.db.query.userSettings.findFirst({
@@ -143,7 +146,44 @@ export const settingsRouter = router({
 		} else {
 			throw new TRPCError({ code: 'BAD_REQUEST', message: 'API key required for initial setup' })
 		}
-	})
+	}),
+
+	listTokens: protectedProcedure.query(async ({ ctx }) => {
+		const tokens = await ctx.db.query.apiTokens.findMany({
+			where: { userId: ctx.user.id },
+			orderBy: { createdAt: 'desc' }
+		})
+		return tokens.map(t => ({
+			id: t.id,
+			name: t.name,
+			lastUsedAt: t.lastUsedAt,
+			createdAt: t.createdAt
+		}))
+	}),
+
+	createToken: protectedProcedure
+		.input(z.object({ name: z.string().min(1).max(100) }))
+		.mutation(async ({ ctx, input }) => {
+			const raw = generateToken()
+			const hash = await hashToken(raw)
+			const [token] = await ctx.db
+				.insert(apiTokens)
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					tokenHash: hash,
+					createdAt: Date.now()
+				})
+				.returning()
+			// Return the raw token ONCE. It cannot be retrieved again.
+			return { id: token.id, name: token.name, token: raw }
+		}),
+
+	deleteToken: protectedProcedure
+		.input(z.object({ id: z.custom<TypeIDString<'atok'>>() }))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db.delete(apiTokens).where(and(eq(apiTokens.id, input.id), eq(apiTokens.userId, ctx.user.id)))
+		})
 })
 
 export async function getDecryptedApiKey(

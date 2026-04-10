@@ -77,7 +77,7 @@ const updateIngredientSchema = z.object({
 })
 
 export const recipesRouter = router({
-	list: publicProcedure.query(async ({ ctx }) => {
+	list: publicProcedure.meta({ description: 'List all recipes with macro summaries' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
 			where: ctx.user
 				? { OR: [{ isPublic: 1, type: 'recipe' }, { userId: ctx.user.id }] }
@@ -89,51 +89,61 @@ export const recipesRouter = router({
 		return result
 	}),
 
-	get: publicProcedure.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() })).query(async ({ ctx, input }) => {
-		const recipe = await ctx.db.query.recipes.findFirst({
-			where: { id: input.id },
-			with: recipeIngredientsWithOrdered
-		})
-		if (!recipe) throw new Error('Recipe not found')
-		const isOwner = ctx.user && recipe.userId === ctx.user.id
-		if (!(recipe.isPublic || isOwner)) throw new Error('Recipe not found')
-		return recipe
-	}),
-
-	create: protectedProcedure.input(insertRecipeSchema).mutation(async ({ ctx, input }) => {
-		const now = Date.now()
-		const [recipe] = await ctx.db
-			.insert(recipes)
-			.values({
-				userId: ctx.user.id,
-				name: input.name,
-				instructions: input.instructions,
-				sourceUrl: input.sourceUrl ?? null,
-				createdAt: now,
-				updatedAt: now
+	get: publicProcedure
+		.meta({ description: 'Get recipe details with ingredients and macros' })
+		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
+		.query(async ({ ctx, input }) => {
+			const recipe = await ctx.db.query.recipes.findFirst({
+				where: { id: input.id },
+				with: recipeIngredientsWithOrdered
 			})
-			.returning()
-		return recipe
-	}),
+			if (!recipe) throw new Error('Recipe not found')
+			const isOwner = ctx.user && recipe.userId === ctx.user.id
+			if (!(recipe.isPublic || isOwner)) throw new Error('Recipe not found')
+			return recipe
+		}),
 
-	update: protectedProcedure.input(updateRecipeSchema).mutation(async ({ ctx, input }) => {
-		const { id, isPublic, image, ...updates } = input
-		await ctx.db
-			.update(recipes)
-			.set({
-				...updates,
-				...(isPublic !== undefined && { isPublic: isPublic ? 1 : 0 }),
-				...(image !== undefined && { image }),
-				updatedAt: Date.now()
+	create: protectedProcedure
+		.meta({ description: 'Create a new recipe' })
+		.input(insertRecipeSchema)
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			const [recipe] = await ctx.db
+				.insert(recipes)
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					instructions: input.instructions,
+					sourceUrl: input.sourceUrl ?? null,
+					createdAt: now,
+					updatedAt: now
+				})
+				.returning()
+			return recipe
+		}),
+
+	update: protectedProcedure
+		.meta({ description: 'Update recipe name, instructions, portions, or visibility' })
+		.input(updateRecipeSchema)
+		.mutation(async ({ ctx, input }) => {
+			const { id, isPublic, image, ...updates } = input
+			await ctx.db
+				.update(recipes)
+				.set({
+					...updates,
+					...(isPublic !== undefined && { isPublic: isPublic ? 1 : 0 }),
+					...(image !== undefined && { image }),
+					updatedAt: Date.now()
+				})
+				.where(and(eq(recipes.id, id), eq(recipes.userId, ctx.user.id)))
+			return ctx.db.query.recipes.findFirst({
+				where: { id },
+				with: recipeIngredientsWithOrdered
 			})
-			.where(and(eq(recipes.id, id), eq(recipes.userId, ctx.user.id)))
-		return ctx.db.query.recipes.findFirst({
-			where: { id },
-			with: recipeIngredientsWithOrdered
-		})
-	}),
+		}),
 
 	delete: protectedProcedure
+		.meta({ description: 'Delete a recipe' })
 		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			const recipe = await ctx.db.query.recipes.findFirst({
@@ -149,39 +159,42 @@ export const recipesRouter = router({
 			await ctx.db.delete(recipes).where(eq(recipes.id, input.id))
 		}),
 
-	addIngredient: protectedProcedure.input(addIngredientSchema).mutation(async ({ ctx, input }) => {
-		await assertRecipeOwnership(ctx.db, input.recipeId, ctx.user.id)
-		// Get next sort order
-		const existing = await ctx.db
-			.select()
-			.from(recipeIngredients)
-			.where(eq(recipeIngredients.recipeId, input.recipeId))
-		const sortOrder = existing.length
+	addIngredient: protectedProcedure
+		.meta({ description: 'Add an ingredient to a recipe by ingredient ID' })
+		.input(addIngredientSchema)
+		.mutation(async ({ ctx, input }) => {
+			await assertRecipeOwnership(ctx.db, input.recipeId, ctx.user.id)
+			// Get next sort order
+			const existing = await ctx.db
+				.select()
+				.from(recipeIngredients)
+				.where(eq(recipeIngredients.recipeId, input.recipeId))
+			const sortOrder = existing.length
 
-		const [newIngredient] = await ctx.db
-			.insert(recipeIngredients)
-			.values({
-				recipeId: input.recipeId,
-				ingredientId: input.ingredientId,
-				amountGrams: input.amountGrams,
-				displayUnit: input.displayUnit ?? null,
-				displayAmount: input.displayAmount ?? null,
-				preparation: input.preparation ?? null,
-				sortOrder
+			const [newIngredient] = await ctx.db
+				.insert(recipeIngredients)
+				.values({
+					recipeId: input.recipeId,
+					ingredientId: input.ingredientId,
+					amountGrams: input.amountGrams,
+					displayUnit: input.displayUnit ?? null,
+					displayAmount: input.displayAmount ?? null,
+					preparation: input.preparation ?? null,
+					sortOrder
+				})
+				.returning()
+
+			// Touch recipe updatedAt
+			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, input.recipeId))
+
+			return ctx.db.query.recipeIngredients.findFirst({
+				where: { id: newIngredient.id },
+				with: {
+					ingredient: { with: { units: true } },
+					subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+				}
 			})
-			.returning()
-
-		// Touch recipe updatedAt
-		await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, input.recipeId))
-
-		return ctx.db.query.recipeIngredients.findFirst({
-			where: { id: newIngredient.id },
-			with: {
-				ingredient: { with: { units: true } },
-				subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-			}
-		})
-	}),
+		}),
 
 	addSubrecipe: protectedProcedure
 		.input(
@@ -258,27 +271,31 @@ export const recipesRouter = router({
 			})
 		}),
 
-	updateIngredient: protectedProcedure.input(updateIngredientSchema).mutation(async ({ ctx, input }) => {
-		const { id, ...updates } = input
-		const ri = await ctx.db.query.recipeIngredients.findFirst({ where: { id } })
-		if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
-		await assertRecipeOwnership(ctx.db, ri.recipeId, ctx.user.id)
+	updateIngredient: protectedProcedure
+		.meta({ description: 'Update ingredient amount, unit, or preparation in a recipe' })
+		.input(updateIngredientSchema)
+		.mutation(async ({ ctx, input }) => {
+			const { id, ...updates } = input
+			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: { id } })
+			if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
+			await assertRecipeOwnership(ctx.db, ri.recipeId, ctx.user.id)
 
-		await ctx.db.update(recipeIngredients).set(updates).where(eq(recipeIngredients.id, id))
+			await ctx.db.update(recipeIngredients).set(updates).where(eq(recipeIngredients.id, id))
 
-		// Touch parent recipe
-		await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
+			// Touch parent recipe
+			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
 
-		return ctx.db.query.recipeIngredients.findFirst({
-			where: { id },
-			with: {
-				ingredient: { with: { units: true } },
-				subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-			}
-		})
-	}),
+			return ctx.db.query.recipeIngredients.findFirst({
+				where: { id },
+				with: {
+					ingredient: { with: { units: true } },
+					subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+				}
+			})
+		}),
 
 	removeIngredient: protectedProcedure
+		.meta({ description: 'Remove an ingredient from a recipe' })
 		.input(z.object({ id: z.custom<TypeIDString<'rci'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: { id: input.id } })

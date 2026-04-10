@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
 export const mealPlansRouter = router({
-	list: protectedProcedure.query(async ({ ctx }) => {
+	list: protectedProcedure.meta({ description: 'List meal plans' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.mealPlans.findMany({
 			where: { userId: ctx.user.id },
 			with: { inventory: true },
@@ -13,63 +13,70 @@ export const mealPlansRouter = router({
 		return result
 	}),
 
-	get: protectedProcedure.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() })).query(async ({ ctx, input }) => {
-		const [plan, allRecipes] = await ctx.db.batch([
-			// Q1: Plan + inventory + slots (2 levels, shallow)
-			ctx.db.query.mealPlans.findFirst({
-				where: { id: input.id, userId: ctx.user.id },
-				with: { inventory: { with: { slots: true } } }
-			}),
-			// Q2: Recipes via subquery on inventory (3 levels, no dependency on Q1)
-			ctx.db.query.recipes.findMany({
-				where: {
-					RAW: t =>
-						inArray(
-							t.id,
-							ctx.db
-								.select({ id: mealPlanInventory.recipeId })
-								.from(mealPlanInventory)
-								.where(eq(mealPlanInventory.mealPlanId, input.id))
-						)
-				},
-				with: {
-					recipeIngredients: {
-						with: {
-							ingredient: true,
-							subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-						},
-						orderBy: { sortOrder: 'asc' }
+	get: protectedProcedure
+		.meta({ description: 'Get meal plan with inventory and weekly slot allocations' })
+		.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() }))
+		.query(async ({ ctx, input }) => {
+			const [plan, allRecipes] = await ctx.db.batch([
+				// Q1: Plan + inventory + slots (2 levels, shallow)
+				ctx.db.query.mealPlans.findFirst({
+					where: { id: input.id, userId: ctx.user.id },
+					with: { inventory: { with: { slots: true } } }
+				}),
+				// Q2: Recipes via subquery on inventory (3 levels, no dependency on Q1)
+				ctx.db.query.recipes.findMany({
+					where: {
+						RAW: t =>
+							inArray(
+								t.id,
+								ctx.db
+									.select({ id: mealPlanInventory.recipeId })
+									.from(mealPlanInventory)
+									.where(eq(mealPlanInventory.mealPlanId, input.id))
+							)
+					},
+					with: {
+						recipeIngredients: {
+							with: {
+								ingredient: true,
+								subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+							},
+							orderBy: { sortOrder: 'asc' }
+						}
 					}
-				}
-			})
-		] as const)
-		if (!plan) throw new Error('Meal plan not found')
+				})
+			] as const)
+			if (!plan) throw new Error('Meal plan not found')
 
-		const recipeMap = new Map(allRecipes.map(r => [r.id, r]))
-		return {
-			...plan,
-			inventory: plan.inventory.map(inv => ({
-				...inv,
-				recipe: recipeMap.get(inv.recipeId)!
-			}))
-		}
-	}),
+			const recipeMap = new Map(allRecipes.map(r => [r.id, r]))
+			return {
+				...plan,
+				inventory: plan.inventory.map(inv => ({
+					...inv,
+					recipe: recipeMap.get(inv.recipeId)!
+				}))
+			}
+		}),
 
-	create: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {
-		const now = Date.now()
-		const [plan] = await ctx.db
-			.insert(mealPlans)
-			.values({
-				userId: ctx.user.id,
-				name: input.name,
-				createdAt: now,
-				updatedAt: now
-			})
-			.returning()
-		return plan
-	}),
+	create: protectedProcedure
+		.meta({ description: 'Create a new meal plan' })
+		.input(z.object({ name: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			const [plan] = await ctx.db
+				.insert(mealPlans)
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					createdAt: now,
+					updatedAt: now
+				})
+				.returning()
+			return plan
+		}),
 
 	update: protectedProcedure
+		.meta({ description: 'Update meal plan name' })
 		.input(
 			z.object({
 				id: z.custom<TypeIDString<'mpl'>>(),
@@ -88,6 +95,7 @@ export const mealPlansRouter = router({
 		}),
 
 	delete: protectedProcedure
+		.meta({ description: 'Delete a meal plan' })
 		.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			await ctx.db.delete(mealPlans).where(eq(mealPlans.id, input.id))
@@ -158,6 +166,7 @@ export const mealPlansRouter = router({
 
 	// Inventory operations
 	addToInventory: protectedProcedure
+		.meta({ description: 'Add a recipe to meal plan inventory with portion count' })
 		.input(
 			z.object({
 				planId: z.custom<TypeIDString<'mpl'>>(),
@@ -248,6 +257,7 @@ export const mealPlansRouter = router({
 		}),
 
 	removeFromInventory: protectedProcedure
+		.meta({ description: 'Remove a recipe from meal plan inventory' })
 		.input(z.object({ inventoryId: z.custom<TypeIDString<'mpi'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			// Get inventory item and verify ownership
@@ -267,6 +277,7 @@ export const mealPlansRouter = router({
 
 	// Slot operations
 	allocate: protectedProcedure
+		.meta({ description: 'Allocate portions to a day and slot in the meal plan' })
 		.input(
 			z.object({
 				inventoryId: z.custom<TypeIDString<'mpi'>>(),
@@ -345,6 +356,7 @@ export const mealPlansRouter = router({
 		}),
 
 	removeSlot: protectedProcedure
+		.meta({ description: 'Remove a portion allocation from a meal plan slot' })
 		.input(z.object({ slotId: z.custom<TypeIDString<'mps'>>() }))
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
