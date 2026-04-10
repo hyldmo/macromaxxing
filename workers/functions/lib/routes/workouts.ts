@@ -328,7 +328,7 @@ export const workoutsRouter = router({
 
 	// ─── Workout Templates ────────────────────────────────────────
 
-	listWorkouts: protectedProcedure.query(async ({ ctx }) =>
+	listWorkouts: protectedProcedure.meta({ description: 'List workout templates' }).query(async ({ ctx }) =>
 		ctx.db.query.workouts.findMany({
 			where: { userId: ctx.user.id },
 			with: workoutExercisesWith,
@@ -337,6 +337,7 @@ export const workoutsRouter = router({
 	),
 
 	getWorkout: protectedProcedure
+		.meta({ description: 'Get workout template with exercises and targets' })
 		.input(z.object({ id: z.custom<TypeIDString<'wkt'>>() }))
 		.query(async ({ ctx, input }) => {
 			const workout = await ctx.db.query.workouts.findFirst({
@@ -499,6 +500,7 @@ export const workoutsRouter = router({
 	// ─── Sessions ─────────────────────────────────────────────────
 
 	listSessions: protectedProcedure
+		.meta({ description: 'List workout sessions with dates' })
 		.input(z.object({ limit: z.number().min(1).max(100).default(20) }).optional())
 		.query(async ({ ctx, input }) =>
 			ctx.db.query.workoutSessions.findMany({
@@ -516,6 +518,7 @@ export const workoutsRouter = router({
 		),
 
 	getSession: protectedProcedure
+		.meta({ description: 'Get workout session with logged sets per exercise' })
 		.input(z.object({ id: z.custom<TypeIDString<'wks'>>() }))
 		.query(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
@@ -794,6 +797,7 @@ export const workoutsRouter = router({
 	// ─── Stats ────────────────────────────────────────────────────
 
 	muscleGroupStats: protectedProcedure
+		.meta({ description: 'Get volume per muscle group over N days' })
 		.input(z.object({ days: z.number().int().min(1).default(7) }).optional())
 		.query(async ({ ctx, input }) => {
 			const days = input?.days ?? 7

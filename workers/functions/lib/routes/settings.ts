@@ -42,21 +42,23 @@ const saveSettingsSchema = z.object({
 })
 
 export const settingsRouter = router({
-	get: protectedProcedure.query(async ({ ctx }) => {
-		const settings = await ctx.db.query.userSettings.findFirst({
-			where: { userId: ctx.user.id }
-		})
-		if (!settings) return null
-		return {
-			provider: settings.aiProvider,
-			hasKey: Boolean(settings.aiApiKey),
-			batchLookups: Boolean(settings.batchLookups),
-			modelFallback: Boolean(settings.modelFallback),
-			heightCm: settings.heightCm,
-			weightKg: settings.weightKg,
-			sex: settings.sex
-		}
-	}),
+	get: protectedProcedure
+		.meta({ description: 'Get user settings (AI provider, body profile)' })
+		.query(async ({ ctx }) => {
+			const settings = await ctx.db.query.userSettings.findFirst({
+				where: { userId: ctx.user.id }
+			})
+			if (!settings) return null
+			return {
+				provider: settings.aiProvider,
+				hasKey: Boolean(settings.aiApiKey),
+				batchLookups: Boolean(settings.batchLookups),
+				modelFallback: Boolean(settings.modelFallback),
+				heightCm: settings.heightCm,
+				weightKg: settings.weightKg,
+				sex: settings.sex
+			}
+		}),
 
 	getProfile: protectedProcedure.query(async ({ ctx }) => {
 		const settings = await ctx.db.query.userSettings.findFirst({
