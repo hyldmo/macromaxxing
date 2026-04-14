@@ -286,26 +286,25 @@ export function computeDivergences(
 				bestSet.reps >= effectiveReps &&
 				exerciseLogs.length >= effectiveSets
 
-			// Double progression: if reps hit the ceiling, suggest bumping weight and resetting reps
-			// Always base on logged weight — it reflects real available equipment better than template targets
-			// Only suggest increasing sets — never reduce template sets from a single under-performance
-			const suggestedSets = Math.max(effectiveSets, exerciseLogs.length)
+			// Double progression: only suggest weight/reps changes, never sets.
+			// Sets are a volume knob the user controls manually via the template editor.
+			// If reps hit the ceiling, suggest bumping weight and resetting reps to range.min.
+			// Always base on logged weight — it reflects real available equipment better than template targets.
 			const hitCeiling = bestSet.reps >= range.max && bestSet.weightKg > 0
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
-						targetSets: suggestedSets,
-						targetReps: range.max,
+						targetSets: effectiveSets,
+						targetReps: range.min,
 						targetWeight: roundWeight(bestSet.weightKg + plateIncrement(bestSet.weightKg, 'kg'), 'kg', 'up')
 					}
 				: {
-						targetSets: suggestedSets,
+						targetSets: effectiveSets,
 						targetReps: bestSet.reps,
 						targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
 					}
 
-			// Skip if the suggestion is identical to the current template (e.g. fewer sets but same weight/reps)
+			// Skip if the suggestion is identical to the current template
 			const suggestionMatchesPlan =
-				suggestedSets === effectiveSets &&
 				suggestion.targetReps === effectiveReps &&
 				Math.abs((suggestion.targetWeight ?? 0) - (we.targetWeight ?? 0)) <= 0.1
 
