@@ -288,15 +288,17 @@ export function computeDivergences(
 
 			// Double progression: if reps hit the ceiling, suggest bumping weight and resetting reps
 			// Always base on logged weight — it reflects real available equipment better than template targets
+			// Only suggest increasing sets — never reduce template sets from a single under-performance
+			const suggestedSets = Math.max(effectiveSets, exerciseLogs.length)
 			const hitCeiling = bestSet.reps >= range.max && bestSet.weightKg > 0
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
-						targetSets: exerciseLogs.length,
+						targetSets: suggestedSets,
 						targetReps: range.max,
 						targetWeight: roundWeight(bestSet.weightKg + plateIncrement(bestSet.weightKg, 'kg'), 'kg', 'up')
 					}
 				: {
-						targetSets: exerciseLogs.length,
+						targetSets: suggestedSets,
 						targetReps: bestSet.reps,
 						targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
 					}
