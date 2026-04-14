@@ -303,14 +303,22 @@ export function computeDivergences(
 						targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
 					}
 
-			result.push({
-				exerciseId: we.exerciseId,
-				exerciseName: we.exercise.name,
-				planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
-				actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
-				improved,
-				suggestion
-			})
+			// Skip if the suggestion is identical to the current template (e.g. fewer sets but same weight/reps)
+			const suggestionMatchesPlan =
+				suggestedSets === effectiveSets &&
+				suggestion.targetReps === effectiveReps &&
+				Math.abs((suggestion.targetWeight ?? 0) - (we.targetWeight ?? 0)) <= 0.1
+
+			if (!suggestionMatchesPlan) {
+				result.push({
+					exerciseId: we.exerciseId,
+					exerciseName: we.exercise.name,
+					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
+					actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
+					improved,
+					suggestion
+				})
+			}
 		}
 	}
 
