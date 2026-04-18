@@ -22,6 +22,7 @@ function App() {
 				queries: {
 					gcTime: ONE_DAY,
 					staleTime: 1000 * 60 * 5,
+					refetchOnMount: 'always',
 					networkMode: 'offlineFirst'
 				},
 				mutations: {
