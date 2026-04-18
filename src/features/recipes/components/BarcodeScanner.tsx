@@ -88,10 +88,13 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 	}, [active, elementId, onScan, onError])
 
 	return (
-		<div className="relative overflow-hidden rounded-sm border border-edge bg-surface-0">
+		<div className="relative aspect-[3/2] w-full overflow-hidden rounded-sm border border-edge bg-surface-0">
 			<div
 				id={elementId}
-				className={cn('h-48 [&>img]:hidden md:[&_video]:-scale-x-100', loading && 'invisible')}
+				className={cn(
+					'absolute inset-0 [&>img]:hidden [&_video]:!size-full [&_video]:object-cover md:[&_video]:-scale-x-100',
+					loading && 'invisible'
+				)}
 			/>
 			{loading && (
 				<div className="absolute inset-0 flex items-center justify-center">
