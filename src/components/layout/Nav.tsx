@@ -10,7 +10,7 @@ import {
 	UtensilsCrossed
 } from 'lucide-react'
 import type { FC, HTMLAttributes } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useMatch } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { cn } from '~/lib'
@@ -38,6 +38,7 @@ export interface Link {
 }
 
 export function Nav() {
+	const inTimer = useMatch('/workouts/sessions/:sessionId/timer') !== null
 	return (
 		<>
 			{/* Desktop top nav */}
@@ -59,11 +60,13 @@ export function Nav() {
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
-						<RestTimer />
-						<SignedIn>
-							<WebLink to="/settings" icon={Settings} />
-							<UserButton />
-						</SignedIn>
+						<div className={cn('flex items-center gap-2', inTimer && 'max-md:hidden')}>
+							<RestTimer />
+							<SignedIn>
+								<WebLink to="/settings" icon={Settings} />
+								<UserButton />
+							</SignedIn>
+						</div>
 						<SignedOut>
 							<SignInButton mode="modal">
 								<WebLink icon={LogIn} label="Sign in" />
