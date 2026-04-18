@@ -8,7 +8,7 @@ import { GridPaperBackground, MonoLabel } from '../components'
 export const Hero: FC = () => (
 	<section className="relative overflow-hidden border-edge border-b">
 		<GridPaperBackground />
-		<div className="relative mx-auto max-w-7xl px-4 pt-14 md:pt-20">
+		<div className="relative mx-auto max-w-7xl px-4 pt-16">
 			<SpecStrip />
 		</div>
 		<div className="relative mx-auto max-w-6xl px-6 pb-20 md:pb-28">
