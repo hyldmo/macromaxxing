@@ -2,8 +2,9 @@ import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import type { AbsoluteMacros } from '@macromaxxing/db'
 import { CalendarDays, ChevronRight, Dumbbell, Play, SkipForward, UtensilsCrossed } from 'lucide-react'
 import { type FC, useMemo } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
+import { LandingPage } from '~/features/landing'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { MacroRing } from '~/features/recipes/components/MacroRing'
 import {
@@ -72,22 +73,19 @@ function computeTodayMeals(plans: RouterOutput['dashboard']['summary']['plans'])
 	return meals
 }
 
-export const DashboardPage: FC = () => {
-	useDocumentTitle('Dashboard')
-
-	return (
-		<>
-			<SignedOut>
-				<Navigate to="/recipes" replace />
-			</SignedOut>
-			<SignedIn>
-				<DashboardContent />
-			</SignedIn>
-		</>
-	)
-}
+export const DashboardPage: FC = () => (
+	<>
+		<SignedOut>
+			<LandingPage />
+		</SignedOut>
+		<SignedIn>
+			<DashboardContent />
+		</SignedIn>
+	</>
+)
 
 const DashboardContent: FC = () => {
+	useDocumentTitle('Dashboard')
 	const navigate = useNavigate()
 	const summaryQuery = trpc.dashboard.summary.useQuery()
 	const utils = trpc.useUtils()
