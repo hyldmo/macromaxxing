@@ -42,7 +42,7 @@ export const FooterCta: FC = () => {
 				</div>
 				<div className="mt-16 border-edge border-t pt-6 font-mono text-[10px] text-ink-faint uppercase tracking-[0.25em]">
 					<div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-						<span>§ Macromaxxing · v1.0</span>
+						<span>§ Macromaxxing · {import.meta.env.VITE_APP_VERSION}</span>
 						<span className="h-3 w-px bg-edge" />
 						<span className="tabular-nums">{stamp}</span>
 						<span className="h-3 w-px bg-edge" />

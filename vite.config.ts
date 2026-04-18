@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import tailwind from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -5,10 +6,23 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
 
+function resolveAppVersion(): string {
+	try {
+		return execFileSync('git', ['describe', '--tags', '--abbrev=0'], {
+			stdio: ['ignore', 'pipe', 'ignore']
+		})
+			.toString()
+			.trim()
+	} catch {
+		return 'dev'
+	}
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
 	define: {
-		'import.meta.env.VITE_REPO_URL': JSON.stringify(pkg.repository.url.replace(/\.git$/, ''))
+		'import.meta.env.VITE_REPO_URL': JSON.stringify(pkg.repository.url.replace(/\.git$/, '')),
+		'import.meta.env.VITE_APP_VERSION': JSON.stringify(resolveAppVersion())
 	},
 	build: {
 		outDir: 'workers/dist',

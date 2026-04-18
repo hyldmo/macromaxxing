@@ -8,8 +8,10 @@ import { GridPaperBackground, MonoLabel } from '../components'
 export const Hero: FC = () => (
 	<section className="relative overflow-hidden border-edge border-b">
 		<GridPaperBackground />
-		<div className="relative mx-auto max-w-6xl px-6 pt-14 pb-20 md:pt-20 md:pb-28">
+		<div className="relative mx-auto max-w-7xl px-4 pt-14 md:pt-20">
 			<SpecStrip />
+		</div>
+		<div className="relative mx-auto max-w-6xl px-6 pb-20 md:pb-28">
 			<div className="mt-12 grid gap-16 md:mt-20 md:grid-cols-12 md:gap-10">
 				<div className="md:col-span-7">
 					<HeroHeadline />
@@ -62,7 +64,7 @@ const HeroHeadline: FC = () => (
 
 const SpecStrip: FC = () => (
 	<div className="flex items-center gap-4 border-edge border-y py-2 font-mono text-[10px] text-ink-faint uppercase tracking-[0.2em]">
-		<span className="text-accent">§ v1.0</span>
+		<span className="text-accent">§ {import.meta.env.VITE_APP_VERSION}</span>
 		<span className="h-3 w-px bg-edge" />
 		<span className="hidden md:inline">Nutrition + Training Log</span>
 		<span className="hidden h-3 w-px bg-edge md:inline-block" />

@@ -15,6 +15,23 @@ const FAQ_ITEMS: Array<{ q: string; a: ReactNode }> = [
 		)
 	},
 	{
+		q: 'Is the source code available?',
+		a: (
+			<>
+				Yes. Macromaxxing is open source. Read the code, file an issue, or send a PR at{' '}
+				<a
+					href="https://github.com/hyldmo/macromaxxing"
+					target="_blank"
+					rel="noreferrer"
+					className="font-mono text-accent underline underline-offset-2 hover:text-ink"
+				>
+					github.com/hyldmo/macromaxxing
+				</a>
+				. Self-host it if you want.
+			</>
+		)
+	},
+	{
 		q: 'Does it work offline?',
 		a: (
 			<>
