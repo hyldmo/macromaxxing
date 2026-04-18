@@ -156,6 +156,7 @@ export const TimerMode: FC = () => {
 	}, [])
 
 	const handleNavigate = useCallback((direction: -1 | 1) => actions().navigate(direction), [])
+	const handleNavigateSet = useCallback((direction: -1 | 1) => actions().navigateSet(direction), [])
 
 	// Keyboard: Enter/Space confirms or dismisses, Escape closes
 	useEffect(() => {
@@ -268,9 +269,27 @@ export const TimerMode: FC = () => {
 											SS{currentSet.superset.group}
 										</span>
 									)}
-									<span className="font-mono text-ink-muted text-sm tabular-nums">
-										Set {currentSet.setNumber} of {currentSet.totalSets}
-									</span>
+									<div className="flex items-center gap-1">
+										<button
+											type="button"
+											className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+											onClick={() => handleNavigateSet(-1)}
+											aria-label="Previous set"
+										>
+											<ChevronLeft className="size-3.5" />
+										</button>
+										<span className="font-mono text-ink-muted text-sm tabular-nums">
+											Set {currentSet.setNumber} of {currentSet.totalSets}
+										</span>
+										<button
+											type="button"
+											className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+											onClick={() => handleNavigateSet(1)}
+											aria-label="Next set"
+										>
+											<ChevronRight className="size-3.5" />
+										</button>
+									</div>
 								</div>
 								<span className="font-mono text-ink text-lg tabular-nums">
 									{currentSet.weightKg ?? 0}kg &times; {currentSet.reps} reps
