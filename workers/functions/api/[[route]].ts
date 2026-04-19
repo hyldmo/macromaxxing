@@ -1,8 +1,3 @@
-import {
-	fetchClerkAuthorizationServerMetadata,
-	generateClerkProtectedResourceMetadata,
-	corsHeaders as oauthMetadataCors
-} from '@clerk/mcp-tools/server'
 import { clerkMiddleware } from '@hono/clerk-auth'
 import { trpcServer } from '@hono/trpc-server'
 import { recipes, type TypeIDString } from '@macromaxxing/db'
@@ -83,29 +78,11 @@ app.delete('/api/recipes/:id/image', async c => {
 	return c.json({ ok: true })
 })
 
-// ─── OAuth discovery for MCP (RFC 9728 + RFC 8414, public, no auth) ───
-
-app.get('/.well-known/oauth-protected-resource/api/mcp', c => {
-	const resourceUrl = new URL('/api/mcp', c.req.url).toString()
-	const metadata = generateClerkProtectedResourceMetadata({
-		publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
-		resourceUrl
-	})
-	return new Response(JSON.stringify(metadata), {
-		headers: { 'Content-Type': 'application/json', ...oauthMetadataCors }
-	})
-})
-
-app.get('/.well-known/oauth-authorization-server', async c => {
-	const metadata = await fetchClerkAuthorizationServerMetadata({
-		publishableKey: c.env.CLERK_PUBLISHABLE_KEY
-	})
-	return new Response(JSON.stringify(metadata), {
-		headers: { 'Content-Type': 'application/json', ...oauthMetadataCors }
-	})
-})
-
 // MCP endpoint - route-level CORS with MCP-specific headers
+// OAuth discovery for MCP lives in separate Pages Functions at
+// functions/.well-known/ because CF Pages only routes paths that match
+// filesystem-based Function files — Hono routes under /api/[[route]].ts
+// never receive /.well-known/* requests (they fall through to the SPA).
 app.use(
 	'/api/mcp',
 	cors({
