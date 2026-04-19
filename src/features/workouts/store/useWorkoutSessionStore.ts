@@ -61,6 +61,7 @@ export interface WorkoutSessionStore {
 
 	// Navigation
 	navigate: (direction: -1 | 1) => void
+	navigateSet: (direction: -1 | 1) => void
 }
 
 // --- Helpers ---
@@ -373,6 +374,23 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 				if (!isDone(state.queue, i, state.confirmedIndices) && state.queue[i].itemIndex < currentItemIdx) {
 					target = i
 				}
+			}
+		}
+
+		if (target < 0) return
+		set({ active: loadActive(state.queue, target) })
+	},
+
+	navigateSet: direction => {
+		const state = get()
+		if (!state.active) return
+		const step = direction
+		let target = -1
+
+		for (let i = state.active.index + step; i >= 0 && i < state.queue.length; i += step) {
+			if (!isDone(state.queue, i, state.confirmedIndices)) {
+				target = i
+				break
 			}
 		}
 
