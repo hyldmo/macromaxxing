@@ -301,7 +301,9 @@ POST   /api/recipes/:id/image              # Upload recipe image to R2 (max 5MB,
 DELETE /api/recipes/:id/image              # Remove recipe image (cleans up R2 if upload)
 
 # MCP endpoint (Model Context Protocol)
-POST   /api/mcp                            # MCP server (bearer token auth, stateless)
+POST   /api/mcp                                       # MCP server (Clerk OAuth bearer OR personal token, stateless)
+GET    /.well-known/oauth-protected-resource/api/mcp  # RFC 9728 metadata (public, points at Clerk auth server)
+GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxies Clerk FAPI, public)
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -344,7 +346,11 @@ POST   /api/mcp                            # MCP server (bearer token auth, stat
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
 
-**MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Auth via personal access tokens (bearer). Stateless mode (new server per request). Configure in Settings > API Tokens. Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`).
+**MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Two auth paths on the same `/api/mcp` endpoint:
+- **Clerk OAuth** (Claude.ai custom connectors, Cursor, VS Code, etc.) — Clerk acts as OAuth 2.1 authorization server via Dynamic Client Registration. `@clerk/mcp-tools` generates the RFC 9728 protected-resource metadata and proxies Clerk's RFC 8414 auth-server metadata. On 401, the `WWW-Authenticate` header points clients to the resource metadata URL.
+- **Personal access tokens** (Claude Code CLI, scripts) — bearer token from Settings > API Tokens.
+
+Stateless mode (new server per request). Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`). Requires `nodejs_compat` flag in `wrangler.toml` (for `Buffer` used by `@clerk/mcp-tools`).
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 
