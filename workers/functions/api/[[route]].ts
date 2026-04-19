@@ -22,7 +22,7 @@ app.use('*', clerkMiddleware())
 
 app.post('/api/recipes/:id/image', async c => {
 	const db = createDb(c.env.DB)
-	const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1' || !c.req.header('CF-Connecting-IP')
+	const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1'
 	const user = await authenticateRequest(c, db, isDev).catch(() => null)
 	if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
@@ -55,7 +55,7 @@ app.post('/api/recipes/:id/image', async c => {
 
 app.delete('/api/recipes/:id/image', async c => {
 	const db = createDb(c.env.DB)
-	const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1' || !c.req.header('CF-Connecting-IP')
+	const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1'
 	const user = await authenticateRequest(c, db, isDev).catch(() => null)
 	if (!user) return c.json({ error: 'Unauthorized' }, 401)
 
@@ -103,8 +103,10 @@ app.use(
 			const env = c.env
 			const db = createDb(env.DB)
 
-			// Check if running in local dev (wrangler sets CF-Connecting-IP to 127.0.0.1 in dev)
-			const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1' || !c.req.header('CF-Connecting-IP')
+			// Check if running in local dev (wrangler sets CF-Connecting-IP to 127.0.0.1 in dev).
+			// Must NOT treat missing header as dev — Cloudflare always sets it for external
+			// requests, and a missing header fallback would enable X-Dev-User-Email auth bypass.
+			const isDev = c.req.header('CF-Connecting-IP') === '127.0.0.1'
 
 			let user = null
 			try {
