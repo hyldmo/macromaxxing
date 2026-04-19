@@ -94,3 +94,6 @@ workers/dist/
 
 # USDA data cache
 .usda-cache/
+
+# gstack local artifacts (security reports, analytics, checkpoints)
+.gstack/
