@@ -110,7 +110,7 @@ app.use(
 	'/api/mcp',
 	cors({
 		origin: '*',
-		allowMethods: ['POST', 'OPTIONS'],
+		allowMethods: ['GET', 'POST', 'OPTIONS'],
 		allowHeaders: ['Content-Type', 'mcp-session-id', 'mcp-protocol-version', 'Authorization'],
 		exposeHeaders: ['mcp-session-id', 'mcp-protocol-version', 'WWW-Authenticate']
 	})
