@@ -4,6 +4,7 @@
 
 interface ImportMetaEnv {
 	readonly VITE_REPO_URL: string
+	readonly VITE_APP_VERSION: string
 	readonly VITE_CLERK_PUBLISHABLE_KEY: string
 	readonly VITE_R2_BASE_URL: string
 }

@@ -76,6 +76,11 @@ src/
   features/
     dashboard/
       DashboardPage.tsx                   # Home page: today's meals, macro progress, workouts, recent sessions
+    landing/
+      LandingPage.tsx                     # Signed-out home; composition of sections
+      components/                         # SectionShell, MonoLabel, BarcodeStrip, GridPaperBackground
+      sections/                           # Hero, NumbersRail, PlateSection, RackSection, IntelligenceSection,
+                                          #   HowItWorks, FaqSection, FooterCta (one file per section)
     recipes/
       RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
       RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions)
@@ -164,7 +169,7 @@ scripts/
 ## Routes
 
 ```
-/                                    → DashboardPage (signed-in) / redirect to /recipes (signed-out)
+/                                    → DashboardPage (signed-in) / LandingPage (signed-out)
 /recipes                             → RecipeListPage
 /recipes/new                         → RecipeEditorPage
 /recipes/:id                         → RecipeEditorPage

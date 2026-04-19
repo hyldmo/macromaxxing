@@ -92,7 +92,7 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 			<div
 				id={elementId}
 				className={cn(
-					'absolute inset-0 [&>img]:hidden [&_video]:!size-full [&_video]:object-cover md:[&_video]:-scale-x-100',
+					'[&_video]:!size-full absolute inset-0 [&>img]:hidden [&_video]:object-cover md:[&_video]:-scale-x-100',
 					loading && 'invisible'
 				)}
 			/>
