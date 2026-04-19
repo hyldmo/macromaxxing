@@ -26,6 +26,8 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
 
       - name: Apply D1 migrations
