@@ -1,3 +1,8 @@
+import {
+	fetchClerkAuthorizationServerMetadata,
+	generateClerkProtectedResourceMetadata,
+	corsHeaders as oauthMetadataCors
+} from '@clerk/mcp-tools/server'
 import { clerkMiddleware } from '@hono/clerk-auth'
 import { trpcServer } from '@hono/trpc-server'
 import { recipes, type TypeIDString } from '@macromaxxing/db'
@@ -9,7 +14,10 @@ import { authenticateRequest } from '../lib/auth'
 import { createDb } from '../lib/db'
 import { handleMcpRequest } from '../lib/mcp'
 import { authenticateByToken } from '../lib/mcp-auth'
+import { authenticateClerkOAuth } from '../lib/mcp-auth-clerk'
 import { appRouter } from '../lib/router'
+
+const MCP_RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource/api/mcp'
 
 type HonoEnv = { Bindings: Cloudflare.Env }
 
@@ -75,22 +83,56 @@ app.delete('/api/recipes/:id/image', async c => {
 	return c.json({ ok: true })
 })
 
+// ─── OAuth discovery for MCP (RFC 9728 + RFC 8414, public, no auth) ───
+
+app.get('/.well-known/oauth-protected-resource/api/mcp', c => {
+	const resourceUrl = new URL('/api/mcp', c.req.url).toString()
+	const metadata = generateClerkProtectedResourceMetadata({
+		publishableKey: c.env.CLERK_PUBLISHABLE_KEY,
+		resourceUrl
+	})
+	return new Response(JSON.stringify(metadata), {
+		headers: { 'Content-Type': 'application/json', ...oauthMetadataCors }
+	})
+})
+
+app.get('/.well-known/oauth-authorization-server', async c => {
+	const metadata = await fetchClerkAuthorizationServerMetadata({
+		publishableKey: c.env.CLERK_PUBLISHABLE_KEY
+	})
+	return new Response(JSON.stringify(metadata), {
+		headers: { 'Content-Type': 'application/json', ...oauthMetadataCors }
+	})
+})
+
 // MCP endpoint - route-level CORS with MCP-specific headers
 app.use(
 	'/api/mcp',
 	cors({
 		origin: '*',
-		allowMethods: ['POST', 'OPTIONS'],
+		allowMethods: ['GET', 'POST', 'OPTIONS'],
 		allowHeaders: ['Content-Type', 'mcp-session-id', 'mcp-protocol-version', 'Authorization'],
-		exposeHeaders: ['mcp-session-id', 'mcp-protocol-version']
+		exposeHeaders: ['mcp-session-id', 'mcp-protocol-version', 'WWW-Authenticate']
 	})
 )
 
 app.all('/api/mcp', async c => {
 	const db = createDb(c.env.DB)
-	const user = await authenticateByToken(db, c.req.header('Authorization') ?? null)
+	const authHeader = c.req.header('Authorization') ?? null
+
+	// Try Clerk OAuth bearer first (custom connectors via remote MCP), then
+	// fall back to personal access tokens (Claude Code CLI etc).
+	const user = (await authenticateClerkOAuth(c, db).catch(() => null)) ?? (await authenticateByToken(db, authHeader))
+
 	if (!user) {
-		return c.json({ error: 'Unauthorized. Provide a valid bearer token.' }, 401)
+		const metadataUrl = new URL(MCP_RESOURCE_METADATA_PATH, c.req.url).toString()
+		return new Response(JSON.stringify({ error: 'Unauthorized. Provide a valid bearer token.' }), {
+			status: 401,
+			headers: {
+				'Content-Type': 'application/json',
+				'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"`
+			}
+		})
 	}
 	return handleMcpRequest(c.req.raw, db, user, c.env)
 })

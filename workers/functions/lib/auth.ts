@@ -1,3 +1,4 @@
+import type { ClerkClient } from '@clerk/backend'
 import { getAuth } from '@hono/clerk-auth'
 import { users } from '@macromaxxing/db'
 import { eq } from 'drizzle-orm'
@@ -9,33 +10,32 @@ export interface AuthUser {
 	email: string
 }
 
+/**
+ * Resolve a Clerk userId to a D1 AuthUser, creating a row on first login.
+ * If a row already exists for the email (e.g. CF-Access migration), it is
+ * returned as-is so the user keeps their original ID and FK references.
+ */
+export async function resolveClerkUser(db: Database, clerkClient: ClerkClient, clerkUserId: string): Promise<AuthUser> {
+	const existing = await db.select().from(users).where(eq(users.id, clerkUserId)).get()
+	if (existing) return { id: existing.id, email: existing.email }
+
+	const clerkUser = await clerkClient.users.getUser(clerkUserId)
+	const email = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress
+
+	if (!email) throw new Error('Clerk user has no email')
+
+	const byEmail = await db.select().from(users).where(eq(users.email, email)).get()
+	if (byEmail) return { id: byEmail.id, email: byEmail.email }
+
+	await db.insert(users).values({ id: clerkUserId, email, createdAt: Date.now() })
+	return { id: clerkUserId, email }
+}
+
 export async function authenticateRequest(c: Context, db: Database, isDev: boolean): Promise<AuthUser> {
 	// 1. Clerk auth (production + dev with Clerk running)
 	const auth = getAuth(c)
 	if (auth?.userId) {
-		const existing = await db.select().from(users).where(eq(users.id, auth.userId)).get()
-		if (existing) return { id: existing.id, email: existing.email }
-
-		// First login — fetch email from Clerk, create D1 user
-		const clerkClient = c.get('clerk')
-		const clerkUser = await clerkClient.users.getUser(auth.userId)
-		const email = clerkUser.emailAddresses.find(
-			(e: { id: string; emailAddress: string }) => e.id === clerkUser.primaryEmailAddressId
-		)?.emailAddress
-
-		if (!email) throw new Error('Clerk user has no email')
-
-		// Check if user already exists by email (migration from CF-Access)
-		const byEmail = await db.select().from(users).where(eq(users.email, email)).get()
-		if (byEmail) {
-			// Migrate: update their ID to Clerk ID
-			// Since id is PK and referenced by FKs, create new row + migrate refs
-			// For simplicity, just return the existing user (they keep old ID)
-			return { id: byEmail.id, email: byEmail.email }
-		}
-
-		await db.insert(users).values({ id: auth.userId, email, createdAt: Date.now() })
-		return { id: auth.userId, email }
+		return resolveClerkUser(db, c.get('clerk'), auth.userId)
 	}
 
 	// 2. Dev mode fallback (X-Dev-User-Email header)
