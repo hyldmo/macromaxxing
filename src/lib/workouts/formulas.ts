@@ -286,29 +286,38 @@ export function computeDivergences(
 				bestSet.reps >= effectiveReps &&
 				exerciseLogs.length >= effectiveSets
 
-			// Double progression: if reps hit the ceiling, suggest bumping weight and resetting reps
-			// Always base on logged weight — it reflects real available equipment better than template targets
+			// Double progression: only suggest weight/reps changes, never sets.
+			// Sets are a volume knob the user controls manually via the template editor.
+			// If reps hit the ceiling, suggest bumping weight and resetting reps to range.min.
+			// Always base on logged weight — it reflects real available equipment better than template targets.
 			const hitCeiling = bestSet.reps >= range.max && bestSet.weightKg > 0
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
-						targetSets: exerciseLogs.length,
-						targetReps: range.max,
+						targetSets: effectiveSets,
+						targetReps: range.min,
 						targetWeight: roundWeight(bestSet.weightKg + plateIncrement(bestSet.weightKg, 'kg'), 'kg', 'up')
 					}
 				: {
-						targetSets: exerciseLogs.length,
+						targetSets: effectiveSets,
 						targetReps: bestSet.reps,
 						targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
 					}
 
-			result.push({
-				exerciseId: we.exerciseId,
-				exerciseName: we.exercise.name,
-				planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
-				actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
-				improved,
-				suggestion
-			})
+			// Skip if the suggestion is identical to the current template
+			const suggestionMatchesPlan =
+				suggestion.targetReps === effectiveReps &&
+				Math.abs((suggestion.targetWeight ?? 0) - (we.targetWeight ?? 0)) <= 0.1
+
+			if (!suggestionMatchesPlan) {
+				result.push({
+					exerciseId: we.exerciseId,
+					exerciseName: we.exercise.name,
+					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
+					actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
+					improved,
+					suggestion
+				})
+			}
 		}
 	}
 
