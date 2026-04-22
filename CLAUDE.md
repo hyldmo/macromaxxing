@@ -14,6 +14,10 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 - **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
 
+## Environments
+
+- **Production:** https://macromaxxing.com (auto-deploys from `main` via Cloudflare Pages)
+
 ## Commands
 
 ```bash
