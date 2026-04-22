@@ -1,4 +1,4 @@
-import { ingredients, ingredientUnits, type TypeIDString, zodTypeID } from '@macromaxxing/db'
+import { ingredients, ingredientUnits, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -115,7 +115,7 @@ async function insertIngredientWithUnits(
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
 const createIngredientSchema = z.object({
-	id: z.custom<TypeIDString<'ing'>>().optional(),
+	id: zodTypeID('ing').optional(),
 	name: z.string().min(1),
 	protein: z.number().nonnegative(),
 	carbs: z.number().nonnegative(),
@@ -128,7 +128,7 @@ const createIngredientSchema = z.object({
 })
 
 const updateIngredientSchema = z.object({
-	id: z.custom<TypeIDString<'ing'>>(),
+	id: zodTypeID('ing'),
 	name: z.string().min(1).optional(),
 	protein: z.number().nonnegative().optional(),
 	carbs: z.number().nonnegative().optional(),
@@ -141,14 +141,14 @@ const updateIngredientSchema = z.object({
 })
 
 const createUnitSchema = z.object({
-	ingredientId: z.custom<TypeIDString<'ing'>>(),
+	ingredientId: zodTypeID('ing'),
 	name: z.string().min(1),
 	grams: z.number().positive(),
 	isDefault: z.boolean().optional()
 })
 
 const updateUnitSchema = z.object({
-	id: z.custom<TypeIDString<'inu'>>(),
+	id: zodTypeID('inu'),
 	name: z.string().min(1).optional(),
 	grams: z.number().positive().optional(),
 	isDefault: z.boolean().optional()

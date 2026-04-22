@@ -15,8 +15,10 @@ export const typeidCol = <T extends string>(_prefix: T) => {
 // Helper to generate a default value
 export const newId = <T extends string>(prefix: T) => typeid(prefix).toString() as TypeIDString<T>
 
-export const zodTypeID = <T extends string>(prefix: T) =>
-	z.custom<TypeIDString<T>>(val => typeof val === 'string' && val.startsWith(`${prefix}_`))
+// Use templateLiteral so Zod can emit proper JSON Schema (required by MCP tool
+// registration). z.custom() has no JSON Schema representation and throws at
+// conversion time.
+export const zodTypeID = <T extends string>(prefix: T) => z.templateLiteral([prefix, '_', z.string()])
 
 export type AiProvider = z.infer<typeof zAiProvider>
 export const zAiProvider = z.enum(['gemini', 'openai', 'anthropic'])
@@ -31,6 +33,8 @@ export type SetType = Exclude<SetMode, 'full'>
 
 export type HttpsUrl = `https://${string}`
 export type ImageSource = HttpsUrl | TypeIDString<'rcp'>
+
+export const zImageSource = z.union([z.templateLiteral(['https://', z.string()]), zodTypeID('rcp')])
 
 export const trainingGoal = z.enum(['hypertrophy', 'strength'])
 export type TrainingGoal = z.infer<typeof trainingGoal>

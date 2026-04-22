@@ -1,4 +1,4 @@
-import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString } from '@macromaxxing/db'
+import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString, zodTypeID } from '@macromaxxing/db'
 import { eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
@@ -15,7 +15,7 @@ export const mealPlansRouter = router({
 
 	get: protectedProcedure
 		.meta({ description: 'Get meal plan with inventory and weekly slot allocations' })
-		.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() }))
+		.input(z.object({ id: zodTypeID('mpl') }))
 		.query(async ({ ctx, input }) => {
 			const [plan, allRecipes] = await ctx.db.batch([
 				// Q1: Plan + inventory + slots (2 levels, shallow)
@@ -79,7 +79,7 @@ export const mealPlansRouter = router({
 		.meta({ description: 'Update meal plan name' })
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'mpl'>>(),
+				id: zodTypeID('mpl'),
 				name: z.string().min(1).optional()
 			})
 		)
@@ -96,7 +96,7 @@ export const mealPlansRouter = router({
 
 	delete: protectedProcedure
 		.meta({ description: 'Delete a meal plan' })
-		.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() }))
+		.input(z.object({ id: zodTypeID('mpl') }))
 		.mutation(async ({ ctx, input }) => {
 			await ctx.db.delete(mealPlans).where(eq(mealPlans.id, input.id))
 		}),
@@ -104,7 +104,7 @@ export const mealPlansRouter = router({
 	duplicate: protectedProcedure
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'mpl'>>(),
+				id: zodTypeID('mpl'),
 				newName: z.string().min(1)
 			})
 		)
@@ -169,8 +169,8 @@ export const mealPlansRouter = router({
 		.meta({ description: 'Add a recipe to meal plan inventory with portion count' })
 		.input(
 			z.object({
-				planId: z.custom<TypeIDString<'mpl'>>(),
-				recipeId: z.custom<TypeIDString<'rcp'>>(),
+				planId: zodTypeID('mpl'),
+				recipeId: zodTypeID('rcp'),
 				totalPortions: z.number().positive()
 			})
 		)
@@ -216,7 +216,7 @@ export const mealPlansRouter = router({
 	updateInventory: protectedProcedure
 		.input(
 			z.object({
-				inventoryId: z.custom<TypeIDString<'mpi'>>(),
+				inventoryId: zodTypeID('mpi'),
 				totalPortions: z.number().positive()
 			})
 		)
@@ -258,7 +258,7 @@ export const mealPlansRouter = router({
 
 	removeFromInventory: protectedProcedure
 		.meta({ description: 'Remove a recipe from meal plan inventory' })
-		.input(z.object({ inventoryId: z.custom<TypeIDString<'mpi'>>() }))
+		.input(z.object({ inventoryId: zodTypeID('mpi') }))
 		.mutation(async ({ ctx, input }) => {
 			// Get inventory item and verify ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
@@ -280,7 +280,7 @@ export const mealPlansRouter = router({
 		.meta({ description: 'Allocate portions to a day and slot in the meal plan' })
 		.input(
 			z.object({
-				inventoryId: z.custom<TypeIDString<'mpi'>>(),
+				inventoryId: zodTypeID('mpi'),
 				dayOfWeek: z.number().int().min(0).max(6),
 				slotIndex: z.number().int().min(0),
 				portions: z.number().positive().default(1)
@@ -317,9 +317,9 @@ export const mealPlansRouter = router({
 	updateSlot: protectedProcedure
 		.input(
 			z.object({
-				slotId: z.custom<TypeIDString<'mps'>>(),
+				slotId: zodTypeID('mps'),
 				portions: z.number().positive().optional(),
-				inventoryId: z.custom<TypeIDString<'mpi'>>().optional()
+				inventoryId: zodTypeID('mpi').optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -357,7 +357,7 @@ export const mealPlansRouter = router({
 
 	removeSlot: protectedProcedure
 		.meta({ description: 'Remove a portion allocation from a meal plan slot' })
-		.input(z.object({ slotId: z.custom<TypeIDString<'mps'>>() }))
+		.input(z.object({ slotId: zodTypeID('mps') }))
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
@@ -384,7 +384,7 @@ export const mealPlansRouter = router({
 	copySlot: protectedProcedure
 		.input(
 			z.object({
-				slotId: z.custom<TypeIDString<'mps'>>(),
+				slotId: zodTypeID('mps'),
 				targetDays: z.array(z.number().int().min(0).max(6)),
 				targetSlotIndex: z.number().int().min(0)
 			})

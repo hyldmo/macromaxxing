@@ -1,10 +1,11 @@
 import {
-	type ImageSource,
 	ingredients,
 	ingredientUnits,
 	recipeIngredients,
 	recipes,
-	type TypeIDString
+	type TypeIDString,
+	zImageSource,
+	zodTypeID
 } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { and, eq } from 'drizzle-orm'
@@ -49,18 +50,18 @@ const insertRecipeSchema = z.object({
 })
 
 const updateRecipeSchema = z.object({
-	id: z.custom<TypeIDString<'rcp'>>(),
+	id: zodTypeID('rcp'),
 	name: z.string().min(1).optional(),
 	instructions: z.string().nullable().optional(),
 	cookedWeight: z.number().positive().nullable().optional(),
 	portionSize: z.number().positive().nullable().optional(),
 	isPublic: z.boolean().optional(),
-	image: z.custom<ImageSource>().nullable().optional()
+	image: zImageSource.nullable().optional()
 })
 
 const addIngredientSchema = z.object({
-	recipeId: z.custom<TypeIDString<'rcp'>>(),
-	ingredientId: z.custom<TypeIDString<'ing'>>(),
+	recipeId: zodTypeID('rcp'),
+	ingredientId: zodTypeID('ing'),
 	amountGrams: z.number().positive(),
 	displayUnit: z.string().nullable().optional(),
 	displayAmount: z.number().positive().nullable().optional(),
@@ -68,7 +69,7 @@ const addIngredientSchema = z.object({
 })
 
 const updateIngredientSchema = z.object({
-	id: z.custom<TypeIDString<'rci'>>(),
+	id: zodTypeID('rci'),
 	amountGrams: z.number().positive().optional(),
 	displayUnit: z.string().nullable().optional(),
 	displayAmount: z.number().positive().nullable().optional(),
@@ -91,7 +92,7 @@ export const recipesRouter = router({
 
 	get: publicProcedure
 		.meta({ description: 'Get recipe details with ingredients and macros' })
-		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
+		.input(z.object({ id: zodTypeID('rcp') }))
 		.query(async ({ ctx, input }) => {
 			const recipe = await ctx.db.query.recipes.findFirst({
 				where: { id: input.id },
@@ -144,7 +145,7 @@ export const recipesRouter = router({
 
 	delete: protectedProcedure
 		.meta({ description: 'Delete a recipe' })
-		.input(z.object({ id: z.custom<TypeIDString<'rcp'>>() }))
+		.input(z.object({ id: zodTypeID('rcp') }))
 		.mutation(async ({ ctx, input }) => {
 			const recipe = await ctx.db.query.recipes.findFirst({
 				where: { id: input.id, userId: ctx.user.id }
@@ -199,8 +200,8 @@ export const recipesRouter = router({
 	addSubrecipe: protectedProcedure
 		.input(
 			z.object({
-				recipeId: z.custom<TypeIDString<'rcp'>>(),
-				subrecipeId: z.custom<TypeIDString<'rcp'>>(),
+				recipeId: zodTypeID('rcp'),
+				subrecipeId: zodTypeID('rcp'),
 				portions: z.number().positive().default(1)
 			})
 		)
@@ -296,7 +297,7 @@ export const recipesRouter = router({
 
 	removeIngredient: protectedProcedure
 		.meta({ description: 'Remove an ingredient from a recipe' })
-		.input(z.object({ id: z.custom<TypeIDString<'rci'>>() }))
+		.input(z.object({ id: zodTypeID('rci') }))
 		.mutation(async ({ ctx, input }) => {
 			const ri = await ctx.db.query.recipeIngredients.findFirst({ where: { id: input.id } })
 			if (!ri) throw new TRPCError({ code: 'NOT_FOUND' })
