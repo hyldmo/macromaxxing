@@ -97,3 +97,7 @@ workers/dist/
 
 # gstack local artifacts (security reports, analytics, checkpoints)
 .gstack/
+
+# Playwright MCP stray artifacts
+.playwright-mcp/
+pictogram-test-result.png
