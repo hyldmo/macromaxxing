@@ -112,7 +112,7 @@ src/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets)
       WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets
       WorkoutMode.tsx                       # Workout execution mode
-      RestTimerContext.tsx                   # Global rest timer + session state (persists across pages)
+      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, active, rest, setTimer) — canonical "is session in progress" signal; persists across routes
       components/
         BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
         MuscleHeatGrid.tsx                  # Muscle group volume/frequency stats grid
@@ -256,6 +256,7 @@ No shadows — borders-only depth strategy.
 - Connected toggle groups use `ButtonGroup` from `~/components/ui` — supports `size` (`sm`/`md`), `expandedLabel` for hover-to-expand, and read-only mode (omit `onChange`). Do NOT use inline button groups.
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`
 - tRPC client: `import { trpc } from '~/lib/trpc'`
+- Global UI chrome (Nav, banners, overlays) that reacts to workout state must source from `useWorkoutSessionStore`, not `useMatch`/route. Route gating misses routes you navigate away to mid-session. Pick the signal carefully: `sessionId !== null` = session exists (even before user starts), `sessionStartedAt !== null` = timer activated (user has started at least one set), `rest !== null` = rest countdown running. Example: `const timerActive = useWorkoutSessionStore(s => s.sessionStartedAt !== null)`.
 - React components should have this style, using implicit return if possible:
 	```tsx
 	export interface CookedWeightInputProps {
