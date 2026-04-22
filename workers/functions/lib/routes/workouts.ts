@@ -752,7 +752,10 @@ export const workoutsRouter = router({
 
 			await ctx.db
 				.update(workoutSessions)
-				.set({ completedAt: Date.now(), notes: input.notes ?? null })
+				.set({
+					completedAt: Date.now(),
+					...(input.notes !== undefined ? { notes: input.notes } : {})
+				})
 				.where(eq(workoutSessions.id, input.id))
 
 			// Apply template updates if provided
@@ -805,6 +808,19 @@ export const workoutsRouter = router({
 					await ctx.db.update(workouts).set({ updatedAt: now }).where(eq(workouts.id, workoutId))
 				}
 			}
+		}),
+
+	updateSessionNotes: protectedProcedure
+		.meta({ description: 'Update notes on a workout session (in-progress or completed)' })
+		.input(z.object({ id: zodTypeID('wks'), notes: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				columns: { id: true }
+			})
+			if (!session) throw new Error('Session not found')
+
+			await ctx.db.update(workoutSessions).set({ notes: input.notes }).where(eq(workoutSessions.id, input.id))
 		}),
 
 	deleteSession: protectedProcedure

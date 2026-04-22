@@ -662,7 +662,12 @@ export function WorkoutSessionPage() {
 			<Outlet
 				context={{
 					exerciseGroups,
-					session: { startedAt: session.startedAt, name: session.name ?? null },
+					session: {
+						id: session.id,
+						startedAt: session.startedAt,
+						name: session.name ?? null,
+						notes: session.notes ?? null
+					},
 					setActiveExerciseId,
 					onConfirmSet: (
 						data: {

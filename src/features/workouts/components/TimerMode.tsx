@@ -1,5 +1,16 @@
-import type { Exercise, SetType } from '@macromaxxing/db'
-import { ArrowLeftRight, ChevronLeft, ChevronRight, Dumbbell, HelpCircle, Pause, Square, Undo2, X } from 'lucide-react'
+import type { Exercise, SetType, WorkoutSession } from '@macromaxxing/db'
+import {
+	ArrowLeftRight,
+	ChevronLeft,
+	ChevronRight,
+	Dumbbell,
+	HelpCircle,
+	NotebookPen,
+	Pause,
+	Square,
+	Undo2,
+	X
+} from 'lucide-react'
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
@@ -9,12 +20,13 @@ import { useWorkoutSessionStore } from '../store'
 import { useWakeLock } from '../useWakeLock'
 import { ExerciseGuideModal } from './ExerciseGuideModal'
 import { SecondaryTimer } from './SecondaryTimer'
+import { SessionNotesModal } from './SessionNotesModal'
 import { TimerRing } from './TimerRing'
 
 export interface TimerModeContext {
 	exerciseGroups: RenderItem[]
 	setActiveExerciseId: (id: string | null) => void
-	session: { startedAt: number; name: string | null }
+	session: { id: WorkoutSession['id']; startedAt: number; name: string | null; notes: string | null }
 	onConfirmSet: (
 		data: {
 			exerciseId: Exercise['id']
@@ -44,6 +56,8 @@ export const TimerMode: FC = () => {
 	const _roundStartedAt = useWorkoutSessionStore(s => s._roundStartedAt)
 	const actions = useWorkoutSessionStore.getState
 	const [guideOpen, setGuideOpen] = useState(false)
+	const [notesOpen, setNotesOpen] = useState(false)
+	const hasNotes = (session.notes ?? '').trim().length > 0
 	useWakeLock()
 	useScrollLock()
 
@@ -203,6 +217,17 @@ export const TimerMode: FC = () => {
 	return (
 		<>
 			<div className="fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
+				<button
+					type="button"
+					onClick={() => setNotesOpen(true)}
+					aria-label="Open session notes"
+					className="absolute top-4 right-4 z-10 rounded-full p-2 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+				>
+					<NotebookPen className="size-5" />
+					{hasNotes && (
+						<span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-accent" aria-hidden />
+					)}
+				</button>
 				<div className="mx-auto flex h-full w-full max-w-sm flex-col">
 					{/* Main content */}
 					<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
@@ -465,6 +490,13 @@ export const TimerMode: FC = () => {
 					exerciseId={currentSet.exerciseId}
 					exerciseName={currentSet.exerciseName}
 					onClose={() => setGuideOpen(false)}
+				/>
+			)}
+			{notesOpen && (
+				<SessionNotesModal
+					sessionId={session.id}
+					initialNotes={session.notes}
+					onClose={() => setNotesOpen(false)}
 				/>
 			)}
 		</>
