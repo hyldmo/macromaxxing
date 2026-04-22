@@ -5,11 +5,11 @@ import {
 	ChevronRight,
 	Dumbbell,
 	HelpCircle,
+	Minimize2,
 	NotebookPen,
 	Pause,
 	Square,
-	Undo2,
-	X
+	Undo2
 } from 'lucide-react'
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
@@ -217,6 +217,15 @@ export const TimerMode: FC = () => {
 	return (
 		<>
 			<div className="fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={onClose}
+					aria-label="Minimize timer mode"
+					className="absolute top-4 left-4 rounded-full"
+				>
+					<Minimize2 className="size-5" />
+				</Button>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -473,13 +482,6 @@ export const TimerMode: FC = () => {
 											{nextSet.weightKg ?? 0}kg &times; {nextSet.reps}
 										</span>
 									</div>
-								)}
-
-								{currentSet !== null && (
-									<Button className="w-full" variant="outline" onClick={onClose}>
-										<X className="size-5" />
-										Exit timer mode
-									</Button>
 								)}
 							</>
 						)}
