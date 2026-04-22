@@ -60,7 +60,7 @@ export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, ex
 					</button>
 				</header>
 
-				<div className="flex-1 space-y-5 overflow-y-auto px-4 py-5">
+				<div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
 					{guideQuery.isLoading && (
 						<div className="flex justify-center py-8">
 							<Spinner />
@@ -69,16 +69,21 @@ export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, ex
 
 					{!guideQuery.isLoading && guide && (
 						<>
-							<p className="text-ink-muted text-sm leading-relaxed">{guide.description}</p>
+							<section className="rounded-md border border-edge bg-surface-1 px-3.5 py-3">
+								<p className="text-ink-muted text-sm italic leading-relaxed">{guide.description}</p>
+							</section>
 
-							<section aria-label="Form cues">
-								<h3 className="mb-2 font-medium text-ink-faint text-xs uppercase tracking-wide">
+							<section
+								aria-label="Form cues"
+								className="rounded-md border border-edge border-l-2 border-l-accent bg-surface-1 px-3.5 py-3"
+							>
+								<h3 className="mb-2.5 font-semibold text-accent text-xs uppercase tracking-wider">
 									Form cues
 								</h3>
 								<ol className="space-y-2 text-ink text-sm leading-relaxed">
 									{guide.cues.map((cue, i) => (
 										<li key={cue} className="flex gap-3">
-											<span className="mt-0.5 font-mono text-ink-faint text-xs tabular-nums">
+											<span className="mt-0.5 font-mono text-accent/70 text-xs tabular-nums">
 												{i + 1}.
 											</span>
 											<span>{cue}</span>
@@ -88,14 +93,17 @@ export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, ex
 							</section>
 
 							{guide.pitfalls && guide.pitfalls.length > 0 && (
-								<section aria-label="Common pitfalls">
-									<h3 className="mb-2 font-medium text-ink-faint text-xs uppercase tracking-wide">
+								<section
+									aria-label="Common pitfalls"
+									className="rounded-md border border-edge border-l-2 border-l-destructive bg-surface-1 px-3.5 py-3"
+								>
+									<h3 className="mb-2.5 font-semibold text-destructive text-xs uppercase tracking-wider">
 										Common pitfalls
 									</h3>
 									<ul className="space-y-1.5 text-ink-muted text-sm leading-relaxed">
 										{guide.pitfalls.map(pitfall => (
 											<li key={pitfall} className="flex gap-2">
-												<span className="text-ink-faint">−</span>
+												<span className="mt-0.5 text-destructive/70">✗</span>
 												<span>{pitfall}</span>
 											</li>
 										))}
