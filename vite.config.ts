@@ -38,7 +38,7 @@ export default defineConfig({
 		react(),
 		tailwind(),
 		VitePWA({
-			registerType: 'autoUpdate',
+			registerType: 'prompt',
 			manifest: {
 				name: 'Macromaxxing',
 				short_name: 'Macromaxxing',
@@ -60,9 +60,7 @@ export default defineConfig({
 				navigateFallback: '/index.html',
 				navigateFallbackDenylist: [/^\/api\//],
 				importScripts: ['/sw-custom.js'],
-				cleanupOutdatedCaches: true,
-				skipWaiting: true,
-				clientsClaim: true
+				cleanupOutdatedCaches: true
 			}
 		})
 	],

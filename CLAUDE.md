@@ -69,7 +69,7 @@ src/
     cn.ts                                   # cn() utility (clsx + twMerge)
     images.ts                               # getImageUrl, isExternalImage, getImageAttribution (R2/external URL)
   components/
-    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, etc.
+    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
     layout/RootLayout.tsx                    # Shell: nav + <Outlet />
     ErrorBoundary.tsx
@@ -343,7 +343,8 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 
 **PWA** — Installable progressive web app via `vite-plugin-pwa`:
 - Workbox precaches all static assets (`js, css, html, ico, png, svg, woff2`) with SPA `navigateFallback` (excludes `/api/`)
-- `registerType: 'autoUpdate'` with `skipWaiting` + `clientsClaim` + `cleanupOutdatedCaches` — new SW takes over uncontrolled tabs and silently reloads on next navigation, so clients can't get stuck on a stale precache
+- `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available. `autoUpdate` is intentionally avoided because vite-plugin-pwa forces `skipWaiting` + `clientsClaim` in that mode and reloads the page mid-session, which would interrupt in-progress workout logging.
+- `cleanupOutdatedCaches: true` so activating a new SW drops stale precache entries (prevents unbounded cache growth across deploys)
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
 
