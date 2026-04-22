@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/suspicious/noConsole: <console is fine for scripts> */
 import { execSync } from 'node:child_process'
 import type { ExerciseType, FatigueTier, MuscleGroup } from '@macromaxxing/db'
+import { EXERCISE_GUIDES } from './exercise-guides-seed.ts'
 
 const WRANGLER = 'yarn workspace @macromaxxing/workers wrangler'
 
@@ -303,4 +304,27 @@ for (const std of STANDARDS) {
 }
 
 console.log(`  ${STANDARDS.length} strength standards seeded`)
+
+console.log('Seeding exercise guides...')
+const sqlEscape = (s: string) => s.replaceAll("'", "''")
+let guideCount = 0
+for (const ex of EXERCISES) {
+	const guide = EXERCISE_GUIDES[ex.name]
+	if (!guide) continue
+	const slug = ex.name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/_+$/, '')
+	const exerciseId = `exc_${slug}`
+	const guideId = `egd_${slug}`
+	const description = sqlEscape(guide.description)
+	const cues = sqlEscape(JSON.stringify(guide.cues))
+	const pitfalls = guide.pitfalls ? `'${sqlEscape(JSON.stringify(guide.pitfalls))}'` : 'NULL'
+	exec(
+		`INSERT OR REPLACE INTO exercise_guides (id, exercise_id, description, cues, pitfalls, updated_at) VALUES ('${guideId}', '${exerciseId}', '${description}', '${cues}', ${pitfalls}, ${now})`
+	)
+	guideCount++
+}
+console.log(`  ${guideCount} exercise guides seeded`)
+
 console.log('Done!')
