@@ -94,6 +94,18 @@ app.use(
 )
 
 app.all('/api/mcp', async c => {
+	// Stateless server: no session → no server-initiated SSE stream to serve.
+	// GET would otherwise open a ReadableStream that never writes, which trips
+	// Cloudflare's hang detector and aborts the request. Spec-compliant clients
+	// fall back to POST-only JSON-RPC when the server answers 405 here.
+	if (c.req.method === 'GET' || c.req.method === 'DELETE') {
+		return c.json(
+			{ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed (stateless server)' }, id: null },
+			405,
+			{ Allow: 'POST' }
+		)
+	}
+
 	const db = createDb(c.env.DB)
 	const authHeader = c.req.header('Authorization') ?? null
 
