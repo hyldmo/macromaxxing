@@ -112,7 +112,7 @@ src/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets)
       WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets
       WorkoutMode.tsx                       # Workout execution mode
-      RestTimerContext.tsx                   # Global rest timer + session state (persists across pages)
+      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, active, rest, setTimer) — canonical "is session in progress" signal; persists across routes
       components/
         BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
         MuscleHeatGrid.tsx                  # Muscle group volume/frequency stats grid
