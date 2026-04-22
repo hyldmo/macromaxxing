@@ -221,6 +221,23 @@ export const exerciseMuscles = sqliteTable('exercise_muscles', {
 	intensity: real('intensity').notNull() // 0.0-1.0
 })
 
+export const exerciseGuides = sqliteTable(
+	'exercise_guides',
+	{
+		id: typeidCol('egd')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('egd')),
+		exerciseId: typeidCol('exc')('exercise_id')
+			.notNull()
+			.references(() => exercises.id, { onDelete: 'cascade' }),
+		description: text('description').notNull(),
+		cues: text('cues').notNull(), // JSON-encoded string[] — form cues
+		pitfalls: text('pitfalls'), // JSON-encoded string[] | null — common technique pitfalls
+		updatedAt: integer('updated_at').notNull()
+	},
+	t => [uniqueIndex('exercise_guides_exercise_id_idx').on(t.exerciseId)]
+)
+
 export const workouts = sqliteTable(
 	'workouts',
 	{

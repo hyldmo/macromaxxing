@@ -119,6 +119,10 @@ export const relations = defineRelations(schema, r => ({
 			to: r.users.id
 		}),
 		muscles: r.many.exerciseMuscles(),
+		guide: r.one.exerciseGuides({
+			from: r.exercises.id,
+			to: r.exerciseGuides.exerciseId
+		}),
 		logs: r.many.workoutLogs(),
 		workoutExercises: r.many.workoutExercises()
 	},
@@ -126,6 +130,14 @@ export const relations = defineRelations(schema, r => ({
 	exerciseMuscles: {
 		exercise: r.one.exercises({
 			from: r.exerciseMuscles.exerciseId,
+			to: r.exercises.id,
+			optional: false
+		})
+	},
+
+	exerciseGuides: {
+		exercise: r.one.exercises({
+			from: r.exerciseGuides.exerciseId,
 			to: r.exercises.id,
 			optional: false
 		})
