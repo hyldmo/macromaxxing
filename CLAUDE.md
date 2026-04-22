@@ -256,7 +256,7 @@ No shadows — borders-only depth strategy.
 - Connected toggle groups use `ButtonGroup` from `~/components/ui` — supports `size` (`sm`/`md`), `expandedLabel` for hover-to-expand, and read-only mode (omit `onChange`). Do NOT use inline button groups.
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`
 - tRPC client: `import { trpc } from '~/lib/trpc'`
-- Global UI chrome (Nav, banners, overlays) that reacts to session state must source from `useWorkoutSessionStore`, not `useMatch`/route. The active-session condition spans checklist mode, timer mode, and navigating away to other routes — route gating misses cases. Example: `const inSession = useWorkoutSessionStore(s => s.sessionId !== null)`.
+- Global UI chrome (Nav, banners, overlays) that reacts to workout state must source from `useWorkoutSessionStore`, not `useMatch`/route. Route gating misses routes you navigate away to mid-session. Pick the signal carefully: `sessionId !== null` = session exists (even before user starts), `sessionStartedAt !== null` = timer activated (user has started at least one set), `rest !== null` = rest countdown running. Example: `const timerActive = useWorkoutSessionStore(s => s.sessionStartedAt !== null)`.
 - React components should have this style, using implicit return if possible:
 	```tsx
 	export interface CookedWeightInputProps {
