@@ -1,16 +1,22 @@
 import {
+	computeBalances,
+	computeMuscleLoad,
 	type ExerciseType,
 	exerciseMuscles,
 	exercises,
 	exerciseType,
 	type FatigueTier,
 	MUSCLE_GROUPS,
+	type MuscleContribution,
 	type MuscleGroup,
 	type SetType,
 	sessionPlannedExercises,
 	setMode,
+	sumTotals,
+	type TrainingGoal,
 	type TypeIDString,
 	trainingGoal,
+	withZones,
 	workoutExercises,
 	workoutLogs,
 	workoutSessions,
@@ -828,42 +834,45 @@ export const workoutsRouter = router({
 
 			const sessions = await ctx.db.query.workoutSessions.findMany({
 				where: { userId: ctx.user.id, startedAt: { gte: since } },
-				with: {
-					logs: {
-						with: { exercise: { with: { muscles: true } } }
-					}
-				}
+				with: { logs: { with: { exercise: { with: { muscles: true } } } } }
 			})
 
-			const stats = new Map<string, { weeklyVolume: number; lastTrained: number; sessionCount: number }>()
-
-			// Initialize all groups
-			for (const mg of MUSCLE_GROUPS) {
-				stats.set(mg, { weeklyVolume: 0, lastTrained: 0, sessionCount: 0 })
-			}
+			const contributions: MuscleContribution[] = []
+			const lastTrained = new Map<MuscleGroup, number>()
+			const sessionCounts = new Map<MuscleGroup, number>()
 
 			for (const session of sessions) {
-				const sessionMuscles = new Set<string>()
+				const sessionMuscles = new Set<MuscleGroup>()
 				for (const log of session.logs) {
 					if (log.setType === 'warmup') continue
-					const volume = log.weightKg * log.reps
-					for (const muscle of log.exercise.muscles) {
-						const existing = stats.get(muscle.muscleGroup)!
-						existing.weeklyVolume += volume * muscle.intensity
-						if (session.startedAt > existing.lastTrained) {
-							existing.lastTrained = session.startedAt
+					for (const m of log.exercise.muscles) {
+						contributions.push({
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity,
+							sets: 1,
+							reps: log.reps,
+							weightKg: log.weightKg,
+							exerciseType: log.exercise.type,
+							fatigueTier: log.exercise.fatigueTier,
+							trainingGoal: 'hypertrophy'
+						})
+						sessionMuscles.add(m.muscleGroup)
+						if (session.startedAt > (lastTrained.get(m.muscleGroup) ?? 0)) {
+							lastTrained.set(m.muscleGroup, session.startedAt)
 						}
-						sessionMuscles.add(muscle.muscleGroup)
 					}
 				}
 				for (const mg of sessionMuscles) {
-					stats.get(mg)!.sessionCount++
+					sessionCounts.set(mg, (sessionCounts.get(mg) ?? 0) + 1)
 				}
 			}
 
-			return Array.from(stats.entries()).map(([muscleGroup, data]) => ({
-				muscleGroup,
-				...data
+			const loads = computeMuscleLoad(contributions)
+			return loads.map(l => ({
+				muscleGroup: l.muscleGroup,
+				weeklyVolume: l.volumeKg,
+				lastTrained: lastTrained.get(l.muscleGroup) ?? 0,
+				sessionCount: sessionCounts.get(l.muscleGroup) ?? 0
 			}))
 		}),
 
@@ -881,26 +890,249 @@ export const workoutsRouter = router({
 				orderBy: { sortOrder: 'asc' }
 			})
 
-			// Initialize all muscle groups to 0
-			const muscleVolume = new Map<MuscleGroup, number>()
-			for (const mg of MUSCLE_GROUPS) muscleVolume.set(mg, 0)
-
-			// Sum Σ(targetSets × muscleIntensity) across ALL exercises in ALL templates
+			const contributions: MuscleContribution[] = []
 			for (const workout of userWorkouts) {
-				for (const wkExercise of workout.exercises) {
-					const effectiveGoal = wkExercise.trainingGoal ?? workout.trainingGoal
-					const sets = wkExercise.targetSets ?? (effectiveGoal === 'strength' ? 5 : 3)
-					for (const muscle of wkExercise.exercise.muscles) {
-						const volume = sets * muscle.intensity
-						muscleVolume.set(muscle.muscleGroup, (muscleVolume.get(muscle.muscleGroup) ?? 0) + volume)
+				for (const we of workout.exercises) {
+					const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
+					const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+					for (const m of we.exercise.muscles) {
+						contributions.push({
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity,
+							sets,
+							exerciseType: we.exercise.type,
+							fatigueTier: we.exercise.fatigueTier,
+							trainingGoal: goal
+						})
 					}
 				}
 			}
 
-			return Array.from(muscleVolume.entries()).map(([muscleGroup, weeklySets]) => ({
-				muscleGroup,
-				weeklySets
+			return computeMuscleLoad(contributions).map(l => ({
+				muscleGroup: l.muscleGroup,
+				weeklySets: l.workingSets
 			}))
+		}),
+
+	// ─── Per-entity Muscle Load ──────────────────────────────────
+
+	exerciseMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle breakdown for a single exercise at a given dose. Returns effective sets, volume, fatigue load, and compound/primary/goal splits. Omit weightKg/reps for a template-style preview.'
+		})
+		.input(
+			z.object({
+				exerciseId: zodTypeID('exc'),
+				sets: z.number().int().min(1).default(1),
+				reps: z.number().int().min(1).optional(),
+				weightKg: z.number().min(0).optional(),
+				trainingGoal: trainingGoal.default('hypertrophy')
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const exercise = await ctx.db.query.exercises.findFirst({
+				where: {
+					id: input.exerciseId,
+					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }]
+				},
+				with: { muscles: true }
+			})
+			if (!exercise) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+
+			const contributions: MuscleContribution[] = exercise.muscles.map(m => ({
+				muscleGroup: m.muscleGroup,
+				intensity: m.intensity,
+				sets: input.sets,
+				reps: input.reps,
+				weightKg: input.weightKg,
+				exerciseType: exercise.type,
+				fatigueTier: exercise.fatigueTier,
+				trainingGoal: input.trainingGoal
+			}))
+
+			const muscles = computeMuscleLoad(contributions)
+			return {
+				exercise: {
+					id: exercise.id,
+					name: exercise.name,
+					type: exercise.type,
+					fatigueTier: exercise.fatigueTier
+				},
+				input: { sets: input.sets, reps: input.reps ?? null, weightKg: input.weightKg ?? null },
+				muscles,
+				totals: sumTotals(muscles)
+			}
+		}),
+
+	workoutMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle weekly-volume breakdown for a workout template (assumes the template is performed once). Includes volume-landmark zones (MEV/MAV/MRV) and common balance ratios.'
+		})
+		.input(z.object({ workoutId: zodTypeID('wkt') }))
+		.query(async ({ ctx, input }) => {
+			const workout = await ctx.db.query.workouts.findFirst({
+				where: { id: input.workoutId, userId: ctx.user.id },
+				with: workoutExercisesWith
+			})
+			if (!workout) throw new TRPCError({ code: 'NOT_FOUND', message: 'Workout not found' })
+
+			const contributions: MuscleContribution[] = []
+			for (const we of workout.exercises) {
+				const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
+				const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+				for (const m of we.exercise.muscles) {
+					contributions.push({
+						muscleGroup: m.muscleGroup,
+						intensity: m.intensity,
+						sets,
+						reps: we.targetReps ?? undefined,
+						weightKg: we.targetWeight ?? undefined,
+						exerciseType: we.exercise.type,
+						fatigueTier: we.exercise.fatigueTier,
+						trainingGoal: goal
+					})
+				}
+			}
+
+			const loads = computeMuscleLoad(contributions)
+			const muscles = withZones(loads)
+			return {
+				workout: {
+					id: workout.id,
+					name: workout.name,
+					trainingGoal: workout.trainingGoal,
+					exerciseCount: workout.exercises.length
+				},
+				muscles,
+				totals: sumTotals(loads),
+				balances: computeBalances(loads)
+			}
+		}),
+
+	sessionMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle breakdown for a logged workout session based on actual working sets (warmups excluded). Includes kg·reps volume, effective sets, splits, and balance ratios.'
+		})
+		.input(z.object({ sessionId: zodTypeID('wks') }))
+		.query(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: { id: input.sessionId, userId: ctx.user.id },
+				with: {
+					workout: true,
+					logs: { with: { exercise: { with: { muscles: true } } } },
+					plannedExercises: true
+				}
+			})
+			if (!session) throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' })
+
+			const plannedGoalByExercise = new Map<string, TrainingGoal>()
+			for (const pe of session.plannedExercises) {
+				if (pe.trainingGoal) plannedGoalByExercise.set(pe.exerciseId, pe.trainingGoal)
+			}
+			const workoutGoal: TrainingGoal = session.workout?.trainingGoal ?? 'hypertrophy'
+
+			const contributions: MuscleContribution[] = []
+			let workingSetCount = 0
+			for (const log of session.logs) {
+				if (log.setType === 'warmup') continue
+				workingSetCount += 1
+				const goal = plannedGoalByExercise.get(log.exerciseId) ?? workoutGoal
+				for (const m of log.exercise.muscles) {
+					contributions.push({
+						muscleGroup: m.muscleGroup,
+						intensity: m.intensity,
+						sets: 1,
+						reps: log.reps,
+						weightKg: log.weightKg,
+						exerciseType: log.exercise.type,
+						fatigueTier: log.exercise.fatigueTier,
+						trainingGoal: goal
+					})
+				}
+			}
+
+			const muscles = computeMuscleLoad(contributions)
+			return {
+				session: {
+					id: session.id,
+					name: session.name,
+					startedAt: session.startedAt,
+					completedAt: session.completedAt,
+					workoutId: session.workoutId,
+					trainingGoal: workoutGoal
+				},
+				workingSetCount,
+				muscles,
+				totals: sumTotals(muscles),
+				balances: computeBalances(muscles)
+			}
+		}),
+
+	muscleGroupTrend: protectedProcedure
+		.meta({
+			description:
+				'Muscle-group trend: compares the current N-day window against prior windows of the same length. Returns per-muscle current sets/volume, rolling average, and delta percentage.'
+		})
+		.input(
+			z
+				.object({
+					windowDays: z.number().int().min(1).max(90).default(7),
+					lookbackWindows: z.number().int().min(1).max(12).default(4)
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
+			const windowDays = input?.windowDays ?? 7
+			const lookbackWindows = input?.lookbackWindows ?? 4
+			const now = Date.now()
+			const windowMs = windowDays * 24 * 60 * 60 * 1000
+			const since = now - windowMs * (lookbackWindows + 1)
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: { userId: ctx.user.id, startedAt: { gte: since } },
+				with: { logs: { with: { exercise: { with: { muscles: true } } } } }
+			})
+
+			type Window = { workingSets: number; volumeKg: number }
+			const emptyWindow = (): Window => ({ workingSets: 0, volumeKg: 0 })
+			const windowsByMuscle = new Map<MuscleGroup, Window[]>()
+			for (const mg of MUSCLE_GROUPS) {
+				windowsByMuscle.set(mg, Array.from({ length: lookbackWindows + 1 }, emptyWindow))
+			}
+
+			for (const s of sessions) {
+				// index 0 = current window (most recent), 1..N = prior windows
+				const windowIndex = Math.floor((now - s.startedAt) / windowMs)
+				if (windowIndex < 0 || windowIndex > lookbackWindows) continue
+				for (const log of s.logs) {
+					if (log.setType === 'warmup') continue
+					for (const m of log.exercise.muscles) {
+						const bucket = windowsByMuscle.get(m.muscleGroup)![windowIndex]
+						bucket.workingSets += m.intensity
+						bucket.volumeKg += log.weightKg * log.reps * m.intensity
+					}
+				}
+			}
+
+			return Array.from(windowsByMuscle.entries()).map(([muscleGroup, windows]) => {
+				const current = windows[0]
+				const prior = windows.slice(1)
+				const priorAvg: Window = {
+					workingSets: prior.reduce((s, w) => s + w.workingSets, 0) / prior.length,
+					volumeKg: prior.reduce((s, w) => s + w.volumeKg, 0) / prior.length
+				}
+				const deltaPct = {
+					workingSets:
+						priorAvg.workingSets > 0
+							? (current.workingSets - priorAvg.workingSets) / priorAvg.workingSets
+							: null,
+					volumeKg: priorAvg.volumeKg > 0 ? (current.volumeKg - priorAvg.volumeKg) / priorAvg.volumeKg : null
+				}
+				return { muscleGroup, current, priorAverage: priorAvg, deltaPct }
+			})
 		}),
 
 	// ─── Generators ───────────────────────────────────────────────
