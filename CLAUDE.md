@@ -207,6 +207,7 @@ mealPlans(id typeid:mpl, userId, name)
 
 exercises(id typeid:exc, userId?, name, type: compound|isolation, fatigueTier: 1-4)
   → exerciseMuscles(id typeid:exm, exerciseId, muscleGroup, intensity 0.0-1.0)
+  → exerciseGuides(id typeid:egd, exerciseId unique, description, cues JSON string[], pitfalls JSON string[]?, updatedAt)
 
 strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
 
@@ -281,6 +282,7 @@ trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
+trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
 trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
 trpc.workout.addSet/updateSet/removeSet
