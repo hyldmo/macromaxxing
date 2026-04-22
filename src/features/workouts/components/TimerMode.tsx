@@ -217,17 +217,18 @@ export const TimerMode: FC = () => {
 	return (
 		<>
 			<div className="fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
-				<button
-					type="button"
+				<Button
+					variant="ghost"
+					size="icon"
 					onClick={() => setNotesOpen(true)}
 					aria-label="Open session notes"
-					className="absolute top-4 right-4 z-10 rounded-full p-2 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+					className="absolute top-4 right-4 rounded-full"
 				>
 					<NotebookPen className="size-5" />
 					{hasNotes && (
-						<span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-accent" aria-hidden />
+						<span className="absolute top-1 right-1 size-1.5 rounded-full bg-accent" aria-hidden />
 					)}
-				</button>
+				</Button>
 				<div className="mx-auto flex h-full w-full max-w-sm flex-col">
 					{/* Main content */}
 					<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
