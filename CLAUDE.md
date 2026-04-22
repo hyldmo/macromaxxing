@@ -130,6 +130,7 @@ src/
         SessionReview.tsx                   # Post-workout divergence review (update template targets)
         SessionSummary.tsx                  # Completed session summary (1RM stats, volume, plan comparison)
         TimerMode.tsx                       # Full-screen timer overlay (child route)
+        SessionNotesModal.tsx               # In-session notes scratchpad (debounced autosave to workoutSessions.notes)
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
@@ -288,7 +289,7 @@ trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
-trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
+trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
 trpc.workout.coverageStats                  # Template muscle coverage for body map
