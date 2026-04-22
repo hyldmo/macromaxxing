@@ -384,17 +384,8 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 	navigateSet: direction => {
 		const state = get()
 		if (!state.active) return
-		const step = direction
-		let target = -1
-
-		for (let i = state.active.index + step; i >= 0 && i < state.queue.length; i += step) {
-			if (!isDone(state.queue, i, state.confirmedIndices)) {
-				target = i
-				break
-			}
-		}
-
-		if (target < 0) return
+		const target = state.active.index + direction
+		if (target < 0 || target >= state.queue.length) return
 		set({ active: loadActive(state.queue, target) })
 	}
 }))
