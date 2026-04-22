@@ -142,6 +142,7 @@ packages/db/                                # Shared package @macromaxxing/db
   custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
   preparation.ts                            # Preparation descriptor extraction (extractPreparation)
 workers/functions/
+  [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
   lib/
     trpc.ts                                 # TRPCContext { db, user, env }, publicProcedure, protectedProcedure
@@ -342,7 +343,9 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 
 **PWA** — Installable progressive web app via `vite-plugin-pwa`:
 - Workbox precaches all static assets (`js, css, html, ico, png, svg, woff2`) with SPA `navigateFallback` (excludes `/api/`)
-- `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available
+- `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available. `autoUpdate` is intentionally avoided because vite-plugin-pwa forces `skipWaiting` + `clientsClaim` in that mode and reloads the page mid-session, which would interrupt in-progress workout logging.
+- `cleanupOutdatedCaches: true` so activating a new SW drops stale precache entries (prevents unbounded cache growth across deploys)
+- Inline self-heal script in `index.html` catches `<script>/<link>` load failures for `/assets/*` paths (the symptom of a stale SW or browser cache referencing a removed hashed chunk), unregisters the SW, clears caches, and reloads with a `_v=<timestamp>` cache-bust param. Guards: skips when offline, skips when already on a `_v=` URL to prevent reload loops. This is the recovery path when the React bundle itself can't run — the in-app `ReloadPrompt` banner needs the bundle to render, so a fully stuck client needs the HTML-level watchdog.
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
 
