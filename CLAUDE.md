@@ -285,6 +285,10 @@ trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
 trpc.workout.coverageStats                  # Template muscle coverage for body map
+trpc.workout.exerciseMuscleLoad             # Single-exercise muscle breakdown at a given sets/reps/weight dose
+trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown with MEV/MAV/MRV zones + balance ratios
+trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual working sets + balance ratios
+trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
 trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
