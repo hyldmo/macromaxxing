@@ -2,6 +2,7 @@ import {
 	computeBalances,
 	computeMuscleLoad,
 	type ExerciseType,
+	exerciseGuides,
 	exerciseMuscles,
 	exercises,
 	exerciseType,
@@ -9,6 +10,7 @@ import {
 	MUSCLE_GROUPS,
 	type MuscleContribution,
 	type MuscleGroup,
+	newId,
 	type SetType,
 	sessionPlannedExercises,
 	setMode,
@@ -26,7 +28,17 @@ import {
 import { TRPCError } from '@trpc/server'
 import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { protectedProcedure, router } from '../trpc'
+import { protectedProcedure, publicProcedure, router } from '../trpc'
+
+const CUE_MAX = 300
+const DESCRIPTION_MAX = 500
+const CUES_MAX_COUNT = 10
+
+const zGuideInput = z.object({
+	description: z.string().min(10).max(DESCRIPTION_MAX),
+	cues: z.array(z.string().min(3).max(CUE_MAX)).min(1).max(CUES_MAX_COUNT),
+	pitfalls: z.array(z.string().min(3).max(CUE_MAX)).max(CUES_MAX_COUNT).nullable()
+})
 
 const zSetType = z.enum(['warmup', 'working', 'backoff'])
 
@@ -335,6 +347,102 @@ export const workoutsRouter = router({
 			}
 
 			await ctx.db.delete(exercises).where(eq(exercises.id, input.id))
+		}),
+
+	// ─── Exercise Guides ──────────────────────────────────────────
+
+	getGuide: publicProcedure
+		.meta({ description: 'Get the technique guide (description, cues, pitfalls) for an exercise' })
+		.input(z.object({ exerciseId: zodTypeID('exc') }))
+		.query(async ({ ctx, input }) => {
+			const row = await ctx.db.query.exerciseGuides.findFirst({
+				where: { exerciseId: input.exerciseId }
+			})
+			if (!row) return null
+			const cuesParsed: unknown = JSON.parse(row.cues)
+			const pitfallsParsed: unknown = row.pitfalls === null ? null : JSON.parse(row.pitfalls)
+			const cues: string[] = Array.isArray(cuesParsed)
+				? cuesParsed.filter((c): c is string => typeof c === 'string')
+				: []
+			const pitfalls: string[] | null = Array.isArray(pitfallsParsed)
+				? pitfallsParsed.filter((p): p is string => typeof p === 'string')
+				: null
+			return {
+				id: row.id,
+				exerciseId: row.exerciseId,
+				description: row.description,
+				cues,
+				pitfalls,
+				updatedAt: row.updatedAt
+			}
+		}),
+
+	upsertGuide: protectedProcedure
+		.meta({
+			description:
+				'Create or update the technique guide for an exercise. Only the exercise owner may edit their own guides; system exercises are seeded via script.'
+		})
+		.input(zGuideInput.extend({ exerciseId: zodTypeID('exc') }))
+		.mutation(async ({ ctx, input }) => {
+			const exercise = await ctx.db.query.exercises.findFirst({ where: { id: input.exerciseId } })
+			if (!exercise) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+			if (exercise.userId !== ctx.user.id) {
+				throw new TRPCError({
+					code: 'FORBIDDEN',
+					message: 'System exercise guides are read-only. You can only edit guides for your own exercises.'
+				})
+			}
+
+			const now = Date.now()
+			const cuesJson = JSON.stringify(input.cues)
+			const pitfallsJson = input.pitfalls === null ? null : JSON.stringify(input.pitfalls)
+
+			const existing = await ctx.db.query.exerciseGuides.findFirst({
+				where: { exerciseId: input.exerciseId }
+			})
+
+			if (existing) {
+				await ctx.db
+					.update(exerciseGuides)
+					.set({ description: input.description, cues: cuesJson, pitfalls: pitfallsJson, updatedAt: now })
+					.where(eq(exerciseGuides.id, existing.id))
+			} else {
+				await ctx.db.insert(exerciseGuides).values({
+					id: newId('egd'),
+					exerciseId: input.exerciseId,
+					description: input.description,
+					cues: cuesJson,
+					pitfalls: pitfallsJson,
+					updatedAt: now
+				})
+			}
+
+			return {
+				exerciseId: input.exerciseId,
+				description: input.description,
+				cues: input.cues,
+				pitfalls: input.pitfalls,
+				updatedAt: now
+			}
+		}),
+
+	deleteGuide: protectedProcedure
+		.meta({ description: 'Delete the technique guide for an exercise you own' })
+		.input(z.object({ exerciseId: zodTypeID('exc') }))
+		.mutation(async ({ ctx, input }) => {
+			const exercise = await ctx.db.query.exercises.findFirst({ where: { id: input.exerciseId } })
+			if (!exercise) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+			if (exercise.userId !== ctx.user.id) {
+				throw new TRPCError({
+					code: 'FORBIDDEN',
+					message: 'System exercise guides are read-only.'
+				})
+			}
+			await ctx.db.delete(exerciseGuides).where(eq(exerciseGuides.exerciseId, input.exerciseId))
 		}),
 
 	// ─── Workout Templates ────────────────────────────────────────
