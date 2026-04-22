@@ -1,4 +1,4 @@
-import { type AiProvider, apiTokens, type TypeIDString, userSettings, zAiProvider } from '@macromaxxing/db'
+import { type AiProvider, apiTokens, userSettings, zAiProvider, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -179,11 +179,9 @@ export const settingsRouter = router({
 			return { id: token.id, name: token.name, token: raw }
 		}),
 
-	deleteToken: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'atok'>>() }))
-		.mutation(async ({ ctx, input }) => {
-			await ctx.db.delete(apiTokens).where(and(eq(apiTokens.id, input.id), eq(apiTokens.userId, ctx.user.id)))
-		})
+	deleteToken: protectedProcedure.input(z.object({ id: zodTypeID('atok') })).mutation(async ({ ctx, input }) => {
+		await ctx.db.delete(apiTokens).where(and(eq(apiTokens.id, input.id), eq(apiTokens.userId, ctx.user.id)))
+	})
 })
 
 export async function getDecryptedApiKey(

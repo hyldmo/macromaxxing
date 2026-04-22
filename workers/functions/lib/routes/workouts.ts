@@ -14,7 +14,8 @@ import {
 	workoutExercises,
 	workoutLogs,
 	workoutSessions,
-	workouts
+	workouts,
+	zodTypeID
 } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { and, eq, sql } from 'drizzle-orm'
@@ -242,7 +243,7 @@ export const workoutsRouter = router({
 	updateExercise: protectedProcedure
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'exc'>>(),
+				id: zodTypeID('exc'),
 				name: z.string().min(1).optional(),
 				type: exerciseType.optional(),
 				fatigueTier: z.number().int().min(1).max(4).optional(),
@@ -296,35 +297,33 @@ export const workoutsRouter = router({
 			})
 		}),
 
-	deleteExercise: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'exc'>>() }))
-		.mutation(async ({ ctx, input }) => {
-			const existing = await ctx.db.query.exercises.findFirst({
-				where: { id: input.id }
+	deleteExercise: protectedProcedure.input(z.object({ id: zodTypeID('exc') })).mutation(async ({ ctx, input }) => {
+		const existing = await ctx.db.query.exercises.findFirst({
+			where: { id: input.id }
+		})
+		if (!existing || existing.userId !== ctx.user.id) {
+			throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+		}
+
+		// Check if exercise is used in any workout templates or session plans
+		const [templateRef] = await ctx.db
+			.select({ count: sql<number>`count(*)` })
+			.from(workoutExercises)
+			.where(eq(workoutExercises.exerciseId, input.id))
+		const [sessionRef] = await ctx.db
+			.select({ count: sql<number>`count(*)` })
+			.from(sessionPlannedExercises)
+			.where(eq(sessionPlannedExercises.exerciseId, input.id))
+
+		if ((templateRef?.count ?? 0) > 0 || (sessionRef?.count ?? 0) > 0) {
+			throw new TRPCError({
+				code: 'PRECONDITION_FAILED',
+				message: 'Exercise is used in workout templates. Remove it first.'
 			})
-			if (!existing || existing.userId !== ctx.user.id) {
-				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
-			}
+		}
 
-			// Check if exercise is used in any workout templates or session plans
-			const [templateRef] = await ctx.db
-				.select({ count: sql<number>`count(*)` })
-				.from(workoutExercises)
-				.where(eq(workoutExercises.exerciseId, input.id))
-			const [sessionRef] = await ctx.db
-				.select({ count: sql<number>`count(*)` })
-				.from(sessionPlannedExercises)
-				.where(eq(sessionPlannedExercises.exerciseId, input.id))
-
-			if ((templateRef?.count ?? 0) > 0 || (sessionRef?.count ?? 0) > 0) {
-				throw new TRPCError({
-					code: 'PRECONDITION_FAILED',
-					message: 'Exercise is used in workout templates. Remove it first.'
-				})
-			}
-
-			await ctx.db.delete(exercises).where(eq(exercises.id, input.id))
-		}),
+		await ctx.db.delete(exercises).where(eq(exercises.id, input.id))
+	}),
 
 	// ─── Workout Templates ────────────────────────────────────────
 
@@ -338,7 +337,7 @@ export const workoutsRouter = router({
 
 	getWorkout: protectedProcedure
 		.meta({ description: 'Get workout template with exercises and targets' })
-		.input(z.object({ id: z.custom<TypeIDString<'wkt'>>() }))
+		.input(z.object({ id: zodTypeID('wkt') }))
 		.query(async ({ ctx, input }) => {
 			const workout = await ctx.db.query.workouts.findFirst({
 				where: { id: input.id, userId: ctx.user.id },
@@ -355,7 +354,7 @@ export const workoutsRouter = router({
 				trainingGoal: trainingGoal.default('hypertrophy'),
 				exercises: z.array(
 					z.object({
-						exerciseId: z.custom<TypeIDString<'exc'>>(),
+						exerciseId: zodTypeID('exc'),
 						targetSets: z.number().int().min(1).nullable(),
 						targetReps: z.number().int().min(1).nullable(),
 						targetWeight: z.number().min(0).nullable(),
@@ -417,14 +416,14 @@ export const workoutsRouter = router({
 	updateWorkout: protectedProcedure
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'wkt'>>(),
+				id: zodTypeID('wkt'),
 				name: z.string().min(1).optional(),
 				trainingGoal: trainingGoal.optional(),
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
 						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							exerciseId: zodTypeID('exc'),
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
@@ -480,7 +479,7 @@ export const workoutsRouter = router({
 		}),
 
 	reorderWorkouts: protectedProcedure
-		.input(z.object({ ids: z.array(z.custom<TypeIDString<'wkt'>>()) }))
+		.input(z.object({ ids: z.array(zodTypeID('wkt')) }))
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
 			for (let i = 0; i < input.ids.length; i++) {
@@ -491,11 +490,9 @@ export const workoutsRouter = router({
 			}
 		}),
 
-	deleteWorkout: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wkt'>>() }))
-		.mutation(async ({ ctx, input }) => {
-			await ctx.db.delete(workouts).where(and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id)))
-		}),
+	deleteWorkout: protectedProcedure.input(z.object({ id: zodTypeID('wkt') })).mutation(async ({ ctx, input }) => {
+		await ctx.db.delete(workouts).where(and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id)))
+	}),
 
 	// ─── Sessions ─────────────────────────────────────────────────
 
@@ -519,7 +516,7 @@ export const workoutsRouter = router({
 
 	getSession: protectedProcedure
 		.meta({ description: 'Get workout session with logged sets per exercise' })
-		.input(z.object({ id: z.custom<TypeIDString<'wks'>>() }))
+		.input(z.object({ id: zodTypeID('wks') }))
 		.query(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
 				where: { id: input.id, userId: ctx.user.id },
@@ -542,7 +539,7 @@ export const workoutsRouter = router({
 		}),
 
 	createSession: protectedProcedure
-		.input(z.object({ workoutId: z.custom<TypeIDString<'wkt'>>(), name: z.string().optional() }))
+		.input(z.object({ workoutId: zodTypeID('wkt'), name: z.string().optional() }))
 		.mutation(async ({ ctx, input }) => {
 			// Verify workout ownership and load template exercises
 			const workout = await ctx.db.query.workouts.findFirst({
@@ -589,12 +586,12 @@ export const workoutsRouter = router({
 	completeSession: protectedProcedure
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'wks'>>(),
+				id: zodTypeID('wks'),
 				notes: z.string().optional(),
 				templateUpdates: z
 					.array(
 						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							exerciseId: zodTypeID('exc'),
 							targetSets: z.number().int().min(1).nullable().optional(),
 							targetReps: z.number().int().min(1).nullable().optional(),
 							targetWeight: z.number().min(0).nullable().optional()
@@ -604,7 +601,7 @@ export const workoutsRouter = router({
 				addExercises: z
 					.array(
 						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							exerciseId: zodTypeID('exc'),
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
@@ -677,21 +674,19 @@ export const workoutsRouter = router({
 			}
 		}),
 
-	deleteSession: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wks'>>() }))
-		.mutation(async ({ ctx, input }) => {
-			await ctx.db
-				.delete(workoutSessions)
-				.where(and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id)))
-		}),
+	deleteSession: protectedProcedure.input(z.object({ id: zodTypeID('wks') })).mutation(async ({ ctx, input }) => {
+		await ctx.db
+			.delete(workoutSessions)
+			.where(and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id)))
+	}),
 
 	// ─── Set Logging ──────────────────────────────────────────────
 
 	addSet: protectedProcedure
 		.input(
 			z.object({
-				sessionId: z.custom<TypeIDString<'wks'>>(),
-				exerciseId: z.custom<TypeIDString<'exc'>>(),
+				sessionId: zodTypeID('wks'),
+				exerciseId: zodTypeID('exc'),
 				weightKg: z.number().min(0),
 				reps: z.number().int().min(0),
 				setType: zSetType.default('working'),
@@ -727,7 +722,7 @@ export const workoutsRouter = router({
 	updateSet: protectedProcedure
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'wkl'>>(),
+				id: zodTypeID('wkl'),
 				weightKg: z.number().min(0).optional(),
 				reps: z.number().int().min(0).optional(),
 				setType: zSetType.optional(),
@@ -755,23 +750,21 @@ export const workoutsRouter = router({
 			await ctx.db.update(workoutLogs).set(set).where(eq(workoutLogs.id, id))
 		}),
 
-	removeSet: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wkl'>>() }))
-		.mutation(async ({ ctx, input }) => {
-			const log = await ctx.db.query.workoutLogs.findFirst({
-				where: { id: input.id },
-				with: { session: true }
-			})
-			if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
-			await ctx.db.delete(workoutLogs).where(eq(workoutLogs.id, input.id))
-		}),
+	removeSet: protectedProcedure.input(z.object({ id: zodTypeID('wkl') })).mutation(async ({ ctx, input }) => {
+		const log = await ctx.db.query.workoutLogs.findFirst({
+			where: { id: input.id },
+			with: { session: true }
+		})
+		if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
+		await ctx.db.delete(workoutLogs).where(eq(workoutLogs.id, input.id))
+	}),
 
 	replaceSessionExercise: protectedProcedure
 		.input(
 			z.object({
-				sessionId: z.custom<TypeIDString<'wks'>>(),
-				oldExerciseId: z.custom<TypeIDString<'exc'>>(),
-				newExerciseId: z.custom<TypeIDString<'exc'>>()
+				sessionId: zodTypeID('wks'),
+				oldExerciseId: zodTypeID('exc'),
+				newExerciseId: zodTypeID('exc')
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -1086,8 +1079,8 @@ export const workoutsRouter = router({
 	importSets: protectedProcedure
 		.input(
 			z.object({
-				sessionId: z.custom<TypeIDString<'wks'>>().optional(),
-				workoutId: z.custom<TypeIDString<'wkt'>>(),
+				sessionId: zodTypeID('wks').optional(),
+				workoutId: zodTypeID('wkt'),
 				text: z.string().min(1)
 			})
 		)

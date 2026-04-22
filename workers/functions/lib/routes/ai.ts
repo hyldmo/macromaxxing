@@ -1,4 +1,4 @@
-import { extractPreparation, type HttpsUrl, recipes, type TypeIDString } from '@macromaxxing/db'
+import { extractPreparation, type HttpsUrl, recipes, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq } from 'drizzle-orm'
@@ -131,7 +131,7 @@ export const aiRouter = router({
 	generateInstructions: protectedProcedure
 		.input(
 			z.object({
-				recipeId: z.custom<TypeIDString<'rcp'>>(),
+				recipeId: zodTypeID('rcp'),
 				ingredients: z.array(z.object({ name: z.string(), grams: z.number() })),
 				preprompt: z.string().optional()
 			})
