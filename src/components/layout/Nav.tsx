@@ -61,8 +61,8 @@ export function Nav() {
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
+						<RestTimer />
 						<div className={cn('flex items-center gap-2', timerActive && 'max-md:hidden')}>
-							<RestTimer />
 							<SignedIn>
 								<WebLink to="/settings" icon={Settings} />
 								<UserButton />
