@@ -19,7 +19,7 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({ sessionId, initi
 	const valueRef = useRef(initialNotes ?? '')
 	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const [value, setValue] = useState(initialNotes ?? '')
-	const mutation = trpc.workout.updateSessionNotes.useMutation()
+	const { mutate } = trpc.workout.updateSessionNotes.useMutation()
 	useScrollLock()
 
 	const flush = useCallback(() => {
@@ -29,8 +29,8 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({ sessionId, initi
 		}
 		if (valueRef.current === savedRef.current) return
 		savedRef.current = valueRef.current
-		mutation.mutate({ id: sessionId, notes: valueRef.current })
-	}, [mutation, sessionId])
+		mutate({ id: sessionId, notes: valueRef.current })
+	}, [mutate, sessionId])
 
 	const handleClose = useCallback(() => {
 		flush()
@@ -62,15 +62,8 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({ sessionId, initi
 	}, [handleClose])
 
 	useEffect(() => {
-		return () => {
-			if (timeoutRef.current) {
-				clearTimeout(timeoutRef.current)
-				if (valueRef.current !== savedRef.current) {
-					mutation.mutate({ id: sessionId, notes: valueRef.current })
-				}
-			}
-		}
-	}, [mutation, sessionId])
+		return () => flush()
+	}, [flush])
 
 	const titleId = 'session-notes-title'
 
