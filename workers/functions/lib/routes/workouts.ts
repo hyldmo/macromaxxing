@@ -2,6 +2,7 @@ import {
 	computeBalances,
 	computeMuscleLoad,
 	type ExerciseType,
+	estimated1RM,
 	exerciseGuides,
 	exerciseMuscles,
 	exercises,
@@ -38,18 +39,6 @@ import { ensureUserSettingsRow } from '../utils'
 const CUE_MAX = 300
 const DESCRIPTION_MAX = 500
 const CUES_MAX_COUNT = 10
-
-/**
- * Brzycki estimated 1RM, capped at 12 reps to avoid inflated estimates.
- * Mirrors `estimated1RM` in src/lib/workouts/formulas.ts — duplicated here
- * because workers/ is a separate workspace and can't import from src/.
- */
-const BRZYCKI_REP_CAP = 12
-function estimated1RM(weightKg: number, reps: number): number {
-	if (reps <= 0) return weightKg
-	const capped = Math.min(reps, BRZYCKI_REP_CAP)
-	return weightKg * (36 / (37 - capped))
-}
 
 /** Highest e1RM across a list of sets; returns 0 for empty/invalid input. */
 function pickTopE1rm(sets: ReadonlyArray<{ weightKg: number; reps: number }>): number {
