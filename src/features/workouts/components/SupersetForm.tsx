@@ -62,6 +62,18 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 
 	const { rounds, extraLogs } = useMemo(() => buildSupersetRounds(exercises), [exercises])
 
+	// Per-exercise prior best e1RM for inline PR detection in SetRow.
+	// Source: lastSessionsForExercises (most-recent prior session); not all-time max.
+	const priorMaxByExercise = useMemo(() => {
+		const m = new Map<string, number>()
+		for (const e of exercises) {
+			if (e.lastSession?.topE1rm && e.lastSession.topE1rm > 0) {
+				m.set(e.exercise.id, e.lastSession.topE1rm)
+			}
+		}
+		return m
+	}, [exercises])
+
 	// Find the first pending set across all rounds for active highlight
 	let firstPendingFound = false
 
@@ -171,6 +183,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														rpe={isUnchecked ? undefined : entry.log.rpe}
 														failureFlag={isUnchecked ? undefined : entry.log.failureFlag}
 														done={!isUnchecked}
+														priorMaxE1rm={priorMaxByExercise.get(entry.exerciseId) ?? null}
 														onWeightChange={v => {
 															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
 														}}
@@ -286,6 +299,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 													rpe={isUnchecked ? undefined : log.rpe}
 													failureFlag={isUnchecked ? undefined : log.failureFlag}
 													done={!isUnchecked}
+													priorMaxE1rm={priorMaxByExercise.get(exercise.id) ?? null}
 													onWeightChange={v => {
 														if (v != null) onUpdateSet(log.id, { weightKg: v })
 													}}

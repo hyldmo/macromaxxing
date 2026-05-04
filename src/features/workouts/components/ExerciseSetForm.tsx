@@ -161,6 +161,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 									rpe={isUnchecked ? undefined : log.rpe}
 									failureFlag={isUnchecked ? undefined : log.failureFlag}
 									done={!isUnchecked}
+									priorMaxE1rm={lastSession?.topE1rm ?? null}
 									onWeightChange={v => {
 										if (v != null) onUpdateSet(log.id, { weightKg: v })
 									}}

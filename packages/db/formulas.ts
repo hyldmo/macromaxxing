@@ -29,6 +29,7 @@ export function totalVolume(logs: Array<{ weightKg: number; reps: number; sets?:
 }
 
 export interface E1rmStat {
+	exerciseId: string
 	name: string
 	weightKg: number
 	reps: number
@@ -53,7 +54,7 @@ export function exerciseE1rmStats(
 
 	const stats: E1rmStat[] = []
 
-	for (const [, { name, logs: exLogs }] of byExercise) {
+	for (const [exerciseId, { name, logs: exLogs }] of byExercise) {
 		let bestE1rm = 0
 		let bestWeight = 0
 		let bestReps = 0
@@ -69,7 +70,14 @@ export function exerciseE1rmStats(
 		}
 
 		if (bestE1rm > 0) {
-			stats.push({ name, weightKg: bestWeight, reps: bestReps, e1rm: bestE1rm, volume: totalVolume(exLogs) })
+			stats.push({
+				exerciseId,
+				name,
+				weightKg: bestWeight,
+				reps: bestReps,
+				e1rm: bestE1rm,
+				volume: totalVolume(exLogs)
+			})
 		}
 	}
 
