@@ -21,6 +21,7 @@ import {
 	trainingGoal,
 	userExerciseFavorites,
 	userSettings,
+	WINDOW_CUTOFF_MS,
 	withZones,
 	workoutExercises,
 	workoutLogs,
@@ -50,14 +51,6 @@ function pickTopE1rm(sets: ReadonlyArray<{ weightKg: number; reps: number }>): n
 		if (e > best) best = e
 	}
 	return best
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000
-/** Window enum → milliseconds. Used by `exerciseHistory` (and any future analytics endpoint). */
-const WINDOW_CUTOFF_MS: Record<'4w' | '12w' | '1y', number> = {
-	'4w': 28 * DAY_MS,
-	'12w': 84 * DAY_MS,
-	'1y': 365 * DAY_MS
 }
 
 const zGuideInput = z.object({
