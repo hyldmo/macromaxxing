@@ -133,9 +133,25 @@ export function metricHierarchy(set: { weightKg: number; reps: number }): Progre
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+export type AnalyticsWindow = '4w' | '12w' | '1y'
+
 /** Window enum → milliseconds. Shared by analytics endpoints + `exerciseHistory`. */
-export const WINDOW_CUTOFF_MS: Record<'4w' | '12w' | '1y', number> = {
+export const WINDOW_CUTOFF_MS: Record<AnalyticsWindow, number> = {
 	'4w': 28 * DAY_MS,
 	'12w': 84 * DAY_MS,
 	'1y': 365 * DAY_MS
+}
+
+/**
+ * Convert a window enum to a unix-epoch ms cutoff: sessions with `startedAt >= cutoff`
+ * are in the window `[now - WINDOW_CUTOFF_MS[window], now)`. Pure helper — `now`
+ * is injected for testability.
+ */
+export function windowSinceMs(window: AnalyticsWindow, now: number = Date.now()): number {
+	return now - WINDOW_CUTOFF_MS[window]
+}
+
+/** Format a unix-epoch ms timestamp as a UTC `YYYY-MM-DD` calendar date. */
+export function utcDateKey(ms: number): string {
+	return new Date(ms).toISOString().slice(0, 10)
 }
