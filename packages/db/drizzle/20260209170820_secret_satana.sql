@@ -1,4 +1,4 @@
-CREATE TABLE `exercise_muscles` (
+CREATE TABLE IF NOT EXISTS `exercise_muscles` (
 	`id` text PRIMARY KEY NOT NULL,
 	`exercise_id` text NOT NULL,
 	`muscle_group` text NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE `exercise_muscles` (
 	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `exercises` (
+CREATE TABLE IF NOT EXISTS `exercises` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text,
 	`name` text NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE `exercises` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `strength_standards` (
+CREATE TABLE IF NOT EXISTS `strength_standards` (
 	`id` text PRIMARY KEY NOT NULL,
 	`compound_id` text NOT NULL,
 	`isolation_id` text NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE `strength_standards` (
 	FOREIGN KEY (`isolation_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `workout_logs` (
+CREATE TABLE IF NOT EXISTS `workout_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
 	`exercise_id` text NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE `workout_logs` (
 	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `workout_sessions` (
+CREATE TABLE IF NOT EXISTS `workout_sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text,

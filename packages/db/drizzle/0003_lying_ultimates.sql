@@ -1,4 +1,4 @@
-CREATE TABLE `meal_plan_inventory` (
+CREATE TABLE IF NOT EXISTS `meal_plan_inventory` (
 	`id` text PRIMARY KEY NOT NULL,
 	`meal_plan_id` text NOT NULL,
 	`recipe_id` text NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `meal_plan_inventory` (
 	FOREIGN KEY (`recipe_id`) REFERENCES `recipes`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `meal_plan_slots` (
+CREATE TABLE IF NOT EXISTS `meal_plan_slots` (
 	`id` text PRIMARY KEY NOT NULL,
 	`inventory_id` text NOT NULL,
 	`day_of_week` integer NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE `meal_plan_slots` (
 	FOREIGN KEY (`inventory_id`) REFERENCES `meal_plan_inventory`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `meal_plans` (
+CREATE TABLE IF NOT EXISTS `meal_plans` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE `meal_plans` (
 );
 --> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_recipes` (
+CREATE TABLE IF NOT EXISTS `__new_recipes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,

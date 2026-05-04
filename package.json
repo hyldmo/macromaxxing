@@ -26,7 +26,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "db:generate": "yarn workspace @macromaxxing/db drizzle-kit generate && yarn db:flatten",
-    "db:flatten": "for d in packages/db/drizzle/*/; do tag=$(basename \"$d\"); [ -f \"$d/migration.sql\" ] && [ ! -f \"packages/db/drizzle/${tag}.sql\" ] && cp \"$d/migration.sql\" \"packages/db/drizzle/${tag}.sql\"; done; true",
+    "db:flatten": "for d in packages/db/drizzle/*/; do tag=$(basename \"$d\"); [ -f \"$d/migration.sql\" ] && [ ! -f \"packages/db/drizzle/${tag}.sql\" ] && sed -e 's/^CREATE TABLE /CREATE TABLE IF NOT EXISTS /; s/^CREATE INDEX /CREATE INDEX IF NOT EXISTS /; s/^CREATE UNIQUE INDEX /CREATE UNIQUE INDEX IF NOT EXISTS /' \"$d/migration.sql\" > \"packages/db/drizzle/${tag}.sql\"; done; true",
     "db:migrate": "yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --local",
     "db:migrate:remote": "yarn workspace @macromaxxing/workers wrangler d1 migrations apply macromaxxing --remote",
     "db:seed": "yarn db:migrate && yarn workspace @macromaxxing/workers wrangler d1 execute macromaxxing --local --file=scripts/seed.sql",

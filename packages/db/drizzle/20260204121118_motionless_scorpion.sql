@@ -1,4 +1,4 @@
-CREATE TABLE `ingredients` (
+CREATE TABLE IF NOT EXISTS `ingredients` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE `ingredients` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `recipe_ingredients` (
+CREATE TABLE IF NOT EXISTS `recipe_ingredients` (
 	`id` text PRIMARY KEY NOT NULL,
 	`recipe_id` text NOT NULL,
 	`ingredient_id` text NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE `recipe_ingredients` (
 	FOREIGN KEY (`ingredient_id`) REFERENCES `ingredients`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `recipes` (
+CREATE TABLE IF NOT EXISTS `recipes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE `recipes` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `user_settings` (
+CREATE TABLE IF NOT EXISTS `user_settings` (
 	`user_id` text PRIMARY KEY NOT NULL,
 	`ai_provider` text NOT NULL,
 	`ai_api_key` text NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE `user_settings` (
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text NOT NULL,
 	`created_at` integer NOT NULL

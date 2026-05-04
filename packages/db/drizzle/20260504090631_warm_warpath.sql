@@ -1,4 +1,4 @@
-CREATE TABLE `workout_program_items` (
+CREATE TABLE IF NOT EXISTS `workout_program_items` (
 	`id` text PRIMARY KEY,
 	`program_id` text NOT NULL,
 	`workout_id` text NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `workout_program_items` (
 	CONSTRAINT `fk_workout_program_items_workout_id_workouts_id_fk` FOREIGN KEY (`workout_id`) REFERENCES `workouts`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
-CREATE TABLE `workout_programs` (
+CREATE TABLE IF NOT EXISTS `workout_programs` (
 	`id` text PRIMARY KEY,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE `workout_programs` (
 );
 --> statement-breakpoint
 ALTER TABLE `user_settings` ADD `active_program_id` text REFERENCES workout_programs(id) ON DELETE SET NULL;--> statement-breakpoint
-CREATE INDEX `workout_program_items_program_id_idx` ON `workout_program_items` (`program_id`);--> statement-breakpoint
-CREATE INDEX `workout_program_items_workout_id_idx` ON `workout_program_items` (`workout_id`);--> statement-breakpoint
-CREATE INDEX `workout_programs_user_id_idx` ON `workout_programs` (`user_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `workout_programs_user_name_idx` ON `workout_programs` (`user_id`,`name`);
+CREATE INDEX IF NOT EXISTS `workout_program_items_program_id_idx` ON `workout_program_items` (`program_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `workout_program_items_workout_id_idx` ON `workout_program_items` (`workout_id`);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS `workout_programs_user_id_idx` ON `workout_programs` (`user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS `workout_programs_user_name_idx` ON `workout_programs` (`user_id`,`name`);
