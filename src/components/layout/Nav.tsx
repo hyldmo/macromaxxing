@@ -28,10 +28,11 @@ const desktopAuthLinks = [
 	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ] satisfies Link[]
 
+// Analytics deliberately omitted from mobile bottom nav — no clean slot.
+// Reachable via direct URL or desktop nav. See TODOs for follow-up options.
 const mobileAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
-	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
 ] satisfies Link[]
 
 export interface Link {
