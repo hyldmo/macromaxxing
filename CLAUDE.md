@@ -429,6 +429,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - `worker-configuration.d.ts` is committed (generated locally where `.dev.vars` exists; CI types depend on it). Excluded from biome via `files.includes` negation.
 - CI needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — the latter bypasses `/memberships` which fails with scoped tokens
 - `wrangler d1 execute --file` resolves paths from the workspace wrangler runs in, not cwd. Use absolute paths in scripts.
+- **Wrangler `d1 migrations apply` silently ignores Drizzle's subdirectory-format migrations** (`<tag>/migration.sql`) and prints "✅ No migrations to apply!" while leaving the DB missing tables. Both 4.62 and 4.87 broken. Project uses `scripts/migrate.ts` (run via `yarn db:migrate` / `yarn db:migrate:remote`) which enumerates subdirectories, diffs against `d1_migrations`, applies via `wrangler d1 execute --file`. Deploy workflow uses `db:migrate:remote`.
 - D1 supports FTS5 but Drizzle can't model it — use raw SQL migrations + `db.all()` queries
 - `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
 - D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
