@@ -8,23 +8,20 @@ export interface BodyMapProps {
 	muscleVolumes: Map<MuscleGroup, number>
 	sex: Sex
 	renderTooltip?: (muscleGroup: MuscleGroup) => ReactNode
-	onMuscleClick?: (muscle: MuscleGroup) => void
 }
 
 const BodyFigure: FC<{
 	SvgComponent: FC<BodySvgProps>
 	muscleColors: Map<MuscleGroup, string>
 	onHover: (muscle: MuscleGroup | null) => void
-	onClick?: (muscle: MuscleGroup) => void
 	label: string
-}> = ({ SvgComponent, muscleColors, onHover, onClick, label }) => {
+}> = ({ SvgComponent, muscleColors, onHover, label }) => {
 	const gp = (muscle: MuscleGroup): SVGAttributes<SVGGElement> => ({
 		className: `cursor-pointer transition-colors hover:opacity-70 ${
 			muscleColors.get(muscle) ?? 'text-ink-faint/20'
 		}`,
 		onMouseEnter: () => onHover(muscle),
-		onMouseLeave: () => onHover(null),
-		onClick: onClick ? () => onClick(muscle) : undefined
+		onMouseLeave: () => onHover(null)
 	})
 
 	return (
@@ -37,7 +34,7 @@ const BodyFigure: FC<{
 	)
 }
 
-export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip, onMuscleClick }) => {
+export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip }) => {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
 	const tooltipRef = useRef<HTMLDivElement>(null)
@@ -74,20 +71,8 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip, o
 			onMouseMove={handleMouseMove}
 		>
 			<div className="flex justify-center gap-4">
-				<BodyFigure
-					SvgComponent={Front}
-					muscleColors={muscleColors}
-					onHover={setHoveredMuscle}
-					onClick={onMuscleClick}
-					label="front"
-				/>
-				<BodyFigure
-					SvgComponent={Back}
-					muscleColors={muscleColors}
-					onHover={setHoveredMuscle}
-					onClick={onMuscleClick}
-					label="back"
-				/>
+				<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={setHoveredMuscle} label="front" />
+				<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={setHoveredMuscle} label="back" />
 			</div>
 			{hoveredMuscle && (
 				<div
