@@ -1,4 +1,4 @@
-CREATE TABLE `ingredient_units` (
+CREATE TABLE IF NOT EXISTS `ingredient_units` (
 	`id` text PRIMARY KEY NOT NULL,
 	`ingredient_id` text NOT NULL,
 	`name` text NOT NULL,

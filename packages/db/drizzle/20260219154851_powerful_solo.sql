@@ -1,4 +1,4 @@
-CREATE TABLE `session_planned_exercises` (
+CREATE TABLE IF NOT EXISTS `session_planned_exercises` (
 	`id` text PRIMARY KEY NOT NULL,
 	`session_id` text NOT NULL,
 	`exercise_id` text NOT NULL,
@@ -14,4 +14,4 @@ CREATE TABLE `session_planned_exercises` (
 	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `session_planned_exercises_session_idx` ON `session_planned_exercises` (`session_id`);
+CREATE INDEX IF NOT EXISTS `session_planned_exercises_session_idx` ON `session_planned_exercises` (`session_id`);

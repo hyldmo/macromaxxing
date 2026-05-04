@@ -1,4 +1,4 @@
-CREATE TABLE `usda_foods` (
+CREATE TABLE IF NOT EXISTS `usda_foods` (
 	`fdc_id` integer PRIMARY KEY NOT NULL,
 	`description` text NOT NULL,
 	`data_type` text NOT NULL,
@@ -10,8 +10,8 @@ CREATE TABLE `usda_foods` (
 	`density` real
 );
 --> statement-breakpoint
-CREATE INDEX `usda_foods_description_idx` ON `usda_foods` (lower("description"));--> statement-breakpoint
-CREATE TABLE `usda_portions` (
+CREATE INDEX IF NOT EXISTS `usda_foods_description_idx` ON `usda_foods` (lower("description"));--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `usda_portions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`fdc_id` integer NOT NULL,
 	`name` text NOT NULL,
@@ -20,4 +20,4 @@ CREATE TABLE `usda_portions` (
 	FOREIGN KEY (`fdc_id`) REFERENCES `usda_foods`(`fdc_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE INDEX `usda_portions_fdc_id_idx` ON `usda_portions` (`fdc_id`);
+CREATE INDEX IF NOT EXISTS `usda_portions_fdc_id_idx` ON `usda_portions` (`fdc_id`);

@@ -1,4 +1,4 @@
-CREATE TABLE `exercise_guides` (
+CREATE TABLE IF NOT EXISTS `exercise_guides` (
 	`id` text PRIMARY KEY,
 	`exercise_id` text NOT NULL,
 	`description` text NOT NULL,
@@ -8,4 +8,4 @@ CREATE TABLE `exercise_guides` (
 	CONSTRAINT `fk_exercise_guides_exercise_id_exercises_id_fk` FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `exercise_guides_exercise_id_idx` ON `exercise_guides` (`exercise_id`);
+CREATE UNIQUE INDEX IF NOT EXISTS `exercise_guides_exercise_id_idx` ON `exercise_guides` (`exercise_id`);

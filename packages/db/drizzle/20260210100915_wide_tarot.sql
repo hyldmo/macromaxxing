@@ -1,4 +1,4 @@
-CREATE TABLE `workout_exercises` (
+CREATE TABLE IF NOT EXISTS `workout_exercises` (
 	`id` text PRIMARY KEY NOT NULL,
 	`workout_id` text NOT NULL,
 	`exercise_id` text NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE `workout_exercises` (
 	FOREIGN KEY (`exercise_id`) REFERENCES `exercises`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE TABLE `workouts` (
+CREATE TABLE IF NOT EXISTS `workouts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,

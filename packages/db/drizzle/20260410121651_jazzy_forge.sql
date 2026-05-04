@@ -1,4 +1,4 @@
-CREATE TABLE `api_tokens` (
+CREATE TABLE IF NOT EXISTS `api_tokens` (
 	`id` text PRIMARY KEY,
 	`user_id` text NOT NULL,
 	`name` text NOT NULL,
@@ -8,5 +8,5 @@ CREATE TABLE `api_tokens` (
 	CONSTRAINT `fk_api_tokens_user_id_users_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
 );
 --> statement-breakpoint
-CREATE INDEX `api_tokens_user_id_idx` ON `api_tokens` (`user_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `api_tokens_hash_idx` ON `api_tokens` (`token_hash`);
+CREATE INDEX IF NOT EXISTS `api_tokens_user_id_idx` ON `api_tokens` (`user_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS `api_tokens_hash_idx` ON `api_tokens` (`token_hash`);
