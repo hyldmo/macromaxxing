@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm'
-import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import {
+	type AnySQLiteColumn,
+	index,
+	integer,
+	primaryKey,
+	real,
+	sqliteTable,
+	text,
+	uniqueIndex
+} from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
 	type ExerciseType,
@@ -241,6 +250,20 @@ export const exerciseGuides = sqliteTable(
 	t => [uniqueIndex('exercise_guides_exercise_id_idx').on(t.exerciseId)]
 )
 
+export const userExerciseFavorites = sqliteTable(
+	'user_exercise_favorites',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		exerciseId: typeidCol('exc')('exercise_id')
+			.notNull()
+			.references(() => exercises.id, { onDelete: 'cascade' }),
+		createdAt: integer('created_at').notNull()
+	},
+	t => [primaryKey({ columns: [t.userId, t.exerciseId] })]
+)
+
 export const workouts = sqliteTable(
 	'workouts',
 	{
@@ -360,7 +383,11 @@ export const workoutLogs = sqliteTable(
 		failureFlag: integer('failure_flag').notNull().default(0),
 		createdAt: integer('created_at').notNull()
 	},
-	t => [index('workout_logs_session_id_idx').on(t.sessionId)]
+	t => [
+		index('workout_logs_session_id_idx').on(t.sessionId),
+		index('workout_logs_exercise_id_idx').on(t.exerciseId),
+		index('workout_logs_exercise_session_idx').on(t.exerciseId, t.sessionId)
+	]
 )
 
 export const workoutPrograms = sqliteTable(

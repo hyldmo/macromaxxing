@@ -15,6 +15,7 @@ import type {
 	strengthStandards,
 	usdaFoods,
 	usdaPortions,
+	userExerciseFavorites,
 	userSettings,
 	users,
 	workoutExercises,
@@ -38,6 +39,7 @@ export type MealPlanSlot = InferSelectModel<typeof mealPlanSlots>
 export type Exercise = InferSelectModel<typeof exercises>
 export type ExerciseMuscle = InferSelectModel<typeof exerciseMuscles>
 export type ExerciseGuideRow = InferSelectModel<typeof exerciseGuides>
+export type UserExerciseFavorite = InferSelectModel<typeof userExerciseFavorites>
 export type StrengthStandard = InferSelectModel<typeof strengthStandards>
 export type Workout = InferSelectModel<typeof workouts>
 export type WorkoutExercise = InferSelectModel<typeof workoutExercises>
