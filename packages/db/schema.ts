@@ -360,7 +360,11 @@ export const workoutLogs = sqliteTable(
 		failureFlag: integer('failure_flag').notNull().default(0),
 		createdAt: integer('created_at').notNull()
 	},
-	t => [index('workout_logs_session_id_idx').on(t.sessionId)]
+	t => [
+		index('workout_logs_session_id_idx').on(t.sessionId),
+		index('workout_logs_exercise_id_idx').on(t.exerciseId),
+		index('workout_logs_exercise_session_idx').on(t.exerciseId, t.sessionId)
+	]
 )
 
 export const workoutPrograms = sqliteTable(

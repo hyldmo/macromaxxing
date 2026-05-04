@@ -5,6 +5,7 @@ import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { buildSupersetRounds, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
+import { LastSessionHint, type LastSessionHintProps } from './LastSessionHint'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
@@ -18,6 +19,7 @@ export interface SupersetFormProps {
 		plannedSets: PlannedSet[]
 		setMode: SetMode
 		trainingGoal?: TrainingGoal
+		lastSession?: LastSessionHintProps['lastSession']
 	}>
 	goal: TrainingGoal
 	readOnly?: boolean
@@ -59,6 +61,18 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')
 
 	const { rounds, extraLogs } = useMemo(() => buildSupersetRounds(exercises), [exercises])
+
+	// Per-exercise prior best e1RM for inline PR detection in SetRow.
+	// Source: lastSessionsForExercises (most-recent prior session); not all-time max.
+	const priorMaxByExercise = useMemo(() => {
+		const m = new Map<string, number>()
+		for (const e of exercises) {
+			if (e.lastSession?.topE1rm && e.lastSession.topE1rm > 0) {
+				m.set(e.exercise.id, e.lastSession.topE1rm)
+			}
+		}
+		return m
+	}, [exercises])
 
 	// Find the first pending set across all rounds for active highlight
 	let firstPendingFound = false
@@ -129,6 +143,22 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 						</div>
 					)}
 
+					{/* Per-exercise "last time" hints (shown once, above the rounds) */}
+					{exercises.some(e => e.lastSession) && (
+						<div className="mb-2 space-y-0.5">
+							{exercises.map((exData, i) =>
+								exData.lastSession ? (
+									<div key={exData.exercise.id} className="flex items-center gap-1.5">
+										<span className="w-4 shrink-0 text-center font-medium font-mono text-[10px] text-accent">
+											{String.fromCharCode(65 + i)}
+										</span>
+										<LastSessionHint lastSession={exData.lastSession} />
+									</div>
+								) : null
+							)}
+						</div>
+					)}
+
 					{/* Interleaved rounds */}
 					{rounds.map((round, roundIdx) => (
 						<div key={`${round.setType}-${roundIdx}`}>
@@ -153,6 +183,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														rpe={isUnchecked ? undefined : entry.log.rpe}
 														failureFlag={isUnchecked ? undefined : entry.log.failureFlag}
 														done={!isUnchecked}
+														priorMaxE1rm={priorMaxByExercise.get(entry.exerciseId) ?? null}
 														onWeightChange={v => {
 															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
 														}}
@@ -268,6 +299,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 													rpe={isUnchecked ? undefined : log.rpe}
 													failureFlag={isUnchecked ? undefined : log.failureFlag}
 													done={!isUnchecked}
+													priorMaxE1rm={priorMaxByExercise.get(exercise.id) ?? null}
 													onWeightChange={v => {
 														if (v != null) onUpdateSet(log.id, { weightKg: v })
 													}}

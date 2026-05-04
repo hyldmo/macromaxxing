@@ -1,4 +1,5 @@
 import { aiRouter } from './routes/ai'
+import { analyticsRouter } from './routes/analytics'
 import { dashboardRouter } from './routes/dashboard'
 import { ingredientsRouter } from './routes/ingredients'
 import { mealPlansRouter } from './routes/mealPlans'
@@ -16,7 +17,8 @@ export const appRouter = router({
 	dashboard: dashboardRouter,
 	mealPlan: mealPlansRouter,
 	user: userRouter,
-	workout: workoutsRouter
+	workout: workoutsRouter,
+	analytics: analyticsRouter
 })
 
 export type AppRouter = typeof appRouter

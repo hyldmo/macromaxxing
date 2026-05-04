@@ -6,6 +6,7 @@ import { type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
+import { LastSessionHint, type LastSessionHintProps } from './LastSessionHint'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
@@ -26,6 +27,7 @@ export interface ExerciseSetFormProps {
 	onReplace?: (exerciseId: Exercise['id']) => void
 	readOnly?: boolean
 	active?: boolean
+	lastSession?: LastSessionHintProps['lastSession']
 }
 
 export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
@@ -41,7 +43,8 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	onUpdateSet,
 	onReplace,
 	readOnly,
-	active
+	active,
+	lastSession
 }) => {
 	const [collapsed, setCollapsed] = useState(false)
 	const [newWeight, setNewWeight] = useState('')
@@ -143,6 +146,8 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 						</div>
 					)}
 
+					{lastSession && <LastSessionHint lastSession={lastSession} className="mb-1" />}
+
 					{/* Logged sets */}
 					<div className="space-y-0.5">
 						{logs.map(log => {
@@ -156,6 +161,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 									rpe={isUnchecked ? undefined : log.rpe}
 									failureFlag={isUnchecked ? undefined : log.failureFlag}
 									done={!isUnchecked}
+									priorMaxE1rm={lastSession?.topE1rm ?? null}
 									onWeightChange={v => {
 										if (v != null) onUpdateSet(log.id, { weightKg: v })
 									}}

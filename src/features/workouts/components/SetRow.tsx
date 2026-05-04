@@ -2,7 +2,7 @@ import type { SetType } from '@macromaxxing/db'
 import { Check, Circle } from 'lucide-react'
 import type { FC } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn, estimated1RM, SET_TYPE_STYLES } from '~/lib'
+import { cn, estimated1RM, isE1rmPR, SET_TYPE_STYLES } from '~/lib'
 
 const CONFIRM_BORDER_STYLES = {
 	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',
@@ -18,6 +18,13 @@ export interface SetRowProps {
 	active?: boolean
 	rpe?: number | null
 	failureFlag?: number | null
+	/**
+	 * Prior best e1RM for this exercise — used to flag PRs on confirmed working sets.
+	 * v1 sources this from `lastSession.topE1rm` (most-recent-session best, not all-time max).
+	 * Loose enough to false-positive after a deload week, but precise enough for the inline
+	 * "you beat last time" acknowledgement. A future task may swap in a true all-time max.
+	 */
+	priorMaxE1rm?: number | null
 	onWeightChange?: (weight: number | null) => void
 	onRepsChange?: (reps: number) => void
 	onConfirm?: () => void
@@ -31,11 +38,20 @@ export const SetRow: FC<SetRowProps> = ({
 	active,
 	rpe,
 	failureFlag,
+	priorMaxE1rm,
 	onWeightChange,
 	onRepsChange,
 	onConfirm
 }) => {
 	const e1rm = done && reps > 0 ? estimated1RM(weightKg ?? 0, reps) : 0
+	// Only working sets count as e1RM PRs — warmups/backoffs are intentionally lighter
+	// and would trigger false positives early in a session.
+	const isPR =
+		done &&
+		setType === 'working' &&
+		priorMaxE1rm != null &&
+		priorMaxE1rm > 0 &&
+		isE1rmPR({ weightKg: weightKg ?? 0, reps }, priorMaxE1rm)
 
 	return (
 		<div className={cn('flex items-center gap-1.5 rounded-sm py-0.5 sm:gap-2', active && 'bg-surface-2')}>
@@ -75,8 +91,13 @@ export const SetRow: FC<SetRowProps> = ({
 				disabled={done}
 			/>
 			{e1rm > 0 && (
-				<span className="hidden w-14 shrink-0 text-right font-mono text-[10px] text-ink-faint tabular-nums sm:inline">
-					e1RM {e1rm.toFixed(0)}
+				<span
+					className={cn(
+						'hidden w-14 shrink-0 text-right font-mono text-[10px] tabular-nums sm:inline',
+						isPR ? 'text-success' : 'text-ink-faint'
+					)}
+				>
+					{isPR && '↑ '}e1RM {e1rm.toFixed(0)}
 				</span>
 			)}
 			{rpe != null && (

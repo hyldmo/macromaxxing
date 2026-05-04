@@ -1,7 +1,8 @@
+import type { Exercise } from '@macromaxxing/db'
 import { ArrowRight, Clock, Dumbbell } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, useMemo } from 'react'
 import { cn, computeDivergences, type Divergence, exerciseE1rmStats, totalVolume } from '~/lib'
-import type { RouterOutput } from '~/lib/trpc'
+import { type RouterOutput, trpc } from '~/lib/trpc'
 import { E1rmTable } from './E1rmTable'
 
 type Session = RouterOutput['workout']['getSession']
@@ -46,6 +47,27 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 	const divergences =
 		plannedExercises.length > 0 ? computeDivergences(session.logs, plannedExercises, workoutGoal) : []
 
+	// Prior best e1RM per exercise — uses most-recent prior session (not all-time max).
+	// Same Option A trade-off as the inline SetRow PR: simple, batched, false-positives
+	// possible after a deload week, but accurate enough for the recap acknowledgement.
+	const priorExerciseIds = useMemo<Exercise['id'][]>(
+		() => e1rmStats.map(s => s.exerciseId as Exercise['id']),
+		[e1rmStats]
+	)
+	const lastSessionsQuery = trpc.workout.lastSessionsForExercises.useQuery(
+		{ exerciseIds: priorExerciseIds, before: session.startedAt },
+		{ enabled: priorExerciseIds.length > 0 }
+	)
+	const priorMaxByExercise = useMemo<Record<string, number>>(() => {
+		const out: Record<string, number> = {}
+		const data = lastSessionsQuery.data
+		if (!data) return out
+		for (const [id, ls] of Object.entries(data)) {
+			if (ls && ls.topE1rm > 0) out[id] = ls.topE1rm
+		}
+		return out
+	}, [lastSessionsQuery.data])
+
 	return (
 		<div className="space-y-3">
 			{/* Duration + Volume */}
@@ -73,7 +95,7 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 			{/* Estimated 1RM */}
 			{e1rmStats.length > 0 && (
 				<div className="rounded-sm border border-edge bg-surface-1 p-3">
-					<E1rmTable stats={e1rmStats} />
+					<E1rmTable stats={e1rmStats} priorMaxByExercise={priorMaxByExercise} />
 				</div>
 			)}
 

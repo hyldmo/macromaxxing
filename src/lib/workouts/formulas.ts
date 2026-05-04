@@ -1,6 +1,23 @@
 import type { Exercise, SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
 import { midpoint } from '../math'
 
+// Pure workout-math primitives shared with the workers/ backend live in
+// `@macromaxxing/db/formulas`. Re-exported here so existing imports
+// (`~/lib/workouts/formulas`) keep working without consumer churn.
+export {
+	type E1rmStat,
+	estimated1RM,
+	exerciseE1rmStats,
+	isE1rmPR,
+	isStalledExercise,
+	metricHierarchy,
+	type ProgressionMetric,
+	totalVolume,
+	weightForReps
+} from '@macromaxxing/db'
+
+import { estimated1RM, weightForReps } from '@macromaxxing/db'
+
 // ─── Rep Range Resolution ───────────────────────────────────────────
 
 type RepRangeExercise = Pick<
@@ -33,21 +50,6 @@ export function getRepRange(exercise: RepRangeExercise, goal: TrainingGoal): { m
 		return { min: exercise.strengthRepsMax, max: exercise.strengthRepsMax * 2 }
 	}
 	return exercise.type === 'compound' ? { min: 8, max: 12 } : { min: 10, max: 15 }
-}
-
-/** Brzycki 1RM estimate: weight × 36 / (37 − reps), capped at 12 reps to avoid inflated estimates */
-const BRZYCKI_REP_CAP = 12
-
-export function estimated1RM(weightKg: number, reps: number): number {
-	if (reps <= 0) return weightKg
-	const capped = Math.min(reps, BRZYCKI_REP_CAP)
-	return weightKg * (36 / (37 - capped))
-}
-
-/** Inverse Brzycki: working weight for a given 1RM and target reps */
-export function weightForReps(oneRM: number, reps: number): number {
-	if (reps <= 0 || reps >= 37) return oneRM
-	return oneRM * ((37 - reps) / 36)
 }
 
 export type WeightUnit = 'kg' | 'lbs'
@@ -116,63 +118,10 @@ export function estimateReplacementWeight(
 	return null
 }
 
-export interface E1rmStat {
-	name: string
-	weightKg: number
-	reps: number
-	e1rm: number
-	volume: number
-}
-
-/** Per-exercise estimated 1RM stats from a list of logs, sorted by highest e1RM */
-export function exerciseE1rmStats(
-	logs: ReadonlyArray<{ exerciseId: string; weightKg: number; reps: number; exercise: { name: string } }>
-): E1rmStat[] {
-	const byExercise = new Map<string, { name: string; logs: Array<{ weightKg: number; reps: number }> }>()
-
-	for (const log of logs) {
-		const existing = byExercise.get(log.exerciseId)
-		if (existing) {
-			existing.logs.push(log)
-		} else {
-			byExercise.set(log.exerciseId, { name: log.exercise.name, logs: [log] })
-		}
-	}
-
-	const stats: E1rmStat[] = []
-
-	for (const [, { name, logs: exLogs }] of byExercise) {
-		let bestE1rm = 0
-		let bestWeight = 0
-		let bestReps = 0
-
-		for (const log of exLogs) {
-			if (log.weightKg <= 0 || log.reps <= 0) continue
-			const e1rm = estimated1RM(log.weightKg, log.reps)
-			if (e1rm > bestE1rm) {
-				bestE1rm = e1rm
-				bestWeight = log.weightKg
-				bestReps = log.reps
-			}
-		}
-
-		if (bestE1rm > 0) {
-			stats.push({ name, weightKg: bestWeight, reps: bestReps, e1rm: bestE1rm, volume: totalVolume(exLogs) })
-		}
-	}
-
-	return stats.sort((a, b) => b.e1rm - a.e1rm)
-}
-
 /** Height-based limb length factor for leverage adjustment */
 export function limbLengthFactor(heightCm: number): number {
 	if (heightCm <= 185) return 1.0
 	return 1 + (heightCm - 185) * 0.004
-}
-
-/** Total volume = Σ(weight * reps) */
-export function totalVolume(logs: Array<{ weightKg: number; reps: number; sets?: number }>): number {
-	return logs.reduce((sum, { weightKg, reps, sets = 1 }) => sum + weightKg * reps * sets, 0)
 }
 
 /** Work done in Joules: weight * 9.81 * ROM_meters * reps */

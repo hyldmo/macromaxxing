@@ -1,5 +1,6 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import {
+	BarChart3,
 	CalendarDays,
 	ChefHat,
 	CookingPot,
@@ -23,9 +24,12 @@ const publicLinks = [
 
 const desktopAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
+	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ] satisfies Link[]
 
+// Analytics deliberately omitted from mobile bottom nav — no clean slot.
+// Reachable via direct URL or desktop nav. See TODOs for follow-up options.
 const mobileAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
 	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }

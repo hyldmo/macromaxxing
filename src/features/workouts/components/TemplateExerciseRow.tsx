@@ -8,6 +8,7 @@ import { cn, estimated1RM, getRepRange, TRAINING_DEFAULTS } from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
+import { LastSessionHint, type LastSessionHintProps } from './LastSessionHint'
 
 export interface TemplateExerciseRowProps {
 	id: string
@@ -17,6 +18,7 @@ export interface TemplateExerciseRowProps {
 	isSuperset: boolean
 	isFirstInGroup: boolean
 	isLastInGroup: boolean
+	lastSession?: LastSessionHintProps['lastSession']
 	onUpdate: (updates: Partial<TemplateExercise>) => void
 	onRemove: () => void
 }
@@ -29,6 +31,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	isSuperset,
 	isFirstInGroup,
 	isLastInGroup,
+	lastSession,
 	onUpdate,
 	onRemove
 }) => {
@@ -52,7 +55,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'flex flex-wrap items-center gap-x-2 gap-y-1 border border-edge bg-surface-1 px-2 py-1.5',
+				'border border-edge bg-surface-1 px-2 py-1.5',
 				isSuperset ? 'border-l-2 border-l-accent' : '',
 				isFirstInGroup ? 'rounded-t-sm' : '',
 				isLastInGroup ? 'rounded-b-sm' : '',
@@ -60,77 +63,80 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				isDragging && 'z-10 opacity-50'
 			)}
 		>
-			<button
-				type="button"
-				className="cursor-grab touch-none text-ink-faint hover:text-ink active:cursor-grabbing"
-				{...attributes}
-				{...listeners}
-			>
-				<GripVertical className="size-4" />
-			</button>
-			{supersetLabel && (
-				<span className="rounded-full bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
-					{supersetLabel}
-				</span>
-			)}
-			<span className="min-w-40 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
-			{exercise.targetWeight && exercise.targetReps && (
-				<span className="text-ink-muted text-xs max-lg:hidden">
-					{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}kg e1RM
-				</span>
-			)}
-			<TrainingGoalToggle
-				workoutGoal={trainingGoal}
-				value={exercise.trainingGoal}
-				onChange={goal => onUpdate({ trainingGoal: goal })}
-			/>
-			<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
-			<Button
-				variant="ghost"
-				size="icon"
-				className="size-6 text-ink-faint hover:text-destructive md:order-last"
-				onClick={onRemove}
-			>
-				<Trash2 className="size-3" />
-			</Button>
-			<div className="basis-full md:hidden" />
-			<NumberInput
-				className="w-14"
-				value={exercise.targetSets ?? ''}
-				placeholder={String(defaults.targetSets)}
-				onChange={e => {
-					const v = Number.parseInt(e.target.value, 10)
-					onUpdate({ targetSets: Number.isNaN(v) || v === 0 ? null : v })
-				}}
-				min={1}
-				step={1}
-			/>
-			<span className="text-ink-faint text-xs">sets</span>
-			<span className="text-ink-faint text-xs">×</span>
-			<NumberInput
-				className={cn('w-14', aboveRange && 'border-amber-400/60')}
-				value={exercise.targetReps ?? ''}
-				placeholder={String(defaults.targetReps)}
-				onChange={e => {
-					const v = Number.parseInt(e.target.value, 10)
-					onUpdate({ targetReps: Number.isNaN(v) || v === 0 ? null : v })
-				}}
-				min={1}
-				step={1}
-			/>
-			<span className="text-ink-faint text-xs">reps</span>
-			<span className="text-ink-faint text-xs">@</span>
-			<NumberInput
-				className="w-20"
-				value={exercise.targetWeight ?? ''}
-				unit="kg"
-				onChange={e => {
-					const v = Number.parseFloat(e.target.value)
-					onUpdate({ targetWeight: Number.isNaN(v) ? null : v })
-				}}
-				min={0}
-				step={0.5}
-			/>
+			{lastSession && <LastSessionHint lastSession={lastSession} className="mb-1 pl-6" />}
+			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+				<button
+					type="button"
+					className="cursor-grab touch-none text-ink-faint hover:text-ink active:cursor-grabbing"
+					{...attributes}
+					{...listeners}
+				>
+					<GripVertical className="size-4" />
+				</button>
+				{supersetLabel && (
+					<span className="rounded-full bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
+						{supersetLabel}
+					</span>
+				)}
+				<span className="min-w-40 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
+				{exercise.targetWeight && exercise.targetReps && (
+					<span className="text-ink-muted text-xs max-lg:hidden">
+						{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}kg e1RM
+					</span>
+				)}
+				<TrainingGoalToggle
+					workoutGoal={trainingGoal}
+					value={exercise.trainingGoal}
+					onChange={goal => onUpdate({ trainingGoal: goal })}
+				/>
+				<WorkoutModes value={exercise.setMode} onChange={mode => onUpdate({ setMode: mode })} />
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-6 text-ink-faint hover:text-destructive md:order-last"
+					onClick={onRemove}
+				>
+					<Trash2 className="size-3" />
+				</Button>
+				<div className="basis-full md:hidden" />
+				<NumberInput
+					className="w-14"
+					value={exercise.targetSets ?? ''}
+					placeholder={String(defaults.targetSets)}
+					onChange={e => {
+						const v = Number.parseInt(e.target.value, 10)
+						onUpdate({ targetSets: Number.isNaN(v) || v === 0 ? null : v })
+					}}
+					min={1}
+					step={1}
+				/>
+				<span className="text-ink-faint text-xs">sets</span>
+				<span className="text-ink-faint text-xs">×</span>
+				<NumberInput
+					className={cn('w-14', aboveRange && 'border-amber-400/60')}
+					value={exercise.targetReps ?? ''}
+					placeholder={String(defaults.targetReps)}
+					onChange={e => {
+						const v = Number.parseInt(e.target.value, 10)
+						onUpdate({ targetReps: Number.isNaN(v) || v === 0 ? null : v })
+					}}
+					min={1}
+					step={1}
+				/>
+				<span className="text-ink-faint text-xs">reps</span>
+				<span className="text-ink-faint text-xs">@</span>
+				<NumberInput
+					className="w-20"
+					value={exercise.targetWeight ?? ''}
+					unit="kg"
+					onChange={e => {
+						const v = Number.parseFloat(e.target.value)
+						onUpdate({ targetWeight: Number.isNaN(v) ? null : v })
+					}}
+					min={0}
+					step={0.5}
+				/>
+			</div>
 		</div>
 	)
 }
