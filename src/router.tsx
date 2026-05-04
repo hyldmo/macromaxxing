@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { ErrorBoundary } from '~/components/ErrorBoundary'
 import { RootLayout } from '~/components/layout/RootLayout'
+import { AnalyticsPage } from '~/features/analytics'
 import { DashboardPage } from '~/features/dashboard/DashboardPage'
 import { ExerciseDetailPage, ExerciseListPage } from '~/features/exercises'
 import { IngredientListPage } from '~/features/ingredients'
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
 				element: <WorkoutSessionPage />,
 				children: [{ path: 'timer', element: <TimerMode /> }]
 			},
+			{ path: 'analytics', element: <AnalyticsPage /> },
 			{ path: 'settings', element: <SettingsPage /> }
 		]
 	}
