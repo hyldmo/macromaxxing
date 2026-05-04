@@ -258,7 +258,7 @@ No shadows — borders-only depth strategy.
 - Always prefer using TypeID types, like `Exercise['id]` instead of strings.
 - Shared types live in `@macromaxxing/db` (packages/db/types.ts), re-exported via `~/lib/` for frontend (e.g. `~/lib/macros`)
 - Forms use `Input` from `~/components/ui/Input`
-- Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`
+- Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`. `Button` defaults to `type="button"` — pass `type="submit"` explicitly for form submit buttons (silent failure otherwise).
 - Connected toggle groups use `ButtonGroup` from `~/components/ui` — supports `size` (`sm`/`md`), `expandedLabel` for hover-to-expand, and read-only mode (omit `onChange`). Do NOT use inline button groups.
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`
 - tRPC client: `import { trpc } from '~/lib/trpc'`
@@ -368,6 +368,52 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 Stateless mode (new server per request). Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`). Requires `nodejs_compat` flag in `wrangler.toml` (for `Buffer` used by `@clerk/mcp-tools`).
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
+
+## Gotchas
+
+Silent failures and runtime-only issues — things `yarn check` won't catch.
+
+**Cloudflare / D1**
+- Secrets live in the CF dashboard, never as `[vars]` in `wrangler.toml` (collision causes "Binding name already in use" on deploy)
+- `worker-configuration.d.ts` is committed (generated locally where `.dev.vars` exists; CI types depend on it). Excluded from biome via `files.includes` negation.
+- CI needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — the latter bypasses `/memberships` which fails with scoped tokens
+- `wrangler d1 execute --file` resolves paths from the workspace wrangler runs in, not cwd. Use absolute paths in scripts.
+- D1 supports FTS5 but Drizzle can't model it — use raw SQL migrations + `db.all()` queries
+- `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
+- D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
+- D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
+
+**CF Pages routing**
+- Pages Functions route by filesystem path. `functions/api/[[route]].ts` only receives `/api/*` — Hono routes for paths outside that prefix silently fall through to SPA. New top-level paths need a new file at the literal path (e.g. `functions/.well-known/oauth-authorization-server.ts`). Dotted directory names work.
+
+**MCP server**
+- Use `CfWorkerJsonSchemaValidator` from `@modelcontextprotocol/sdk/validation/cfworker` (Workers can't use AJV — dynamic eval). Needs `@cfworker/json-schema` peer dep.
+- Short-circuit `GET` and `DELETE` on `/api/mcp` with `405 Method Not Allowed` + `Allow: POST` **before** the SDK runs. The stateless SSE handler hangs the CF runtime; spec-compliant clients fall back to POST-only JSON-RPC.
+
+**Drizzle ORM v1**
+- `defineRelations` replaces separate `relations()` calls (`fields/references` → `from/to`, `relationName` → `alias`)
+- `r.one` defaults to `optional: true` — set `optional: false` on relations whose FK column is `.notNull()` to avoid `T | null` in loaded relations
+- Subquery `in` doesn't accept builders directly: `{ id: { RAW: t => inArray(t.id, sub) } }`
+- Migration folder is one directory per migration (`tag/migration.sql` + `tag/snapshot.json`), no `meta/_journal.json`
+- `drizzle-kit` drops `ON DELETE` from `ALTER TABLE ... ADD ... REFERENCES`. New tables in `CREATE TABLE` are fine, but additive `ALTER TABLE` columns need a manual edit to re-add `ON DELETE SET NULL` (or whichever) after `REFERENCES x(id)`.
+
+**Backend / tRPC**
+- Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD
+- Always index foreign keys on new tables: `t => [index('table_fk_idx').on(t.fkColumn)]`
+- `userSettings` rows are NOT auto-created on signup. Mutations writing to it must upsert or call `ensureUserSettingsRow(userId)` first; bare `UPDATE` silently no-ops for new users.
+- Pure utility functions (date helpers, math, formatting) go in `src/lib/`, not feature-specific `utils/` folders
+
+**CI / build**
+- Builds that resolve version via `git describe --tags` need `fetch-depth: 0` on `actions/checkout`. Default is shallow → `git describe` throws → silent fallback to default version string.
+- `prek install` only sets up pre-commit, not pre-push. Prek's `priority` field allows parallel hook execution at the same priority.
+
+**Yarn 4** — `yarn workspaces foreach` needs `run`: `yarn workspaces foreach --all --parallel run typecheck`
+
+**Zustand** — never subscribe to the entire store (`const store = useStore()` infinite-loops any effect with `store` in deps). Selectors only: `useStore(s => s.field)` for reactive state, `useStore.getState().action()` for callbacks.
+
+**CSS**
+- `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
+- In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
 
 ## After Making Changes
 
