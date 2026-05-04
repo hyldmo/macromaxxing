@@ -39,6 +39,29 @@ const CUE_MAX = 300
 const DESCRIPTION_MAX = 500
 const CUES_MAX_COUNT = 10
 
+/**
+ * Brzycki estimated 1RM, capped at 12 reps to avoid inflated estimates.
+ * Mirrors `estimated1RM` in src/lib/workouts/formulas.ts — duplicated here
+ * because workers/ is a separate workspace and can't import from src/.
+ */
+const BRZYCKI_REP_CAP = 12
+function estimated1RM(weightKg: number, reps: number): number {
+	if (reps <= 0) return weightKg
+	const capped = Math.min(reps, BRZYCKI_REP_CAP)
+	return weightKg * (36 / (37 - capped))
+}
+
+/** Highest e1RM across a list of sets; returns 0 for empty/invalid input. */
+function pickTopE1rm(sets: ReadonlyArray<{ weightKg: number; reps: number }>): number {
+	let best = 0
+	for (const s of sets) {
+		if (s.weightKg <= 0 || s.reps <= 0) continue
+		const e = estimated1RM(s.weightKg, s.reps)
+		if (e > best) best = e
+	}
+	return best
+}
+
 const zGuideInput = z.object({
 	description: z.string().min(10).max(DESCRIPTION_MAX),
 	cues: z.array(z.string().min(3).max(CUE_MAX)).min(1).max(CUES_MAX_COUNT),
@@ -894,6 +917,179 @@ export const workoutsRouter = router({
 			await ctx.db
 				.delete(workoutSessions)
 				.where(and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id)))
+		}),
+
+	// ─── "Last time" lookups (UI hot path) ───────────────────────
+	//
+	// These endpoints power the "last time you did X: 80×6, 80×6, 75×8" hint
+	// on each exercise row in a session. They are intentionally NOT exposed as
+	// MCP tools (no `.meta`) — they are pure UI primitives.
+	//
+	// Note on `replaceSessionExercise`: that mutation rewrites historical
+	// `workout_logs.exerciseId` in place, so these lookups automatically reflect
+	// the post-replace state. That is the intended behavior.
+	//
+	// Note on supersets: returned `workingSets` are ALL working sets for the
+	// exercise from that session, in insertion order. Round-by-round superset
+	// rendering is the caller's responsibility.
+
+	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
+	lastSessionForExercise: protectedProcedure
+		.input(
+			z.object({
+				exerciseId: zodTypeID('exc'),
+				/** unix epoch ms; if set, return last session strictly before this timestamp */
+				before: z.number().int().positive().optional()
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: {
+					userId: ctx.user.id,
+					...(input.before !== undefined ? { startedAt: { lt: input.before } } : {}),
+					// Restrict to sessions that have at least one WORKING set for this exercise.
+					// Subquery is tenant-safe because the outer `userId` filter still applies.
+					RAW: t =>
+						inArray(
+							t.id,
+							ctx.db
+								.select({ id: workoutLogs.sessionId })
+								.from(workoutLogs)
+								.where(
+									and(
+										eq(workoutLogs.exerciseId, input.exerciseId),
+										eq(workoutLogs.setType, 'working')
+									)
+								)
+						)
+				},
+				with: {
+					logs: {
+						where: { exerciseId: input.exerciseId, setType: 'working' },
+						orderBy: { setNumber: 'asc' }
+					}
+				},
+				orderBy: { startedAt: 'desc' }
+			})
+
+			if (!session || session.logs.length === 0) return null
+
+			const workingSets = session.logs.map(l => ({
+				weightKg: l.weightKg,
+				reps: l.reps,
+				rpe: l.rpe
+			}))
+
+			return {
+				sessionId: session.id,
+				startedAt: session.startedAt,
+				workingSets,
+				topE1rm: pickTopE1rm(workingSets)
+			}
+		}),
+
+	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
+	// One JOIN'd query per chunk of exercise IDs; in-memory group-by picks the
+	// latest session per exerciseId. D1 has no window functions, so this is the
+	// correct shape (confirmed: in-memory grouping is required).
+	lastSessionsForExercises: protectedProcedure
+		.input(
+			z.object({
+				exerciseIds: z.array(zodTypeID('exc')).min(1).max(100),
+				/** unix epoch ms; if set, return last session strictly before this timestamp */
+				before: z.number().int().positive().optional()
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			type ExerciseId = TypeIDString<'exc'>
+			type SessionId = TypeIDString<'wks'>
+			type WorkingSet = { weightKg: number; reps: number; rpe: number | null }
+			type Result = { sessionId: SessionId; startedAt: number; workingSets: WorkingSet[]; topE1rm: number }
+
+			// D1 has a 100-bound-param limit per statement. With 100 IDs + userId + before,
+			// we'd hit it. Chunk to 96 IDs to leave headroom for the constant filters.
+			const CHUNK = 96
+			const uniqueIds = [...new Set(input.exerciseIds)]
+
+			type Row = {
+				sessionId: SessionId
+				startedAt: number
+				exerciseId: ExerciseId
+				weightKg: number
+				reps: number
+				rpe: number | null
+			}
+			const rows: Row[] = []
+
+			for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+				const slice = uniqueIds.slice(i, i + CHUNK)
+				const chunkRows = await ctx.db
+					.select({
+						sessionId: workoutLogs.sessionId,
+						startedAt: workoutSessions.startedAt,
+						exerciseId: workoutLogs.exerciseId,
+						weightKg: workoutLogs.weightKg,
+						reps: workoutLogs.reps,
+						rpe: workoutLogs.rpe
+					})
+					.from(workoutLogs)
+					.innerJoin(workoutSessions, eq(workoutLogs.sessionId, workoutSessions.id))
+					.where(
+						and(
+							eq(workoutSessions.userId, ctx.user.id),
+							inArray(workoutLogs.exerciseId, slice),
+							eq(workoutLogs.setType, 'working'),
+							...(input.before !== undefined ? [sql`${workoutSessions.startedAt} < ${input.before}`] : [])
+						)
+					)
+				rows.push(...chunkRows)
+			}
+
+			// Group by exerciseId, then within each group pick the session with the
+			// latest startedAt and collect all its working sets.
+			const byExercise = new Map<ExerciseId, Map<SessionId, { startedAt: number; sets: WorkingSet[] }>>()
+			for (const row of rows) {
+				let perEx = byExercise.get(row.exerciseId)
+				if (!perEx) {
+					perEx = new Map()
+					byExercise.set(row.exerciseId, perEx)
+				}
+				let sess = perEx.get(row.sessionId)
+				if (!sess) {
+					sess = { startedAt: row.startedAt, sets: [] }
+					perEx.set(row.sessionId, sess)
+				}
+				sess.sets.push({ weightKg: row.weightKg, reps: row.reps, rpe: row.rpe })
+			}
+
+			const out: Record<ExerciseId, Result | null> = {}
+			for (const exerciseId of input.exerciseIds) {
+				const perEx = byExercise.get(exerciseId)
+				if (!perEx || perEx.size === 0) {
+					out[exerciseId] = null
+					continue
+				}
+				let bestId: SessionId | null = null
+				let bestStartedAt = -Infinity
+				for (const [sid, s] of perEx) {
+					if (s.startedAt > bestStartedAt) {
+						bestStartedAt = s.startedAt
+						bestId = sid
+					}
+				}
+				if (!bestId) {
+					out[exerciseId] = null
+					continue
+				}
+				const winner = perEx.get(bestId)!
+				out[exerciseId] = {
+					sessionId: bestId,
+					startedAt: winner.startedAt,
+					workingSets: winner.sets,
+					topE1rm: pickTopE1rm(winner.sets)
+				}
+			}
+			return out
 		}),
 
 	// ─── Set Logging ──────────────────────────────────────────────
