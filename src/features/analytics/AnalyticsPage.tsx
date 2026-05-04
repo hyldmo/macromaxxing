@@ -1,4 +1,4 @@
-import { Activity, Award, CalendarDays, Dumbbell, Star, TrendingUp } from 'lucide-react'
+import { Activity, Award, CalendarDays, Dumbbell, Flame, TrendingUp } from 'lucide-react'
 import type { FC } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
@@ -6,9 +6,9 @@ import { MuscleHeatGrid } from '~/features/workouts/components/MuscleHeatGrid'
 import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { CalendarHeatmap } from './components/CalendarHeatmap'
-import { FavoriteExercisesList } from './components/FavoriteExercisesList'
 import { RecentPRsList } from './components/RecentPRsList'
 import { StalledList } from './components/StalledList'
+import { TopExercisesList } from './components/TopExercisesList'
 import { WeeklyTrendList } from './components/WeeklyTrendList'
 
 const VALID_WINDOWS = ['4w', '12w', '1y'] as const
@@ -58,7 +58,7 @@ export const AnalyticsPage: FC = () => {
 	const stalledQuery = trpc.analytics.stalledExercises.useQuery({ window })
 	const weeklyTrendQuery = trpc.analytics.weeklyTrend.useQuery({ window })
 	const heatmapQuery = trpc.analytics.calendarHeatmap.useQuery({ window })
-	const exercisesQuery = trpc.workout.listExercises.useQuery()
+	const topExercisesQuery = trpc.analytics.topExercises.useQuery({ window, limit: 10 })
 
 	return (
 		<div className="space-y-4">
@@ -146,23 +146,23 @@ export const AnalyticsPage: FC = () => {
 					</CardContent>
 				</Card>
 
-				{/* Favorite exercises */}
+				{/* Most-used exercises (auto-derived from session logs) */}
 				<Card>
 					<CardHeader>
 						<div className="flex items-center gap-2">
-							<Star className="size-4 text-ink-muted" />
-							<h2 className="font-medium text-ink text-sm">Favorite exercises</h2>
+							<Flame className="size-4 text-ink-muted" />
+							<h2 className="font-medium text-ink text-sm">Most-used exercises</h2>
 						</div>
 					</CardHeader>
 					<CardContent>
-						{exercisesQuery.isLoading ? (
+						{topExercisesQuery.isLoading ? (
 							<div className="flex justify-center py-6">
 								<Spinner />
 							</div>
-						) : exercisesQuery.error ? (
-							<TRPCError error={exercisesQuery.error} />
+						) : topExercisesQuery.error ? (
+							<TRPCError error={topExercisesQuery.error} />
 						) : (
-							<FavoriteExercisesList exercises={exercisesQuery.data ?? []} />
+							<TopExercisesList top={topExercisesQuery.data ?? []} />
 						)}
 					</CardContent>
 				</Card>
