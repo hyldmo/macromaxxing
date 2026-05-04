@@ -109,7 +109,7 @@ const DashboardContent: FC = () => {
 	const cycleResult = useMemo<ProgramCycleResult<Template> | null>(() => {
 		const data = summaryQuery.data
 		if (!data) return null
-		return pickNextWorkout(data.templates, data.sessions, data.activeProgram)
+		return pickNextWorkout(data.templates, data.sessions, data.activeProgram ?? null)
 	}, [summaryQuery.data])
 
 	if (summaryQuery.isLoading) {
