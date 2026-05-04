@@ -47,7 +47,11 @@
 			"correctness": {
 				"noRestrictedElements": "error",
 				"noUndeclaredDependencies": "warn",
-				"useExhaustiveDependencies": "error"
+				"useExhaustiveDependencies": "error",
+				"noUnusedVariables": {
+					"level": "warn",
+					"fix": "none"
+				}
 			},
 			"suspicious": {
 				"useIterableCallbackReturn": "off",
@@ -66,6 +70,7 @@
 				"noMisplacedAssertion": "error"
 			},
 			"style": {
+				"noExportedImports": "error",
 				"noNonNullAssertion": "off"
 			},
 			"nursery": {

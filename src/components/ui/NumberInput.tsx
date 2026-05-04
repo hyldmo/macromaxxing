@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { forwardRef, type KeyboardEvent, type MouseEvent, useCallback, useRef, useState } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'inputMode'> {
 	/** Minimum value (default: 0) */
@@ -9,6 +9,11 @@ export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInp
 	step?: number | 'auto'
 	/** Unit label shown in the arrow button area when not hovered/focused */
 	unit?: string
+}
+
+/** Treat commas as decimal separators (e.g. "2,5" → "2.5") */
+function normalizeDecimal(s: string): string {
+	return s.replace(/,/g, '.')
 }
 
 function triggerChange(input: HTMLInputElement, value: string) {
@@ -28,7 +33,10 @@ function autoStep(value: number): number {
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
-	({ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, onFocus, onChange, value, ...props }, ref) => {
+	(
+		{ className, min = 0, step = 'auto', unit, onKeyDown, onBlur, onFocus, onChange, value, placeholder, ...props },
+		ref
+	) => {
 		const innerRef = useRef<HTMLInputElement | null>(null)
 		// While focused, hold the raw string so parent's numeric round-trip
 		// (e.g. "22." → 22 → "22") doesn't clobber in-progress typing
@@ -36,7 +44,9 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
 		const bump = useCallback(
 			(direction: 1 | -1, input: HTMLInputElement) => {
-				const current = Number.parseFloat(input.value) || 0
+				const placeholderNumber = placeholder ? Number.parseFloat(placeholder) : NaN
+				const defaultNumber = Number.isNaN(placeholderNumber) ? 0 : placeholderNumber
+				const current = Number.parseFloat(normalizeDecimal(input.value)) || defaultNumber
 				const s = step === 'auto' ? autoStep(current) : step
 				const stepDecimals = String(s).split('.')[1]?.length ?? 0
 				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
@@ -45,7 +55,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 				triggerChange(input, formatted)
 				setLocalValue(formatted)
 			},
-			[step, min]
+			[step, min, placeholder]
 		)
 
 		const handleKeyDown = useCallback(
@@ -62,6 +72,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		const handleFocus = useCallback(
 			(e: React.FocusEvent<HTMLInputElement>) => {
 				setLocalValue(String(value ?? ''))
+				e.target.select()
 				onFocus?.(e)
 			},
 			[value, onFocus]
@@ -69,8 +80,14 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 
 		const handleChange = useCallback(
 			(e: React.ChangeEvent<HTMLInputElement>) => {
-				setLocalValue(e.target.value)
-				onChange?.(e)
+				const raw = e.target.value
+				setLocalValue(raw)
+				const normalized = normalizeDecimal(raw)
+				if (normalized !== raw) {
+					triggerChange(e.target, normalized)
+				} else {
+					onChange?.(e)
+				}
 			},
 			[onChange]
 		)
@@ -78,13 +95,13 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		const handleBlur = useCallback(
 			(e: React.FocusEvent<HTMLInputElement>) => {
 				setLocalValue(null)
-				const v = e.currentTarget.value
+				const v = normalizeDecimal(e.currentTarget.value)
 				if (v !== '') {
 					const n = Number.parseFloat(v)
 					if (!Number.isNaN(n)) {
 						// "1.00" → "1", "2.50" → "2.5", "0.25" → "0.25"
 						const clean = String(n)
-						if (clean !== v) triggerChange(e.currentTarget, clean)
+						if (clean !== e.currentTarget.value) triggerChange(e.currentTarget, clean)
 					}
 				}
 				onBlur?.(e)
@@ -128,6 +145,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					onBlur={handleBlur}
+					placeholder={placeholder}
 					{...props}
 				/>
 				<div
@@ -135,7 +153,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 						'group-focus-within:border-edge group-hover:border-edge': enabled
 					})}
 				>
-					{unit && (props.placeholder === unit ? !!value : true) && (
+					{unit && (placeholder === unit ? !!value : true) && (
 						<span
 							className={cn(
 								'pointer-events-none absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',

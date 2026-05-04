@@ -2,11 +2,12 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import type { AiProvider } from '@macromaxxing/db'
+import { type AiProvider, extractPreparation, type HttpsUrl } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
+import { sql } from 'drizzle-orm'
 import type { z } from 'zod'
 import { FALLBACK_MODELS, MODELS, type macroSchema } from './constants'
-import { extractPreparation } from './utils'
+import type { Database } from './db'
 
 // USDA nutrient IDs
 const NUTRIENT_IDS = {
@@ -91,18 +92,19 @@ export function scoreUsdaMatch(query: string, description: string): number {
 	return matched * 100 + startsWithQuery - extraWords * 10 - description.length
 }
 
-export type UsdaResult = Macros & { fdcId: number }
+export type UsdaResult = Macros & { fdcId: number; description: string }
 
-export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<UsdaResult | null> {
+/** Search USDA and return all scored results (sorted by relevance, limited to top N) */
+export async function searchUSDA(query: string, apiKey: string, limit = 5): Promise<UsdaResult[]> {
 	const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
 	url.searchParams.set('api_key', apiKey)
-	url.searchParams.set('query', ingredientName)
+	url.searchParams.set('query', query)
 	url.searchParams.set('pageSize', '10')
 	// Foundation/SR Legacy for raw ingredients, FNDDS for common foods (milk, bread, etc.)
 	url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS)')
 
 	const res = await fetch(url.toString())
-	if (!res.ok) return null
+	if (!res.ok) return []
 
 	const data = (await res.json()) as {
 		foods?: Array<{
@@ -112,29 +114,30 @@ export async function lookupUSDA(ingredientName: string, apiKey: string): Promis
 		}>
 	}
 
-	if (!data.foods?.length) return null
+	if (!data.foods?.length) return []
 
-	// Pick the best match — USDA search often returns loosely related foods first
-	// (e.g. "Crackers, milk" for query "milk"). Score by relevance to the query.
-	const food = data.foods.reduce(
-		(best, candidate) =>
-			scoreUsdaMatch(ingredientName, candidate.description) > scoreUsdaMatch(ingredientName, best.description)
-				? candidate
-				: best,
-		data.foods[0]
-	)
-	const nutrients = food.foodNutrients ?? []
+	const getNutrient = (nutrients: Array<{ nutrientId: number; value: number }>, id: number): number =>
+		nutrients.find(n => n.nutrientId === id)?.value ?? 0
 
-	const getNutrient = (id: number): number => nutrients.find(n => n.nutrientId === id)?.value ?? 0
+	return data.foods
+		.map(food => ({
+			fdcId: food.fdcId,
+			description: food.description,
+			score: scoreUsdaMatch(query, food.description),
+			protein: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.protein),
+			fat: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.fat),
+			carbs: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.carbs),
+			kcal: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.kcal),
+			fiber: getNutrient(food.foodNutrients ?? [], NUTRIENT_IDS.fiber)
+		}))
+		.sort((a, b) => b.score - a.score)
+		.slice(0, limit)
+		.map(({ score: _, ...rest }) => rest)
+}
 
-	return {
-		fdcId: food.fdcId,
-		protein: getNutrient(NUTRIENT_IDS.protein),
-		fat: getNutrient(NUTRIENT_IDS.fat),
-		carbs: getNutrient(NUTRIENT_IDS.carbs),
-		kcal: getNutrient(NUTRIENT_IDS.kcal),
-		fiber: getNutrient(NUTRIENT_IDS.fiber)
-	}
+export async function lookupUSDA(ingredientName: string, apiKey: string): Promise<UsdaResult | null> {
+	const results = await searchUSDA(ingredientName, apiKey, 1)
+	return results[0] ?? null
 }
 
 // Known unit names we recognize from USDA portion modifiers
@@ -294,6 +297,7 @@ export interface JsonLdRecipe {
 	ingredientStrings: string[]
 	instructions: string
 	servings: number | null
+	image: HttpsUrl | null
 }
 
 /** Extract Recipe structured data from JSON-LD script tags in HTML */
@@ -336,11 +340,22 @@ function findRecipeInJsonLd(data: unknown): JsonLdRecipe | null {
 		const ingredientStrings = Array.isArray(obj.recipeIngredient) ? (obj.recipeIngredient as string[]) : []
 		if (ingredientStrings.length === 0) return null
 
+		// Extract image (string, array of strings, or { url: string } per schema.org)
+		let image: string | null = null
+		if (typeof obj.image === 'string') {
+			image = obj.image
+		} else if (Array.isArray(obj.image) && typeof obj.image[0] === 'string') {
+			image = obj.image[0]
+		} else if (typeof obj.image === 'object' && obj.image !== null && 'url' in obj.image) {
+			image = (obj.image as { url: string }).url
+		}
+
 		return {
 			name: (obj.name as string) || 'Untitled Recipe',
 			ingredientStrings,
 			instructions: normalizeInstructions(obj.recipeInstructions),
-			servings: parseServings(obj.recipeYield)
+			servings: parseServings(obj.recipeYield),
+			image: image as HttpsUrl | null
 		}
 	}
 
@@ -449,6 +464,110 @@ function findProductInJsonLd(data: unknown): JsonLdProduct | null {
 	return null
 }
 
+// ─── Local USDA Lookup ──────────────────────────────────────────────
+
+/** Search local usda_foods table using FTS5 full-text search */
+export async function searchLocalUSDA(db: Database, query: string, limit = 5): Promise<UsdaResult[]> {
+	const words = query.trim().split(/\s+/).filter(Boolean)
+	if (words.length === 0) return []
+
+	// FTS5 query: each word as a prefix match, all must appear
+	const ftsQuery = words.map(w => `"${w}"*`).join(' ')
+
+	const rows = await db.all<{
+		fdc_id: number
+		description: string
+		protein: number
+		carbs: number
+		fat: number
+		kcal: number
+		fiber: number
+	}>(sql`
+		SELECT f.fdc_id, f.description, f.protein, f.carbs, f.fat, f.kcal, f.fiber
+		FROM usda_foods_fts fts
+		JOIN usda_foods f ON f.fdc_id = fts.rowid
+		WHERE usda_foods_fts MATCH ${ftsQuery}
+		LIMIT 50
+	`)
+
+	const scored = rows
+		.map(row => ({
+			fdcId: row.fdc_id,
+			description: row.description,
+			score: scoreUsdaMatch(query, row.description),
+			protein: row.protein,
+			carbs: row.carbs,
+			fat: row.fat,
+			kcal: row.kcal,
+			fiber: row.fiber
+		}))
+		.sort((a, b) => b.score - a.score)
+
+	// Deduplicate by description (Foundation has multiple samples per food)
+	const seen = new Set<string>()
+	const deduped: typeof scored = []
+	for (const row of scored) {
+		const key = row.description.toLowerCase()
+		if (!seen.has(key)) {
+			seen.add(key)
+			deduped.push(row)
+		}
+	}
+
+	return deduped.slice(0, limit).map(({ score: _, ...rest }) => rest)
+}
+
+/** Exact case-insensitive match on local usda_foods table */
+export async function lookupLocalUSDA(db: Database, name: string): Promise<UsdaResult | null> {
+	const row = await db.query.usdaFoods.findFirst({
+		where: { RAW: t => sql`lower(${t.description}) = lower(${name})` }
+	})
+	if (!row) return null
+	return {
+		fdcId: row.fdcId,
+		description: row.description,
+		protein: row.protein,
+		carbs: row.carbs,
+		fat: row.fat,
+		kcal: row.kcal,
+		fiber: row.fiber
+	}
+}
+
+/** Lookup a food by fdcId from local usda_foods table */
+export async function getLocalUsdaFood(
+	db: Database,
+	fdcId: number
+): Promise<{
+	protein: number
+	carbs: number
+	fat: number
+	kcal: number
+	fiber: number
+	density: number | null
+} | null> {
+	const row = await db.query.usdaFoods.findFirst({
+		where: { fdcId }
+	})
+	if (!row) return null
+	return {
+		protein: row.protein,
+		carbs: row.carbs,
+		fat: row.fat,
+		kcal: row.kcal,
+		fiber: row.fiber,
+		density: row.density
+	}
+}
+
+/** Fetch portions for a food from local usda_portions table */
+export async function fetchLocalUsdaPortions(db: Database, fdcId: number): Promise<UsdaPortion[]> {
+	const rows = await db.query.usdaPortions.findMany({
+		where: { fdcId }
+	})
+	return rows.map(r => ({ name: r.name, grams: r.grams }))
+}
+
 /** Strip HTML tags and collapse whitespace for AI fallback */
 export function stripHtml(html: string): string {
 	return html
@@ -456,10 +575,10 @@ export function stripHtml(html: string): string {
 		.replace(/<style[\s\S]*?<\/style>/gi, '')
 		.replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
 		.replace(/<[^>]+>/g, ' ')
-		.replace(/&nbsp;/g, ' ')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
+		.replaceAll('&nbsp;', ' ')
+		.replaceAll('&amp;', '&')
+		.replaceAll('&lt;', '<')
+		.replaceAll('&gt;', '>')
 		.replace(/&#?\w+;/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()

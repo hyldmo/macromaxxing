@@ -45,7 +45,7 @@ export const BodyFrontFemale: FC<BodySvgProps> = ({ gp }) => (
 				fill="currentColor"
 			></path>
 		</g>
-		<g id="hands">
+		<g id="hands" className="text-ink-faint/20">
 			<path
 				d="M645.78,579.04c0,.89-.44,2.07-1.36,4.43-1.41,3.63-4.05,10.38-2.34,12.97.12.18.4.59,1.2.88.06-.27.15-.56.24-.84,2.41-7.38,2.43-10.86,2.44-15.27,0-1.39,0-2.83.09-4.5-.25-.82-1.1-3.41-2.29-5.94,1.13,3.32,2.01,6.37,2.02,8.26Z"
 				fill="currentColor"

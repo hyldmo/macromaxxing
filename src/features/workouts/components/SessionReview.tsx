@@ -1,11 +1,12 @@
 import type { TypeIDString } from '@macromaxxing/db'
-import { ArrowRight, Check, X } from 'lucide-react'
+import { ArrowRight, Check, Pencil, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
-import { Button, Modal, Spinner, Switch } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { Button, Modal, NumberInput, Spinner, Switch } from '~/components/ui'
+import { cn, computeDivergences, exerciseE1rmStats } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
-import { TRAINING_DEFAULTS } from '../utils/sets'
+import { useWorkoutSessionStore } from '../store'
+import { E1rmTable } from './E1rmTable'
 
 type Session = RouterOutput['workout']['getSession']
 type Template = NonNullable<Session['workout']>
@@ -17,14 +18,6 @@ interface ExtraDef {
 	logs: Log[]
 }
 
-interface Divergence {
-	exerciseId: TypeIDString<'exc'>
-	exerciseName: string
-	planned: { sets: number; reps: number; weight: number | null }
-	actual: { sets: number; avgReps: number; avgWeight: number }
-	improved: boolean
-}
-
 export interface SessionReviewProps {
 	session: Session
 	template: Template
@@ -34,50 +27,14 @@ export interface SessionReviewProps {
 
 export const SessionReview: FC<SessionReviewProps> = ({ session, template, extraExercises, onClose }) => {
 	const utils = trpc.useUtils()
+	const reset = useWorkoutSessionStore(s => s.reset)
 
-	const divergences = useMemo(() => {
-		const result: Divergence[] = []
-		const workoutGoal = template.trainingGoal ?? 'hypertrophy'
+	const divergences = useMemo(
+		() => computeDivergences(session.logs, template.exercises, template.trainingGoal ?? 'hypertrophy'),
+		[session.logs, template.exercises, template.trainingGoal]
+	)
 
-		for (const we of template.exercises) {
-			const logs = session.logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
-			if (logs.length === 0) continue
-
-			const exerciseGoal = we.trainingGoal ?? workoutGoal
-			const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
-
-			const templateMode = we.setMode ?? 'working'
-			const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
-			const totalSets = we.targetSets ?? exerciseDefaults.targetSets
-			const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
-			const effectiveReps = we.targetReps ?? exerciseDefaults.targetReps
-
-			const avgWeight = logs.reduce((s, l) => s + l.weightKg, 0) / logs.length
-			const avgReps = logs.reduce((s, l) => s + l.reps, 0) / logs.length
-
-			const weightDiff = we.targetWeight != null ? Math.abs(avgWeight - we.targetWeight) : 0
-			const repsDiff = Math.abs(avgReps - effectiveReps)
-			const setsDiff = Math.abs(logs.length - effectiveSets)
-
-			if (weightDiff > 0.1 || repsDiff > 0.5 || setsDiff > 0) {
-				const improved =
-					avgWeight >= (we.targetWeight ?? 0) && avgReps >= effectiveReps && logs.length >= effectiveSets
-				result.push({
-					exerciseId: we.exerciseId,
-					exerciseName: we.exercise.name,
-					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
-					actual: {
-						sets: logs.length,
-						avgReps: Math.round(avgReps * 10) / 10,
-						avgWeight: Math.round(avgWeight * 10) / 10
-					},
-					improved
-				})
-			}
-		}
-
-		return result
-	}, [session.logs, template.exercises, template.trainingGoal])
+	const exerciseStats = useMemo(() => exerciseE1rmStats(session.logs), [session.logs])
 
 	// Toggle states: on for improvements, off for decreases by default
 	const [updates, setUpdates] = useState<Map<string, boolean>>(
@@ -86,9 +43,14 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 	const [addToTemplate, setAddToTemplate] = useState<Map<string, boolean>>(
 		() => new Map(extraExercises.map(e => [e.exerciseId, true]))
 	)
+	const [editing, setEditing] = useState<Set<string>>(() => new Set())
+	const [customTargets, setCustomTargets] = useState<
+		Map<string, { targetSets: number; targetReps: number; targetWeight: number | null }>
+	>(() => new Map())
 
 	const completeMutation = trpc.workout.completeSession.useMutation({
 		onSuccess: () => {
+			reset()
 			utils.workout.getSession.invalidate({ id: session.id })
 			utils.workout.listSessions.invalidate()
 			utils.workout.listWorkouts.invalidate()
@@ -100,28 +62,31 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 	function handleComplete() {
 		const templateUpdates = divergences
 			.filter(d => updates.get(d.exerciseId))
-			.map(d => ({
-				exerciseId: d.exerciseId,
-				targetSets: d.actual.sets,
-				targetReps: Math.round(d.actual.avgReps),
-				targetWeight: d.actual.avgWeight > 0 ? d.actual.avgWeight : null
-			}))
+			.map(d => {
+				const custom = customTargets.get(d.exerciseId)
+				return {
+					exerciseId: d.exerciseId,
+					targetSets: custom?.targetSets ?? d.suggestion.targetSets,
+					targetReps: custom?.targetReps ?? d.suggestion.targetReps,
+					targetWeight: custom?.targetWeight ?? d.suggestion.targetWeight
+				}
+			})
 
 		const addExercises = extraExercises
 			.filter(e => addToTemplate.get(e.exerciseId))
 			.map(e => {
 				const workingLogs = e.logs.filter(l => l.setType === 'working')
-				const avgWeight = workingLogs.length
-					? workingLogs.reduce((s, l) => s + l.weightKg, 0) / workingLogs.length
-					: 0
-				const avgReps = workingLogs.length
-					? Math.round(workingLogs.reduce((s, l) => s + l.reps, 0) / workingLogs.length)
-					: 8
+				if (workingLogs.length === 0) {
+					return { exerciseId: e.exerciseId, targetSets: 3, targetReps: 8, targetWeight: null }
+				}
+				const bestSet = workingLogs.reduce((best, l) =>
+					l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
+				)
 				return {
 					exerciseId: e.exerciseId,
-					targetSets: workingLogs.length || 3,
-					targetReps: avgReps,
-					targetWeight: avgWeight > 0 ? Math.round(avgWeight * 10) / 10 : null
+					targetSets: workingLogs.length,
+					targetReps: bestSet.reps,
+					targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
 				}
 			})
 
@@ -143,6 +108,12 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 				</Button>
 			</div>
 
+			{exerciseStats.length > 0 && (
+				<div className="mb-4 rounded-sm border border-edge bg-surface-0 p-3">
+					<E1rmTable stats={exerciseStats} />
+				</div>
+			)}
+
 			{!hasDivergences ? (
 				<p className="mb-4 text-ink-muted text-sm">All sets matched the plan. Complete the session?</p>
 			) : (
@@ -150,33 +121,133 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 					{divergences.length > 0 && (
 						<div className="space-y-2">
 							<p className="text-ink-muted text-xs">Update template targets?</p>
-							{divergences.map(d => (
-								<div
-									key={d.exerciseId}
-									className="flex items-center gap-2 rounded-sm border border-edge bg-surface-0 px-3 py-2"
-								>
-									<Switch
-										checked={updates.get(d.exerciseId) ?? false}
-										onChange={(v: boolean) =>
-											setUpdates(prev => new Map(prev).set(d.exerciseId, v))
-										}
-									/>
-									<div className="min-w-0 flex-1">
-										<div className="text-ink text-sm">{d.exerciseName}</div>
-										<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
-											<span className="text-ink-faint">
-												{d.planned.sets}×{d.planned.reps}
-												{d.planned.weight != null && ` @${d.planned.weight}kg`}
-											</span>
-											<ArrowRight className="size-3 text-ink-faint" />
-											<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
-												{d.actual.sets}×{d.actual.avgReps}
-												{d.actual.avgWeight > 0 && ` @${d.actual.avgWeight}kg`}
-											</span>
+							{divergences.map(d => {
+								const isEditing = editing.has(d.exerciseId)
+								const custom = customTargets.get(d.exerciseId)
+								const sets = custom?.targetSets ?? d.suggestion.targetSets
+								const reps = custom?.targetReps ?? d.suggestion.targetReps
+								const weight = custom?.targetWeight ?? d.suggestion.targetWeight
+
+								return (
+									<div
+										key={d.exerciseId}
+										className="rounded-sm border border-edge bg-surface-0 px-3 py-2"
+									>
+										<div className="flex items-center gap-2">
+											<Switch
+												checked={updates.get(d.exerciseId) ?? false}
+												onChange={(v: boolean) =>
+													setUpdates(prev => new Map(prev).set(d.exerciseId, v))
+												}
+											/>
+											<div className="min-w-0 flex-1">
+												<div className="text-ink text-sm">{d.exerciseName}</div>
+												<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
+													<span className="text-ink-faint">
+														{d.planned.sets}×{d.planned.reps}
+														{d.planned.weight != null && ` @${d.planned.weight}kg`}
+													</span>
+													<ArrowRight className="size-3 text-ink-faint" />
+													<span
+														className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}
+													>
+														{sets}×{reps}
+														{weight != null && ` @${weight}kg`}
+													</span>
+												</div>
+											</div>
+											<button
+												type="button"
+												className={cn(
+													'shrink-0 rounded-sm p-1 transition-colors',
+													isEditing
+														? 'bg-accent/15 text-accent'
+														: 'text-ink-faint hover:text-ink'
+												)}
+												onClick={() => {
+													setEditing(prev => {
+														const next = new Set(prev)
+														if (next.has(d.exerciseId)) {
+															next.delete(d.exerciseId)
+														} else {
+															next.add(d.exerciseId)
+															if (!customTargets.has(d.exerciseId)) {
+																setCustomTargets(p =>
+																	new Map(p).set(d.exerciseId, {
+																		targetSets: d.suggestion.targetSets,
+																		targetReps: d.suggestion.targetReps,
+																		targetWeight: d.suggestion.targetWeight
+																	})
+																)
+															}
+														}
+														return next
+													})
+												}}
+											>
+												<Pencil className="size-3.5" />
+											</button>
 										</div>
+										{isEditing && (
+											<div className="mt-2 flex items-center gap-2 pl-11">
+												<NumberInput
+													className="w-14"
+													value={sets}
+													min={1}
+													step={1}
+													unit="sets"
+													onChange={e => {
+														const v = Number.parseInt(e.target.value, 10)
+														if (!Number.isNaN(v))
+															setCustomTargets(p =>
+																new Map(p).set(d.exerciseId, {
+																	...(p.get(d.exerciseId) ?? d.suggestion),
+																	targetSets: v
+																})
+															)
+													}}
+												/>
+												<span className="text-ink-faint text-xs">×</span>
+												<NumberInput
+													className="w-14"
+													value={reps}
+													min={1}
+													step={1}
+													unit="reps"
+													onChange={e => {
+														const v = Number.parseInt(e.target.value, 10)
+														if (!Number.isNaN(v))
+															setCustomTargets(p =>
+																new Map(p).set(d.exerciseId, {
+																	...(p.get(d.exerciseId) ?? d.suggestion),
+																	targetReps: v
+																})
+															)
+													}}
+												/>
+												<span className="text-ink-faint text-xs">@</span>
+												<NumberInput
+													className="w-20"
+													value={weight ?? ''}
+													min={0}
+													step="auto"
+													unit="kg"
+													placeholder="kg"
+													onChange={e => {
+														const v = Number.parseFloat(e.target.value)
+														setCustomTargets(p =>
+															new Map(p).set(d.exerciseId, {
+																...(p.get(d.exerciseId) ?? d.suggestion),
+																targetWeight: Number.isNaN(v) ? null : v
+															})
+														)
+													}}
+												/>
+											</div>
+										)}
 									</div>
-								</div>
-							))}
+								)
+							})}
 						</div>
 					)}
 

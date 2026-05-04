@@ -1,11 +1,12 @@
 import { extractPreparation, type Ingredient } from '@macromaxxing/db'
-import { BookOpen, ClipboardPaste, Plus, Search, Sparkles } from 'lucide-react'
-import { type FC, useRef, useState } from 'react'
+import { BookOpen, ClipboardPaste, Database, Plus, ScanLine, Search, Sparkles } from 'lucide-react'
+import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
-import { FuzzyHighlight, fuzzyMatch } from '~/lib/fuzzy'
+import type { OFFProduct } from '~/lib'
+import { FuzzyHighlight, fuzzyMatch, useUser } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
-import { useUser } from '~/lib/user'
 import { calculateRecipeTotals, getEffectiveCookedWeight, getEffectivePortionSize } from '../utils/macros'
+import { BarcodeScanDialog } from './BarcodeScanDialog'
 import { MacroBar } from './MacroBar'
 
 export interface IngredientSearchInputProps {
@@ -138,7 +139,8 @@ function parseIngredientList(
 						})
 					} else {
 						// No unit specified - check if ingredient has a default piece unit
-						const defaultUnit = ingUnits.find(u => u.isDefault && u.name !== 'g')
+						const defaultUnit =
+							ingUnits.find(u => u.isDefault && u.name !== 'g') ?? ingUnits.find(u => u.name === 'pcs')
 						if (defaultUnit) {
 							results.push({
 								grams: amount * defaultUnit.grams,
@@ -189,14 +191,22 @@ function parseIngredientList(
 
 export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId, onAddPending, onRemovePending }) => {
 	const [search, setSearch] = useState('')
+	const [debouncedSearch, setDebouncedSearch] = useState('')
 	const [showDropdown, setShowDropdown] = useState(false)
 	const [pastedIngredients, setPastedIngredients] = useState<ParsedIngredient[]>([])
 	const [isProcessingPaste, setIsProcessingPaste] = useState(false)
 	const [pasteError, setPasteError] = useState<Error | null>(null)
+	const [creatingFdcId, setCreatingFdcId] = useState<number | null>(null)
+	const [showBarcodeDialog, setShowBarcodeDialog] = useState(false)
 	const inputRef = useRef<HTMLInputElement>(null)
 	const containerRef = useRef<HTMLDivElement>(null)
 	const { isSignedIn } = useUser()
 	const utils = trpc.useUtils()
+
+	useEffect(() => {
+		const timer = setTimeout(() => setDebouncedSearch(search), 300)
+		return () => clearTimeout(timer)
+	}, [search])
 
 	const settingsQuery = trpc.settings.get.useQuery(undefined, { enabled: isSignedIn })
 	const ingredientsQuery = trpc.ingredient.list.useQuery()
@@ -212,11 +222,45 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 			utils.recipe.get.invalidate({ id: recipeId })
 		}
 	})
+	const usdaSearchQuery = trpc.ingredient.searchUSDA.useQuery(
+		{ query: debouncedSearch },
+		{ enabled: debouncedSearch.length >= 2 }
+	)
+	const createFromUSDA = trpc.ingredient.createFromUSDA.useMutation({
+		onSuccess: () => utils.ingredient.list.invalidate()
+	})
 	const addSubrecipe = trpc.recipe.addSubrecipe.useMutation({
 		onSuccess: () => {
 			utils.recipe.get.invalidate({ id: recipeId })
 		}
 	})
+	const createIngredient = trpc.ingredient.create.useMutation({
+		onSuccess: () => utils.ingredient.list.invalidate()
+	})
+
+	const handleBarcodeProduct = useCallback(
+		async (product: OFFProduct) => {
+			setShowBarcodeDialog(false)
+			const ingredient = await createIngredient.mutateAsync({
+				name: product.name,
+				protein: product.per100g.protein,
+				carbs: product.per100g.carbs,
+				fat: product.per100g.fat,
+				kcal: product.per100g.kcal,
+				fiber: product.per100g.fiber,
+				source: 'manual'
+			})
+			addIngredient.mutate({
+				recipeId,
+				ingredientId: ingredient.id,
+				amountGrams: product.servingSize,
+				displayUnit: null,
+				displayAmount: null,
+				preparation: null
+			})
+		},
+		[createIngredient, addIngredient, recipeId]
+	)
 
 	// Parse search input for amount/unit
 	const parsedSearch = parseSingleIngredient(search)
@@ -231,6 +275,10 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				.sort((a, b) => b.match.score - a.match.score)
 				.slice(0, 10)
 		: []
+
+	// USDA results: filter out items that match local ingredients by fdcId
+	const localFdcIds = new Set(searchResults.map(r => r.ingredient.fdcId).filter(Boolean))
+	const usdaResults = (usdaSearchQuery.data ?? []).filter(r => !localFdcIds.has(r.fdcId))
 
 	// Recipe search: filter out self, premade, and already-added subrecipes
 	const recipeSearchResults = searchName.trim()
@@ -263,6 +311,25 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 		})
 		setSearch('')
 		setShowDropdown(false)
+	}
+
+	async function handleSelectUSDA(fdcId: number, name: string) {
+		setCreatingFdcId(fdcId)
+		try {
+			const { ingredient } = await createFromUSDA.mutateAsync({ fdcId, name })
+			addIngredient.mutate({
+				recipeId,
+				ingredientId: ingredient.id,
+				amountGrams: 100,
+				displayUnit: null,
+				displayAmount: null,
+				preparation: null
+			})
+			setSearch('')
+			setShowDropdown(false)
+		} finally {
+			setCreatingFdcId(null)
+		}
 	}
 
 	async function handleFindOrCreate(
@@ -378,7 +445,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				}
 			}
 			setPastedIngredients([...updated])
-			setPasteError(err as Error)
+			setPasteError(err instanceof Error ? err : new Error(String(err)))
 			setIsProcessingPaste(false)
 		}
 	}
@@ -408,7 +475,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				const errorMsg = err instanceof Error ? err.message : 'Unknown error'
 				updated[i] = { ...item, status: 'error', error: errorMsg }
 				setPastedIngredients([...updated])
-				setPasteError(err as Error)
+				setPasteError(err instanceof Error ? err : new Error(String(err)))
 				setIsProcessingPaste(false)
 				return // Stop processing on first error
 			}
@@ -520,25 +587,36 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 
 	return (
 		<div className="relative" ref={containerRef}>
-			<div className="relative">
-				<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
-				<Input
-					ref={inputRef}
-					placeholder="Search, add, or paste ingredient list..."
-					value={search}
-					onChange={e => {
-						setSearch(e.target.value)
-						setShowDropdown(true)
-					}}
-					onFocus={() => setShowDropdown(true)}
-					onBlur={e => {
-						if (containerRef.current?.contains(e.relatedTarget as Node)) return
-						setShowDropdown(false)
-					}}
-					onPaste={handlePaste}
-					className="pl-8"
-				/>
+			<div className="flex gap-2">
+				<div className="relative flex-1">
+					<Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-faint" />
+					<Input
+						ref={inputRef}
+						placeholder="Search, add, or paste ingredient list..."
+						value={search}
+						onChange={e => {
+							setSearch(e.target.value)
+							setShowDropdown(true)
+						}}
+						onFocus={() => setShowDropdown(true)}
+						onBlur={e => {
+							if (containerRef.current?.contains(e.relatedTarget as Node)) return
+							setShowDropdown(false)
+						}}
+						onPaste={handlePaste}
+						className="pl-8"
+					/>
+				</div>
+				<Button variant="outline" onClick={() => setShowBarcodeDialog(true)}>
+					<ScanLine className="size-4" />
+					Scan
+				</Button>
 			</div>
+			<BarcodeScanDialog
+				open={showBarcodeDialog}
+				onClose={() => setShowBarcodeDialog(false)}
+				onProductFound={handleBarcodeProduct}
+			/>
 			{showDropdown && search.length > 0 && (
 				<Card className="absolute top-full z-10 mt-1 w-full shadow-black/30 shadow-lg">
 					{searchResults.map(({ ingredient, match }) => {
@@ -568,7 +646,9 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							}
 						} else {
 							// No parsed input - use default unit if available
-							const defaultUnit = ingredient.units?.find(u => u.isDefault)
+							const defaultUnit =
+								ingredient.units?.find(u => u.isDefault) ??
+								ingredient.units?.find(u => u.name === 'pcs')
 							amountGrams = defaultUnit ? defaultUnit.grams : 100
 							displayUnit = defaultUnit && defaultUnit.name !== 'g' ? defaultUnit.name : undefined
 							displayAmount = displayUnit ? 1 : undefined
@@ -605,9 +685,13 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 							</button>
 						)
 					})}
-					{searchResults.length === 0 && recipeSearchResults.length === 0 && !findOrCreate.isPending && (
-						<div className="px-3 py-2 text-ink-faint text-sm">No ingredients or recipes found</div>
-					)}
+					{searchResults.length === 0 &&
+						recipeSearchResults.length === 0 &&
+						usdaResults.length === 0 &&
+						!findOrCreate.isPending &&
+						!usdaSearchQuery.isLoading && (
+							<div className="px-3 py-2 text-ink-faint text-sm">No ingredients or recipes found</div>
+						)}
 					{recipeSearchResults.length > 0 && (
 						<>
 							<div className="border-edge border-t px-3 py-1.5 font-medium text-ink-faint text-xs uppercase tracking-wider">
@@ -650,6 +734,45 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 						</>
 					)}
 					{addSubrecipe.isError && <TRPCError error={addSubrecipe.error} />}
+					{usdaResults.length > 0 && (
+						<>
+							<div className="border-edge border-t px-3 py-1.5 font-medium text-ink-faint text-xs uppercase tracking-wider">
+								USDA
+							</div>
+							{usdaResults.map(result => (
+								<button
+									key={result.fdcId}
+									type="button"
+									className="flex w-full flex-col gap-1 px-3 py-2 text-left hover:bg-surface-2"
+									disabled={creatingFdcId === result.fdcId}
+									onMouseDown={() => handleSelectUSDA(result.fdcId, result.description)}
+								>
+									<div className="flex w-full items-center gap-2">
+										{creatingFdcId === result.fdcId ? (
+											<Spinner className="h-3.5 w-3.5 shrink-0" />
+										) : (
+											<Database className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+										)}
+										<span className="text-ink text-sm">{result.description}</span>
+										<span className="ml-auto font-mono text-ink-faint text-xs">
+											{Math.round(result.protein)}p {Math.round(result.carbs)}c{' '}
+											{Math.round(result.fat)}f
+										</span>
+									</div>
+									<div className="ml-5.5">
+										<MacroBar macros={result} />
+									</div>
+								</button>
+							))}
+						</>
+					)}
+					{usdaSearchQuery.isLoading && debouncedSearch.length >= 2 && (
+						<div className="flex items-center gap-2 border-edge border-t px-3 py-2 text-ink-faint text-sm">
+							<Spinner className="size-4" />
+							Searching USDA...
+						</div>
+					)}
+					{createFromUSDA.isError && <TRPCError error={createFromUSDA.error} />}
 					<button
 						type="button"
 						className="flex w-full items-center gap-2 border-edge border-t px-3 py-2.5 text-left text-accent text-sm hover:bg-surface-2"
@@ -681,6 +804,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 					{addIngredient.isError && <TRPCError error={addIngredient.error} />}
 				</Card>
 			)}
+			{createIngredient.isError && <TRPCError error={createIngredient.error} />}
 		</div>
 	)
 }

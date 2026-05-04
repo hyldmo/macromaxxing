@@ -19,7 +19,7 @@ const WRANGLER = 'yarn workspace @macromaxxing/workers wrangler'
 const USER_ID = 'user_39I5kFnlAoJmYkhH14BK4piLrxT'
 
 function query<T>(sql: string): D1Row<T>[] {
-	const escaped = sql.replace(/"/g, '\\"')
+	const escaped = sql.replaceAll('"', '\\"')
 	const out = execSync(`${WRANGLER} d1 execute macromaxxing --local --json --command "${escaped}"`, {
 		encoding: 'utf8',
 		cwd: process.cwd(),
@@ -31,7 +31,7 @@ function query<T>(sql: string): D1Row<T>[] {
 function sqlVal(v: unknown): string {
 	if (v === null || v === undefined || v === 'null') return 'NULL'
 	if (typeof v === 'number') return String(v)
-	return `'${String(v).replace(/'/g, "''")}'`
+	return `'${String(v).replaceAll("'", "''")}'`
 }
 
 function buildInserts<T extends Record<string, unknown>>(table: string, rows: T[]): string {

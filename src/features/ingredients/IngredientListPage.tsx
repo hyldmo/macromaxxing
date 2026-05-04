@@ -1,17 +1,23 @@
-import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { startCase } from 'es-toolkit'
+import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, ScanLine, Sparkles, Trash2 } from 'lucide-react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import type { OFFProduct } from '~/lib'
+import { useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUser } from '~/lib/user'
+import { BarcodeScanDialog } from '../recipes/components/BarcodeScanDialog'
 import { MacroBar } from '../recipes/components/MacroBar'
 import { IngredientForm } from './components/IngredientForm'
 
 export function IngredientListPage() {
 	useDocumentTitle('Ingredients')
-	const [search, setSearch] = useState('')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const search = searchParams.get('search') ?? ''
+	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [showForm, setShowForm] = useState(false)
+	const [showBarcodeDialog, setShowBarcodeDialog] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
 	const [sortKey, setSortKey] = useState<'recent' | 'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('recent')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -19,10 +25,29 @@ export function IngredientListPage() {
 	const userId = user?.id
 	const utils = trpc.useUtils()
 
-	const ingredientsQuery = trpc.ingredient.list.useQuery()
+	const ingredientsQuery = trpc.ingredient.list.useQuery(search ? { search } : undefined)
 	const deleteMutation = trpc.ingredient.delete.useMutation({
 		onSuccess: () => utils.ingredient.list.invalidate()
 	})
+	const createIngredient = trpc.ingredient.create.useMutation({
+		onSuccess: () => utils.ingredient.list.invalidate()
+	})
+
+	const handleBarcodeProduct = useCallback(
+		(product: OFFProduct) => {
+			createIngredient.mutate({
+				name: product.name,
+				protein: product.per100g.protein,
+				carbs: product.per100g.carbs,
+				fat: product.per100g.fat,
+				kcal: product.per100g.kcal,
+				fiber: product.per100g.fiber,
+				source: 'manual'
+			})
+			setShowBarcodeDialog(false)
+		},
+		[createIngredient]
+	)
 
 	const toggleSort = (key: typeof sortKey) => {
 		if (sortKey === key) {
@@ -33,16 +58,9 @@ export function IngredientListPage() {
 		}
 	}
 
-	const sortOptions = [
-		['recent', 'Recent'],
-		['name', 'Name'],
-		['protein', 'Prot'],
-		['kcal', 'Kcal']
-	] as const
-
 	const filtered = useMemo(() => {
 		const list = ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(search.toLowerCase())) ?? []
-		return [...list].sort((a, b) => {
+		return list.toSorted((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
 			if (sortKey === 'recent') return dir * (a.createdAt - b.createdAt)
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
@@ -50,48 +68,53 @@ export function IngredientListPage() {
 		})
 	}, [ingredientsQuery.data, search, sortKey, sortDir])
 
-	const editIngredient = editId ? ingredientsQuery.data?.find(i => i.id === editId) : undefined
-
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
 				<h1 className="font-semibold text-ink">Ingredients</h1>
 				{user && (
-					<Button
-						onClick={() => {
-							setEditId(null)
-							setShowForm(true)
-						}}
-					>
-						<Plus className="size-4" />
-						Add Ingredient
-					</Button>
+					<div className="flex items-center gap-2">
+						<Button variant="outline" onClick={() => setShowBarcodeDialog(true)}>
+							<ScanLine className="size-4" />
+							Scan
+						</Button>
+						<Button
+							onClick={() => {
+								setEditId(null)
+								setShowForm(true)
+							}}
+						>
+							<Plus className="size-4" />
+							Add Ingredient
+						</Button>
+					</div>
 				)}
 			</div>
 
-			{(showForm || editId) && (
+			<BarcodeScanDialog
+				open={showBarcodeDialog}
+				onClose={() => setShowBarcodeDialog(false)}
+				onProductFound={handleBarcodeProduct}
+			/>
+			{createIngredient.error && <TRPCError error={createIngredient.error} />}
+
+			{showForm && !editId && (
 				<Card className="p-4">
-					<IngredientForm
-						editIngredient={editIngredient}
-						onClose={() => {
-							setShowForm(false)
-							setEditId(null)
-						}}
-					/>
+					<IngredientForm onClose={() => setShowForm(false)} />
 				</Card>
 			)}
 
 			<div className="flex items-center gap-2">
 				<Input placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
 				<div className="flex shrink-0 gap-1">
-					{sortOptions.map(([key, label]) => (
+					{(['recent', 'name', 'protein', 'kcal'] as const).map(key => (
 						<button
 							key={key}
 							type="button"
 							className={`inline-flex items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors ${sortKey === key ? 'border-accent bg-accent/10 text-accent' : 'border-edge text-ink-muted hover:bg-surface-2'}`}
 							onClick={() => toggleSort(key)}
 						>
-							{label}
+							{startCase(key)}
 							{sortKey === key &&
 								(sortDir === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />)}
 						</button>
@@ -119,6 +142,13 @@ export function IngredientListPage() {
 				<div className="grid gap-2 md:hidden">
 					{filtered.map(ingredient => {
 						const isMine = ingredient.userId === userId
+						if (ingredient.id === editId) {
+							return (
+								<Card key={ingredient.id} className="p-4">
+									<IngredientForm editIngredient={ingredient} onClose={() => setEditId(null)} />
+								</Card>
+							)
+						}
 						return (
 							<Card key={ingredient.id} className="p-3">
 								<div className="flex items-start justify-between gap-2">
@@ -214,12 +244,21 @@ export function IngredientListPage() {
 						<tbody>
 							{filtered.map(ingredient => {
 								const isMine = ingredient.userId === userId
+								if (ingredient.id === editId) {
+									return (
+										<tr key={ingredient.id}>
+											<td colSpan={8} className="p-4">
+												<IngredientForm
+													editIngredient={ingredient}
+													onClose={() => setEditId(null)}
+												/>
+											</td>
+										</tr>
+									)
+								}
 								return (
-									<>
-										<tr
-											key={ingredient.id + ingredient.name}
-											className="border-edge/50 border-b transition-colors hover:bg-surface-2/50"
-										>
+									<Fragment key={ingredient.id}>
+										<tr className="transition-colors hover:bg-surface-2/50">
 											<td className="px-2 py-1.5 font-medium text-ink">{ingredient.name}</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-protein">
 												{ingredient.protein}
@@ -271,12 +310,12 @@ export function IngredientListPage() {
 												)}
 											</td>
 										</tr>
-										<tr key={`${ingredient.id}-bar`} className="border-edge/30 border-b">
+										<tr className="border-edge/30 border-b">
 											<td colSpan={8} className="px-2 pb-1">
 												<MacroBar macros={ingredient} />
 											</td>
 										</tr>
-									</>
+									</Fragment>
 								)
 							})}
 						</tbody>

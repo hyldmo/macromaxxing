@@ -1,0 +1,8 @@
+export { FaqSection } from './FaqSection'
+export { FooterCta } from './FooterCta'
+export { Hero } from './Hero'
+export { HowItWorks } from './HowItWorks'
+export { IntelligenceSection } from './IntelligenceSection'
+export { NumbersRail } from './NumbersRail'
+export { PlateSection } from './PlateSection'
+export { RackSection } from './RackSection'

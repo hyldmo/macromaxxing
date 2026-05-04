@@ -1,7 +1,7 @@
 import { cva, type VariantProps } from 'class-variance-authority'
 import type { FC } from 'react'
 import { Link, type LinkProps } from 'react-router-dom'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 const buttonVariants = cva(
 	'inline-flex items-center justify-center gap-2 rounded-sm font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40',

@@ -4,9 +4,8 @@ import type { TrainingGoal } from '@macromaxxing/db'
 import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button, NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { cn, estimated1RM, getRepRange, TRAINING_DEFAULTS } from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
-import { TRAINING_DEFAULTS } from '../utils/sets'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
 
@@ -37,6 +36,17 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	const style = { transform: CSS.Translate.toString(transform), transition }
 	const effectiveGoal = exercise.trainingGoal ?? trainingGoal
 	const defaults = TRAINING_DEFAULTS[effectiveGoal]
+	const range = getRepRange(
+		{
+			type: exercise.exerciseType,
+			strengthRepsMin: exercise.strengthRepsMin,
+			strengthRepsMax: exercise.strengthRepsMax,
+			hypertrophyRepsMin: exercise.hypertrophyRepsMin,
+			hypertrophyRepsMax: exercise.hypertrophyRepsMax
+		},
+		effectiveGoal
+	)
+	const aboveRange = exercise.targetReps != null && exercise.targetReps > range.max
 	return (
 		<div
 			ref={setNodeRef}
@@ -64,6 +74,11 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				</span>
 			)}
 			<span className="min-w-40 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
+			{exercise.targetWeight && exercise.targetReps && (
+				<span className="text-ink-muted text-xs max-lg:hidden">
+					{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}kg e1RM
+				</span>
+			)}
 			<TrainingGoalToggle
 				workoutGoal={trainingGoal}
 				value={exercise.trainingGoal}
@@ -93,7 +108,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 			<span className="text-ink-faint text-xs">sets</span>
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
-				className="w-14"
+				className={cn('w-14', aboveRange && 'border-amber-400/60')}
 				value={exercise.targetReps ?? ''}
 				placeholder={String(defaults.targetReps)}
 				onChange={e => {

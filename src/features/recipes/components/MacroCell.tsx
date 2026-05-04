@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { isPresent } from 'ts-extras'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 import { macroPercentage } from '../utils/macros'
 
 export type MacroType = 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'

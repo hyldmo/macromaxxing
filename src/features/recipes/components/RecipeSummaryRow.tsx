@@ -1,6 +1,6 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
-import type { AbsoluteMacros } from '~/lib/macros'
+import { cn } from '~/lib'
 import { MacroCell } from './MacroCell'
 
 export interface RecipeSummaryRowProps {

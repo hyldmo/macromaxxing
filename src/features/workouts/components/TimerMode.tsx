@@ -1,391 +1,178 @@
-import type { Exercise, SetType } from '@macromaxxing/db'
-import { ChevronLeft, ChevronRight, Dumbbell, Pause, Square, X } from 'lucide-react'
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Exercise, SetType, WorkoutSession } from '@macromaxxing/db'
+import {
+	ArrowLeftRight,
+	ChevronLeft,
+	ChevronRight,
+	Dumbbell,
+	HelpCircle,
+	Minimize2,
+	NotebookPen,
+	Pause,
+	Square,
+	Undo2
+} from 'lucide-react'
+import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
-import { Button, NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
-import type { RouterOutput } from '~/lib/trpc'
-import { useRestTimer } from '../RestTimerContext'
-import type { PlannedSet } from './ExerciseSetForm'
+import { Button, ButtonGroup, NumberInput } from '~/components/ui'
+import { cn, flattenSets, formatTimer, type RenderItem, SET_TYPE_STYLES, useScrollLock } from '~/lib'
+import { useElapsedTimer } from '../hooks/useElapsedTimer'
+import { useWorkoutSessionStore } from '../store'
+import { useWakeLock } from '../useWakeLock'
+import { ExerciseGuideModal } from './ExerciseGuideModal'
+import { SecondaryTimer } from './SecondaryTimer'
+import { SessionNotesModal } from './SessionNotesModal'
 import { TimerRing } from './TimerRing'
-
-type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
-type SessionExercise = SessionLog['exercise']
-
-type RenderItem =
-	| {
-			type: 'standalone'
-			exerciseId: Exercise['id']
-			exercise: SessionExercise
-			logs: SessionLog[]
-			planned: PlannedSet[]
-	  }
-	| {
-			type: 'superset'
-			group: number
-			exercises: Array<{
-				exerciseId: Exercise['id']
-				exercise: SessionExercise
-				logs: SessionLog[]
-				planned: PlannedSet[]
-			}>
-	  }
-
-interface CurrentSet {
-	exerciseId: Exercise['id']
-	exerciseName: string
-	setType: SetType
-	weightKg: number | null
-	reps: number
-	setNumber: number
-	totalSets: number
-	transition: boolean
-	itemIndex: number
-}
-
-const SET_TYPE_STYLES: Record<SetType, string> = {
-	warmup: 'bg-macro-carbs/15 text-macro-carbs',
-	working: 'bg-macro-protein/15 text-macro-protein',
-	backoff: 'bg-macro-fat/15 text-macro-fat'
-}
 
 export interface TimerModeContext {
 	exerciseGroups: RenderItem[]
 	setActiveExerciseId: (id: string | null) => void
-	session: { startedAt: number; name: string | null }
-	onConfirmSet: (data: {
-		exerciseId: Exercise['id']
-		weightKg: number
-		reps: number
-		setType: SetType
-		transition?: boolean
-	}) => void
-}
-
-function findCurrentSet(exerciseGroups: RenderItem[], focusedIndex: number | null): CurrentSet | null {
-	// If focused on a specific item, try that first
-	if (focusedIndex !== null && focusedIndex < exerciseGroups.length) {
-		const result = findPendingInItem(exerciseGroups[focusedIndex], focusedIndex)
-		if (result) return result
-	}
-	// Fallback: first pending across all items
-	for (let itemIdx = 0; itemIdx < exerciseGroups.length; itemIdx++) {
-		const result = findPendingInItem(exerciseGroups[itemIdx], itemIdx)
-		if (result) return result
-	}
-	return null
-}
-
-function findPendingInItem(item: RenderItem, itemIdx: number): CurrentSet | null {
-	if (item.type === 'standalone') {
-		if (item.logs.length < item.planned.length) {
-			const planned = item.planned[item.logs.length]
-			return {
-				exerciseId: item.exerciseId,
-				exerciseName: item.exercise.name,
-				setType: planned.setType,
-				weightKg: planned.weightKg,
-				reps: planned.reps,
-				setNumber: item.logs.length + 1,
-				totalSets: item.planned.length,
-				transition: false,
-				itemIndex: itemIdx
-			}
-		}
-	} else {
-		return findPendingInSuperset(item, itemIdx, 0)
-	}
-	return null
-}
-
-function findNextSet(exerciseGroups: RenderItem[], current: CurrentSet | null): CurrentSet | null {
-	if (!current) return null
-
-	for (let itemIdx = 0; itemIdx < exerciseGroups.length; itemIdx++) {
-		const item = exerciseGroups[itemIdx]
-
-		if (item.type === 'standalone') {
-			if (item.logs.length < item.planned.length) {
-				const planned = item.planned[item.logs.length]
-				const candidate: CurrentSet = {
-					exerciseId: item.exerciseId,
-					exerciseName: item.exercise.name,
-					setType: planned.setType,
-					weightKg: planned.weightKg,
-					reps: planned.reps,
-					setNumber: item.logs.length + 1,
-					totalSets: item.planned.length,
-					transition: false,
-					itemIndex: itemIdx
-				}
-				// Skip if this is the same as current
-				if (candidate.exerciseId === current.exerciseId && candidate.setNumber === current.setNumber) continue
-				return candidate
-			}
-		} else {
-			// For superset, find pending entries — skip the first one if it matches current
-			const result = findPendingInSuperset(item, itemIdx, 0)
-			if (result) {
-				if (result.exerciseId === current.exerciseId && result.setNumber === current.setNumber) {
-					// Skip this one, find the next
-					const next = findPendingInSuperset(item, itemIdx, 1)
-					if (next) return next
-					continue
-				}
-				return result
-			}
-		}
-	}
-	return null
-}
-
-interface RoundSet {
-	exerciseId: Exercise['id']
-	exerciseName: string
-	planned: PlannedSet
-	log: SessionLog | null
-	exerciseIndex: number
-}
-
-function findPendingInSuperset(
-	item: Extract<RenderItem, { type: 'superset' }>,
-	itemIdx: number,
-	skip: number
-): CurrentSet | null {
-	const { exercises } = item
-
-	// Build phases (same algorithm as SupersetForm)
-	const exercisePhases = exercises.map((exData, exIdx) => {
-		const warmupLogs = exData.logs.filter(l => l.setType === 'warmup')
-		const workingLogs = exData.logs.filter(l => l.setType === 'working')
-		const backoffLogs = exData.logs.filter(l => l.setType === 'backoff')
-
-		const plannedWarmups = exData.planned.filter(s => s.setType === 'warmup')
-		const plannedWorking = exData.planned.filter(s => s.setType === 'working')
-		const plannedBackoffs = exData.planned.filter(s => s.setType === 'backoff')
-
-		const warmups: RoundSet[] = plannedWarmups.map((p, i) => ({
-			exerciseId: exData.exerciseId,
-			exerciseName: exData.exercise.name,
-			planned: p,
-			log: warmupLogs[i] ?? null,
-			exerciseIndex: exIdx
-		}))
-		const working: RoundSet[] = plannedWorking.map((p, i) => ({
-			exerciseId: exData.exerciseId,
-			exerciseName: exData.exercise.name,
-			planned: p,
-			log: workingLogs[i] ?? null,
-			exerciseIndex: exIdx
-		}))
-		const backoffs: RoundSet[] = plannedBackoffs.map((p, i) => ({
-			exerciseId: exData.exerciseId,
-			exerciseName: exData.exercise.name,
-			planned: p,
-			log: backoffLogs[i] ?? null,
-			exerciseIndex: exIdx
-		}))
-
-		return { warmups, working, backoffs }
-	})
-
-	// Build rounds
-	const rounds: Array<{ setType: SetType; sets: RoundSet[] }> = []
-
-	const maxWarmups = Math.max(0, ...exercisePhases.map(e => e.warmups.length))
-	for (let i = 0; i < maxWarmups; i++) {
-		const sets = exercisePhases.filter(e => i < e.warmups.length).map(e => e.warmups[i])
-		rounds.push({ setType: 'warmup', sets })
-	}
-	const maxWorking = Math.max(0, ...exercisePhases.map(e => e.working.length))
-	for (let i = 0; i < maxWorking; i++) {
-		const sets = exercisePhases.filter(e => i < e.working.length).map(e => e.working[i])
-		rounds.push({ setType: 'working', sets })
-	}
-	const maxBackoffs = Math.max(0, ...exercisePhases.map(e => e.backoffs.length))
-	for (let i = 0; i < maxBackoffs; i++) {
-		const sets = exercisePhases.filter(e => i < e.backoffs.length).map(e => e.backoffs[i])
-		rounds.push({ setType: 'backoff', sets })
-	}
-
-	// Walk rounds to find pending entries
-	let skipped = 0
-	const totalSets = exercises.reduce((sum, e) => sum + e.planned.length, 0)
-	const completedSets = exercises.reduce((sum, e) => sum + e.logs.length, 0)
-
-	for (const round of rounds) {
-		for (let setIdx = 0; setIdx < round.sets.length; setIdx++) {
-			const entry = round.sets[setIdx]
-			if (entry.log !== null) continue
-			if (skipped < skip) {
-				skipped++
-				continue
-			}
-			const isLastInRound = setIdx === round.sets.length - 1
-			return {
-				exerciseId: entry.exerciseId,
-				exerciseName: entry.exerciseName,
-				setType: entry.planned.setType,
-				weightKg: entry.planned.weightKg,
-				reps: entry.planned.reps,
-				setNumber: completedSets + skipped + 1,
-				totalSets,
-				transition: !isLastInRound,
-				itemIndex: itemIdx
-			}
-		}
-	}
-
-	return null
-}
-
-function formatElapsed(ms: number): string {
-	const totalSeconds = Math.floor(ms / 1000)
-	const hours = Math.floor(totalSeconds / 3600)
-	const minutes = Math.floor((totalSeconds % 3600) / 60)
-	const seconds = totalSeconds % 60
-	if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-	return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-function exerciseProgress(exerciseGroups: RenderItem[]): { completed: number; total: number } {
-	let completed = 0
-	let total = 0
-	for (const item of exerciseGroups) {
-		if (item.type === 'standalone') {
-			total++
-			if (item.logs.length >= item.planned.length && item.planned.length > 0) completed++
-		} else {
-			for (const e of item.exercises) {
-				total++
-				if (e.logs.length >= e.planned.length && e.planned.length > 0) completed++
-			}
-		}
-	}
-	return { completed, total }
+	session: { id: WorkoutSession['id']; startedAt: number; name: string | null; notes: string | null }
+	onConfirmSet: (
+		data: {
+			exerciseId: Exercise['id']
+			weightKg: number
+			reps: number
+			setType: SetType
+			transition?: boolean
+		},
+		onLogId?: (id: string) => void
+	) => void
+	onUpdateSet: (id: string, updates: { weightKg?: number; reps?: number }) => void
+	onUndoSet: () => void
+	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
 }
 
 export const TimerMode: FC = () => {
-	const { exerciseGroups, setActiveExerciseId, session, onConfirmSet } = useOutletContext<TimerModeContext>()
+	const { exerciseGroups, setActiveExerciseId, session, onConfirmSet, onUpdateSet, onUndoSet, getRestDuration } =
+		useOutletContext<TimerModeContext>()
 	const { sessionId } = useParams<{ sessionId: string }>()
 	const navigate = useNavigate()
 	const onClose = useCallback(() => navigate('..'), [navigate])
 
-	const restTimer = useRestTimer()
+	const active = useWorkoutSessionStore(s => s.active)
+	const rest = useWorkoutSessionStore(s => s.rest)
+	const queue = useWorkoutSessionStore(s => s.queue)
+	const confirmedIndices = useWorkoutSessionStore(s => s.confirmedIndices)
+	const _roundStartedAt = useWorkoutSessionStore(s => s._roundStartedAt)
+	const actions = useWorkoutSessionStore.getState
+	const [guideOpen, setGuideOpen] = useState(false)
+	const [notesOpen, setNotesOpen] = useState(false)
+	const hasNotes = (session.notes ?? '').trim().length > 0
+	useWakeLock()
+	useScrollLock()
 
-	// Activate nav elapsed display on mount
+	// Initialize store on mount
+	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
+	const didInit = useMemo(() => ({ current: false }), [])
 	useEffect(() => {
-		if (sessionId) {
-			restTimer.setSession({ id: sessionId, startedAt: session.startedAt })
-		}
-	}, [sessionId, session.startedAt, restTimer.setSession, restTimer])
-
-	// Auto-dismiss rest timer when countdown reaches 0
-	useEffect(() => {
-		if (restTimer.isRunning && restTimer.remaining <= 0) {
-			restTimer.dismiss()
-		}
-	}, [restTimer.isRunning, restTimer.remaining, restTimer])
-
-	const [editWeight, setEditWeight] = useState<number | null>(null)
-	const [editReps, setEditReps] = useState<number>(0)
-	const [preciseRemaining, setPreciseRemaining] = useState(0)
-	const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null)
-	const [setStartedAt, setSetStartedAt] = useState<number | null>(null)
-	const [setElapsedMs, setSetElapsedMs] = useState(0)
-	const [isPaused, setIsPaused] = useState(false)
-	const rafRef = useRef(0)
-
-	// High-frequency timer — only runs when set is active (not paused) or rest countdown is running
-	const needsRaf = (setStartedAt !== null && !isPaused) || restTimer.endAt !== null
-	useEffect(() => {
-		if (!needsRaf) return
-		const tick = () => {
-			if (restTimer.endAt !== null) {
-				setPreciseRemaining((restTimer.endAt - Date.now()) / 1000)
+		if (flatSets.length > 0 && !didInit.current && sessionId) {
+			didInit.current = true
+			// Only init if store doesn't already have this session's queue
+			if (useWorkoutSessionStore.getState().queue.length === 0) {
+				actions().init(sessionId, session.startedAt, flatSets)
+			} else {
+				// Ensure sessionStartedAt is set for elapsed display
+				actions().setSession({ id: sessionId, startedAt: session.startedAt })
 			}
-			if (setStartedAt !== null && !isPaused) {
-				setSetElapsedMs(Date.now() - setStartedAt)
-			}
-			rafRef.current = requestAnimationFrame(tick)
 		}
-		rafRef.current = requestAnimationFrame(tick)
-		return () => cancelAnimationFrame(rafRef.current)
-	}, [needsRaf, restTimer.endAt, setStartedAt, isPaused])
+	}, [flatSets, didInit, sessionId, session.startedAt])
+	const isResting = rest !== null
+	const currentSet = active ? queue[active.index] : null
 
-	const currentSet = useMemo(
-		() => findCurrentSet(exerciseGroups, focusedItemIndex),
-		[exerciseGroups, focusedItemIndex]
-	)
-	const nextSet = useMemo(() => findNextSet(exerciseGroups, currentSet), [exerciseGroups, currentSet])
-	const _progress = useMemo(() => exerciseProgress(exerciseGroups), [exerciseGroups])
+	const preciseRemaining = -useElapsedTimer(rest?.endAt ?? null) / 1000
+	const setTimerActive = active?.setTimer && !active.setTimer.isPaused ? active.setTimer.startedAt : null
+	const liveElapsedMs = useElapsedTimer(setTimerActive)
+	// When paused, show frozen elapsed; when active, show live; otherwise 0
+	const setElapsedMs = active?.setTimer
+		? active.setTimer.isPaused
+			? Date.now() - active.setTimer.startedAt
+			: liveElapsedMs
+		: 0
 
-	// Sync editable state when current set identity changes
-	const setIdentity = currentSet ? `${currentSet.exerciseId}-${currentSet.setNumber}-${currentSet.setType}` : null
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sync only when set identity changes, not on every weight/reps edit
-	useEffect(() => {
-		if (currentSet) {
-			setEditWeight(currentSet.weightKg)
-			setEditReps(currentSet.reps)
+	// Find next pending after current for preview
+	const nextSet = useMemo(() => {
+		if (!active) return null
+		for (let i = active.index + 1; i < queue.length; i++) {
+			if (!(queue[i].completed || confirmedIndices.includes(i))) return queue[i]
 		}
-		setSetStartedAt(null)
-		setIsPaused(false)
-	}, [setIdentity])
+		return null
+	}, [queue, active, confirmedIndices])
+
+	// Detect if current set is part of a superset
+	const isInSuperset = useMemo(() => {
+		if (!currentSet) return false
+		if (currentSet.transition) return true
+		return active !== null && active.index > 0 && queue[active.index - 1]?.transition === true
+	}, [currentSet, active, queue])
 
 	const handleStartSet = useCallback(() => {
-		setSetStartedAt(Date.now())
-		setIsPaused(false)
+		actions().startSet()
 	}, [])
 
 	const handlePause = useCallback(() => {
-		setIsPaused(true)
+		actions().pauseSet()
 	}, [])
 
 	const handleResume = useCallback(() => {
-		// Adjust startedAt so elapsed continues from where it was
-		setSetStartedAt(Date.now() - setElapsedMs)
-		setIsPaused(false)
-	}, [setElapsedMs])
+		const timer = useWorkoutSessionStore.getState().active?.setTimer
+		if (timer) actions().resumeSet(Date.now() - timer.startedAt)
+	}, [])
 
-	const handleConfirm = useCallback(() => {
-		if (!currentSet || restTimer.isRunning) return
-		onConfirmSet({
-			exerciseId: currentSet.exerciseId,
-			weightKg: editWeight ?? 0,
-			reps: editReps,
-			setType: currentSet.setType,
-			transition: currentSet.transition
-		})
-		setSetStartedAt(null)
-		setIsPaused(false)
-		setActiveExerciseId(currentSet.exerciseId)
-		setFocusedItemIndex(null)
-	}, [currentSet, editWeight, editReps, restTimer.isRunning, onConfirmSet, setActiveExerciseId])
-
-	const handleDismissTimer = useCallback(() => {
-		restTimer.dismiss()
-	}, [restTimer])
-
-	// Navigate to previous/next exercise with pending sets
-	const navigateExercise = useCallback(
-		(direction: -1 | 1) => {
-			if (!currentSet) return
-			const idx = currentSet.itemIndex
-			const searchRange = direction === 1 ? exerciseGroups.slice(idx + 1) : exerciseGroups.slice(0, idx).reverse()
-
-			for (const item of searchRange) {
-				const hasPending =
-					item.type === 'standalone'
-						? item.planned.length > item.logs.length
-						: item.exercises.some(e => e.planned.length > e.logs.length)
-				if (hasPending) {
-					setFocusedItemIndex(exerciseGroups.indexOf(item))
-					return
-				}
+	const handleEditWeight = useCallback(
+		(weight: number | null) => {
+			actions().editWeight(weight)
+			if (active?.logId && weight != null) {
+				onUpdateSet(active.logId, { weightKg: weight })
 			}
 		},
-		[currentSet, exerciseGroups]
+		[active?.logId, onUpdateSet]
 	)
+
+	const handleEditReps = useCallback(
+		(reps: number) => {
+			actions().editReps(reps)
+			if (active?.logId) {
+				onUpdateSet(active.logId, { reps })
+			}
+		},
+		[active?.logId, onUpdateSet]
+	)
+
+	const handleConfirm = useCallback(() => {
+		if (!currentSet || isResting) return
+
+		actions().stopSet()
+
+		setActiveExerciseId(currentSet.exerciseId)
+
+		const data = actions().confirmSet()
+		if (!data) return
+
+		onConfirmSet(data, id => actions().setLogId(id))
+
+		if (!data.transition) {
+			// End of round or solo: start rest countdown
+			const dur = getRestDuration(data.exerciseId, data.reps, data.setType)
+			actions().startRest(dur, data.setType)
+		}
+	}, [currentSet, isResting, setActiveExerciseId, getRestDuration, onConfirmSet])
+
+	const handleDismissTimer = useCallback(() => {
+		actions().dismissRest()
+	}, [])
+
+	const handleUndo = useCallback(() => {
+		actions().undo()
+
+		onUndoSet()
+	}, [onUndoSet])
+
+	const handleStopSet = useCallback(() => {
+		actions().stopSet()
+	}, [])
+
+	const handleNavigate = useCallback((direction: -1 | 1) => actions().navigate(direction), [])
+	const handleNavigateSet = useCallback((direction: -1 | 1) => actions().navigateSet(direction), [])
 
 	// Keyboard: Enter/Space confirms or dismisses, Escape closes
 	useEffect(() => {
@@ -407,11 +194,11 @@ export const TimerMode: FC = () => {
 				)
 					return
 				e.preventDefault()
-				if (restTimer.isRunning) {
+				if (isResting) {
 					handleDismissTimer()
-				} else if (isPaused) {
+				} else if (active?.setTimer?.isPaused) {
 					handleResume()
-				} else if (setStartedAt !== null) {
+				} else if (active?.setTimer) {
 					handleConfirm()
 				} else {
 					handleStartSet()
@@ -420,239 +207,301 @@ export const TimerMode: FC = () => {
 		}
 		document.addEventListener('keydown', handler)
 		return () => document.removeEventListener('keydown', handler)
-	}, [
-		handleConfirm,
-		handleDismissTimer,
-		handleStartSet,
-		handleResume,
-		restTimer.isRunning,
-		setStartedAt,
-		isPaused,
-		onClose
-	])
+	}, [handleConfirm, handleDismissTimer, handleStartSet, handleResume, isResting, active, onClose])
 
-	const isResting = restTimer.isRunning
-	const isDoingSet = setStartedAt !== null && !isResting && !isPaused
-	const isSetPaused = setStartedAt !== null && isPaused && !isResting
-
-	const timerDisplay = (() => {
-		const abs = Math.abs(preciseRemaining)
-		const m = Math.floor(abs / 60)
-		const s = Math.floor(abs % 60)
-		const cs = Math.floor((abs * 100) % 100)
-		return `${preciseRemaining < 0 ? '-' : ''}${m}:${s.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`
-	})()
+	const isDoingSet =
+		active?.setTimer !== null && active?.setTimer !== undefined && !isResting && !active.setTimer.isPaused
+	const isSetPaused = active?.setTimer?.isPaused && !isResting
+	const hasConfirmedSets = confirmedIndices.length > 0
 
 	return (
-		<div className="fixed inset-0 z-50 flex flex-col bg-surface-0">
-			<div className="mx-auto flex h-full w-full max-w-sm flex-col">
-				{/* Main content */}
-				<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
-					{currentSet === null ? (
-						/* All sets complete */
-						<>
-							<div className="flex size-16 items-center justify-center rounded-full bg-success/20">
-								<Dumbbell className="size-8 text-success" />
-							</div>
-							<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
-							<div className="font-mono text-ink-muted text-sm tabular-nums">
-								{formatElapsed(Date.now() - session.startedAt)} elapsed
-							</div>
-							<Button onClick={onClose} className="w-full">
-								Close
-							</Button>
-						</>
-					) : (
-						<>
-							<h2 className="font-mono text-ink-muted text-sm tabular-nums">
-								{currentSet.itemIndex + 1} / {exerciseGroups.length}
-							</h2>
-							{/* Exercise name with nav arrows */}
-							<div className="flex w-full items-center justify-center gap-2">
-								<button
-									type="button"
-									className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-									onClick={() => navigateExercise(-1)}
-								>
-									<ChevronLeft className="size-5" />
-								</button>
-								<h2 className="font-semibold text-ink text-xl">{currentSet.exerciseName}</h2>
-								<button
-									type="button"
-									className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-									onClick={() => navigateExercise(1)}
-								>
-									<ChevronRight className="size-5" />
-								</button>
-							</div>
-
-							{/* Badge + set progress + target */}
-							<div className="flex flex-col items-center gap-1">
-								<div className="flex items-center gap-2">
-									<span
-										className={cn(
-											'rounded-full px-2 py-0.5 font-mono text-xs',
-											SET_TYPE_STYLES[currentSet.setType]
-										)}
-									>
-										{currentSet.setType}
-									</span>
-									<span className="font-mono text-ink-muted text-sm tabular-nums">
-										Set {currentSet.setNumber} of {currentSet.totalSets}
-									</span>
-								</div>
-								<span className="font-mono text-ink text-lg tabular-nums">
-									{currentSet.weightKg ?? 0}kg &times; {currentSet.reps} reps
-								</span>
-							</div>
-
-							{/* Timer ring — always rendered, content crossfades */}
-							<TimerRing
-								remaining={isResting ? preciseRemaining : 0}
-								total={isResting ? restTimer.total : 0}
-								setType={restTimer.setType ?? 'working'}
-							>
-								{/* Ready — visible when idle */}
-								<div
-									className={cn(
-										'absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300',
-										!(isDoingSet || isSetPaused || isResting) ? 'opacity-100' : 'opacity-0'
-									)}
-								>
-									<span className="font-mono text-4xl text-ink-muted tabular-nums">0:00</span>
-								</div>
-								{/* Set elapsed — visible when set active or paused */}
-								<div
-									className={cn(
-										'absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300',
-										isDoingSet || isSetPaused ? 'opacity-100' : 'opacity-0'
-									)}
-								>
-									<span className="text-ink-faint text-xs">{isSetPaused ? 'Paused' : 'Set'}</span>
-									<span
-										className={cn(
-											'font-mono text-4xl tabular-nums',
-											isSetPaused ? 'text-ink-muted' : 'text-ink'
-										)}
-									>
-										{formatElapsed(setElapsedMs)}
-									</span>
-								</div>
-								{/* Countdown — visible when resting */}
-								<div
-									className={cn(
-										'absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-300',
-										isResting ? 'opacity-100' : 'opacity-0'
-									)}
-								>
-									<span className="text-ink-faint text-xs">
-										{restTimer.isTransition ? 'Transition' : 'Rest'}
-									</span>
-									<span
-										className={cn(
-											'font-mono text-5xl tabular-nums',
-											preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
-										)}
-									>
-										{timerDisplay}
-									</span>
-								</div>
-							</TimerRing>
-
-							{/* Weight x Reps inputs */}
-							<div className="flex items-center gap-3">
-								<NumberInput
-									className="w-28 text-center text-2xl"
-									value={editWeight ?? ''}
-									placeholder="kg"
-									unit="kg"
-									onChange={e => {
-										const v = Number.parseFloat(e.target.value)
-										setEditWeight(Number.isNaN(v) ? null : v)
-									}}
-									step={2.5}
-									min={0}
-								/>
-								<span className="text-ink-faint text-xl">&times;</span>
-								<NumberInput
-									className="w-24 text-center text-2xl"
-									value={editReps}
-									onChange={e => {
-										const v = Number.parseInt(e.target.value, 10)
-										if (!Number.isNaN(v) && v >= 0) setEditReps(v)
-									}}
-									unit="r"
-									step={1}
-									min={0}
-								/>
-							</div>
-
-							{/* Action buttons */}
-							<div className="flex w-full items-center gap-2">
-								{isDoingSet && (
-									<Button variant="outline" size="icon" onClick={handlePause}>
-										<Pause className="size-4" />
-									</Button>
-								)}
-								{isSetPaused && (
-									<Button
-										variant="outline"
-										size="icon"
-										onClick={() => {
-											setSetStartedAt(null)
-											setIsPaused(false)
-										}}
-									>
-										<Square className="size-4" />
-									</Button>
-								)}
-								<Button
-									onClick={
-										isResting
-											? handleDismissTimer
-											: isSetPaused
-												? handleResume
-												: isDoingSet
-													? handleConfirm
-													: handleStartSet
-									}
-									className="flex-1"
-								>
-									{isResting ? 'Skip Rest' : isSetPaused ? 'Resume' : isDoingSet ? 'Done' : 'Start'}
-								</Button>
-							</div>
-
-							{/* Next set preview */}
-							{nextSet && (
-								<div className="flex w-full items-center gap-3 rounded-md border border-edge bg-surface-1 px-3 py-2.5">
-									<div className="min-w-0 flex-1">
-										<div className="text-[10px] text-ink-faint">NEXT UP</div>
-										<div className="font-medium text-ink text-sm">{nextSet.exerciseName}</div>
-									</div>
-									<span
-										className={cn(
-											'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
-											SET_TYPE_STYLES[nextSet.setType]
-										)}
-									>
-										{nextSet.setType}
-									</span>
-									<span className="font-mono text-ink text-sm tabular-nums">
-										{nextSet.weightKg ?? 0}kg &times; {nextSet.reps}
-									</span>
-								</div>
-							)}
-
-							{currentSet !== null && (
-								<Button className="w-full" variant="outline" onClick={onClose}>
-									<X className="size-5" />
-									Exit timer mode
-								</Button>
-							)}
-						</>
+		<>
+			<div className="fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={onClose}
+					aria-label="Minimize timer mode"
+					className="absolute top-4 left-4 rounded-full"
+				>
+					<Minimize2 className="size-5" />
+				</Button>
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={() => setNotesOpen(true)}
+					aria-label="Open session notes"
+					className="absolute top-4 right-4 rounded-full"
+				>
+					<NotebookPen className="size-5" />
+					{hasNotes && (
+						<span className="absolute top-1 right-1 size-1.5 rounded-full bg-accent" aria-hidden />
 					)}
+				</Button>
+				<div className="mx-auto flex h-full w-full max-w-sm flex-col">
+					{/* Main content */}
+					<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
+						{currentSet === null ? (
+							/* All sets complete */
+							<>
+								<div className="flex size-16 items-center justify-center rounded-full bg-success/20">
+									<Dumbbell className="size-8 text-success" />
+								</div>
+								<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
+								<div className="font-mono text-ink-muted text-sm tabular-nums">
+									{formatTimer((Date.now() - session.startedAt) / 1000)} elapsed
+								</div>
+								<Button onClick={onClose} className="w-full">
+									Close
+								</Button>
+							</>
+						) : (
+							<>
+								<h2 className="font-mono text-ink-muted text-sm tabular-nums">
+									Exercise {currentSet.itemIndex + 1} / {exerciseGroups.length}
+								</h2>
+								{/* Exercise name with nav arrows */}
+								<div className="flex w-full items-center justify-center gap-2">
+									<button
+										type="button"
+										className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+										onClick={() => handleNavigate(-1)}
+									>
+										<ChevronLeft className="size-5" />
+									</button>
+									<h2 className="flex items-center gap-1.5 font-semibold text-ink text-xl">
+										{currentSet.exerciseName}
+										<button
+											type="button"
+											onClick={() => setGuideOpen(true)}
+											aria-label={`Open guide for ${currentSet.exerciseName}`}
+											className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+										>
+											<HelpCircle className="size-4" />
+										</button>
+									</h2>
+									<button
+										type="button"
+										className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+										onClick={() => handleNavigate(1)}
+									>
+										<ChevronRight className="size-5" />
+									</button>
+								</div>
+
+								{/* Superset exercise strip */}
+								{currentSet.superset && (
+									<ButtonGroup
+										options={currentSet.superset.exercises.map(ex => ({
+											value: ex.exerciseId,
+											label: ex.letter
+										}))}
+										value={currentSet.exerciseId}
+										size="sm"
+									/>
+								)}
+
+								{/* Badge + set progress + target */}
+								<div className="flex flex-col items-center gap-1">
+									<div className="flex items-center gap-2">
+										<span
+											className={cn(
+												'rounded-full px-2 py-0.5 font-mono text-xs',
+												SET_TYPE_STYLES[currentSet.setType]
+											)}
+										>
+											{currentSet.setType}
+										</span>
+										{currentSet.superset && (
+											<span className="rounded-full bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
+												SS{currentSet.superset.group}
+											</span>
+										)}
+										<div className="flex items-center gap-1">
+											<button
+												type="button"
+												className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+												onClick={() => handleNavigateSet(-1)}
+												aria-label="Previous set"
+											>
+												<ChevronLeft className="size-3.5" />
+											</button>
+											<span className="font-mono text-ink-muted text-sm tabular-nums">
+												Set {currentSet.setNumber} of {currentSet.totalSets}
+											</span>
+											<button
+												type="button"
+												className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+												onClick={() => handleNavigateSet(1)}
+												aria-label="Next set"
+											>
+												<ChevronRight className="size-3.5" />
+											</button>
+										</div>
+									</div>
+									<span className="font-mono text-ink text-lg tabular-nums">
+										{currentSet.weightKg ?? 0}kg &times; {currentSet.reps} reps
+									</span>
+								</div>
+
+								{/* Timer ring — always rendered, content crossfades */}
+								<TimerRing
+									remaining={isResting ? preciseRemaining : 0}
+									total={isResting ? (rest?.total ?? 0) : 0}
+									setType={rest?.setType ?? 'working'}
+								>
+									{isResting ? (
+										<>
+											<span className="text-ink-faint text-xs">Rest</span>
+											<span
+												className={cn(
+													'font-mono text-5xl tabular-nums',
+													preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
+												)}
+											>
+												{formatTimer(preciseRemaining)}
+											</span>
+											<span className="font-mono text-ink-faint text-xs tabular-nums">
+												{formatTimer((rest?.total ?? 0) - preciseRemaining)} rested
+											</span>
+										</>
+									) : (
+										<>
+											{isSetPaused && <span className="text-ink-faint text-xs">Paused</span>}
+											<span
+												className={cn(
+													'font-mono text-4xl tabular-nums',
+													isSetPaused ? 'text-ink-muted' : 'text-ink'
+												)}
+											>
+												{formatTimer(setElapsedMs / 1000)}
+											</span>
+											{isInSuperset && (
+												<SecondaryTimer startedAt={_roundStartedAt} label="round" />
+											)}
+										</>
+									)}
+								</TimerRing>
+
+								{/* Weight x Reps inputs — editable during rest to update the logged set */}
+								<div className="flex items-center gap-3">
+									<NumberInput
+										className="w-28 text-center text-2xl"
+										value={active?.weight ?? ''}
+										placeholder="kg"
+										unit="kg"
+										onChange={e => {
+											const v = Number.parseFloat(e.target.value)
+											handleEditWeight(Number.isNaN(v) ? null : v)
+										}}
+										step={2.5}
+										min={0}
+									/>
+									<span className="text-ink-faint text-xl">&times;</span>
+									<NumberInput
+										className="w-24 text-center text-2xl"
+										value={active?.reps ?? 0}
+										onChange={e => {
+											const v = Number.parseInt(e.target.value, 10)
+											if (!Number.isNaN(v) && v >= 0) handleEditReps(v)
+										}}
+										unit="r"
+										step={1}
+										min={0}
+									/>
+								</div>
+
+								{/* Action buttons */}
+								<div className="flex w-full items-center gap-2">
+									{isDoingSet && (
+										<Button variant="outline" size="icon" onClick={handlePause}>
+											<Pause className="size-4" />
+										</Button>
+									)}
+									{isSetPaused && (
+										<Button variant="outline" size="icon" onClick={handleStopSet}>
+											<Square className="size-4" />
+										</Button>
+									)}
+									{!(isDoingSet || isSetPaused) && hasConfirmedSets && (
+										<Button variant="outline" size="icon" onClick={handleUndo}>
+											<Undo2 className="size-4" />
+										</Button>
+									)}
+									<Button
+										onClick={
+											isResting
+												? handleDismissTimer
+												: isSetPaused
+													? handleResume
+													: isDoingSet
+														? handleConfirm
+														: handleStartSet
+										}
+										className="flex-1"
+									>
+										{isResting
+											? preciseRemaining <= 0
+												? 'Next Set'
+												: 'Skip Rest'
+											: isSetPaused
+												? 'Resume'
+												: isDoingSet
+													? currentSet?.transition
+														? 'Next'
+														: 'Done'
+													: 'Start'}
+									</Button>
+								</div>
+
+								{/* Next set preview */}
+								{nextSet && (
+									<div className="flex w-full items-center gap-3 rounded-md border border-edge bg-surface-1 px-3 py-2.5">
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-1.5 text-[10px] text-ink-faint">
+												{currentSet.transition ? (
+													<>
+														<ArrowLeftRight className="size-3 text-accent" />
+														<span className="text-accent">SWITCH</span>
+													</>
+												) : (
+													'NEXT UP'
+												)}
+											</div>
+											<div className="font-medium text-ink text-sm">{nextSet.exerciseName}</div>
+										</div>
+										<span
+											className={cn(
+												'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
+												SET_TYPE_STYLES[nextSet.setType]
+											)}
+										>
+											{nextSet.setType}
+										</span>
+										<span className="font-mono text-ink text-sm tabular-nums">
+											{nextSet.weightKg ?? 0}kg &times; {nextSet.reps}
+										</span>
+									</div>
+								)}
+							</>
+						)}
+					</div>
 				</div>
 			</div>
-		</div>
+			{guideOpen && currentSet !== null && (
+				<ExerciseGuideModal
+					exerciseId={currentSet.exerciseId}
+					exerciseName={currentSet.exerciseName}
+					onClose={() => setGuideOpen(false)}
+				/>
+			)}
+			{notesOpen && (
+				<SessionNotesModal
+					sessionId={session.id}
+					initialNotes={session.notes}
+					onClose={() => setNotesOpen(false)}
+				/>
+			)}
+		</>
 	)
 }

@@ -1,8 +1,8 @@
 import { Search, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Input, Modal } from '~/components/ui'
+import { rankBySimilarity, type ScoredExercise } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
-import { rankBySimilarity, type ScoredExercise } from '../utils/similarity'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
 

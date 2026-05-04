@@ -1,4 +1,4 @@
-import type { AbsoluteMacros } from '~/lib/macros'
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 import { formatIngredientAmount } from './format'
 

@@ -13,3 +13,8 @@ repos:
         language: system
         pass_filenames: false
         priority: 1
+      - id: commitlint
+        name: commitlint
+        entry: yarn commitlint --edit
+        language: system
+        stages: [commit-msg]

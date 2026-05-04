@@ -5,14 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
-import { createIDBPersister } from '~/lib/query-persist'
+import { createIDBPersister, UserProvider } from '~/lib'
 import { createTRPCClient, trpc } from '~/lib/trpc'
-import { UserProvider } from '~/lib/user'
 import { router } from '~/router'
 import '@mdxeditor/editor/style.css'
 import '~/index.css'
 
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 const ONE_DAY = 1000 * 60 * 60 * 24
 
@@ -23,6 +22,7 @@ function App() {
 				queries: {
 					gcTime: ONE_DAY,
 					staleTime: 1000 * 60 * 5,
+					refetchOnMount: 'always',
 					networkMode: 'offlineFirst'
 				},
 				mutations: {

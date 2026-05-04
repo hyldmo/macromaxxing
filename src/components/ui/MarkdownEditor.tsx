@@ -7,7 +7,7 @@ import {
 	quotePlugin
 } from '@mdxeditor/editor'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface MarkdownEditorProps {
 	value: string
@@ -27,6 +27,6 @@ export const MarkdownEditor: FC<MarkdownEditorProps> = ({ value, onChange, readO
 		readOnly={readOnly}
 		placeholder={placeholder}
 		className={cn('mdxeditor-root', className)}
-		contentEditableClassName="mdxeditor-content min-h-[150px] px-3 py-2 text-ink text-sm"
+		contentEditableClassName="mdxeditor-content prose prose-invert prose-sm min-h-[150px] max-w-none px-3 py-2 text-ink"
 	/>
 )

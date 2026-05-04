@@ -1,8 +1,10 @@
-import { Globe, X } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import { Globe, ScanLine, X } from 'lucide-react'
+import { type FC, useCallback, useEffect, useState } from 'react'
 import { Button, Input, Modal, NumberInput, Spinner, TRPCError } from '~/components/ui'
 import { MacroInput } from '~/features/ingredients'
+import type { OFFProduct } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { BarcodeLookup } from './BarcodeLookup'
 
 type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
 
@@ -22,6 +24,7 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 	const [fat, setFat] = useState('')
 	const [kcal, setKcal] = useState('')
 	const [fiber, setFiber] = useState('')
+	const [barcodeActive, setBarcodeActive] = useState(false)
 
 	const utils = trpc.useUtils()
 
@@ -61,6 +64,7 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 			setFat('')
 			setKcal('')
 			setFiber('')
+			setBarcodeActive(false)
 			resetAdd()
 			resetParse()
 		}
@@ -95,6 +99,18 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 		})
 	}
 
+	const handleBarcodeProduct = useCallback((product: OFFProduct) => {
+		setName(product.name)
+		setServingSize(String(product.servingSize))
+		if (product.servings != null) setServings(String(product.servings))
+		setProtein(String(product.protein))
+		setCarbs(String(product.carbs))
+		setFat(String(product.fat))
+		setKcal(String(product.kcal))
+		setFiber(String(product.fiber))
+		setUrl(`https://world.openfoodfacts.org/product/${product.barcode}`)
+	}, [])
+
 	const canSubmit = name.trim() && Number.parseFloat(servingSize) > 0
 
 	if (!open) return null
@@ -111,12 +127,33 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 
 			{/* Content */}
 			<form onSubmit={handleSubmit} className="space-y-3 p-4">
+				{barcodeActive ? (
+					<BarcodeLookup
+						active
+						onProductFound={p => {
+							handleBarcodeProduct(p)
+							setBarcodeActive(false)
+						}}
+						onClose={() => setBarcodeActive(false)}
+					/>
+				) : (
+					<Button type="button" variant="outline" className="w-full" onClick={() => setBarcodeActive(true)}>
+						<ScanLine className="size-4" />
+						Scan barcode
+					</Button>
+				)}
+
+				<div className="flex items-center gap-3">
+					<div className="h-px flex-1 bg-edge" />
+					<span className="text-ink-faint text-xs">or fetch from URL</span>
+					<div className="h-px flex-1 bg-edge" />
+				</div>
+
 				<div className="flex gap-2">
 					<Input
 						placeholder="https://example.com/product..."
 						value={url}
 						onChange={e => setUrl(e.target.value)}
-						autoFocus
 						className="flex-1"
 					/>
 					<Button

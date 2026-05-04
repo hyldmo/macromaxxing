@@ -1,22 +1,24 @@
+import type { MealPlan } from '@macromaxxing/db'
 import { Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { AddToInventoryModal } from './AddToInventoryModal'
 import { MealCard } from './MealCard'
-import { SlotPickerPopover } from './SlotPickerPopover'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type SlotWithInventory = InventoryItem['slots'][number] & { inventory: InventoryItem }
 
 export interface MealSlotProps {
+	planId: MealPlan['id']
 	dayOfWeek: number
 	slotIndex: number
 	slot: SlotWithInventory | null
 	inventory: InventoryItem[]
-	onDrop: (inventoryId: string, sourceSlotId?: string) => void
+	onDrop: (inventoryId: InventoryItem['id'], sourceSlotId?: SlotWithInventory['id']) => void
 }
 
-export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, inventory, onDrop }) => {
+export const MealSlot: FC<MealSlotProps> = ({ planId, dayOfWeek, slotIndex, slot, inventory, onDrop }) => {
 	const [showPicker, setShowPicker] = useState(false)
 	const [isDragOver, setIsDragOver] = useState(false)
 
@@ -40,11 +42,11 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 		const raw = e.dataTransfer.getData('text/plain')
 		if (!raw) return
 		try {
-			const data = JSON.parse(raw) as { inventoryId: string; slotId?: string }
+			const data: { inventoryId: InventoryItem['id']; slotId?: SlotWithInventory['id'] } = JSON.parse(raw)
 			onDrop(data.inventoryId, data.slotId)
 		} catch {
 			// Plain inventoryId from inventory sidebar drag
-			onDrop(raw)
+			onDrop(raw as InventoryItem['id'])
 		}
 	}
 
@@ -71,11 +73,10 @@ export const MealSlot: FC<MealSlotProps> = ({ dayOfWeek, slotIndex, slot, invent
 			</div>
 
 			{showPicker && (
-				<SlotPickerPopover
-					dayOfWeek={dayOfWeek}
-					slotIndex={slotIndex}
-					inventory={inventory}
+				<AddToInventoryModal
+					planId={planId}
 					onClose={() => setShowPicker(false)}
+					slotAllocation={{ dayOfWeek, slotIndex, inventory }}
 				/>
 			)}
 		</>

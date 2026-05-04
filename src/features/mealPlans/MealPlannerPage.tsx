@@ -1,10 +1,11 @@
-import type { MealPlan } from '@macromaxxing/db'
-import { ArrowLeft, Copy, Trash2 } from 'lucide-react'
+import type { MealPlan, MealPlanInventory, MealPlanSlot } from '@macromaxxing/db'
+import { ArrowLeft, Copy, ShoppingCart, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, CopyButton, Input, Spinner, TRPCError } from '~/components/ui'
+import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { GroceryListDialog } from './components/GroceryListDialog'
 import { InventorySidebar } from './components/InventorySidebar'
 import { WeekGrid } from './components/WeekGrid'
 import { WeeklyAverages } from './components/WeeklyAverages'
@@ -15,6 +16,7 @@ export const MealPlannerPage: FC = () => {
 	const navigate = useNavigate()
 	const [name, setName] = useState('')
 	const [hasLoadedPlan, setHasLoadedPlan] = useState(false)
+	const [showGroceryList, setShowGroceryList] = useState(false)
 	useDocumentTitle(name || 'Meal Plan')
 
 	const planQuery = trpc.mealPlan.get.useQuery({ id: id! }, { enabled: !!id })
@@ -62,18 +64,16 @@ export const MealPlannerPage: FC = () => {
 		duplicateMutation.mutate({ id: id!, newName: `${planQuery.data?.name} (copy)` })
 	}
 
-	function handleDrop(dayOfWeek: number, slotIndex: number, inventoryId: string, sourceSlotId?: string) {
+	function handleDrop(
+		dayOfWeek: number,
+		slotIndex: number,
+		inventoryId: MealPlanInventory['id'],
+		sourceSlotId?: MealPlanSlot['id']
+	) {
 		if (sourceSlotId) {
-			removeSlotMutation.mutate({
-				slotId: sourceSlotId as Parameters<typeof removeSlotMutation.mutate>[0]['slotId']
-			})
+			removeSlotMutation.mutate({ slotId: sourceSlotId })
 		}
-		allocateMutation.mutate({
-			inventoryId: inventoryId as Parameters<typeof allocateMutation.mutate>[0]['inventoryId'],
-			dayOfWeek,
-			slotIndex,
-			portions: 1
-		})
+		allocateMutation.mutate({ inventoryId, dayOfWeek, slotIndex, portions: 1 })
 	}
 
 	if (planQuery.isLoading) {
@@ -108,6 +108,10 @@ export const MealPlannerPage: FC = () => {
 					className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
 				/>
 				<div className="ml-auto flex items-center gap-1">
+					<Button variant="ghost" size="sm" onClick={() => setShowGroceryList(true)}>
+						<ShoppingCart className="size-4" />
+						<span className="hidden sm:inline">Groceries</span>
+					</Button>
 					<CopyButton getText={() => formatMealPlan(planQuery.data!)} />
 					<Button variant="ghost" size="sm" onClick={handleDuplicate} disabled={duplicateMutation.isPending}>
 						<Copy className="size-4" />
@@ -137,7 +141,7 @@ export const MealPlannerPage: FC = () => {
 
 				{/* Week grid */}
 				<div className="min-w-0 flex-1">
-					<WeekGrid inventory={planQuery.data.inventory} onDrop={handleDrop} />
+					<WeekGrid planId={id!} inventory={planQuery.data.inventory} onDrop={handleDrop} />
 					<div className="mt-3">
 						<WeeklyAverages inventory={planQuery.data.inventory} />
 					</div>
@@ -148,6 +152,8 @@ export const MealPlannerPage: FC = () => {
 			<div className="lg:hidden">
 				<InventorySidebar planId={id!} inventory={planQuery.data.inventory} />
 			</div>
+
+			{showGroceryList && <GroceryListDialog plan={planQuery.data} onClose={() => setShowGroceryList(false)} />}
 		</div>
 	)
 }

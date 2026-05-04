@@ -6,5 +6,6 @@ export default defineConfig({
 	dialect: 'sqlite',
 	migrations: {
 		prefix: 'timestamp'
-	}
+	},
+	dbCredentials: process.env.DB_URL ? { url: process.env.DB_URL } : undefined
 })

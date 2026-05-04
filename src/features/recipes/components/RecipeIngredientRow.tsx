@@ -1,11 +1,11 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import { ChevronDown, ChevronRight, GripVertical, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, NumberInput, Select, TRPCError } from '~/components/ui'
-import { cn } from '~/lib/cn'
-import type { AbsoluteMacros } from '~/lib/macros'
+import { cn } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { formatIngredientAmount, getAllUnits } from '../utils/format'
 import { MacroBar } from './MacroBar'
@@ -185,7 +185,14 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 								{itemName}
 							</Link>
 						) : (
-							<span className="text-ink">{itemName}</span>
+							<a
+								href={`/ingredients?search=${encodeURIComponent(itemName)}`}
+								target="_blank"
+								rel="noreferrer"
+								className="cursor-pointer text-ink hover:underline"
+							>
+								{itemName}
+							</a>
 						)}
 						{!isSubrecipe &&
 							(readOnly ? (

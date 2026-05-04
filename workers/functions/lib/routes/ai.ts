@@ -1,4 +1,4 @@
-import { recipes, type TypeIDString } from '@macromaxxing/db'
+import { extractPreparation, type HttpsUrl, recipes, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq } from 'drizzle-orm'
@@ -6,9 +6,11 @@ import { z } from 'zod'
 import {
 	extractJsonLdProduct,
 	extractJsonLdRecipe,
+	fetchLocalUsdaPortions,
 	generateTextWithFallback,
 	INGREDIENT_AI_PROMPT,
 	isVolumeUnit,
+	lookupLocalUSDA,
 	lookupUSDA,
 	parseIngredientString,
 	stripHtml
@@ -24,11 +26,12 @@ import {
 	RECIPE_AI_PROMPT
 } from '../constants'
 import { protectedProcedure, router } from '../trpc'
-import { extractPreparation, normalizeIngredientName } from '../utils'
+import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
 
 export const aiRouter = router({
 	lookup: protectedProcedure
+		.meta({ description: 'Look up ingredient nutrition via USDA database or AI' })
 		.input(
 			z.object({
 				ingredientName: z.string().min(1),
@@ -40,7 +43,18 @@ export const aiRouter = router({
 
 			// If unitsOnly is true, skip USDA and go straight to AI for density + units
 			if (!input.unitsOnly) {
-				// Try USDA first (free, accurate, fast)
+				// Try local USDA exact match first (instant, no API call)
+				const localUsda = await lookupLocalUSDA(ctx.db, cleanName)
+				if (localUsda) {
+					const { fdcId, description: _, ...macros } = localUsda
+					const localPortions = await fetchLocalUsdaPortions(ctx.db, fdcId)
+					const nonVolumeUnits = localPortions
+						.filter(p => !isVolumeUnit(p.name))
+						.map(p => ({ ...p, isDefault: false }))
+					return { ...macros, fdcId, density: null, units: nonVolumeUnits, source: 'usda' as const }
+				}
+
+				// Fall back to USDA API search
 				const usdaKey = ctx.env.USDA_API_KEY
 				if (usdaKey) {
 					const usdaResult = await lookupUSDA(cleanName, usdaKey)
@@ -117,7 +131,7 @@ export const aiRouter = router({
 	generateInstructions: protectedProcedure
 		.input(
 			z.object({
-				recipeId: z.custom<TypeIDString<'rcp'>>(),
+				recipeId: zodTypeID('rcp'),
 				ingredients: z.array(z.object({ name: z.string(), grams: z.number() })),
 				preprompt: z.string().optional()
 			})
@@ -156,6 +170,7 @@ export const aiRouter = router({
 		}),
 
 	parseRecipe: protectedProcedure
+		.meta({ description: 'Parse a recipe from URL or pasted text into structured ingredients' })
 		.input(
 			z
 				.object({
@@ -192,6 +207,7 @@ export const aiRouter = router({
 						ingredients: ingredients.map(i => ({ ...i, preparation: i.preparation ?? null })),
 						instructions: jsonLd.instructions,
 						servings: jsonLd.servings,
+						imageUrl: jsonLd.image,
 						source: 'structured' as const
 					}
 				}
@@ -213,9 +229,9 @@ export const aiRouter = router({
 
 			let textContent: string
 			if (input.text) {
-				textContent = input.text.slice(0, 8000)
+				textContent = input.text.slice(0, 8_000)
 			} else if (htmlContent) {
-				textContent = stripHtml(htmlContent).slice(0, 8000)
+				textContent = stripHtml(htmlContent).slice(0, 8_000)
 			} else {
 				throw new TRPCError({ code: 'BAD_REQUEST', message: 'No content to parse' })
 			}
@@ -230,6 +246,7 @@ export const aiRouter = router({
 
 			return {
 				...output,
+				imageUrl: output.imageUrl as HttpsUrl | null,
 				ingredients: output.ingredients.map(ing => {
 					if (ing.preparation) return ing
 					const { name, preparation } = extractPreparation(ing.name)
@@ -271,7 +288,7 @@ export const aiRouter = router({
 			})
 		}
 
-		const textContent = stripHtml(html).slice(0, 8000)
+		const textContent = stripHtml(html).slice(0, 8_000)
 
 		const { output } = await generateTextWithFallback({
 			provider: settings.provider,

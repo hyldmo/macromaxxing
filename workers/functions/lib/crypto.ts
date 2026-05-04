@@ -8,7 +8,7 @@ async function deriveKey(secret: string): Promise<CryptoKey> {
 		{
 			name: 'PBKDF2',
 			salt: encoder.encode('macromaxxing-salt'),
-			iterations: 100000,
+			iterations: 100_000,
 			hash: 'SHA-256'
 		},
 		keyMaterial,

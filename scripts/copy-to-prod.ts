@@ -27,7 +27,7 @@ const WRANGLER = 'yarn workspace @macromaxxing/workers wrangler'
 
 function query<T>(sql: string, remote = false): D1Row<T>[] {
 	const flag = remote ? '--remote' : '--local'
-	const escaped = sql.replace(/"/g, '\\"')
+	const escaped = sql.replaceAll('"', '\\"')
 	const out = execSync(`${WRANGLER} d1 execute macromaxxing ${flag} --json --command "${escaped}"`, {
 		encoding: 'utf8',
 		cwd: process.cwd(),
@@ -39,7 +39,7 @@ function query<T>(sql: string, remote = false): D1Row<T>[] {
 function sqlVal(v: unknown): string {
 	if (v === null || v === undefined || v === 'null') return 'NULL'
 	if (typeof v === 'number') return String(v)
-	return `'${String(v).replace(/'/g, "''")}'`
+	return `'${String(v).replaceAll("'", "''")}'`
 }
 
 function buildInserts<T extends Record<string, unknown>>(table: string, rows: T[]): string {

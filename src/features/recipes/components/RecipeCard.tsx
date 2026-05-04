@@ -1,7 +1,8 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
-import { cn } from '~/lib/cn'
-import type { AbsoluteMacros } from '~/lib/macros'
+import { Image } from '~/components/ui/Image'
+import { cn, getImageUrl } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { MacroBar } from './MacroBar'
 import { MacroRing } from './MacroRing'
@@ -22,7 +23,11 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 				isMine ? 'border-accent/30' : 'border-edge'
 			)}
 		>
-			<MacroRing className="max-xs:hidden" macros={portion} size="sm" />
+			{recipe.image ? (
+				<Image src={getImageUrl(recipe.image)} alt={recipe.name} className="size-12" />
+			) : (
+				<MacroRing className="max-xs:hidden" macros={portion} size="sm" ratio="macro" />
+			)}
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-baseline justify-between gap-2">
 					<div className="flex min-w-0 items-center gap-1.5">
@@ -47,6 +52,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 					<span className="text-macro-protein">P {portion.protein.toFixed(0)}g</span>
 					<span className="text-macro-carbs">C {portion.carbs.toFixed(0)}g</span>
 					<span className="text-macro-fat">F {portion.fat.toFixed(0)}g</span>
+					<span className="text-macro-fiber">Fi {portion.fiber.toFixed(0)}g</span>
 				</div>
 				<div className="mt-1.5">
 					<MacroBar macros={portion} />

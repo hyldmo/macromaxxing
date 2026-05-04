@@ -1,5 +1,7 @@
 import type { InferSelectModel } from 'drizzle-orm'
 import type {
+	apiTokens,
+	exerciseGuides,
 	exerciseMuscles,
 	exercises,
 	ingredients,
@@ -9,17 +11,23 @@ import type {
 	mealPlans,
 	recipeIngredients,
 	recipes,
+	sessionPlannedExercises,
 	strengthStandards,
+	usdaFoods,
+	usdaPortions,
 	userSettings,
 	users,
 	workoutExercises,
 	workoutLogs,
+	workoutProgramItems,
+	workoutPrograms,
 	workoutSessions,
 	workouts
 } from './schema'
 
 export type User = InferSelectModel<typeof users>
 export type UserSettings = InferSelectModel<typeof userSettings>
+export type ApiToken = InferSelectModel<typeof apiTokens>
 export type Ingredient = InferSelectModel<typeof ingredients>
 export type IngredientUnit = InferSelectModel<typeof ingredientUnits>
 export type Recipe = InferSelectModel<typeof recipes>
@@ -29,11 +37,17 @@ export type MealPlanInventory = InferSelectModel<typeof mealPlanInventory>
 export type MealPlanSlot = InferSelectModel<typeof mealPlanSlots>
 export type Exercise = InferSelectModel<typeof exercises>
 export type ExerciseMuscle = InferSelectModel<typeof exerciseMuscles>
+export type ExerciseGuideRow = InferSelectModel<typeof exerciseGuides>
 export type StrengthStandard = InferSelectModel<typeof strengthStandards>
 export type Workout = InferSelectModel<typeof workouts>
 export type WorkoutExercise = InferSelectModel<typeof workoutExercises>
+export type WorkoutProgram = InferSelectModel<typeof workoutPrograms>
+export type WorkoutProgramItem = InferSelectModel<typeof workoutProgramItems>
 export type WorkoutSession = InferSelectModel<typeof workoutSessions>
+export type SessionPlannedExercise = InferSelectModel<typeof sessionPlannedExercises>
 export type WorkoutLog = InferSelectModel<typeof workoutLogs>
+export type UsdaFood = InferSelectModel<typeof usdaFoods>
+export type UsdaPortion = InferSelectModel<typeof usdaPortions>
 
 export interface AbsoluteMacros {
 	protein: number

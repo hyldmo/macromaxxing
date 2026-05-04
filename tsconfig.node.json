@@ -2,10 +2,12 @@
 	"compilerOptions": {
 		"skipLibCheck": true,
 		"noEmit": true,
-		"lib": ["ES2020"],
+		"target": "ES2024",
+		"lib": ["ES2024"],
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"allowSyntheticDefaultImports": true,
+		"allowImportingTsExtensions": true,
 		"types": ["node"]
 	},
 	"include": ["vite.config.ts", "scripts"]

@@ -1,26 +1,54 @@
 import {
+	computeBalances,
+	computeMuscleLoad,
+	type ExerciseType,
+	exerciseGuides,
 	exerciseMuscles,
 	exercises,
+	exerciseType,
 	type FatigueTier,
 	MUSCLE_GROUPS,
+	type MuscleContribution,
 	type MuscleGroup,
+	newId,
 	type SetType,
+	sessionPlannedExercises,
+	setMode,
+	sumTotals,
+	type TrainingGoal,
 	type TypeIDString,
+	trainingGoal,
+	userSettings,
+	withZones,
 	workoutExercises,
 	workoutLogs,
+	workoutProgramItems,
+	workoutPrograms,
 	workoutSessions,
-	workouts
+	workouts,
+	zodTypeID
 } from '@macromaxxing/db'
-import { and, desc, eq, gte, isNull, or, sql } from 'drizzle-orm'
+import { TRPCError } from '@trpc/server'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { z } from 'zod'
-import { protectedProcedure, router } from '../trpc'
+import { protectedProcedure, publicProcedure, router } from '../trpc'
+import { ensureUserSettingsRow } from '../utils'
 
-const zExerciseType = z.enum(['compound', 'isolation'])
+const CUE_MAX = 300
+const DESCRIPTION_MAX = 500
+const CUES_MAX_COUNT = 10
+
+const zGuideInput = z.object({
+	description: z.string().min(10).max(DESCRIPTION_MAX),
+	cues: z.array(z.string().min(3).max(CUE_MAX)).min(1).max(CUES_MAX_COUNT),
+	pitfalls: z.array(z.string().min(3).max(CUE_MAX)).max(CUES_MAX_COUNT).nullable()
+})
+
 const zSetType = z.enum(['warmup', 'working', 'backoff'])
-const zSetMode = z.enum(['working', 'warmup', 'backoff', 'full'])
-const zTrainingGoal = z.enum(['hypertrophy', 'strength'])
+
 type InferredMuscle = { muscleGroup: MuscleGroup; intensity: number }
-type InferredExercise = { type: 'compound' | 'isolation'; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
+type InferredExercise = { type: ExerciseType; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
 
 /** Keyword-based muscle group inference from exercise name */
 function inferExercise(name: string): InferredExercise {
@@ -173,30 +201,103 @@ function inferExercise(name: string): InferredExercise {
 	return { type: 'compound', fatigueTier: 2, muscles: [] }
 }
 
+/** Throws BAD_REQUEST naming any workoutIds that don't belong to the user */
+async function assertWorkoutsOwned(
+	db: import('../db').Database,
+	userId: string,
+	workoutIds: TypeIDString<'wkt'>[]
+): Promise<void> {
+	if (workoutIds.length === 0) return
+	const found = await db
+		.select({ id: workouts.id })
+		.from(workouts)
+		.where(and(inArray(workouts.id, workoutIds), eq(workouts.userId, userId)))
+	if (found.length === workoutIds.length) return
+	const foundSet = new Set(found.map(r => r.id))
+	const missing = workoutIds.filter(id => !foundSet.has(id))
+	throw new TRPCError({
+		code: 'BAD_REQUEST',
+		message: `Workouts not found or not owned: ${missing.join(', ')}`
+	})
+}
+
+/** Insert program items in 20-row chunks (D1 100-bound-param limit, 5 cols) */
+async function insertProgramItems(
+	db: import('../db').Database,
+	programId: TypeIDString<'wpr'>,
+	workoutIds: TypeIDString<'wkt'>[],
+	now: number
+): Promise<void> {
+	const CHUNK = 20
+	for (let i = 0; i < workoutIds.length; i += CHUNK) {
+		const slice = workoutIds.slice(i, i + CHUNK)
+		await db.insert(workoutProgramItems).values(
+			slice.map((workoutId, idx) => ({
+				programId,
+				workoutId,
+				sortOrder: i + idx,
+				createdAt: now
+			}))
+		)
+	}
+}
+
+async function getProgramOrThrow(db: import('../db').Database, userId: string, id: TypeIDString<'wpr'>) {
+	const program = await db.query.workoutPrograms.findFirst({
+		where: { id, userId },
+		with: { items: { orderBy: { sortOrder: 'asc' }, with: { workout: true } } }
+	})
+	if (!program) {
+		throw new TRPCError({ code: 'NOT_FOUND', message: `Program ${id} not found or not owned by current user` })
+	}
+	return {
+		id: program.id,
+		name: program.name,
+		sortOrder: program.sortOrder,
+		createdAt: program.createdAt,
+		updatedAt: program.updatedAt,
+		workouts: program.items.map(i => i.workout)
+	}
+}
+
+/** Shared `with` for workout template queries */
+const workoutExercisesWith = {
+	exercises: {
+		with: { exercise: { with: { muscles: true } } },
+		orderBy: { sortOrder: 'asc' as const }
+	}
+} as const
+
 export const workoutsRouter = router({
 	// ─── Exercise CRUD ────────────────────────────────────────────
 
 	listExercises: protectedProcedure
-		.input(z.object({ type: zExerciseType.optional() }).optional())
+		.meta({ description: 'List available exercises (system catalog + user-created) with muscle mappings' })
+		.input(z.object({ type: exerciseType.optional() }).optional())
 		.query(async ({ ctx, input }) => {
-			const typeFilter = input?.type ? eq(exercises.type, input.type) : undefined
-			const userFilter = or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
-			const where = typeFilter ? and(userFilter, typeFilter) : userFilter
-
+			const typeFilter = input?.type ? { type: input.type } : {}
 			return ctx.db.query.exercises.findMany({
-				where,
+				where: {
+					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }],
+					...typeFilter
+				},
 				with: { muscles: true },
-				orderBy: [exercises.name]
+				orderBy: { name: 'asc' }
 			})
 		}),
 
 	createExercise: protectedProcedure
+		.meta({ description: 'Create a custom exercise with muscle group intensities and training rep ranges' })
 		.input(
 			z.object({
 				name: z.string().min(1),
-				type: zExerciseType,
+				type: exerciseType,
 				fatigueTier: z.number().int().min(1).max(4).optional(),
-				muscles: z.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
+				muscles: z.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) })),
+				strengthRepsMin: z.number().int().min(1).nullable(),
+				strengthRepsMax: z.number().int().min(1).nullable(),
+				hypertrophyRepsMin: z.number().int().min(1).nullable(),
+				hypertrophyRepsMax: z.number().int().min(1).nullable()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -204,7 +305,7 @@ export const workoutsRouter = router({
 			const tier = (input.fatigueTier ?? (input.type === 'compound' ? 2 : 4)) as FatigueTier
 			const [exercise] = await ctx.db
 				.insert(exercises)
-				.values({ userId: ctx.user.id, name: input.name, type: input.type, fatigueTier: tier, createdAt: now })
+				.values({ ...input, userId: ctx.user.id, fatigueTier: tier, createdAt: now })
 				.returning()
 
 			if (input.muscles.length > 0) {
@@ -218,55 +319,234 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.exercises.findFirst({
-				where: eq(exercises.id, exercise.id),
+				where: { id: exercise.id },
 				with: { muscles: true }
 			})
 		}),
 
+	updateExercise: protectedProcedure
+		.meta({ description: 'Update a custom exercise (system exercises are read-only)' })
+		.input(
+			z.object({
+				id: zodTypeID('exc'),
+				name: z.string().min(1).optional(),
+				type: exerciseType.optional(),
+				fatigueTier: z.number().int().min(1).max(4).optional(),
+				strengthRepsMin: z.number().int().min(1).nullable().optional(),
+				strengthRepsMax: z.number().int().min(1).nullable().optional(),
+				hypertrophyRepsMin: z.number().int().min(1).nullable().optional(),
+				hypertrophyRepsMax: z.number().int().min(1).nullable().optional(),
+				muscles: z
+					.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
+					.optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.exercises.findFirst({
+				where: { id: input.id }
+			})
+			if (!existing || existing.userId !== ctx.user.id) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+
+			const { id, muscles, ...fields } = input
+			const set: Record<string, unknown> = {}
+			if (fields.name !== undefined) set.name = fields.name
+			if (fields.type !== undefined) set.type = fields.type
+			if (fields.fatigueTier !== undefined) set.fatigueTier = fields.fatigueTier
+			if (fields.strengthRepsMin !== undefined) set.strengthRepsMin = fields.strengthRepsMin
+			if (fields.strengthRepsMax !== undefined) set.strengthRepsMax = fields.strengthRepsMax
+			if (fields.hypertrophyRepsMin !== undefined) set.hypertrophyRepsMin = fields.hypertrophyRepsMin
+			if (fields.hypertrophyRepsMax !== undefined) set.hypertrophyRepsMax = fields.hypertrophyRepsMax
+
+			if (Object.keys(set).length > 0) {
+				await ctx.db.update(exercises).set(set).where(eq(exercises.id, id))
+			}
+
+			if (muscles !== undefined) {
+				await ctx.db.delete(exerciseMuscles).where(eq(exerciseMuscles.exerciseId, id))
+				if (muscles.length > 0) {
+					await ctx.db.insert(exerciseMuscles).values(
+						muscles.map(m => ({
+							exerciseId: id,
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity
+						}))
+					)
+				}
+			}
+
+			return ctx.db.query.exercises.findFirst({
+				where: { id },
+				with: { muscles: true }
+			})
+		}),
+
+	deleteExercise: protectedProcedure
+		.meta({ description: 'Delete a custom exercise' })
+		.input(z.object({ id: zodTypeID('exc') }))
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.exercises.findFirst({
+				where: { id: input.id }
+			})
+			if (!existing || existing.userId !== ctx.user.id) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+
+			// Check if exercise is used in any workout templates or session plans
+			const [templateRef] = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(workoutExercises)
+				.where(eq(workoutExercises.exerciseId, input.id))
+			const [sessionRef] = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(sessionPlannedExercises)
+				.where(eq(sessionPlannedExercises.exerciseId, input.id))
+
+			if ((templateRef?.count ?? 0) > 0 || (sessionRef?.count ?? 0) > 0) {
+				throw new TRPCError({
+					code: 'PRECONDITION_FAILED',
+					message: 'Exercise is used in workout templates. Remove it first.'
+				})
+			}
+
+			await ctx.db.delete(exercises).where(eq(exercises.id, input.id))
+		}),
+
+	// ─── Exercise Guides ──────────────────────────────────────────
+
+	getGuide: publicProcedure
+		.meta({ description: 'Get the technique guide (description, cues, pitfalls) for an exercise' })
+		.input(z.object({ exerciseId: zodTypeID('exc') }))
+		.query(async ({ ctx, input }) => {
+			const row = await ctx.db.query.exerciseGuides.findFirst({
+				where: { exerciseId: input.exerciseId }
+			})
+			if (!row) return null
+			const cuesParsed: unknown = JSON.parse(row.cues)
+			const pitfallsParsed: unknown = row.pitfalls === null ? null : JSON.parse(row.pitfalls)
+			const cues: string[] = Array.isArray(cuesParsed)
+				? cuesParsed.filter((c): c is string => typeof c === 'string')
+				: []
+			const pitfalls: string[] | null = Array.isArray(pitfallsParsed)
+				? pitfallsParsed.filter((p): p is string => typeof p === 'string')
+				: null
+			return {
+				id: row.id,
+				exerciseId: row.exerciseId,
+				description: row.description,
+				cues,
+				pitfalls,
+				updatedAt: row.updatedAt
+			}
+		}),
+
+	upsertGuide: protectedProcedure
+		.meta({
+			description:
+				'Create or update the technique guide for an exercise. Only the exercise owner may edit their own guides; system exercises are seeded via script.'
+		})
+		.input(zGuideInput.extend({ exerciseId: zodTypeID('exc') }))
+		.mutation(async ({ ctx, input }) => {
+			const exercise = await ctx.db.query.exercises.findFirst({ where: { id: input.exerciseId } })
+			if (!exercise) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+			if (exercise.userId !== ctx.user.id) {
+				throw new TRPCError({
+					code: 'FORBIDDEN',
+					message: 'System exercise guides are read-only. You can only edit guides for your own exercises.'
+				})
+			}
+
+			const now = Date.now()
+			const cuesJson = JSON.stringify(input.cues)
+			const pitfallsJson = input.pitfalls === null ? null : JSON.stringify(input.pitfalls)
+
+			const existing = await ctx.db.query.exerciseGuides.findFirst({
+				where: { exerciseId: input.exerciseId }
+			})
+
+			if (existing) {
+				await ctx.db
+					.update(exerciseGuides)
+					.set({ description: input.description, cues: cuesJson, pitfalls: pitfallsJson, updatedAt: now })
+					.where(eq(exerciseGuides.id, existing.id))
+			} else {
+				await ctx.db.insert(exerciseGuides).values({
+					id: newId('egd'),
+					exerciseId: input.exerciseId,
+					description: input.description,
+					cues: cuesJson,
+					pitfalls: pitfallsJson,
+					updatedAt: now
+				})
+			}
+
+			return {
+				exerciseId: input.exerciseId,
+				description: input.description,
+				cues: input.cues,
+				pitfalls: input.pitfalls,
+				updatedAt: now
+			}
+		}),
+
+	deleteGuide: protectedProcedure
+		.meta({ description: 'Delete the technique guide for an exercise you own' })
+		.input(z.object({ exerciseId: zodTypeID('exc') }))
+		.mutation(async ({ ctx, input }) => {
+			const exercise = await ctx.db.query.exercises.findFirst({ where: { id: input.exerciseId } })
+			if (!exercise) {
+				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+			}
+			if (exercise.userId !== ctx.user.id) {
+				throw new TRPCError({
+					code: 'FORBIDDEN',
+					message: 'System exercise guides are read-only.'
+				})
+			}
+			await ctx.db.delete(exerciseGuides).where(eq(exerciseGuides.exerciseId, input.exerciseId))
+		}),
+
 	// ─── Workout Templates ────────────────────────────────────────
 
-	listWorkouts: protectedProcedure.query(async ({ ctx }) =>
+	listWorkouts: protectedProcedure.meta({ description: 'List workout templates' }).query(async ({ ctx }) =>
 		ctx.db.query.workouts.findMany({
-			where: eq(workouts.userId, ctx.user.id),
-			with: {
-				exercises: {
-					with: { exercise: { with: { muscles: true } } },
-					orderBy: [workoutExercises.sortOrder]
-				}
-			},
-			orderBy: [workouts.sortOrder]
+			where: { userId: ctx.user.id },
+			with: workoutExercisesWith,
+			orderBy: { sortOrder: 'asc' }
 		})
 	),
 
 	getWorkout: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wkt'>>() }))
+		.meta({ description: 'Get workout template with exercises and targets' })
+		.input(z.object({ id: zodTypeID('wkt') }))
 		.query(async ({ ctx, input }) => {
 			const workout = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id)),
-				with: {
-					exercises: {
-						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutExercises.sortOrder]
-					}
-				}
+				where: { id: input.id, userId: ctx.user.id },
+				with: workoutExercisesWith
 			})
 			if (!workout) throw new Error('Workout not found')
 			return workout
 		}),
 
 	createWorkout: protectedProcedure
+		.meta({
+			description: 'Create a workout template with exercises, target sets/reps/weight, and optional supersets'
+		})
 		.input(
 			z.object({
 				name: z.string().min(1),
-				trainingGoal: zTrainingGoal.default('hypertrophy'),
+				trainingGoal: trainingGoal.default('hypertrophy'),
 				exercises: z.array(
 					z.object({
-						exerciseId: z.custom<TypeIDString<'exc'>>(),
+						exerciseId: zodTypeID('exc'),
 						targetSets: z.number().int().min(1).nullable(),
 						targetReps: z.number().int().min(1).nullable(),
 						targetWeight: z.number().min(0).nullable(),
-						setMode: zSetMode.default('working'),
-						trainingGoal: zTrainingGoal.nullable().default(null),
+						setMode: setMode.default('working'),
+						trainingGoal: trainingGoal.nullable().default(null),
 						supersetGroup: z.number().int().nullable().default(null)
 					})
 				)
@@ -315,32 +595,28 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.workouts.findFirst({
-				where: eq(workouts.id, workout.id),
-				with: {
-					exercises: {
-						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutExercises.sortOrder]
-					}
-				}
+				where: { id: workout.id },
+				with: workoutExercisesWith
 			})
 		}),
 
 	updateWorkout: protectedProcedure
+		.meta({ description: 'Update a workout template (name, goal, exercises, targets, supersets)' })
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'wkt'>>(),
+				id: zodTypeID('wkt'),
 				name: z.string().min(1).optional(),
-				trainingGoal: zTrainingGoal.optional(),
+				trainingGoal: trainingGoal.optional(),
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
 						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							exerciseId: zodTypeID('exc'),
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
-							setMode: zSetMode.default('working'),
-							trainingGoal: zTrainingGoal.nullable().default(null),
+							setMode: setMode.default('working'),
+							trainingGoal: trainingGoal.nullable().default(null),
 							supersetGroup: z.number().int().nullable().default(null)
 						})
 					)
@@ -349,7 +625,7 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id))
+				where: { id: input.id, userId: ctx.user.id }
 			})
 			if (!existing) throw new Error('Workout not found')
 
@@ -385,18 +661,14 @@ export const workoutsRouter = router({
 			}
 
 			return ctx.db.query.workouts.findFirst({
-				where: eq(workouts.id, input.id),
-				with: {
-					exercises: {
-						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutExercises.sortOrder]
-					}
-				}
+				where: { id: input.id },
+				with: workoutExercisesWith
 			})
 		}),
 
 	reorderWorkouts: protectedProcedure
-		.input(z.object({ ids: z.array(z.custom<TypeIDString<'wkt'>>()) }))
+		.meta({ description: 'Reorder workout templates by providing their IDs in the desired order' })
+		.input(z.object({ ids: z.array(zodTypeID('wkt')) }))
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
 			for (let i = 0; i < input.ids.length; i++) {
@@ -408,7 +680,8 @@ export const workoutsRouter = router({
 		}),
 
 	deleteWorkout: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wkt'>>() }))
+		.meta({ description: 'Delete a workout template' })
+		.input(z.object({ id: zodTypeID('wkt') }))
 		.mutation(async ({ ctx, input }) => {
 			await ctx.db.delete(workouts).where(and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id)))
 		}),
@@ -416,39 +689,40 @@ export const workoutsRouter = router({
 	// ─── Sessions ─────────────────────────────────────────────────
 
 	listSessions: protectedProcedure
+		.meta({ description: 'List workout sessions with dates' })
 		.input(z.object({ limit: z.number().min(1).max(100).default(20) }).optional())
 		.query(async ({ ctx, input }) =>
 			ctx.db.query.workoutSessions.findMany({
-				where: eq(workoutSessions.userId, ctx.user.id),
+				where: { userId: ctx.user.id },
 				with: {
 					workout: true,
 					logs: {
 						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutLogs.createdAt]
+						orderBy: { createdAt: 'asc' }
 					}
 				},
-				orderBy: [desc(workoutSessions.startedAt)],
+				orderBy: { startedAt: 'desc' },
 				limit: input?.limit ?? 20
 			})
 		),
 
 	getSession: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wks'>>() }))
+		.meta({ description: 'Get workout session with logged sets per exercise' })
+		.input(z.object({ id: zodTypeID('wks') }))
 		.query(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
-				where: and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id)),
+				where: { id: input.id, userId: ctx.user.id },
 				with: {
 					workout: {
-						with: {
-							exercises: {
-								with: { exercise: { with: { muscles: true } } },
-								orderBy: [workoutExercises.sortOrder]
-							}
-						}
+						with: workoutExercisesWith
 					},
 					logs: {
 						with: { exercise: { with: { muscles: true } } },
-						orderBy: [workoutLogs.createdAt]
+						orderBy: { createdAt: 'asc' }
+					},
+					plannedExercises: {
+						with: { exercise: { with: { muscles: true } } },
+						orderBy: { sortOrder: 'asc' }
 					}
 				}
 			})
@@ -457,11 +731,13 @@ export const workoutsRouter = router({
 		}),
 
 	createSession: protectedProcedure
-		.input(z.object({ workoutId: z.custom<TypeIDString<'wkt'>>(), name: z.string().optional() }))
+		.meta({ description: 'Start a new workout session from a template (copies planned exercises as checklist)' })
+		.input(z.object({ workoutId: zodTypeID('wkt'), name: z.string().optional() }))
 		.mutation(async ({ ctx, input }) => {
-			// Verify workout ownership
+			// Verify workout ownership and load template exercises
 			const workout = await ctx.db.query.workouts.findFirst({
-				where: and(eq(workouts.id, input.workoutId), eq(workouts.userId, ctx.user.id))
+				where: { id: input.workoutId, userId: ctx.user.id },
+				with: { exercises: { orderBy: { sortOrder: 'asc' } } }
 			})
 			if (!workout) throw new Error('Workout not found')
 
@@ -476,18 +752,43 @@ export const workoutsRouter = router({
 					createdAt: now
 				})
 				.returning()
+
+			// Snapshot template exercises into session planned exercises
+			if (workout.exercises.length > 0) {
+				for (let i = 0; i < workout.exercises.length; i += 10) {
+					await ctx.db.insert(sessionPlannedExercises).values(
+						workout.exercises.slice(i, i + 10).map(we => ({
+							sessionId: session.id,
+							exerciseId: we.exerciseId,
+							sortOrder: we.sortOrder,
+							targetSets: we.targetSets,
+							targetReps: we.targetReps,
+							targetWeight: we.targetWeight,
+							setMode: we.setMode,
+							trainingGoal: we.trainingGoal,
+							supersetGroup: we.supersetGroup,
+							createdAt: now
+						}))
+					)
+				}
+			}
+
 			return session
 		}),
 
 	completeSession: protectedProcedure
+		.meta({
+			description:
+				'Complete a workout session and optionally roll actual sets back into the template as new targets'
+		})
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'wks'>>(),
+				id: zodTypeID('wks'),
 				notes: z.string().optional(),
 				templateUpdates: z
 					.array(
 						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							exerciseId: zodTypeID('exc'),
 							targetSets: z.number().int().min(1).nullable().optional(),
 							targetReps: z.number().int().min(1).nullable().optional(),
 							targetWeight: z.number().min(0).nullable().optional()
@@ -497,11 +798,11 @@ export const workoutsRouter = router({
 				addExercises: z
 					.array(
 						z.object({
-							exerciseId: z.custom<TypeIDString<'exc'>>(),
+							exerciseId: zodTypeID('exc'),
 							targetSets: z.number().int().min(1).nullable(),
 							targetReps: z.number().int().min(1).nullable(),
 							targetWeight: z.number().min(0).nullable(),
-							setMode: zSetMode.default('working')
+							setMode: setMode.default('working')
 						})
 					)
 					.optional()
@@ -509,13 +810,16 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
-				where: and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id))
+				where: { id: input.id, userId: ctx.user.id }
 			})
 			if (!session) throw new Error('Session not found')
 
 			await ctx.db
 				.update(workoutSessions)
-				.set({ completedAt: Date.now(), notes: input.notes ?? null })
+				.set({
+					completedAt: Date.now(),
+					...(input.notes !== undefined ? { notes: input.notes } : {})
+				})
 				.where(eq(workoutSessions.id, input.id))
 
 			// Apply template updates if provided
@@ -570,8 +874,22 @@ export const workoutsRouter = router({
 			}
 		}),
 
+	updateSessionNotes: protectedProcedure
+		.meta({ description: 'Update notes on a workout session (in-progress or completed)' })
+		.input(z.object({ id: zodTypeID('wks'), notes: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				columns: { id: true }
+			})
+			if (!session) throw new Error('Session not found')
+
+			await ctx.db.update(workoutSessions).set({ notes: input.notes }).where(eq(workoutSessions.id, input.id))
+		}),
+
 	deleteSession: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wks'>>() }))
+		.meta({ description: 'Delete a workout session' })
+		.input(z.object({ id: zodTypeID('wks') }))
 		.mutation(async ({ ctx, input }) => {
 			await ctx.db
 				.delete(workoutSessions)
@@ -581,10 +899,13 @@ export const workoutsRouter = router({
 	// ─── Set Logging ──────────────────────────────────────────────
 
 	addSet: protectedProcedure
+		.meta({
+			description: 'Log a set (weight, reps, optional RPE and failure flag) for an exercise in an active session'
+		})
 		.input(
 			z.object({
-				sessionId: z.custom<TypeIDString<'wks'>>(),
-				exerciseId: z.custom<TypeIDString<'exc'>>(),
+				sessionId: zodTypeID('wks'),
+				exerciseId: zodTypeID('exc'),
 				weightKg: z.number().min(0),
 				reps: z.number().int().min(0),
 				setType: zSetType.default('working'),
@@ -618,9 +939,10 @@ export const workoutsRouter = router({
 		}),
 
 	updateSet: protectedProcedure
+		.meta({ description: 'Update a logged set (weight, reps, RPE, type, failure flag)' })
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'wkl'>>(),
+				id: zodTypeID('wkl'),
 				weightKg: z.number().min(0).optional(),
 				reps: z.number().int().min(0).optional(),
 				setType: zSetType.optional(),
@@ -640,7 +962,7 @@ export const workoutsRouter = router({
 
 			// Verify ownership via session
 			const log = await ctx.db.query.workoutLogs.findFirst({
-				where: eq(workoutLogs.id, id),
+				where: { id },
 				with: { session: true }
 			})
 			if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
@@ -649,10 +971,11 @@ export const workoutsRouter = router({
 		}),
 
 	removeSet: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'wkl'>>() }))
+		.meta({ description: 'Remove a logged set' })
+		.input(z.object({ id: zodTypeID('wkl') }))
 		.mutation(async ({ ctx, input }) => {
 			const log = await ctx.db.query.workoutLogs.findFirst({
-				where: eq(workoutLogs.id, input.id),
+				where: { id: input.id },
 				with: { session: true }
 			})
 			if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
@@ -660,110 +983,352 @@ export const workoutsRouter = router({
 		}),
 
 	replaceSessionExercise: protectedProcedure
+		.meta({ description: 'Swap one exercise for another in an active session (keeps logged sets intact)' })
 		.input(
 			z.object({
-				sessionId: z.custom<TypeIDString<'wks'>>(),
-				oldExerciseId: z.custom<TypeIDString<'exc'>>(),
-				newExerciseId: z.custom<TypeIDString<'exc'>>()
+				sessionId: zodTypeID('wks'),
+				oldExerciseId: zodTypeID('exc'),
+				newExerciseId: zodTypeID('exc')
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
-				where: eq(workoutSessions.id, input.sessionId)
+				where: { id: input.sessionId }
 			})
 			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
 			await ctx.db
 				.update(workoutLogs)
 				.set({ exerciseId: input.newExerciseId })
 				.where(and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.oldExerciseId)))
+			await ctx.db
+				.update(sessionPlannedExercises)
+				.set({ exerciseId: input.newExerciseId })
+				.where(
+					and(
+						eq(sessionPlannedExercises.sessionId, input.sessionId),
+						eq(sessionPlannedExercises.exerciseId, input.oldExerciseId)
+					)
+				)
 		}),
 
 	// ─── Stats ────────────────────────────────────────────────────
 
 	muscleGroupStats: protectedProcedure
+		.meta({ description: 'Get volume per muscle group over N days' })
 		.input(z.object({ days: z.number().int().min(1).default(7) }).optional())
 		.query(async ({ ctx, input }) => {
 			const days = input?.days ?? 7
 			const since = Date.now() - days * 24 * 60 * 60 * 1000
 
 			const sessions = await ctx.db.query.workoutSessions.findMany({
-				where: and(eq(workoutSessions.userId, ctx.user.id), gte(workoutSessions.startedAt, since)),
-				with: {
-					logs: {
-						with: { exercise: { with: { muscles: true } } }
-					}
-				}
+				where: { userId: ctx.user.id, startedAt: { gte: since } },
+				with: { logs: { with: { exercise: { with: { muscles: true } } } } }
 			})
 
-			const stats = new Map<string, { weeklyVolume: number; lastTrained: number; sessionCount: number }>()
-
-			// Initialize all groups
-			for (const mg of MUSCLE_GROUPS) {
-				stats.set(mg, { weeklyVolume: 0, lastTrained: 0, sessionCount: 0 })
-			}
+			const contributions: MuscleContribution[] = []
+			const lastTrained = new Map<MuscleGroup, number>()
+			const sessionCounts = new Map<MuscleGroup, number>()
 
 			for (const session of sessions) {
-				const sessionMuscles = new Set<string>()
+				const sessionMuscles = new Set<MuscleGroup>()
 				for (const log of session.logs) {
 					if (log.setType === 'warmup') continue
-					const volume = log.weightKg * log.reps
-					for (const muscle of log.exercise.muscles) {
-						const existing = stats.get(muscle.muscleGroup)!
-						existing.weeklyVolume += volume * muscle.intensity
-						if (session.startedAt > existing.lastTrained) {
-							existing.lastTrained = session.startedAt
+					for (const m of log.exercise.muscles) {
+						contributions.push({
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity,
+							sets: 1,
+							reps: log.reps,
+							weightKg: log.weightKg,
+							exerciseType: log.exercise.type,
+							fatigueTier: log.exercise.fatigueTier,
+							trainingGoal: 'hypertrophy'
+						})
+						sessionMuscles.add(m.muscleGroup)
+						if (session.startedAt > (lastTrained.get(m.muscleGroup) ?? 0)) {
+							lastTrained.set(m.muscleGroup, session.startedAt)
 						}
-						sessionMuscles.add(muscle.muscleGroup)
 					}
 				}
 				for (const mg of sessionMuscles) {
-					stats.get(mg)!.sessionCount++
+					sessionCounts.set(mg, (sessionCounts.get(mg) ?? 0) + 1)
 				}
 			}
 
-			return Array.from(stats.entries()).map(([muscleGroup, data]) => ({
-				muscleGroup,
-				...data
+			const loads = computeMuscleLoad(contributions)
+			return loads.map(l => ({
+				muscleGroup: l.muscleGroup,
+				weeklyVolume: l.volumeKg,
+				lastTrained: lastTrained.get(l.muscleGroup) ?? 0,
+				sessionCount: sessionCounts.get(l.muscleGroup) ?? 0
 			}))
 		}),
 
 	/** Coverage stats: weekly sets per muscle assuming all templates are done once */
-	coverageStats: protectedProcedure.query(async ({ ctx }) => {
-		const userWorkouts = await ctx.db.query.workouts.findMany({
-			where: eq(workouts.userId, ctx.user.id),
-			with: {
-				exercises: {
-					with: { exercise: { with: { muscles: true } } }
-				}
-			},
-			orderBy: [workouts.sortOrder]
-		})
+	coverageStats: protectedProcedure
+		.meta({ description: 'Weekly-volume muscle coverage (sets per group assuming each template is done once)' })
+		.query(async ({ ctx }) => {
+			const userWorkouts = await ctx.db.query.workouts.findMany({
+				where: { userId: ctx.user.id },
+				with: {
+					exercises: {
+						with: { exercise: { with: { muscles: true } } }
+					}
+				},
+				orderBy: { sortOrder: 'asc' }
+			})
 
-		// Initialize all muscle groups to 0
-		const muscleVolume = new Map<string, number>()
-		for (const mg of MUSCLE_GROUPS) muscleVolume.set(mg, 0)
-
-		// Sum Σ(targetSets × muscleIntensity) across ALL exercises in ALL templates
-		for (const workout of userWorkouts) {
-			for (const wkExercise of workout.exercises) {
-				const effectiveGoal = wkExercise.trainingGoal ?? workout.trainingGoal
-				const sets = wkExercise.targetSets ?? (effectiveGoal === 'strength' ? 5 : 3)
-				for (const muscle of wkExercise.exercise.muscles) {
-					const volume = sets * muscle.intensity
-					muscleVolume.set(muscle.muscleGroup, (muscleVolume.get(muscle.muscleGroup) ?? 0) + volume)
+			const contributions: MuscleContribution[] = []
+			for (const workout of userWorkouts) {
+				for (const we of workout.exercises) {
+					const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
+					const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+					for (const m of we.exercise.muscles) {
+						contributions.push({
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity,
+							sets,
+							exerciseType: we.exercise.type,
+							fatigueTier: we.exercise.fatigueTier,
+							trainingGoal: goal
+						})
+					}
 				}
 			}
-		}
 
-		return Array.from(muscleVolume.entries()).map(([muscleGroup, weeklySets]) => ({
-			muscleGroup,
-			weeklySets
-		}))
-	}),
+			return computeMuscleLoad(contributions).map(l => ({
+				muscleGroup: l.muscleGroup,
+				weeklySets: l.workingSets
+			}))
+		}),
+
+	// ─── Per-entity Muscle Load ──────────────────────────────────
+
+	exerciseMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle breakdown for a single exercise at a given dose. Returns effective sets, volume, fatigue load, and compound/primary/goal splits. Omit weightKg/reps for a template-style preview.'
+		})
+		.input(
+			z.object({
+				exerciseId: zodTypeID('exc'),
+				sets: z.number().int().min(1).default(1),
+				reps: z.number().int().min(1).optional(),
+				weightKg: z.number().min(0).optional(),
+				trainingGoal: trainingGoal.default('hypertrophy')
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const exercise = await ctx.db.query.exercises.findFirst({
+				where: {
+					id: input.exerciseId,
+					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }]
+				},
+				with: { muscles: true }
+			})
+			if (!exercise) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
+
+			const contributions: MuscleContribution[] = exercise.muscles.map(m => ({
+				muscleGroup: m.muscleGroup,
+				intensity: m.intensity,
+				sets: input.sets,
+				reps: input.reps,
+				weightKg: input.weightKg,
+				exerciseType: exercise.type,
+				fatigueTier: exercise.fatigueTier,
+				trainingGoal: input.trainingGoal
+			}))
+
+			const muscles = computeMuscleLoad(contributions)
+			return {
+				exercise: {
+					id: exercise.id,
+					name: exercise.name,
+					type: exercise.type,
+					fatigueTier: exercise.fatigueTier
+				},
+				input: { sets: input.sets, reps: input.reps ?? null, weightKg: input.weightKg ?? null },
+				muscles,
+				totals: sumTotals(muscles)
+			}
+		}),
+
+	workoutMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle weekly-volume breakdown for a workout template (assumes the template is performed once). Includes volume-landmark zones (MEV/MAV/MRV) and common balance ratios.'
+		})
+		.input(z.object({ workoutId: zodTypeID('wkt') }))
+		.query(async ({ ctx, input }) => {
+			const workout = await ctx.db.query.workouts.findFirst({
+				where: { id: input.workoutId, userId: ctx.user.id },
+				with: workoutExercisesWith
+			})
+			if (!workout) throw new TRPCError({ code: 'NOT_FOUND', message: 'Workout not found' })
+
+			const contributions: MuscleContribution[] = []
+			for (const we of workout.exercises) {
+				const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
+				const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+				for (const m of we.exercise.muscles) {
+					contributions.push({
+						muscleGroup: m.muscleGroup,
+						intensity: m.intensity,
+						sets,
+						reps: we.targetReps ?? undefined,
+						weightKg: we.targetWeight ?? undefined,
+						exerciseType: we.exercise.type,
+						fatigueTier: we.exercise.fatigueTier,
+						trainingGoal: goal
+					})
+				}
+			}
+
+			const loads = computeMuscleLoad(contributions)
+			const muscles = withZones(loads)
+			return {
+				workout: {
+					id: workout.id,
+					name: workout.name,
+					trainingGoal: workout.trainingGoal,
+					exerciseCount: workout.exercises.length
+				},
+				muscles,
+				totals: sumTotals(loads),
+				balances: computeBalances(loads)
+			}
+		}),
+
+	sessionMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle breakdown for a logged workout session based on actual working sets (warmups excluded). Includes kg·reps volume, effective sets, splits, and balance ratios.'
+		})
+		.input(z.object({ sessionId: zodTypeID('wks') }))
+		.query(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: { id: input.sessionId, userId: ctx.user.id },
+				with: {
+					workout: true,
+					logs: { with: { exercise: { with: { muscles: true } } } },
+					plannedExercises: true
+				}
+			})
+			if (!session) throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' })
+
+			const plannedGoalByExercise = new Map<string, TrainingGoal>()
+			for (const pe of session.plannedExercises) {
+				if (pe.trainingGoal) plannedGoalByExercise.set(pe.exerciseId, pe.trainingGoal)
+			}
+			const workoutGoal: TrainingGoal = session.workout?.trainingGoal ?? 'hypertrophy'
+
+			const contributions: MuscleContribution[] = []
+			let workingSetCount = 0
+			for (const log of session.logs) {
+				if (log.setType === 'warmup') continue
+				workingSetCount += 1
+				const goal = plannedGoalByExercise.get(log.exerciseId) ?? workoutGoal
+				for (const m of log.exercise.muscles) {
+					contributions.push({
+						muscleGroup: m.muscleGroup,
+						intensity: m.intensity,
+						sets: 1,
+						reps: log.reps,
+						weightKg: log.weightKg,
+						exerciseType: log.exercise.type,
+						fatigueTier: log.exercise.fatigueTier,
+						trainingGoal: goal
+					})
+				}
+			}
+
+			const muscles = computeMuscleLoad(contributions)
+			return {
+				session: {
+					id: session.id,
+					name: session.name,
+					startedAt: session.startedAt,
+					completedAt: session.completedAt,
+					workoutId: session.workoutId,
+					trainingGoal: workoutGoal
+				},
+				workingSetCount,
+				muscles,
+				totals: sumTotals(muscles),
+				balances: computeBalances(muscles)
+			}
+		}),
+
+	muscleGroupTrend: protectedProcedure
+		.meta({
+			description:
+				'Muscle-group trend: compares the current N-day window against prior windows of the same length. Returns per-muscle current sets/volume, rolling average, and delta percentage.'
+		})
+		.input(
+			z
+				.object({
+					windowDays: z.number().int().min(1).max(90).default(7),
+					lookbackWindows: z.number().int().min(1).max(12).default(4)
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
+			const windowDays = input?.windowDays ?? 7
+			const lookbackWindows = input?.lookbackWindows ?? 4
+			const now = Date.now()
+			const windowMs = windowDays * 24 * 60 * 60 * 1000
+			const since = now - windowMs * (lookbackWindows + 1)
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: { userId: ctx.user.id, startedAt: { gte: since } },
+				with: { logs: { with: { exercise: { with: { muscles: true } } } } }
+			})
+
+			type Window = { workingSets: number; volumeKg: number }
+			const emptyWindow = (): Window => ({ workingSets: 0, volumeKg: 0 })
+			const windowsByMuscle = new Map<MuscleGroup, Window[]>()
+			for (const mg of MUSCLE_GROUPS) {
+				windowsByMuscle.set(mg, Array.from({ length: lookbackWindows + 1 }, emptyWindow))
+			}
+
+			for (const s of sessions) {
+				// index 0 = current window (most recent), 1..N = prior windows
+				const windowIndex = Math.floor((now - s.startedAt) / windowMs)
+				if (windowIndex < 0 || windowIndex > lookbackWindows) continue
+				for (const log of s.logs) {
+					if (log.setType === 'warmup') continue
+					for (const m of log.exercise.muscles) {
+						const bucket = windowsByMuscle.get(m.muscleGroup)![windowIndex]
+						bucket.workingSets += m.intensity
+						bucket.volumeKg += log.weightKg * log.reps * m.intensity
+					}
+				}
+			}
+
+			return Array.from(windowsByMuscle.entries()).map(([muscleGroup, windows]) => {
+				const current = windows[0]
+				const prior = windows.slice(1)
+				const priorAvg: Window = {
+					workingSets: prior.reduce((s, w) => s + w.workingSets, 0) / prior.length,
+					volumeKg: prior.reduce((s, w) => s + w.volumeKg, 0) / prior.length
+				}
+				const deltaPct = {
+					workingSets:
+						priorAvg.workingSets > 0
+							? (current.workingSets - priorAvg.workingSets) / priorAvg.workingSets
+							: null,
+					volumeKg: priorAvg.volumeKg > 0 ? (current.volumeKg - priorAvg.volumeKg) / priorAvg.volumeKg : null
+				}
+				return { muscleGroup, current, priorAverage: priorAvg, deltaPct }
+			})
+		}),
 
 	// ─── Generators ───────────────────────────────────────────────
 
 	generateWarmup: protectedProcedure
+		.meta({
+			description: 'Auto-generate warmup sets (ramp of decreasing reps) for a given working weight and rep target'
+		})
 		.input(
 			z.object({
 				workingWeight: z.number().min(0),
@@ -788,7 +1353,7 @@ export const workoutsRouter = router({
 				// Skip if too close to working weight (within 5kg)
 				if (workingWeight - w < 5) continue
 				// Skip if same as last added set
-				if (sets.length > 0 && sets[sets.length - 1].weightKg === w) continue
+				if (sets.length > 0 && sets.at(-1)!.weightKg === w) continue
 				const reps = pct <= 0.5 ? 8 : pct <= 0.7 ? 5 : 3
 				sets.push({ weightKg: w, reps, setType: 'warmup' })
 			}
@@ -797,6 +1362,9 @@ export const workoutsRouter = router({
 		}),
 
 	generateBackoff: protectedProcedure
+		.meta({
+			description: 'Auto-generate backoff sets (drop sets with higher reps at reduced weight) for a working set'
+		})
 		.input(
 			z.object({
 				workingWeight: z.number().min(0),
@@ -820,164 +1388,171 @@ export const workoutsRouter = router({
 			return sets
 		}),
 
-	importWorkouts: protectedProcedure.input(z.object({ text: z.string().min(1) })).mutation(async ({ ctx, input }) => {
-		const allExercises = await ctx.db.query.exercises.findMany({
-			where: or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
-		})
-		const exerciseCache = new Map(allExercises.map(e => [e.name.toLowerCase(), e]))
+	importWorkouts: protectedProcedure
+		.meta({ description: 'Bulk-import workout templates from tab/CSV text (creates missing exercises on the fly)' })
+		.input(z.object({ text: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const allExercises = await ctx.db.query.exercises.findMany({
+				where: { OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }] }
+			})
+			const exerciseCache = new Map(allExercises.map(e => [e.name.toLowerCase(), e]))
 
-		const lines = input.text
-			.split('\n')
-			.map(l => l.trim())
-			.filter(Boolean)
-		if (lines.length === 0) throw new Error('No data to import')
+			const lines = input.text
+				.split('\n')
+				.map(l => l.trim())
+				.filter(Boolean)
+			if (lines.length === 0) throw new Error('No data to import')
 
-		const isSpreadsheet = /\breps\b/i.test(lines[0]) && /\bweight/i.test(lines[0])
-		let setsPerExercise = 3
-		if (isSpreadsheet) {
-			const m = lines[0].match(/(\d+)\s*sets/i)
-			if (m) setsPerExercise = Number.parseInt(m[1], 10)
-		}
-
-		type ParsedRow = { exerciseName: string; reps: number; weightKg: number }
-		type ParsedWorkout = { name: string; rows: ParsedRow[] }
-		const parsed: ParsedWorkout[] = []
-		let current: ParsedWorkout = { name: 'Imported Workout', rows: [] }
-
-		const startLine = isSpreadsheet ? 1 : 0
-		for (let i = startLine; i < lines.length; i++) {
-			const line = lines[i]
-			const parts = line.includes('\t') ? line.split('\t') : line.split(',')
-			if (parts.length < 2) continue
-			const col0 = parts[0].trim()
-
-			if (isSpreadsheet && /^session\s+\d+/i.test(col0)) {
-				if (current.rows.length > 0) parsed.push(current)
-				const focus = parts[2]?.trim() || parts[1]?.trim() || ''
-				current = { name: focus || col0, rows: [] }
-				continue
-			}
-
+			const isSpreadsheet = /\breps\b/i.test(lines[0]) && /\bweight/i.test(lines[0])
+			let setsPerExercise = 3
 			if (isSpreadsheet) {
-				if (!col0) continue
-				const reps = Number.parseInt(parts[1]?.trim() ?? '', 10)
-				if (Number.isNaN(reps)) continue
-				const weightStr = (parts[2] ?? '').trim().replace(/\s*kg\s*/i, '')
-				const weightKg = weightStr ? Number.parseFloat(weightStr) : 0
-				current.rows.push({ exerciseName: col0, reps, weightKg })
-			} else {
-				if (parts.length < 3) continue
-				const weight = Number.parseFloat(parts[1].trim())
-				const reps = Number.parseInt(parts[2].trim(), 10)
-				if (!col0 || Number.isNaN(weight) || Number.isNaN(reps)) continue
-				current.rows.push({ exerciseName: col0, reps, weightKg: weight })
+				const m = lines[0].match(/(\d+)\s*sets/i)
+				if (m) setsPerExercise = Number.parseInt(m[1], 10)
 			}
-		}
-		if (current.rows.length > 0) parsed.push(current)
 
-		// Get next sort order
-		const existingCount = await ctx.db
-			.select({ count: sql<number>`count(*)` })
-			.from(workouts)
-			.where(eq(workouts.userId, ctx.user.id))
-		let sortOrder = existingCount[0]?.count ?? 0
+			type ParsedRow = { exerciseName: string; reps: number; weightKg: number }
+			type ParsedWorkout = { name: string; rows: ParsedRow[] }
+			const parsed: ParsedWorkout[] = []
+			let current: ParsedWorkout = { name: 'Imported Workout', rows: [] }
 
-		let workoutsCreated = 0
-		let exercisesCreated = 0
+			const startLine = isSpreadsheet ? 1 : 0
+			for (let i = startLine; i < lines.length; i++) {
+				const line = lines[i]
+				const parts = line.includes('\t') ? line.split('\t') : line.split(',')
+				if (parts.length < 2) continue
+				const col0 = parts[0].trim()
 
-		for (const pw of parsed) {
-			const now = Date.now()
-
-			// Resolve exercises
-			const resolvedExercises: Array<{
-				exerciseId: TypeIDString<'exc'>
-				targetSets: number
-				targetReps: number
-				targetWeight: number | null
-				setMode: 'working' | 'warmup' | 'backoff' | 'full'
-			}> = []
-
-			for (const row of pw.rows) {
-				let exercise = exerciseCache.get(row.exerciseName.toLowerCase())
-				if (!exercise) {
-					const inferred = inferExercise(row.exerciseName)
-					const [created] = await ctx.db
-						.insert(exercises)
-						.values({
-							userId: ctx.user.id,
-							name: row.exerciseName,
-							type: inferred.type,
-							fatigueTier: inferred.fatigueTier,
-							createdAt: now
-						})
-						.returning()
-
-					if (inferred.muscles.length > 0) {
-						await ctx.db.insert(exerciseMuscles).values(
-							inferred.muscles.map(m => ({
-								exerciseId: created.id,
-								muscleGroup: m.muscleGroup,
-								intensity: m.intensity
-							}))
-						)
-					}
-					exercise = created
-					exerciseCache.set(row.exerciseName.toLowerCase(), created)
-					exercisesCreated++
+				if (isSpreadsheet && /^session\s+\d+/i.test(col0)) {
+					if (current.rows.length > 0) parsed.push(current)
+					const focus = parts[2]?.trim() || parts[1]?.trim() || ''
+					current = { name: focus || col0, rows: [] }
+					continue
 				}
 
-				resolvedExercises.push({
-					exerciseId: exercise.id,
-					targetSets: isSpreadsheet ? setsPerExercise : 1,
-					targetReps: row.reps,
-					targetWeight: row.weightKg > 0 ? row.weightKg : null,
-					setMode: exercise.type === 'compound' ? 'warmup' : 'working'
-				})
+				if (isSpreadsheet) {
+					if (!col0) continue
+					const reps = Number.parseInt(parts[1]?.trim() ?? '', 10)
+					if (Number.isNaN(reps)) continue
+					const weightStr = (parts[2] ?? '').trim().replace(/\s*kg\s*/i, '')
+					const weightKg = weightStr ? Number.parseFloat(weightStr) : 0
+					current.rows.push({ exerciseName: col0, reps, weightKg })
+				} else {
+					if (parts.length < 3) continue
+					const weight = Number.parseFloat(parts[1].trim())
+					const reps = Number.parseInt(parts[2].trim(), 10)
+					if (!col0 || Number.isNaN(weight) || Number.isNaN(reps)) continue
+					current.rows.push({ exerciseName: col0, reps, weightKg: weight })
+				}
+			}
+			if (current.rows.length > 0) parsed.push(current)
+
+			// Get next sort order
+			const existingCount = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(workouts)
+				.where(eq(workouts.userId, ctx.user.id))
+			let sortOrder = existingCount[0]?.count ?? 0
+
+			let workoutsCreated = 0
+			let exercisesCreated = 0
+
+			for (const pw of parsed) {
+				const now = Date.now()
+
+				// Resolve exercises
+				const resolvedExercises: Array<{
+					exerciseId: TypeIDString<'exc'>
+					targetSets: number
+					targetReps: number
+					targetWeight: number | null
+					setMode: 'working' | 'warmup' | 'backoff' | 'full'
+				}> = []
+
+				for (const row of pw.rows) {
+					let exercise = exerciseCache.get(row.exerciseName.toLowerCase())
+					if (!exercise) {
+						const inferred = inferExercise(row.exerciseName)
+						const [created] = await ctx.db
+							.insert(exercises)
+							.values({
+								userId: ctx.user.id,
+								name: row.exerciseName,
+								type: inferred.type,
+								fatigueTier: inferred.fatigueTier,
+								createdAt: now
+							})
+							.returning()
+
+						if (inferred.muscles.length > 0) {
+							await ctx.db.insert(exerciseMuscles).values(
+								inferred.muscles.map(m => ({
+									exerciseId: created.id,
+									muscleGroup: m.muscleGroup,
+									intensity: m.intensity
+								}))
+							)
+						}
+						exercise = created
+						exerciseCache.set(row.exerciseName.toLowerCase(), created)
+						exercisesCreated++
+					}
+
+					resolvedExercises.push({
+						exerciseId: exercise.id,
+						targetSets: isSpreadsheet ? setsPerExercise : 1,
+						targetReps: row.reps,
+						targetWeight: row.weightKg > 0 ? row.weightKg : null,
+						setMode: exercise.type === 'compound' ? 'warmup' : 'working'
+					})
+				}
+
+				const [workout] = await ctx.db
+					.insert(workouts)
+					.values({
+						userId: ctx.user.id,
+						name: pw.name,
+						sortOrder: sortOrder++,
+						createdAt: now,
+						updatedAt: now
+					})
+					.returning()
+
+				for (let i = 0; i < resolvedExercises.length; i += 12) {
+					await ctx.db.insert(workoutExercises).values(
+						resolvedExercises.slice(i, i + 12).map((e, idx) => ({
+							workoutId: workout.id,
+							exerciseId: e.exerciseId,
+							sortOrder: i + idx,
+							targetSets: e.targetSets,
+							targetReps: e.targetReps,
+							targetWeight: e.targetWeight,
+							setMode: e.setMode,
+							createdAt: now
+						}))
+					)
+				}
+				workoutsCreated++
 			}
 
-			const [workout] = await ctx.db
-				.insert(workouts)
-				.values({
-					userId: ctx.user.id,
-					name: pw.name,
-					sortOrder: sortOrder++,
-					createdAt: now,
-					updatedAt: now
-				})
-				.returning()
-
-			for (let i = 0; i < resolvedExercises.length; i += 12) {
-				await ctx.db.insert(workoutExercises).values(
-					resolvedExercises.slice(i, i + 12).map((e, idx) => ({
-						workoutId: workout.id,
-						exerciseId: e.exerciseId,
-						sortOrder: i + idx,
-						targetSets: e.targetSets,
-						targetReps: e.targetReps,
-						targetWeight: e.targetWeight,
-						setMode: e.setMode,
-						createdAt: now
-					}))
-				)
-			}
-			workoutsCreated++
-		}
-
-		return { workoutsCreated, exercisesCreated }
-	}),
+			return { workoutsCreated, exercisesCreated }
+		}),
 
 	importSets: protectedProcedure
+		.meta({
+			description:
+				'Bulk-import logged sets from tab/CSV text into a session (creates missing exercises on the fly)'
+		})
 		.input(
 			z.object({
-				sessionId: z.custom<TypeIDString<'wks'>>().optional(),
-				workoutId: z.custom<TypeIDString<'wkt'>>(),
+				sessionId: zodTypeID('wks').optional(),
+				workoutId: zodTypeID('wkt'),
 				text: z.string().min(1)
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			// Load all available exercises for matching
 			const allExercises = await ctx.db.query.exercises.findMany({
-				where: or(isNull(exercises.userId), eq(exercises.userId, ctx.user.id))
+				where: { OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }] }
 			})
 			const exerciseCache = new Map(allExercises.map(e => [e.name.toLowerCase(), e]))
 
@@ -1151,14 +1726,323 @@ export const workoutsRouter = router({
 			}
 		}),
 
+	// ─── Workout Programs ─────────────────────────────────────────
+
+	listPrograms: protectedProcedure
+		.meta({
+			description:
+				"List the user's workout programs (named ordered groupings of workout templates), each with its embedded workouts in cycle order"
+		})
+		.query(async ({ ctx }) => {
+			const programs = await ctx.db.query.workoutPrograms.findMany({
+				where: { userId: ctx.user.id },
+				with: {
+					items: {
+						orderBy: { sortOrder: 'asc' },
+						with: { workout: true }
+					}
+				},
+				orderBy: { sortOrder: 'asc' }
+			})
+			return programs.map(p => ({
+				id: p.id,
+				name: p.name,
+				sortOrder: p.sortOrder,
+				createdAt: p.createdAt,
+				updatedAt: p.updatedAt,
+				workouts: p.items.map(i => i.workout)
+			}))
+		}),
+
+	getProgram: protectedProcedure
+		.meta({ description: 'Get a workout program by ID with its ordered list of workout templates' })
+		.input(z.object({ id: zodTypeID('wpr') }))
+		.query(async ({ ctx, input }) => {
+			const program = await ctx.db.query.workoutPrograms.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				with: {
+					items: {
+						orderBy: { sortOrder: 'asc' },
+						with: { workout: true }
+					}
+				}
+			})
+			if (!program) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.id} not found or not owned by current user`
+				})
+			}
+			return {
+				id: program.id,
+				name: program.name,
+				sortOrder: program.sortOrder,
+				createdAt: program.createdAt,
+				updatedAt: program.updatedAt,
+				workouts: program.items.map(i => i.workout)
+			}
+		}),
+
+	createProgram: protectedProcedure
+		.meta({
+			description:
+				'Create a named workout program from an ordered list of workout template IDs (cycle order = array order). All workoutIds must be owned by the user; duplicates rejected. Program name must be unique per user'
+		})
+		.input(
+			z.object({
+				name: z.string().min(1).max(100),
+				workoutIds: z
+					.array(zodTypeID('wkt'))
+					.refine(ids => new Set(ids).size === ids.length, { message: 'workoutIds contains duplicates' })
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			await assertWorkoutsOwned(ctx.db, ctx.user.id, input.workoutIds)
+
+			const now = Date.now()
+			const existingCount = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(workoutPrograms)
+				.where(eq(workoutPrograms.userId, ctx.user.id))
+			const sortOrder = existingCount[0]?.count ?? 0
+
+			let program: { id: TypeIDString<'wpr'> }
+			try {
+				const [created] = await ctx.db
+					.insert(workoutPrograms)
+					.values({ userId: ctx.user.id, name: input.name, sortOrder, createdAt: now, updatedAt: now })
+					.returning({ id: workoutPrograms.id })
+				program = created
+			} catch (err) {
+				if (err instanceof Error && /UNIQUE/.test(err.message)) {
+					// biome-ignore lint/nursery/useErrorCause: TRPCError takes cause inside its options object
+					throw new TRPCError({
+						code: 'CONFLICT',
+						message: `A program with the name "${input.name}" already exists`,
+						cause: err
+					})
+				}
+				throw err
+			}
+
+			if (input.workoutIds.length > 0) {
+				await insertProgramItems(ctx.db, program.id, input.workoutIds, now)
+			}
+			return getProgramOrThrow(ctx.db, ctx.user.id, program.id)
+		}),
+
+	updateProgram: protectedProcedure
+		.meta({
+			description:
+				"Update a program's name and/or replace its full ordered list of workout template IDs (atomic replace, not patch)"
+		})
+		.input(
+			z.object({
+				id: zodTypeID('wpr'),
+				name: z.string().min(1).max(100).optional(),
+				workoutIds: z
+					.array(zodTypeID('wkt'))
+					.refine(ids => new Set(ids).size === ids.length, { message: 'workoutIds contains duplicates' })
+					.optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.workoutPrograms.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				columns: { id: true }
+			})
+			if (!existing) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.id} not found or not owned by current user`
+				})
+			}
+
+			if (input.workoutIds !== undefined) {
+				await assertWorkoutsOwned(ctx.db, ctx.user.id, input.workoutIds)
+			}
+
+			const now = Date.now()
+			const set: Record<string, unknown> = { updatedAt: now }
+			if (input.name !== undefined) set.name = input.name
+
+			try {
+				if (input.workoutIds !== undefined) {
+					// Atomic replace: delete all items + chunked inserts + name update in a single batch
+					const CHUNK = 20 // 5 cols × 20 rows = 100 bound params (D1 limit)
+					const stmts: BatchItem<'sqlite'>[] = [
+						ctx.db.delete(workoutProgramItems).where(eq(workoutProgramItems.programId, input.id))
+					]
+					for (let i = 0; i < input.workoutIds.length; i += CHUNK) {
+						const chunk = input.workoutIds.slice(i, i + CHUNK)
+						stmts.push(
+							ctx.db.insert(workoutProgramItems).values(
+								chunk.map((workoutId, idx) => ({
+									programId: input.id,
+									workoutId,
+									sortOrder: i + idx,
+									createdAt: now
+								}))
+							)
+						)
+					}
+					stmts.push(ctx.db.update(workoutPrograms).set(set).where(eq(workoutPrograms.id, input.id)))
+					await ctx.db.batch(stmts as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
+				} else {
+					await ctx.db.update(workoutPrograms).set(set).where(eq(workoutPrograms.id, input.id))
+				}
+			} catch (err) {
+				if (err instanceof Error && /UNIQUE/.test(err.message)) {
+					// biome-ignore lint/nursery/useErrorCause: TRPCError takes cause inside its options object
+					throw new TRPCError({
+						code: 'CONFLICT',
+						message: `A program with the name "${input.name}" already exists`,
+						cause: err
+					})
+				}
+				throw err
+			}
+
+			return getProgramOrThrow(ctx.db, ctx.user.id, input.id)
+		}),
+
+	deleteProgram: protectedProcedure
+		.meta({
+			description:
+				'Delete a workout program. If it was the active program, the user falls back to legacy "cycle all templates" behavior'
+		})
+		.input(z.object({ id: zodTypeID('wpr') }))
+		.mutation(async ({ ctx, input }) => {
+			const result = await ctx.db
+				.delete(workoutPrograms)
+				.where(and(eq(workoutPrograms.id, input.id), eq(workoutPrograms.userId, ctx.user.id)))
+				.returning({ id: workoutPrograms.id })
+			if (result.length === 0) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.id} not found or not owned by current user`
+				})
+			}
+		}),
+
+	setActiveProgram: protectedProcedure
+		.meta({
+			description:
+				'Set the user\'s active workout program (drives Dashboard "Up next" cycling). Pass null to clear and revert to legacy behavior. Idempotent — safe to retry'
+		})
+		.input(z.object({ id: zodTypeID('wpr').nullable() }))
+		.mutation(async ({ ctx, input }) => {
+			let program: { id: TypeIDString<'wpr'>; name: string } | null = null
+			if (input.id !== null) {
+				const found = await ctx.db.query.workoutPrograms.findFirst({
+					where: { id: input.id, userId: ctx.user.id },
+					columns: { id: true, name: true }
+				})
+				if (!found) {
+					throw new TRPCError({
+						code: 'NOT_FOUND',
+						message: `Program ${input.id} not found or not owned by current user`
+					})
+				}
+				program = found
+			}
+
+			await ensureUserSettingsRow(ctx.db, ctx.user.id)
+			await ctx.db
+				.update(userSettings)
+				.set({ activeProgramId: program?.id ?? null })
+				.where(eq(userSettings.userId, ctx.user.id))
+
+			return { activeProgramId: program?.id ?? null, activeProgramName: program?.name ?? null }
+		}),
+
+	reorderPrograms: protectedProcedure
+		.meta({ description: 'Reorder workout programs by providing their IDs in the desired order' })
+		.input(z.object({ ids: z.array(zodTypeID('wpr')) }))
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			for (let i = 0; i < input.ids.length; i++) {
+				await ctx.db
+					.update(workoutPrograms)
+					.set({ sortOrder: i, updatedAt: now })
+					.where(and(eq(workoutPrograms.id, input.ids[i]), eq(workoutPrograms.userId, ctx.user.id)))
+			}
+		}),
+
+	programMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle breakdown for a workout program — aggregates sets across every workout in the cycle (assumes one full cycle is performed). Returns volume-landmark zones (MEV/MAV/MRV), totals, balance ratios, and the list of muscles falling below MEV.'
+		})
+		.input(z.object({ programId: zodTypeID('wpr') }))
+		.query(async ({ ctx, input }) => {
+			const program = await ctx.db.query.workoutPrograms.findFirst({
+				where: { id: input.programId, userId: ctx.user.id },
+				with: {
+					items: {
+						orderBy: { sortOrder: 'asc' },
+						with: { workout: { with: workoutExercisesWith } }
+					}
+				}
+			})
+			if (!program) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.programId} not found or not owned by current user`
+				})
+			}
+
+			const contributions: MuscleContribution[] = []
+			let exerciseCount = 0
+			for (const item of program.items) {
+				const workout = item.workout
+				for (const we of workout.exercises) {
+					exerciseCount++
+					const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
+					const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+					for (const m of we.exercise.muscles) {
+						contributions.push({
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity,
+							sets,
+							reps: we.targetReps ?? undefined,
+							weightKg: we.targetWeight ?? undefined,
+							exerciseType: we.exercise.type,
+							fatigueTier: we.exercise.fatigueTier,
+							trainingGoal: goal
+						})
+					}
+				}
+			}
+
+			const loads = computeMuscleLoad(contributions)
+			const muscles = withZones(loads)
+			return {
+				program: {
+					id: program.id,
+					name: program.name,
+					workoutCount: program.items.length,
+					exerciseCount
+				},
+				muscles,
+				totals: sumTotals(loads),
+				balances: computeBalances(loads),
+				belowMev: muscles.filter(m => m.zone === 'below_mev' && m.workingSets > 0)
+			}
+		}),
+
 	// ─── Strength Standards ────────────────────────────────────────
 
-	listStandards: protectedProcedure.query(async ({ ctx }) =>
-		ctx.db.query.strengthStandards.findMany({
-			with: {
-				compound: true,
-				isolation: true
-			}
+	listStandards: protectedProcedure
+		.meta({
+			description: 'List compound-to-isolation strength ratio standards used to estimate accessory target weights'
 		})
-	)
+		.query(async ({ ctx }) =>
+			ctx.db.query.strengthStandards.findMany({
+				with: {
+					compound: true,
+					isolation: true
+				}
+			})
+		)
 })

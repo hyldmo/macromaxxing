@@ -1,4 +1,5 @@
 export * from './custom-types'
+export * from './muscle-load'
 export * from './preparation'
 export * from './relations'
 export * from './schema'

@@ -1,29 +1,14 @@
 import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
-import { Button, NumberInput } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { Button, ButtonGroup, NumberInput } from '~/components/ui'
+import { buildSupersetRounds, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
-import { totalVolume } from '../utils/formulas'
-import type { PlannedSet } from './ExerciseSetForm'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
 type Exercise = Log['exercise']
-
-interface RoundSet {
-	exerciseId: Exercise['id']
-	exercise: Exercise
-	planned: PlannedSet
-	log: Log | null
-	exerciseIndex: number
-}
-
-interface Round {
-	setType: SetType
-	sets: RoundSet[]
-}
 
 export interface SupersetFormProps {
 	group: number
@@ -58,7 +43,6 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	active,
 	onAddSet,
 	onUpdateSet,
-	onRemoveSet,
 	onReplace,
 	onTrainingGoalChange
 }) => {
@@ -66,80 +50,15 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const [editableTargets, setEditableTargets] = useState<Map<string, { weight: number | null; reps: number }>>(
 		new Map()
 	)
+	const [uncheckedIds, setUncheckedIds] = useState<Set<string>>(new Set())
 
 	const allLogs = exercises.flatMap(e => e.logs)
-	const vol = totalVolume(allLogs.filter(l => l.setType !== 'warmup'))
+	const vol = totalVolume(allLogs.filter(l => l.setType !== 'warmup' && !uncheckedIds.has(l.id)))
 	const totalSets = allLogs.length
 	const totalPlanned = exercises.reduce((sum, e) => sum + e.plannedSets.length, 0)
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')
 
-	const { rounds, extraLogs } = useMemo(() => {
-		const exercisePhases = exercises.map((exData, exIdx) => {
-			const { exercise, logs, plannedSets } = exData
-
-			const warmupLogs = logs.filter(l => l.setType === 'warmup')
-			const workingLogs = logs.filter(l => l.setType === 'working')
-			const backoffLogs = logs.filter(l => l.setType === 'backoff')
-
-			const plannedWarmups = plannedSets.filter(s => s.setType === 'warmup')
-			const plannedWorking = plannedSets.filter(s => s.setType === 'working')
-			const plannedBackoffs = plannedSets.filter(s => s.setType === 'backoff')
-
-			const warmups: RoundSet[] = plannedWarmups.map((p, i) => ({
-				exerciseId: exercise.id,
-				exercise,
-				planned: p,
-				log: warmupLogs[i] ?? null,
-				exerciseIndex: exIdx
-			}))
-			const working: RoundSet[] = plannedWorking.map((p, i) => ({
-				exerciseId: exercise.id,
-				exercise,
-				planned: p,
-				log: workingLogs[i] ?? null,
-				exerciseIndex: exIdx
-			}))
-			const backoffs: RoundSet[] = plannedBackoffs.map((p, i) => ({
-				exerciseId: exercise.id,
-				exercise,
-				planned: p,
-				log: backoffLogs[i] ?? null,
-				exerciseIndex: exIdx
-			}))
-
-			const extras: Log[] = [
-				...warmupLogs.slice(plannedWarmups.length),
-				...workingLogs.slice(plannedWorking.length),
-				...backoffLogs.slice(plannedBackoffs.length)
-			]
-
-			return { warmups, working, backoffs, extras, exercise }
-		})
-
-		const rounds: Round[] = []
-
-		const maxWarmups = Math.max(0, ...exercisePhases.map(e => e.warmups.length))
-		for (let i = 0; i < maxWarmups; i++) {
-			const sets = exercisePhases.filter(e => i < e.warmups.length).map(e => e.warmups[i])
-			rounds.push({ setType: 'warmup', sets })
-		}
-
-		const maxWorking = Math.max(0, ...exercisePhases.map(e => e.working.length))
-		for (let i = 0; i < maxWorking; i++) {
-			const sets = exercisePhases.filter(e => i < e.working.length).map(e => e.working[i])
-			rounds.push({ setType: 'working', sets })
-		}
-
-		const maxBackoffs = Math.max(0, ...exercisePhases.map(e => e.backoffs.length))
-		for (let i = 0; i < maxBackoffs; i++) {
-			const sets = exercisePhases.filter(e => i < e.backoffs.length).map(e => e.backoffs[i])
-			rounds.push({ setType: 'backoff', sets })
-		}
-
-		const extraLogs = exercisePhases.flatMap(ep => ep.extras.map(log => ({ log, exercise: ep.exercise })))
-
-		return { rounds, extraLogs }
-	}, [exercises])
+	const { rounds, extraLogs } = useMemo(() => buildSupersetRounds(exercises), [exercises])
 
 	// Find the first pending set across all rounds for active highlight
 	let firstPendingFound = false
@@ -222,6 +141,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 									const isLastInRound = setIdx === round.sets.length - 1
 
 									if (entry.log) {
+										const isUnchecked = uncheckedIds.has(entry.log.id)
 										return (
 											<div key={entry.log.id} className="flex items-center gap-1.5">
 												<ExerciseLabel index={entry.exerciseIndex} />
@@ -230,14 +150,26 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														weightKg={entry.log.weightKg}
 														reps={entry.log.reps}
 														setType={entry.log.setType}
-														rpe={entry.log.rpe}
-														failureFlag={entry.log.failureFlag}
-														done
+														rpe={isUnchecked ? undefined : entry.log.rpe}
+														failureFlag={isUnchecked ? undefined : entry.log.failureFlag}
+														done={!isUnchecked}
 														onWeightChange={v => {
 															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
 														}}
 														onRepsChange={v => onUpdateSet(entry.log!.id, { reps: v })}
-														onConfirm={() => onRemoveSet(entry.log!.id)}
+														onConfirm={() => {
+															if (isUnchecked) {
+																setUncheckedIds(prev => {
+																	const next = new Set(prev)
+																	next.delete(entry.log!.id)
+																	return next
+																})
+															} else {
+																setUncheckedIds(prev =>
+																	new Set(prev).add(entry.log!.id)
+																)
+															}
+														}}
 													/>
 												</div>
 											</div>
@@ -318,31 +250,44 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 							<div className="my-1.5 border-edge border-t" />
 							<div className="mb-0.5 font-mono text-[10px] text-ink-faint">Extra sets</div>
 							<div className="space-y-0.5">
-								{extraLogs.map(({ log, exercise }) => (
-									<div key={log.id} className="flex items-center gap-1.5">
-										<span
-											className="w-4 shrink-0 text-center font-medium font-mono text-[10px] text-accent"
-											title={exercise.name}
-										>
-											{exercise.name.slice(0, 1)}
-										</span>
-										<div className="min-w-0 flex-1">
-											<SetRow
-												weightKg={log.weightKg}
-												reps={log.reps}
-												setType={log.setType}
-												rpe={log.rpe}
-												failureFlag={log.failureFlag}
-												done
-												onWeightChange={v => {
-													if (v != null) onUpdateSet(log.id, { weightKg: v })
-												}}
-												onRepsChange={v => onUpdateSet(log.id, { reps: v })}
-												onConfirm={() => onRemoveSet(log.id)}
-											/>
+								{extraLogs.map(({ log, exercise }) => {
+									const isUnchecked = uncheckedIds.has(log.id)
+									return (
+										<div key={log.id} className="flex items-center gap-1.5">
+											<span
+												className="w-4 shrink-0 text-center font-medium font-mono text-[10px] text-accent"
+												title={exercise.name}
+											>
+												{exercise.name.slice(0, 1)}
+											</span>
+											<div className="min-w-0 flex-1">
+												<SetRow
+													weightKg={log.weightKg}
+													reps={log.reps}
+													setType={log.setType}
+													rpe={isUnchecked ? undefined : log.rpe}
+													failureFlag={isUnchecked ? undefined : log.failureFlag}
+													done={!isUnchecked}
+													onWeightChange={v => {
+														if (v != null) onUpdateSet(log.id, { weightKg: v })
+													}}
+													onRepsChange={v => onUpdateSet(log.id, { reps: v })}
+													onConfirm={() => {
+														if (isUnchecked) {
+															setUncheckedIds(prev => {
+																const next = new Set(prev)
+																next.delete(log.id)
+																return next
+															})
+														} else {
+															setUncheckedIds(prev => new Set(prev).add(log.id))
+														}
+													}}
+												/>
+											</div>
 										</div>
-									</div>
-								))}
+									)
+								})}
 							</div>
 						</>
 					)}
@@ -392,27 +337,19 @@ const AddSetRow: FC<{
 		}
 	}
 
+	const exerciseOptions = exercises.map((_e, i) => ({
+		value: String(i),
+		label: String.fromCharCode(65 + i)
+	}))
+
 	return (
 		<div className="flex items-center gap-1.5">
-			<div className="flex shrink-0">
-				{exercises.map((_, i) => (
-					<button
-						key={exercises[i].exercise.id}
-						type="button"
-						className={cn(
-							'px-3 py-1 font-medium font-mono transition-colors',
-							i === 0 && 'rounded-l-sm',
-							i === exercises.length - 1 && 'rounded-r-sm',
-							selectedIdx === i
-								? 'bg-accent text-white'
-								: 'bg-surface-2 text-ink-faint hover:text-ink-muted'
-						)}
-						onClick={() => setSelectedIdx(i)}
-					>
-						{String.fromCharCode(65 + i)}
-					</button>
-				))}
-			</div>
+			<ButtonGroup
+				options={exerciseOptions}
+				value={String(selectedIdx)}
+				onChange={v => setSelectedIdx(Number(v))}
+			/>
+
 			<NumberInput
 				className="w-24"
 				placeholder="reps"

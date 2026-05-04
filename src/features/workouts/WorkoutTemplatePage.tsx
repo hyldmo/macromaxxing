@@ -1,29 +1,31 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import type { ExerciseType, MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
-import { cn } from '~/lib/cn'
+import { Button, ButtonGroup, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
+import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
+import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
-import { formatTemplate } from './utils/export'
 
 export interface TemplateExercise {
 	uid: string
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
-	exerciseType: 'compound' | 'isolation'
+	exerciseType: ExerciseType
 	targetSets: number | null
 	targetReps: number | null
 	targetWeight: number | null
 	setMode: SetMode
 	trainingGoal: TrainingGoal | null
 	supersetGroup: number | null
+	strengthRepsMin: number | null
+	strengthRepsMax: number | null
+	hypertrophyRepsMin: number | null
+	hypertrophyRepsMax: number | null
 }
 
 export function WorkoutTemplatePage() {
@@ -37,11 +39,13 @@ export function WorkoutTemplatePage() {
 		{ enabled: isEditing }
 	)
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
+	const profileQuery = trpc.settings.getProfile.useQuery()
 
 	const [name, setName] = useState('')
 	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
+	const sex = profileQuery.data?.sex ?? 'male'
 
 	useEffect(() => {
 		if (workoutQuery.data) {
@@ -58,7 +62,11 @@ export function WorkoutTemplatePage() {
 					targetWeight: e.targetWeight,
 					setMode: e.setMode ?? 'working',
 					trainingGoal: e.trainingGoal ?? null,
-					supersetGroup: e.supersetGroup
+					supersetGroup: e.supersetGroup,
+					strengthRepsMin: e.exercise.strengthRepsMin,
+					strengthRepsMax: e.exercise.strengthRepsMax,
+					hypertrophyRepsMin: e.exercise.hypertrophyRepsMin,
+					hypertrophyRepsMax: e.exercise.hypertrophyRepsMax
 				}))
 			)
 		}
@@ -84,6 +92,22 @@ export function WorkoutTemplatePage() {
 			)
 		})
 	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
+
+	const muscleVolumes = useMemo(() => {
+		const allExercises = exercisesQuery.data
+		if (!allExercises || exercises.length === 0) return new Map<MuscleGroup, number>()
+
+		const volumes = new Map<MuscleGroup, number>()
+		for (const te of exercises) {
+			const exercise = allExercises.find(e => e.id === te.exerciseId)
+			if (!exercise) continue
+			const sets = te.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
+			for (const m of exercise.muscles) {
+				volumes.set(m.muscleGroup, (volumes.get(m.muscleGroup) ?? 0) + sets * m.intensity)
+			}
+		}
+		return volumes
+	}, [exercises, exercisesQuery.data, trainingGoal])
 
 	useUnsavedChanges(dirty)
 
@@ -236,43 +260,51 @@ export function WorkoutTemplatePage() {
 				)}
 			</div>
 
-			<div className="space-y-3">
-				<div className="space-y-1">
-					<label className="text-ink-muted text-sm" htmlFor="workout-name">
-						Name
-					</label>
-					<Input
-						id="workout-name"
-						placeholder="Push A, Pull B, Upper, Lower..."
-						value={name}
-						onChange={e => setName(e.target.value)}
-					/>
-				</div>
-				<div className="space-y-1">
-					<span className="text-ink-muted text-sm">Training Goal</span>
-					<div className="flex">
-						{(['hypertrophy', 'strength'] as const).map(goal => (
-							<button
-								key={goal}
-								type="button"
-								className={cn(
-									'border border-edge px-3 py-1 text-sm capitalize first:rounded-l-sm last:rounded-r-sm',
-									trainingGoal === goal
-										? 'bg-accent text-white'
-										: 'bg-surface-0 text-ink-faint hover:text-ink'
-								)}
-								onClick={() => setTrainingGoal(goal)}
-							>
-								{goal}
-							</button>
-						))}
+			<div className="flex flex-wrap justify-center gap-x-8 gap-y-4 sm:justify-between">
+				<div className="flex-1 space-y-3">
+					<div className="space-y-1">
+						<label className="text-ink-muted text-sm" htmlFor="workout-name">
+							Name
+						</label>
+						<Input
+							id="workout-name"
+							placeholder="Push A, Pull B, Upper, Lower..."
+							value={name}
+							onChange={e => setName(e.target.value)}
+						/>
 					</div>
-					<p className="text-ink-faint text-xs">
-						{trainingGoal === 'hypertrophy'
-							? 'Default 3×10, dynamic rest'
-							: 'Default 5×5, dynamic rest (1.5×)'}
-					</p>
+					<div className="space-y-1">
+						<span className="text-ink-muted text-sm">Training Goal</span>
+						<ButtonGroup
+							options={[
+								{ value: 'hypertrophy', label: 'Hypertrophy' },
+								{ value: 'strength', label: 'Strength' }
+							]}
+							value={trainingGoal}
+							onChange={v => setTrainingGoal(v as TrainingGoal)}
+						/>
+						<p className="text-ink-faint text-xs">
+							{trainingGoal === 'hypertrophy'
+								? 'Default 3×10, dynamic rest'
+								: 'Default 5×5, dynamic rest (1.5×)'}
+						</p>
+					</div>
 				</div>
+				{exercises.length > 0 && (
+					<BodyMap
+						muscleVolumes={muscleVolumes}
+						sex={sex}
+						renderTooltip={muscle => {
+							const volume = muscleVolumes.get(muscle)
+							if (!volume) return null
+							return (
+								<div className="font-mono text-[10px] text-ink-muted tabular-nums">
+									{volume.toFixed(1)} effective sets
+								</div>
+							)
+						}}
+					/>
+				)}
 			</div>
 
 			<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -367,7 +399,11 @@ export function WorkoutTemplatePage() {
 								targetWeight: null,
 								setMode: exercise.type === 'compound' ? 'warmup' : 'working',
 								trainingGoal: null,
-								supersetGroup: null
+								supersetGroup: null,
+								strengthRepsMin: exercise.strengthRepsMin,
+								strengthRepsMax: exercise.strengthRepsMax,
+								hypertrophyRepsMin: exercise.hypertrophyRepsMin,
+								hypertrophyRepsMax: exercise.hypertrophyRepsMax
 							}
 						])
 					}}

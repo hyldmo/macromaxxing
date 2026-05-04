@@ -5,13 +5,18 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 ## Code Style
 
 - Indentation: tabs (not spaces) in all files
+- Always use `yarn` (the workspace package manager) — never `npx` or `npm`
 
 ## Stack
 
-- **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom
-- **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), Drizzle ORM
+- **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom, PWA (vite-plugin-pwa + Workbox)
+- **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), R2 (images), Drizzle ORM
 - **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
+
+## Environments
+
+- **Production:** https://macromaxxing.com (auto-deploys from `main` via Cloudflare Pages)
 
 ## Commands
 
@@ -22,11 +27,15 @@ yarn dev:api      # API only (wrangler + local D1 on port 8788)
 yarn dev:remote   # Frontend only (proxies to production API)
 yarn build        # Build
 yarn preview      # Preview build with local D1
+yarn check        # Run ALL checks in parallel (lint + typecheck + test) — use this to verify changes
 yarn fix          # Lint + format (Biome)
 yarn db:generate  # Generate migration from schema
 yarn db:migrate   # Apply migrations to local D1
+yarn db:seed:usda # Import USDA Foundation + SR Legacy foods into local D1
 yarn test         # Run tests (Vitest)
 ```
+
+**Always run `yarn check` to verify changes.** Do not run lint, typecheck, or test separately.
 
 Set `API_URL` env var to override the API proxy target (defaults to `http://localhost:8788`).
 
@@ -48,6 +57,7 @@ Create `.env.local` for frontend:
 
 ```bash
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_R2_BASE_URL=https://pub-xxx.r2.dev   # R2 public bucket URL (shared across all envs)
 ```
 
 ## Source Tree
@@ -61,28 +71,44 @@ src/
     trpc.ts                                 # tRPC react-query client
     user.tsx                                # useUser() hook (Clerk)
     cn.ts                                   # cn() utility (clsx + twMerge)
+    images.ts                               # getImageUrl, isExternalImage, getImageAttribution (R2/external URL)
+    workouts/                               # Pure helpers: programCycle (pickNextWorkout), programLoad (computeProgramLoad), formulas, sets, etc.
   components/
-    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, etc.
+    ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
     layout/RootLayout.tsx                    # Shell: nav + <Outlet />
     ErrorBoundary.tsx
   features/
+    dashboard/
+      DashboardPage.tsx                   # Home page: today's meals, macro progress, workouts, recent sessions
+    landing/
+      LandingPage.tsx                     # Signed-out home; composition of sections
+      components/                         # SectionShell, MonoLabel, BarcodeStrip, GridPaperBackground
+      sections/                           # Hero, NumbersRail, PlateSection, RackSection, IntelligenceSection,
+                                          #   HowItWorks, FaqSection, FooterCta (one file per section)
     recipes/
       RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
       RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions)
+      CookModePage.tsx                      # Read-only cook mode with batch scaling, ingredient checklist, method steps
       components/                           # MacroRing, MacroBar, MacroReadout, MacroCell, RecipeIngredientTable,
                                             #   RecipeIngredientRow, RecipeSummaryRow, RecipeTotalsBar, PortionPanel,
                                             #   PortionSizeInput, CookedWeightInput, IngredientSearchInput,
                                             #   PreparationInput, RecipeImportDialog, PremadeDialog, RecipeCard,
-                                            #   SubrecipeExpandedRows, HighlightedInstructions
+                                            #   RecipeImageUpload, SubrecipeExpandedRows, HighlightedInstructions,
+                                            #   BatchMultiplierPills, CookIngredientList, CookInstructionSteps,
+                                            #   CookPortionSummary
       hooks/useRecipeCalculations.ts        # Derives totals, per-portion, per-100g from ingredients + cooked weight
       utils/macros.ts                       # Pure math: macro calculations
       utils/format.ts                       # Number/unit formatting helpers
     ingredients/
       IngredientListPage.tsx                # List with All/Mine filter, inline edit form
       components/IngredientForm.tsx          # Add/edit ingredient form
+    exercises/
+      ExerciseListPage.tsx                  # List with search, sort, BodyMap sidebar, inline edit form
+      components/ExerciseForm.tsx            # Add/edit exercise form (name, type, tier, rep ranges, muscles)
     mealPlans/
-      MealPlanListPage.tsx                  # List/create/delete meal plans
+      PlansPage.tsx                         # /plans hub: composes MealPlansSection + ProgramsSection
+      MealPlansSection.tsx                  # List/create/delete meal plans (formerly MealPlanListPage)
       MealPlannerPage.tsx                   # Weekly planner: inventory sidebar + 7-day grid
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
@@ -92,7 +118,7 @@ src/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets)
       WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets
       WorkoutMode.tsx                       # Workout execution mode
-      RestTimerContext.tsx                   # Global rest timer + session state (persists across pages)
+      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, active, rest, setTimer) — canonical "is session in progress" signal; persists across routes
       components/
         BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
         MuscleHeatGrid.tsx                  # Muscle group volume/frequency stats grid
@@ -104,13 +130,20 @@ src/
         SupersetForm.tsx                    # Interleaved superset card (rounds with transition timers)
         ExerciseSearch.tsx                  # Exercise typeahead (system + custom, shows type + muscles)
         SessionReview.tsx                   # Post-workout divergence review (update template targets)
+        SessionSummary.tsx                  # Completed session summary (1RM stats, volume, plan comparison)
         TimerMode.tsx                       # Full-screen timer overlay (child route)
+        SessionNotesModal.tsx               # In-session notes scratchpad (debounced autosave to workoutSessions.notes)
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
         ProfileForm.tsx                     # Body profile inputs (height/weight/sex)
+        ProgramCard.tsx                     # Program row: star toggle for active + N sets/cycle stat
+        ProgramsSection.tsx                 # Programs list + "New program" CTA, embedded into /plans
+        ProgramEditor.tsx                   # /plans/programs/:id route: name + drag-reorder workouts + sidebar
+        ProgramCyclePreview.tsx             # Numbered cycle: "1. Push → 2. Pull → wraps to 1"
+        ProgramMuscleSidebar.tsx            # Stats + BodyMap + balance bars; exports BelowMevWarning
       utils/
-        formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE
+        formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE, computeDivergences
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
     settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile
@@ -121,7 +154,8 @@ packages/db/                                # Shared package @macromaxxing/db
   custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
   preparation.ts                            # Preparation descriptor extraction (extractPreparation)
 workers/functions/
-  api/[[route]].ts                          # Hono entry: Clerk auth middleware → tRPC handler
+  [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
+  api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
   lib/
     trpc.ts                                 # TRPCContext { db, user, env }, publicProcedure, protectedProcedure
     router.ts                               # Merges all route files into appRouter
@@ -132,6 +166,7 @@ workers/functions/
     constants.ts                            # Shared constants + Zod schemas
     utils.ts                                # Shared backend helpers (toStartCase, etc.)
     routes/
+      dashboard.ts                          # dashboard.* endpoints
       recipes.ts                            # recipe.* endpoints
       ingredients.ts                        # ingredient.* endpoints
       mealPlans.ts                          # mealPlan.* endpoints
@@ -141,17 +176,22 @@ workers/functions/
       user.ts                               # user.* endpoints
 scripts/
   seed-exercises.ts                         # System exercises with muscle group mappings + strength standards
+  seed-usda.ts                              # Import USDA Foundation + SR Legacy foods into D1
 ```
 
 ## Routes
 
 ```
-/                                    → redirect to /recipes
+/                                    → DashboardPage (signed-in) / LandingPage (signed-out)
 /recipes                             → RecipeListPage
 /recipes/new                         → RecipeEditorPage
 /recipes/:id                         → RecipeEditorPage
+/recipes/:id/cook                    → CookModePage
 /ingredients                         → IngredientListPage
-/plans                               → MealPlanListPage
+/exercises                           → ExerciseListPage
+/plans                               → PlansPage (Meal Plans + Workout Programs sections)
+/plans/programs/new                  → ProgramEditor (new program)
+/plans/programs/:id                  → ProgramEditor (edit program)
 /plans/:id                           → MealPlannerPage
 /workouts                            → WorkoutListPage
 /workouts/new                        → WorkoutTemplatePage
@@ -172,7 +212,7 @@ users(id PK clerk_user_id, email)
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, fdcId?, source: manual|ai|usda|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
 
-recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?)
+recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
 mealPlans(id typeid:mpl, userId, name)
@@ -181,6 +221,7 @@ mealPlans(id typeid:mpl, userId, name)
 
 exercises(id typeid:exc, userId?, name, type: compound|isolation, fatigueTier: 1-4)
   → exerciseMuscles(id typeid:exm, exerciseId, muscleGroup, intensity 0.0-1.0)
+  → exerciseGuides(id typeid:egd, exerciseId unique, description, cues JSON string[], pitfalls JSON string[]?, updatedAt)
 
 strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
 
@@ -189,8 +230,19 @@ workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOr
                      setMode: working|warmup|backoff|full, supersetGroup?)
 
 workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
+  → sessionPlannedExercises(id typeid:spe, sessionId, exerciseId, sortOrder, targetSets?, targetReps?,
+                            targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)
+
+workoutPrograms(id typeid:wpr, userId, name, sortOrder, UNIQUE(userId, name))
+  → workoutProgramItems(id typeid:wpi, programId, workoutId, sortOrder)  -- both FKs ON DELETE CASCADE
+userSettings += activeProgramId? typeid:wpr  -- nullable, ON DELETE SET NULL
+
+usda_foods(fdc_id PK integer, description, data_type: foundation|sr_legacy, protein/carbs/fat/kcal/fiber per 100g, density?)
+  → usda_portions(id autoincrement PK, fdc_id FK, name, grams, is_volume)
+
+apiTokens(id typeid:atok, userId FK, name, tokenHash unique, lastUsedAt?, createdAt)
 ```
 
 All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
@@ -206,7 +258,7 @@ Use these Tailwind classes (defined in `src/index.css`):
 **Macro colors:** `text-macro-protein`, `text-macro-carbs`, `text-macro-fat`, `text-macro-kcal`, `text-macro-fiber`
 **Accent:** `bg-accent`, `text-accent`, `hover:bg-accent-hover`
 **Radius:** `rounded-sm` (4px), `rounded-md` (6px)
-**Sizing:** Use `size-4` instead of `size-4`
+**Sizing:** Use `size-4` instead of `w-4 h-4`
 
 No shadows — borders-only depth strategy.
 
@@ -219,9 +271,11 @@ No shadows — borders-only depth strategy.
 - Always prefer using TypeID types, like `Exercise['id]` instead of strings.
 - Shared types live in `@macromaxxing/db` (packages/db/types.ts), re-exported via `~/lib/` for frontend (e.g. `~/lib/macros`)
 - Forms use `Input` from `~/components/ui/Input`
-- Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`
+- Buttons use `Button` with variants: `default`, `destructive`, `outline`, `ghost`. `Button` defaults to `type="button"` — pass `type="submit"` explicitly for form submit buttons (silent failure otherwise).
+- Connected toggle groups use `ButtonGroup` from `~/components/ui` — supports `size` (`sm`/`md`), `expandedLabel` for hover-to-expand, and read-only mode (omit `onChange`). Do NOT use inline button groups.
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`
 - tRPC client: `import { trpc } from '~/lib/trpc'`
+- Global UI chrome (Nav, banners, overlays) that reacts to workout state must source from `useWorkoutSessionStore`, not `useMatch`/route. Route gating misses routes you navigate away to mid-session. Pick the signal carefully: `sessionId !== null` = session exists (even before user starts), `sessionStartedAt !== null` = timer activated (user has started at least one set), `rest !== null` = rest countdown running. Example: `const timerActive = useWorkoutSessionStore(s => s.sessionStartedAt !== null)`.
 - React components should have this style, using implicit return if possible:
 	```tsx
 	export interface CookedWeightInputProps {
@@ -245,21 +299,40 @@ trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
-trpc.workout.listExercises/createExercise   # System + user exercises with muscle mappings
+trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
+trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
-trpc.workout.listSessions/getSession/createSession/completeSession/deleteSession
+trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
+trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
+trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
+trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
 trpc.workout.coverageStats                  # Template muscle coverage for body map
+trpc.workout.exerciseMuscleLoad             # Single-exercise muscle breakdown at a given sets/reps/weight dose
+trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown with MEV/MAV/MRV zones + balance ratios
+trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual working sets + balance ratios
+trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
 trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
+trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout templates
 trpc.settings.get/save
+trpc.settings.listTokens/createToken/deleteToken    # Personal access token management
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions
-trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI)
+trpc.ai.parseRecipe                         # Parses recipe from URL (JSON-LD → AI fallback) or text (AI); returns imageUrl
 trpc.ai.parseProduct                        # Parses product nutrition from URL (JSON-LD Product → AI fallback)
+
+# Non-tRPC routes (raw Hono, multipart form data)
+POST   /api/recipes/:id/image              # Upload recipe image to R2 (max 5MB, image/* only)
+DELETE /api/recipes/:id/image              # Remove recipe image (cleans up R2 if upload)
+
+# MCP endpoint (Model Context Protocol)
+POST   /api/mcp                                       # MCP server (Clerk OAuth bearer OR personal token, stateless)
+GET    /.well-known/oauth-protected-resource/api/mcp  # RFC 9728 metadata (public, points at Clerk auth server)
+GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxies Clerk FAPI, public)
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -275,11 +348,13 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 - Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
 - Over-allocation allowed with visual warning
 
-**Nutrition lookup priority:** USDA FoodData Central API → AI (user's configured provider)
+**Nutrition lookup priority:** Local USDA D1 (FTS5 search, ~14k foods) → USDA FoodData Central API → AI (user's configured provider)
 
 **Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
 
 **Premade meals** — Tracked as `type: 'premade'` recipes backed by a single ingredient with `source: 'label'`. Premade recipes are always private (never shown to unauthenticated users). Backing ingredients are hidden from the ingredient list (`source != 'label'` filter).
+
+**Recipe images** — Single `image` column stores either a recipe ID (R2 upload at `recipes/{id}`) or an `http*` URL (external, hotlinked). Upload/delete via raw Hono routes (`POST/DELETE /api/recipes/:id/image`) since tRPC doesn't support multipart. Frontend resolves via `getImageUrl()` from `~/lib/images`. External images show "from hostname" attribution. R2 objects are cleaned up on image removal and recipe deletion. Images extracted from JSON-LD during recipe URL imports.
 
 **Subrecipes** — Recipes can be added as components of other recipes. `recipeIngredients` rows have either `ingredientId` or `subrecipeId` set (never both). Subrecipe macros are derived from the child recipe's ingredients and scale with portions. Cycle detection prevents circular references.
 
@@ -294,7 +369,77 @@ trpc.ai.parseProduct                        # Parses product nutrition from URL 
 - **Timer route** (`/workouts/sessions/:id/timer`) renders as full-screen child route via `<Outlet>`
 - Body profile (height/weight/sex) stored in `userSettings`, used for workout validation
 
+**Workout Programs** — Named ordered groupings of workout templates (e.g. PPL):
+- One program can be marked active via `userSettings.activeProgramId` (FK ON DELETE SET NULL)
+- Dashboard "Up next" cycles within the active program; off-program completions are ignored
+- `pickNextWorkout` (src/lib/workouts/programCycle.ts) returns a discriminated `legacy | program | emptyActiveProgram` so the dashboard can render the cycle subtitle ("Day N of M") or an empty-program banner without `if/else` contradictions
+- Editor (`/plans/programs/:id`) drag-reorders draft items and resolves them against the cached `listWorkouts` data each render — sidebar muscle load updates live before save
+- Muscle aggregation has two paths:
+  - **Client-side** `computeProgramLoad` (src/lib/workouts/programLoad.ts) for the live editor (no round-trip; uses cached `listWorkouts.exercises.muscles`)
+  - **Server-side** `programMuscleLoad` tRPC procedure for MCP agents — same shape, computed across the saved cycle
+- `updateProgram` does atomic delete-then-chunked-insert via `db.batch([...])` (D1 has no Drizzle transactions; chunk = 20 rows for the 5-col `workout_program_items`)
+
+**PWA** — Installable progressive web app via `vite-plugin-pwa`:
+- Workbox precaches all static assets (`js, css, html, ico, png, svg, woff2`) with SPA `navigateFallback` (excludes `/api/`)
+- `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available. `autoUpdate` is intentionally avoided because vite-plugin-pwa forces `skipWaiting` + `clientsClaim` in that mode and reloads the page mid-session, which would interrupt in-progress workout logging.
+- `cleanupOutdatedCaches: true` so activating a new SW drops stale precache entries (prevents unbounded cache growth across deploys)
+- Inline self-heal script in `index.html` catches `<script>/<link>` load failures for `/assets/*` paths (the symptom of a stale SW or browser cache referencing a removed hashed chunk), unregisters the SW, clears caches, and reloads with a `_v=<timestamp>` cache-bust param. Guards: skips when offline, skips when already on a `_v=` URL to prevent reload loops. This is the recovery path when the React bundle itself can't run — the in-app `ReloadPrompt` banner needs the bundle to render, so a fully stuck client needs the HTML-level watchdog.
+- Full web manifest with icons (64, 192, 512, maskable) for home screen install
+- `display: 'standalone'` for native app feel
+
+**MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Two auth paths on the same `/api/mcp` endpoint:
+- **Clerk OAuth** (Claude.ai custom connectors, Cursor, VS Code, etc.) — Clerk acts as OAuth 2.1 authorization server via Dynamic Client Registration. `@clerk/mcp-tools` generates the RFC 9728 protected-resource metadata and proxies Clerk's RFC 8414 auth-server metadata. On 401, the `WWW-Authenticate` header points clients to the resource metadata URL.
+- **Personal access tokens** (Claude Code CLI, scripts) — bearer token from Settings > API Tokens.
+
+Stateless mode (new server per request). Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`). Requires `nodejs_compat` flag in `wrangler.toml` (for `Buffer` used by `@clerk/mcp-tools`).
+
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
+
+## Gotchas
+
+Silent failures and runtime-only issues — things `yarn check` won't catch.
+
+**Cloudflare / D1**
+- Secrets live in the CF dashboard, never as `[vars]` in `wrangler.toml` (collision causes "Binding name already in use" on deploy)
+- `worker-configuration.d.ts` is committed (generated locally where `.dev.vars` exists; CI types depend on it). Excluded from biome via `files.includes` negation.
+- CI needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — the latter bypasses `/memberships` which fails with scoped tokens
+- `wrangler d1 execute --file` resolves paths from the workspace wrangler runs in, not cwd. Use absolute paths in scripts.
+- D1 supports FTS5 but Drizzle can't model it — use raw SQL migrations + `db.all()` queries
+- `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
+- D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
+- D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
+
+**CF Pages routing**
+- Pages Functions route by filesystem path. `functions/api/[[route]].ts` only receives `/api/*` — Hono routes for paths outside that prefix silently fall through to SPA. New top-level paths need a new file at the literal path (e.g. `functions/.well-known/oauth-authorization-server.ts`). Dotted directory names work.
+
+**MCP server**
+- Use `CfWorkerJsonSchemaValidator` from `@modelcontextprotocol/sdk/validation/cfworker` (Workers can't use AJV — dynamic eval). Needs `@cfworker/json-schema` peer dep.
+- Short-circuit `GET` and `DELETE` on `/api/mcp` with `405 Method Not Allowed` + `Allow: POST` **before** the SDK runs. The stateless SSE handler hangs the CF runtime; spec-compliant clients fall back to POST-only JSON-RPC.
+
+**Drizzle ORM v1**
+- `defineRelations` replaces separate `relations()` calls (`fields/references` → `from/to`, `relationName` → `alias`)
+- `r.one` defaults to `optional: true` — set `optional: false` on relations whose FK column is `.notNull()` to avoid `T | null` in loaded relations
+- Subquery `in` doesn't accept builders directly: `{ id: { RAW: t => inArray(t.id, sub) } }`
+- Migration folder is one directory per migration (`tag/migration.sql` + `tag/snapshot.json`), no `meta/_journal.json`
+- `drizzle-kit` drops `ON DELETE` from `ALTER TABLE ... ADD ... REFERENCES`. New tables in `CREATE TABLE` are fine, but additive `ALTER TABLE` columns need a manual edit to re-add `ON DELETE SET NULL` (or whichever) after `REFERENCES x(id)`.
+
+**Backend / tRPC**
+- Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD
+- Always index foreign keys on new tables: `t => [index('table_fk_idx').on(t.fkColumn)]`
+- `userSettings` rows are NOT auto-created on signup. Mutations writing to it must upsert or call `ensureUserSettingsRow(userId)` first; bare `UPDATE` silently no-ops for new users.
+- Pure utility functions (date helpers, math, formatting) go in `src/lib/`, not feature-specific `utils/` folders
+
+**CI / build**
+- Builds that resolve version via `git describe --tags` need `fetch-depth: 0` on `actions/checkout`. Default is shallow → `git describe` throws → silent fallback to default version string.
+- `prek install` only sets up pre-commit, not pre-push. Prek's `priority` field allows parallel hook execution at the same priority.
+
+**Yarn 4** — `yarn workspaces foreach` needs `run`: `yarn workspaces foreach --all --parallel run typecheck`
+
+**Zustand** — never subscribe to the entire store (`const store = useStore()` infinite-loops any effect with `store` in deps). Selectors only: `useStore(s => s.field)` for reactive state, `useStore.getState().action()` for callbacks.
+
+**CSS**
+- `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
+- In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
 
 ## After Making Changes
 

@@ -1,62 +1,85 @@
-import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString } from '@macromaxxing/db'
-import { and, eq } from 'drizzle-orm'
+import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString, zodTypeID } from '@macromaxxing/db'
+import { eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
 export const mealPlansRouter = router({
-	list: protectedProcedure.query(async ({ ctx }) => {
+	list: protectedProcedure.meta({ description: 'List meal plans' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.mealPlans.findMany({
-			where: eq(mealPlans.userId, ctx.user.id),
+			where: { userId: ctx.user.id },
 			with: { inventory: true },
-			orderBy: (mealPlans, { desc }) => [desc(mealPlans.updatedAt)]
+			orderBy: { updatedAt: 'desc' }
 		})
 		return result
 	}),
 
-	get: protectedProcedure.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() })).query(async ({ ctx, input }) => {
-		const plan = await ctx.db.query.mealPlans.findFirst({
-			where: and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)),
-			with: {
-				inventory: {
+	get: protectedProcedure
+		.meta({ description: 'Get meal plan with inventory and weekly slot allocations' })
+		.input(z.object({ id: zodTypeID('mpl') }))
+		.query(async ({ ctx, input }) => {
+			const [plan, allRecipes] = await ctx.db.batch([
+				// Q1: Plan + inventory + slots (2 levels, shallow)
+				ctx.db.query.mealPlans.findFirst({
+					where: { id: input.id, userId: ctx.user.id },
+					with: { inventory: { with: { slots: true } } }
+				}),
+				// Q2: Recipes via subquery on inventory (3 levels, no dependency on Q1)
+				ctx.db.query.recipes.findMany({
+					where: {
+						RAW: t =>
+							inArray(
+								t.id,
+								ctx.db
+									.select({ id: mealPlanInventory.recipeId })
+									.from(mealPlanInventory)
+									.where(eq(mealPlanInventory.mealPlanId, input.id))
+							)
+					},
 					with: {
-						recipe: {
+						recipeIngredients: {
 							with: {
-								recipeIngredients: {
-									with: {
-										ingredient: true,
-										subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
-									},
-									orderBy: (ri, { asc }) => [asc(ri.sortOrder)]
-								}
-							}
-						},
-						slots: true
+								ingredient: true,
+								subrecipe: { with: { recipeIngredients: { with: { ingredient: true } } } }
+							},
+							orderBy: { sortOrder: 'asc' }
+						}
 					}
-				}
-			}
-		})
-		if (!plan) throw new Error('Meal plan not found')
-		return plan
-	}),
+				})
+			] as const)
+			if (!plan) throw new Error('Meal plan not found')
 
-	create: protectedProcedure.input(z.object({ name: z.string().min(1) })).mutation(async ({ ctx, input }) => {
-		const now = Date.now()
-		const [plan] = await ctx.db
-			.insert(mealPlans)
-			.values({
-				userId: ctx.user.id,
-				name: input.name,
-				createdAt: now,
-				updatedAt: now
-			})
-			.returning()
-		return plan
-	}),
+			const recipeMap = new Map(allRecipes.map(r => [r.id, r]))
+			return {
+				...plan,
+				inventory: plan.inventory.map(inv => ({
+					...inv,
+					recipe: recipeMap.get(inv.recipeId)!
+				}))
+			}
+		}),
+
+	create: protectedProcedure
+		.meta({ description: 'Create a new meal plan' })
+		.input(z.object({ name: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			const [plan] = await ctx.db
+				.insert(mealPlans)
+				.values({
+					userId: ctx.user.id,
+					name: input.name,
+					createdAt: now,
+					updatedAt: now
+				})
+				.returning()
+			return plan
+		}),
 
 	update: protectedProcedure
+		.meta({ description: 'Update meal plan name' })
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'mpl'>>(),
+				id: zodTypeID('mpl'),
 				name: z.string().min(1).optional()
 			})
 		)
@@ -65,29 +88,30 @@ export const mealPlansRouter = router({
 			await ctx.db
 				.update(mealPlans)
 				.set({ ...updates, updatedAt: Date.now() })
-				.where(and(eq(mealPlans.id, id), eq(mealPlans.userId, ctx.user.id)))
+				.where(eq(mealPlans.id, id))
 			return ctx.db.query.mealPlans.findFirst({
-				where: eq(mealPlans.id, id)
+				where: { id }
 			})
 		}),
 
 	delete: protectedProcedure
-		.input(z.object({ id: z.custom<TypeIDString<'mpl'>>() }))
+		.meta({ description: 'Delete a meal plan' })
+		.input(z.object({ id: zodTypeID('mpl') }))
 		.mutation(async ({ ctx, input }) => {
-			await ctx.db.delete(mealPlans).where(and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)))
+			await ctx.db.delete(mealPlans).where(eq(mealPlans.id, input.id))
 		}),
 
 	duplicate: protectedProcedure
 		.input(
 			z.object({
-				id: z.custom<TypeIDString<'mpl'>>(),
+				id: zodTypeID('mpl'),
 				newName: z.string().min(1)
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			// Get source plan with all data
 			const source = await ctx.db.query.mealPlans.findFirst({
-				where: and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)),
+				where: { id: input.id, userId: ctx.user.id },
 				with: {
 					inventory: {
 						with: { slots: true }
@@ -142,17 +166,18 @@ export const mealPlansRouter = router({
 
 	// Inventory operations
 	addToInventory: protectedProcedure
+		.meta({ description: 'Add a recipe to meal plan inventory with portion count' })
 		.input(
 			z.object({
-				planId: z.custom<TypeIDString<'mpl'>>(),
-				recipeId: z.custom<TypeIDString<'rcp'>>(),
+				planId: zodTypeID('mpl'),
+				recipeId: zodTypeID('rcp'),
 				totalPortions: z.number().positive()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			// Verify plan ownership
 			const plan = await ctx.db.query.mealPlans.findFirst({
-				where: and(eq(mealPlans.id, input.planId), eq(mealPlans.userId, ctx.user.id))
+				where: { id: input.planId, userId: ctx.user.id }
 			})
 			if (!plan) throw new Error('Meal plan not found')
 
@@ -171,7 +196,7 @@ export const mealPlansRouter = router({
 			await ctx.db.update(mealPlans).set({ updatedAt: now }).where(eq(mealPlans.id, input.planId))
 
 			return ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, inv.id),
+				where: { id: inv.id },
 				with: {
 					recipe: {
 						with: {
@@ -191,14 +216,14 @@ export const mealPlansRouter = router({
 	updateInventory: protectedProcedure
 		.input(
 			z.object({
-				inventoryId: z.custom<TypeIDString<'mpi'>>(),
+				inventoryId: zodTypeID('mpi'),
 				totalPortions: z.number().positive()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			// Get inventory item and verify ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: { mealPlan: true }
 			})
 			if (!inv || inv.mealPlan.userId !== ctx.user.id) {
@@ -214,7 +239,7 @@ export const mealPlansRouter = router({
 			await ctx.db.update(mealPlans).set({ updatedAt: Date.now() }).where(eq(mealPlans.id, inv.mealPlanId))
 
 			return ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: {
 					recipe: {
 						with: {
@@ -232,11 +257,12 @@ export const mealPlansRouter = router({
 		}),
 
 	removeFromInventory: protectedProcedure
-		.input(z.object({ inventoryId: z.custom<TypeIDString<'mpi'>>() }))
+		.meta({ description: 'Remove a recipe from meal plan inventory' })
+		.input(z.object({ inventoryId: zodTypeID('mpi') }))
 		.mutation(async ({ ctx, input }) => {
 			// Get inventory item and verify ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: { mealPlan: true }
 			})
 			if (!inv || inv.mealPlan.userId !== ctx.user.id) {
@@ -251,9 +277,10 @@ export const mealPlansRouter = router({
 
 	// Slot operations
 	allocate: protectedProcedure
+		.meta({ description: 'Allocate portions to a day and slot in the meal plan' })
 		.input(
 			z.object({
-				inventoryId: z.custom<TypeIDString<'mpi'>>(),
+				inventoryId: zodTypeID('mpi'),
 				dayOfWeek: z.number().int().min(0).max(6),
 				slotIndex: z.number().int().min(0),
 				portions: z.number().positive().default(1)
@@ -262,7 +289,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Verify inventory ownership
 			const inv = await ctx.db.query.mealPlanInventory.findFirst({
-				where: eq(mealPlanInventory.id, input.inventoryId),
+				where: { id: input.inventoryId },
 				with: { mealPlan: true }
 			})
 			if (!inv || inv.mealPlan.userId !== ctx.user.id) {
@@ -290,15 +317,15 @@ export const mealPlansRouter = router({
 	updateSlot: protectedProcedure
 		.input(
 			z.object({
-				slotId: z.custom<TypeIDString<'mps'>>(),
+				slotId: zodTypeID('mps'),
 				portions: z.number().positive().optional(),
-				inventoryId: z.custom<TypeIDString<'mpi'>>().optional()
+				inventoryId: zodTypeID('mpi').optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId),
+				where: { id: input.slotId },
 				with: {
 					inventory: {
 						with: { mealPlan: true }
@@ -324,16 +351,17 @@ export const mealPlansRouter = router({
 				.where(eq(mealPlans.id, slot.inventory.mealPlanId))
 
 			return ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId)
+				where: { id: input.slotId }
 			})
 		}),
 
 	removeSlot: protectedProcedure
-		.input(z.object({ slotId: z.custom<TypeIDString<'mps'>>() }))
+		.meta({ description: 'Remove a portion allocation from a meal plan slot' })
+		.input(z.object({ slotId: zodTypeID('mps') }))
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId),
+				where: { id: input.slotId },
 				with: {
 					inventory: {
 						with: { mealPlan: true }
@@ -356,7 +384,7 @@ export const mealPlansRouter = router({
 	copySlot: protectedProcedure
 		.input(
 			z.object({
-				slotId: z.custom<TypeIDString<'mps'>>(),
+				slotId: zodTypeID('mps'),
 				targetDays: z.array(z.number().int().min(0).max(6)),
 				targetSlotIndex: z.number().int().min(0)
 			})
@@ -364,7 +392,7 @@ export const mealPlansRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Get source slot and verify ownership
 			const slot = await ctx.db.query.mealPlanSlots.findFirst({
-				where: eq(mealPlanSlots.id, input.slotId),
+				where: { id: input.slotId },
 				with: {
 					inventory: {
 						with: { mealPlan: true }

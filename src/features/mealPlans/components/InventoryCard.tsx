@@ -9,7 +9,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]

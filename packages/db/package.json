@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "DB_URL=file:../../workers/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/dceb6fd6dc947c4651bc1be1536b19024b679af6ffacc519393e129c0efe29cc.sqlite drizzle-kit studio --port 3333",
     "typecheck": "tsc --strict --noEmit --incremental"
   },
   "exports": {
@@ -12,7 +13,7 @@
     "./types": "./types.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "beta",
     "es-toolkit": "*",
     "typeid-js": "^1.2.0"
   },
@@ -20,7 +21,8 @@
     "zod": "*"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.8",
+    "better-sqlite3": "^12.6.2",
+    "drizzle-kit": "beta",
     "typescript": "*",
     "vitest": "*"
   }

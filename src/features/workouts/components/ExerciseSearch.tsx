@@ -1,9 +1,15 @@
 import { Plus, Search } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Card, Input } from '~/components/ui'
+import { fuzzyMatch } from '~/lib/fuzzy'
 import type { RouterOutput } from '~/lib/trpc'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
+
+function exerciseSearchText(e: Exercise): string {
+	const muscles = e.muscles.map(m => m.muscleGroup.replace('_', ' ')).join(' ')
+	return `${e.name} ${e.type} ${muscles} tier ${e.fatigueTier}`
+}
 
 export interface ExerciseSearchProps {
 	exercises: Exercise[]
@@ -19,7 +25,14 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 	const [search, setSearch] = useState('')
 	const [showDropdown, setShowDropdown] = useState(false)
 
-	const filtered = exercises.filter(e => e.name.toLowerCase().includes(search.toLowerCase())).slice(0, 12)
+	const filtered = search
+		? exercises
+				.map(e => ({ exercise: e, match: fuzzyMatch(search, exerciseSearchText(e)) }))
+				.filter((r): r is typeof r & { match: NonNullable<typeof r.match> } => r.match !== null)
+				.toSorted((a, b) => b.match.score - a.match.score)
+				.slice(0, 12)
+				.map(r => r.exercise)
+		: []
 
 	return (
 		<div className="relative">

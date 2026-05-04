@@ -1,11 +1,12 @@
 import { startCase } from 'es-toolkit'
 import type { Except } from 'type-fest'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export interface SelectProps<T extends string | number>
 	extends Except<React.SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange'> {
 	value?: T
-	options: Array<{ label: string; value: T } | T>
+	label?: string
+	options: ReadonlyArray<{ label: string; value: T } | T>
 	onChange?: (value: T) => void
 }
 

@@ -9,30 +9,37 @@ import {
 	Settings,
 	UtensilsCrossed
 } from 'lucide-react'
-import type { FC } from 'react'
+import type { FC, HTMLAttributes } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
-import { cn } from '~/lib/cn'
+import { useWorkoutSessionStore } from '~/features/workouts/store'
+import { cn } from '~/lib'
 
 const publicLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
 	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed }
 ] satisfies Link[]
 
-const authLinks = [
+const desktopAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
-	{ to: '/settings', label: 'Settings', icon: Settings }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+] satisfies Link[]
+
+const mobileAuthLinks = [
+	{ to: '/plans', label: 'Plans', icon: CalendarDays },
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
 ] satisfies Link[]
 
 export interface Link {
 	to: string
 	label: string
 	icon: LucideIcon
+	end?: boolean
 }
 
 export function Nav() {
+	const timerActive = useWorkoutSessionStore(s => s.sessionStartedAt !== null)
 	return (
 		<>
 			{/* Desktop top nav */}
@@ -43,69 +50,27 @@ export function Nav() {
 						<span className="tracking-tight">macromaxxing</span>
 					</NavLink>
 					<div className="hidden flex-1 md:flex">
-						{publicLinks.map(({ to, label, icon: Icon }) => (
-							<NavLink
-								key={to}
-								to={to}
-								className={({ isActive }) =>
-									cn(
-										'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm transition-colors',
-										isActive ? 'bg-surface-2 font-medium text-ink' : 'text-ink-muted hover:text-ink'
-									)
-								}
-							>
-								<Icon className="size-4" />
-								<span className="group-hover:inline max-md:hidden">{label}</span>
-							</NavLink>
+						{publicLinks.map(props => (
+							<WebLink key={props.to} {...props} />
 						))}
 						<SignedIn>
-							{authLinks.map(({ to, label, icon: Icon }) => (
-								<NavLink
-									key={to}
-									to={to}
-									className={({ isActive }) =>
-										cn(
-											'group flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-sm transition-colors',
-											isActive
-												? 'bg-surface-2 font-medium text-ink'
-												: 'text-ink-muted hover:text-ink'
-										)
-									}
-								>
-									<Icon className="size-4" />
-									<span className="group-hover:inline max-md:hidden">{label}</span>
-								</NavLink>
+							{desktopAuthLinks.map(props => (
+								<WebLink key={props.to} {...props} />
 							))}
 						</SignedIn>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
 						<RestTimer />
-						<SignedIn>
-							<NavLink
-								to="/settings"
-								className={({ isActive }) =>
-									cn(
-										'hidden rounded-sm p-1.5 transition-colors md:block',
-										isActive ? 'bg-surface-2 text-ink' : 'text-ink-muted hover:text-ink'
-									)
-								}
-							>
-								<Settings className="size-5" />
-							</NavLink>
-						</SignedIn>
-						<SignedIn>
-							<UserButton />
-						</SignedIn>
+						<div className={cn('flex items-center gap-2', timerActive && 'max-md:hidden')}>
+							<SignedIn>
+								<WebLink to="/settings" icon={Settings} />
+								<UserButton />
+							</SignedIn>
+						</div>
 						<SignedOut>
 							<SignInButton mode="modal">
-								<button
-									type="button"
-									className="flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-ink-muted text-sm transition-colors hover:text-ink"
-								>
-									<LogIn className="size-4" />
-									Sign in
-								</button>
+								<WebLink icon={LogIn} label="Sign in" />
 							</SignInButton>
 						</SignedOut>
 					</div>
@@ -114,20 +79,14 @@ export function Nav() {
 
 			{/* Mobile bottom tab bar */}
 			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
-				<div className="grid auto-cols-fr grid-flow-col justify-center">
+				<div className="grid auto-cols-fr grid-flow-col justify-center px-3 2xs:py-1">
 					<AppLinks links={publicLinks} />
 					<SignedIn>
-						<AppLinks links={authLinks} />
+						<AppLinks links={mobileAuthLinks} />
 					</SignedIn>
 					<SignedOut>
 						<SignInButton mode="modal">
-							<button
-								type="button"
-								className="mx-auto space-y-0.5 py-2 text-center text-ink-muted text-xs transition-colors"
-							>
-								<LogIn className="mx-auto size-5" />
-								<div>Sign in</div>
-							</button>
+							<AppLink icon={LogIn} label="Sign in" />
 						</SignInButton>
 					</SignedOut>
 				</div>
@@ -136,19 +95,50 @@ export function Nav() {
 	)
 }
 
-const AppLink: FC<{ to: string; label: string; icon: LucideIcon }> = ({ to, label, icon: Icon }) => (
-	<NavLink
-		to={to}
-		className={({ isActive }) =>
-			cn(
-				'mx-auto space-y-0.5 py-2 text-center text-xs transition-colors',
-				isActive ? 'font-medium text-accent' : 'text-ink-muted'
-			)
-		}
-	>
-		<Icon className="mx-auto size-5" />
-		<div>{label}</div>
-	</NavLink>
-)
+interface LinkProps {
+	className?: string
+	to?: string | (() => void)
+	label?: string
+	icon: LucideIcon
+	end?: boolean
+}
+
+const WebLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest }) => {
+	const Elem =
+		typeof to === 'string'
+			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
+			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
+	return (
+		<Elem
+			{...rest}
+			className={cn(
+				'group flex items-center gap-1.5 rounded-sm px-3 py-1.5 current:font-medium current:text-accent text-ink-muted text-sm transition-colors hover:text-ink',
+				className
+			)}
+		>
+			<Icon className="size-5" />
+			<span className="group-hover:inline max-md:hidden">{label}</span>
+		</Elem>
+	)
+}
+
+const AppLink: FC<LinkProps> = ({ to, label, icon: Icon, className, end, ...rest }) => {
+	const Elem =
+		typeof to === 'string'
+			? (props: HTMLAttributes<HTMLAnchorElement>) => <NavLink to={to} end={end} {...props} />
+			: (props: HTMLAttributes<HTMLButtonElement>) => <button type="button" onClick={to} {...props} />
+	return (
+		<Elem
+			{...rest}
+			className={cn(
+				'mx-auto space-y-0.5 py-2 text-center current:font-medium 2xs:text-sm current:text-accent text-ink-muted text-xs transition-colors',
+				className
+			)}
+		>
+			<Icon className="mx-auto 2xs:size-6 size-5" />
+			<div>{label}</div>
+		</Elem>
+	)
+}
 
 const AppLinks: FC<{ links: Link[] }> = ({ links }) => links.map(link => <AppLink key={link.to} {...link} />)

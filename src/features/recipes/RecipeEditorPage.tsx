@@ -1,15 +1,24 @@
 import type { Recipe } from '@macromaxxing/db'
-import { AlertTriangle, ArrowLeft, Eye, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChefHat, Eye, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Button, CopyButton, Input, MarkdownEditor, Modal, Spinner, Switch, TRPCError } from '~/components/ui'
+import {
+	Button,
+	CopyButton,
+	Input,
+	LinkButton,
+	MarkdownEditor,
+	Modal,
+	Spinner,
+	Switch,
+	TRPCError
+} from '~/components/ui'
+import { useDocumentTitle, useUnsavedChanges, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
-import { useUser } from '~/lib/user'
-import { useUnsavedChanges } from '~/lib/useUnsavedChanges'
 import { GenerateInstructionsButton } from './components/GenerateInstructionsButton'
 import { HighlightedInstructions } from './components/HighlightedInstructions'
 import { PortionPanel } from './components/PortionPanel'
+import { RecipeImageUpload } from './components/RecipeImageUpload'
 import { RecipeIngredientTable } from './components/RecipeIngredientTable'
 import { RecipeTotalsBar } from './components/RecipeTotalsBar'
 import { useRecipeCalculations } from './hooks/useRecipeCalculations'
@@ -61,6 +70,8 @@ export function RecipeEditorPage() {
 		name: ri.subrecipe?.name ?? ri.ingredient?.name ?? '',
 		grams: ri.amountGrams
 	}))
+
+	const hasIngredients = (recipeQuery.data?.recipeIngredients.length ?? 0) > 0
 
 	function handleCreate() {
 		if (!name.trim()) return
@@ -133,6 +144,12 @@ export function RecipeEditorPage() {
 				)}
 				{isOwner && (
 					<div className="ml-auto flex items-center gap-2">
+						{hasIngredients && (
+							<LinkButton to={`/recipes/${id}/cook`} size="sm">
+								<ChefHat className="size-4" />
+								Cook
+							</LinkButton>
+						)}
 						{calculations && <CopyButton getText={() => formatRecipe(recipeQuery.data!, calculations)} />}
 						<label
 							htmlFor="public-toggle"
@@ -158,6 +175,12 @@ export function RecipeEditorPage() {
 				)}
 				{!(isNew || isOwner) && (
 					<div className="ml-auto flex items-center gap-2">
+						{hasIngredients && (
+							<LinkButton to={`/recipes/${id}/cook`} size="sm">
+								<ChefHat className="size-4" />
+								Cook
+							</LinkButton>
+						)}
 						{calculations && <CopyButton getText={() => formatRecipe(recipeQuery.data!, calculations)} />}
 						<span className="flex items-center gap-1.5 text-ink-muted text-sm">
 							<Eye className="size-4" />
@@ -174,8 +197,15 @@ export function RecipeEditorPage() {
 
 			{!isNew && recipeQuery.data && calculations && (
 				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
-					{/* Mobile: PortionPanel at top */}
-					<div className="order-first lg:hidden">
+					<div className="flex flex-col gap-4 lg:order-last lg:flex-col-reverse lg:justify-end">
+						{!isNew && recipeQuery.data && (
+							<RecipeImageUpload
+								recipeId={id!}
+								image={recipeQuery.data.image}
+								onImageChange={() => recipeQuery.refetch()}
+								readOnly={!isOwner}
+							/>
+						)}
 						<PortionPanel
 							portion={calculations.portion}
 							cookedWeight={recipeQuery.data.cookedWeight}
@@ -216,34 +246,19 @@ export function RecipeEditorPage() {
 								)}
 							</div>
 							{isOwner ? (
-								<MarkdownEditor
-									value={instructions}
-									onChange={setInstructions}
-									placeholder="Add cooking instructions..."
-								/>
+								hasLoadedRecipe && (
+									<MarkdownEditor
+										value={instructions}
+										onChange={setInstructions}
+										placeholder="Add cooking instructions..."
+									/>
+								)
 							) : (
 								<HighlightedInstructions
 									markdown={instructions}
 									ingredients={recipeQuery.data.recipeIngredients}
 								/>
 							)}
-						</div>
-					</div>
-
-					{/* Right column: PortionPanel (desktop only) */}
-					<div className="hidden lg:block">
-						<div className="sticky top-4">
-							<PortionPanel
-								portion={calculations.portion}
-								cookedWeight={recipeQuery.data.cookedWeight}
-								rawTotal={calculations.totals.weight}
-								portionSize={recipeQuery.data.portionSize}
-								effectiveCookedWeight={calculations.cookedWeight}
-								onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
-								onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
-								ingredients={isOwner ? ingredients : undefined}
-								instructions={isOwner ? instructions : undefined}
-							/>
 						</div>
 					</div>
 				</div>

@@ -1,20 +1,22 @@
-import type { Sex } from '@macromaxxing/db'
-import type { FC, SVGAttributes } from 'react'
+import type { MuscleGroup, Sex } from '@macromaxxing/db'
+import { clamp, startCase } from 'es-toolkit'
+import { type FC, type ReactNode, type SVGAttributes, useMemo, useRef, useState } from 'react'
 import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
+import { intensityClass } from '~/lib'
 
 export interface BodyMapProps {
-	muscleColors: Map<string, string>
-	onHover: (muscleGroup: string | null) => void
+	muscleVolumes: Map<MuscleGroup, number>
 	sex: Sex
+	renderTooltip?: (muscleGroup: MuscleGroup) => ReactNode
 }
 
 const BodyFigure: FC<{
 	SvgComponent: FC<BodySvgProps>
-	muscleColors: Map<string, string>
-	onHover: (muscle: string | null) => void
+	muscleColors: Map<MuscleGroup, string>
+	onHover: (muscle: MuscleGroup | null) => void
 	label: string
 }> = ({ SvgComponent, muscleColors, onHover, label }) => {
-	const gp = (muscle: string): SVGAttributes<SVGGElement> => ({
+	const gp = (muscle: MuscleGroup): SVGAttributes<SVGGElement> => ({
 		className: `cursor-pointer transition-colors hover:opacity-70 ${
 			muscleColors.get(muscle) ?? 'text-ink-faint/20'
 		}`,
@@ -32,13 +34,59 @@ const BodyFigure: FC<{
 	)
 }
 
-export const BodyMap: FC<BodyMapProps> = ({ muscleColors, onHover, sex }) => {
+export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip }) => {
+	const containerRef = useRef<HTMLDivElement>(null)
+	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
+	const tooltipRef = useRef<HTMLDivElement>(null)
+	const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+
+	const muscleColors = useMemo(() => {
+		const max = Math.max(...muscleVolumes.values(), 1)
+		const colors = new Map<MuscleGroup, string>()
+		for (const [muscle, volume] of muscleVolumes) {
+			colors.set(muscle, intensityClass(volume / max))
+		}
+		return colors
+	}, [muscleVolumes])
+
+	function handleMouseMove(e: React.MouseEvent) {
+		if (!containerRef.current) return
+		const rect = containerRef.current.getBoundingClientRect()
+		setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+	}
+
 	const Front = sex === 'female' ? BodyFrontFemale : BodyFrontMale
 	const Back = sex === 'female' ? BodyBackFemale : BodyBackMale
+
+	const tooltipContent = hoveredMuscle ? renderTooltip?.(hoveredMuscle) : null
+	const tooltipWidth = tooltipRef.current?.clientWidth ?? 144
+	const tooltipHeight = tooltipRef.current?.clientHeight ?? 16
+
 	return (
-		<div className="flex justify-center gap-4">
-			<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={onHover} label="front" />
-			<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={onHover} label="back" />
+		<div
+			ref={containerRef}
+			role="img"
+			aria-label="Muscle coverage preview"
+			className="relative"
+			onMouseMove={handleMouseMove}
+		>
+			<div className="flex justify-center gap-4">
+				<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={setHoveredMuscle} label="front" />
+				<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={setHoveredMuscle} label="back" />
+			</div>
+			{hoveredMuscle && (
+				<div
+					className="pointer-events-none absolute z-90 w-36 rounded-sm border border-edge bg-surface-1 p-2"
+					ref={tooltipRef}
+					style={{
+						left: clamp(mousePos.x - tooltipWidth, 0, window.innerWidth - tooltipWidth),
+						top: clamp(mousePos.y + 16, 0, window.innerHeight - tooltipHeight)
+					}}
+				>
+					<div className="font-medium text-ink text-xs">{startCase(hoveredMuscle)}</div>
+					{tooltipContent}
+				</div>
+			)}
 		</div>
 	)
 }

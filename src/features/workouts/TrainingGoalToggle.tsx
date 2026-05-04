@@ -1,6 +1,6 @@
 import type { TrainingGoal } from '@macromaxxing/db'
 import type { FC } from 'react'
-import { cn } from '~/lib/cn'
+import { cn } from '~/lib'
 
 export const TRAINING_GOAL_OPTIONS: { value: TrainingGoal | null; label: string; full: string }[] = [
 	{ value: null, label: '—', full: 'Default' },
@@ -21,7 +21,7 @@ export const TrainingGoalToggle: FC<TrainingGoalToggleProps> = ({ workoutGoal, v
 				key={opt.label}
 				type="button"
 				className={cn(
-					'group border border-edge px-1.5 py-0.5 text-[10px] first:rounded-l-sm last:rounded-r-sm',
+					'group border border-edge px-1.5 py-0.5 font-mono text-[10px] first:rounded-l-sm last:rounded-r-sm',
 					{
 						'bg-accent text-white': value === opt.value && opt.value !== null,
 						'bg-surface-0 text-ink-faint hover:text-ink': value !== opt.value,

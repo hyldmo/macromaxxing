@@ -1,3 +1,4 @@
+import type { MealPlan } from '@macromaxxing/db'
 import type { FC } from 'react'
 import {
 	calculateDayTotals,
@@ -16,18 +17,19 @@ type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type SlotWithInventory = InventoryItem['slots'][number] & { inventory: InventoryItem }
 
 export interface DayColumnProps {
+	planId: MealPlan['id']
 	dayName: string
 	dayOfWeek: number
 	slots: SlotWithInventory[]
 	inventory: InventoryItem[]
-	onDrop: (slotIndex: number, inventoryId: string, sourceSlotId?: string) => void
+	onDrop: (slotIndex: number, inventoryId: InventoryItem['id'], sourceSlotId?: SlotWithInventory['id']) => void
 }
 
 const MIN_SLOTS = 3
 
-export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inventory, onDrop }) => {
+export const DayColumn: FC<DayColumnProps> = ({ planId, dayName, dayOfWeek, slots, inventory, onDrop }) => {
 	// Sort slots by index
-	const sortedSlots = [...slots].sort((a, b) => a.slotIndex - b.slotIndex)
+	const sortedSlots = slots.toSorted((a, b) => a.slotIndex - b.slotIndex)
 
 	// Calculate the max slot index we need to show
 	const maxUsedSlot = sortedSlots.length > 0 ? Math.max(...sortedSlots.map(s => s.slotIndex)) : -1
@@ -51,7 +53,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 	})
 
 	// Calculate day totals
-	const dayTotal = calculateDayTotals(slotMacros.filter(Boolean) as NonNullable<(typeof slotMacros)[number]>[])
+	const dayTotal = calculateDayTotals(slotMacros.filter((m): m is NonNullable<typeof m> => m != null))
 
 	return (
 		<div className="flex flex-col">
@@ -63,6 +65,7 @@ export const DayColumn: FC<DayColumnProps> = ({ dayName, dayOfWeek, slots, inven
 				{slotArray.map((slot, index) => (
 					<MealSlot
 						key={slot?.id ?? `empty-${dayOfWeek}-${index}`}
+						planId={planId}
 						dayOfWeek={dayOfWeek}
 						slotIndex={index}
 						slot={slot}

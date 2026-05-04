@@ -1,12 +1,13 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { TypeIDString } from '@macromaxxing/db'
-import { Plus, Upload } from 'lucide-react'
+import { Dumbbell, Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Button, Card, LinkButton, Spinner, TRPCError } from '~/components/ui'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
+import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
-import { useDocumentTitle } from '~/lib/useDocumentTitle'
+import { formatTemplate } from '~/lib/workouts/export'
 import { ImportDialog } from './components/ImportDialog'
 import { MuscleHeatGrid } from './components/MuscleHeatGrid'
 import { SessionCard } from './components/SessionCard'
@@ -18,7 +19,9 @@ export function WorkoutListPage() {
 	const [showImport, setShowImport] = useState(false)
 	const workoutsQuery = trpc.workout.listWorkouts.useQuery()
 	const sessionsQuery = trpc.workout.listSessions.useQuery()
+	const summaryQuery = trpc.dashboard.summary.useQuery()
 	const utils = trpc.useUtils()
+	const activeProgram = summaryQuery.data?.activeProgram ?? null
 
 	const createSession = trpc.workout.createSession.useMutation({
 		onSuccess: session => {
@@ -64,18 +67,45 @@ export function WorkoutListPage() {
 	return (
 		<div className="flex flex-col gap-3 lg:flex-row lg:gap-6">
 			<div className="flex-1 space-y-4">
-				<div className="flex items-center justify-between gap-2">
+				<div className="space-y-1">
 					<h1 className="font-semibold text-ink">Workouts</h1>
-					<div className="flex items-center gap-2">
-						<Button variant="outline" onClick={() => setShowImport(true)}>
-							<Upload className="size-4" />
-							Import
-						</Button>
-						<LinkButton to="/workouts/new">
-							<Plus className="size-4" />
-							New Workout
-						</LinkButton>
+					<div className="font-mono text-ink-faint text-xs tabular-nums">
+						{activeProgram ? (
+							<>
+								Active program: <span className="text-ink-muted">{activeProgram.name}</span>{' '}
+								<Link to="/plans" className="text-accent hover:underline">
+									Manage →
+								</Link>
+							</>
+						) : (
+							<Link to="/plans" className="text-accent hover:underline">
+								Set up a program →
+							</Link>
+						)}
 					</div>
+				</div>
+				<div className="flex flex-wrap items-center justify-end gap-2">
+					<LinkButton to="/exercises" variant="outline">
+						<Dumbbell className="size-4" />
+						Exercises
+					</LinkButton>
+					{workoutsQuery.data && workoutsQuery.data.length > 0 && (
+						<CopyButton
+							variant="outline"
+							size="default"
+							getText={() => workoutsQuery.data!.map(w => formatTemplate(w)).join('\n\n---\n\n')}
+						>
+							Copy All
+						</CopyButton>
+					)}
+					<Button variant="outline" onClick={() => setShowImport(true)}>
+						<Upload className="size-4" />
+						Import
+					</Button>
+					<LinkButton to="/workouts/new">
+						<Plus className="size-4" />
+						New Workout
+					</LinkButton>
 				</div>
 
 				{workoutsQuery.isLoading ? (
