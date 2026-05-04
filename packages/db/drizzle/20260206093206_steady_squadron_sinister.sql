@@ -1,0 +1,1 @@
+ALTER TABLE `ingredients` ADD `fdc_id` integer;

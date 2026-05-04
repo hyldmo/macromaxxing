@@ -1,0 +1,1 @@
+ALTER TABLE `recipes` ADD `source_url` text;

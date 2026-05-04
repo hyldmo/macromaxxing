@@ -31,9 +31,6 @@ jobs:
       - uses: ./.github/actions/setup
 
       - name: Apply D1 migrations
-        # Custom apply script — wrangler's `d1 migrations apply` silently skips
-        # Drizzle's subdirectory-format migrations and prints "No migrations to
-        # apply!" while leaving the DB missing tables. See scripts/migrate.ts.
         run: yarn db:migrate:remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

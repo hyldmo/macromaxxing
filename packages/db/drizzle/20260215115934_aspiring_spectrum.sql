@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `exercises_name_system_idx` ON `exercises` (`name`) WHERE user_id IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `exercises_name_user_idx` ON `exercises` (`name`,`user_id`) WHERE user_id IS NOT NULL;
