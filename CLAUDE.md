@@ -72,6 +72,7 @@ src/
     user.tsx                                # useUser() hook (Clerk)
     cn.ts                                   # cn() utility (clsx + twMerge)
     images.ts                               # getImageUrl, isExternalImage, getImageAttribution (R2/external URL)
+    workouts/                               # Pure helpers: programCycle (pickNextWorkout), programLoad (computeProgramLoad), formulas, sets, etc.
   components/
     ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
@@ -106,7 +107,8 @@ src/
       ExerciseListPage.tsx                  # List with search, sort, BodyMap sidebar, inline edit form
       components/ExerciseForm.tsx            # Add/edit exercise form (name, type, tier, rep ranges, muscles)
     mealPlans/
-      MealPlanListPage.tsx                  # List/create/delete meal plans
+      PlansPage.tsx                         # /plans hub: composes MealPlansSection + ProgramsSection
+      MealPlansSection.tsx                  # List/create/delete meal plans (formerly MealPlanListPage)
       MealPlannerPage.tsx                   # Weekly planner: inventory sidebar + 7-day grid
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
@@ -135,6 +137,11 @@ src/
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
         ProfileForm.tsx                     # Body profile inputs (height/weight/sex)
+        ProgramCard.tsx                     # Program row: star toggle for active + N sets/cycle stat
+        ProgramsSection.tsx                 # Programs list + "New program" CTA, embedded into /plans
+        ProgramEditor.tsx                   # /plans/programs/:id route: name + drag-reorder workouts + sidebar
+        ProgramCyclePreview.tsx             # Numbered cycle: "1. Push → 2. Pull → wraps to 1"
+        ProgramMuscleSidebar.tsx            # Stats + BodyMap + balance bars; exports BelowMevWarning
       utils/
         formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE, computeDivergences
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
@@ -182,7 +189,9 @@ scripts/
 /recipes/:id/cook                    → CookModePage
 /ingredients                         → IngredientListPage
 /exercises                           → ExerciseListPage
-/plans                               → MealPlanListPage
+/plans                               → PlansPage (Meal Plans + Workout Programs sections)
+/plans/programs/new                  → ProgramEditor (new program)
+/plans/programs/:id                  → ProgramEditor (edit program)
 /plans/:id                           → MealPlannerPage
 /workouts                            → WorkoutListPage
 /workouts/new                        → WorkoutTemplatePage
@@ -225,6 +234,10 @@ workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt
                             targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)
+
+workoutPrograms(id typeid:wpr, userId, name, sortOrder, UNIQUE(userId, name))
+  → workoutProgramItems(id typeid:wpi, programId, workoutId, sortOrder)  -- both FKs ON DELETE CASCADE
+userSettings += activeProgramId? typeid:wpr  -- nullable, ON DELETE SET NULL
 
 usda_foods(fdc_id PK integer, description, data_type: foundation|sr_legacy, protein/carbs/fat/kcal/fiber per 100g, density?)
   → usda_portions(id autoincrement PK, fdc_id FK, name, grams, is_volume)
@@ -289,6 +302,9 @@ trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
+trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
+trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
+trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
 trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
@@ -352,6 +368,16 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - **Rest timer** persists globally (nav widget) — shows countdown, overshot time, or session elapsed
 - **Timer route** (`/workouts/sessions/:id/timer`) renders as full-screen child route via `<Outlet>`
 - Body profile (height/weight/sex) stored in `userSettings`, used for workout validation
+
+**Workout Programs** — Named ordered groupings of workout templates (e.g. PPL):
+- One program can be marked active via `userSettings.activeProgramId` (FK ON DELETE SET NULL)
+- Dashboard "Up next" cycles within the active program; off-program completions are ignored
+- `pickNextWorkout` (src/lib/workouts/programCycle.ts) returns a discriminated `legacy | program | emptyActiveProgram` so the dashboard can render the cycle subtitle ("Day N of M") or an empty-program banner without `if/else` contradictions
+- Editor (`/plans/programs/:id`) drag-reorders draft items and resolves them against the cached `listWorkouts` data each render — sidebar muscle load updates live before save
+- Muscle aggregation has two paths:
+  - **Client-side** `computeProgramLoad` (src/lib/workouts/programLoad.ts) for the live editor (no round-trip; uses cached `listWorkouts.exercises.muscles`)
+  - **Server-side** `programMuscleLoad` tRPC procedure for MCP agents — same shape, computed across the saved cycle
+- `updateProgram` does atomic delete-then-chunked-insert via `db.batch([...])` (D1 has no Drizzle transactions; chunk = 20 rows for the 5-col `workout_program_items`)
 
 **PWA** — Installable progressive web app via `vite-plugin-pwa`:
 - Workbox precaches all static assets (`js, css, html, ico, png, svg, woff2`) with SPA `navigateFallback` (excludes `/api/`)

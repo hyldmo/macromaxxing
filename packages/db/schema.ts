@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
 	type ExerciseType,
@@ -32,7 +32,10 @@ export const userSettings = sqliteTable('user_settings', {
 	modelFallback: integer('model_fallback').notNull().default(0), // 0=off, 1=on
 	heightCm: real('height_cm'),
 	weightKg: real('weight_kg'),
-	sex: text('sex').notNull().default('male').$type<Sex>()
+	sex: text('sex').notNull().default('male').$type<Sex>(),
+	activeProgramId: typeidCol('wpr')('active_program_id').references((): AnySQLiteColumn => workoutPrograms.id, {
+		onDelete: 'set null'
+	})
 })
 
 export const apiTokens = sqliteTable(
@@ -358,6 +361,47 @@ export const workoutLogs = sqliteTable(
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('workout_logs_session_id_idx').on(t.sessionId)]
+)
+
+export const workoutPrograms = sqliteTable(
+	'workout_programs',
+	{
+		id: typeidCol('wpr')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('wpr')),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		name: text('name').notNull(),
+		sortOrder: integer('sort_order').notNull().default(0),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	t => [
+		index('workout_programs_user_id_idx').on(t.userId),
+		uniqueIndex('workout_programs_user_name_idx').on(t.userId, t.name)
+	]
+)
+
+export const workoutProgramItems = sqliteTable(
+	'workout_program_items',
+	{
+		id: typeidCol('wpi')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('wpi')),
+		programId: typeidCol('wpr')('program_id')
+			.notNull()
+			.references(() => workoutPrograms.id, { onDelete: 'cascade' }),
+		workoutId: typeidCol('wkt')('workout_id')
+			.notNull()
+			.references(() => workouts.id, { onDelete: 'cascade' }),
+		sortOrder: integer('sort_order').notNull(),
+		createdAt: integer('created_at').notNull()
+	},
+	t => [
+		index('workout_program_items_program_id_idx').on(t.programId),
+		index('workout_program_items_workout_id_idx').on(t.workoutId)
+	]
 )
 
 // ─── USDA Local Data ────────────────────────────────────────────────
