@@ -14,8 +14,7 @@ export const relations = defineRelations(schema, r => ({
 		workouts: r.many.workouts(),
 		workoutSessions: r.many.workoutSessions(),
 		workoutPrograms: r.many.workoutPrograms(),
-		apiTokens: r.many.apiTokens(),
-		userExerciseFavorites: r.many.userExerciseFavorites()
+		apiTokens: r.many.apiTokens()
 	},
 
 	apiTokens: {
@@ -130,8 +129,7 @@ export const relations = defineRelations(schema, r => ({
 			to: r.exerciseGuides.exerciseId
 		}),
 		logs: r.many.workoutLogs(),
-		workoutExercises: r.many.workoutExercises(),
-		userExerciseFavorites: r.many.userExerciseFavorites()
+		workoutExercises: r.many.workoutExercises()
 	},
 
 	exerciseMuscles: {
@@ -145,19 +143,6 @@ export const relations = defineRelations(schema, r => ({
 	exerciseGuides: {
 		exercise: r.one.exercises({
 			from: r.exerciseGuides.exerciseId,
-			to: r.exercises.id,
-			optional: false
-		})
-	},
-
-	userExerciseFavorites: {
-		user: r.one.users({
-			from: r.userExerciseFavorites.userId,
-			to: r.users.id,
-			optional: false
-		}),
-		exercise: r.one.exercises({
-			from: r.userExerciseFavorites.exerciseId,
 			to: r.exercises.id,
 			optional: false
 		})

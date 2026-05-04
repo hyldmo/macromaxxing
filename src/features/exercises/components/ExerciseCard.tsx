@@ -1,5 +1,5 @@
 import { startCase } from 'es-toolkit'
-import { ExternalLink, Star, Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import type { FC, MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card } from '~/components/ui'
@@ -22,13 +22,11 @@ export interface ExerciseCardProps {
 	exercise: Exercise
 	isMine: boolean
 	onDelete: (id: Exercise['id']) => void
-	onFavoriteToggle: (exercise: Exercise) => void
 }
 
-export const ExerciseCard: FC<ExerciseCardProps> = ({ exercise, isMine, onDelete, onFavoriteToggle }) => {
+export const ExerciseCard: FC<ExerciseCardProps> = ({ exercise, isMine, onDelete }) => {
 	const primary = exercise.muscles.filter(m => m.intensity >= 0.7)
 	const secondary = exercise.muscles.filter(m => m.intensity >= 0.5 && m.intensity < 0.7)
-	const isFavorite = exercise.isFavorite
 
 	function stop(e: MouseEvent) {
 		e.preventDefault()
@@ -88,21 +86,8 @@ export const ExerciseCard: FC<ExerciseCardProps> = ({ exercise, isMine, onDelete
 							<span>Hyp {formatRange(exercise.hypertrophyRepsMin, exercise.hypertrophyRepsMax)}</span>
 						</div>
 					</div>
-					<div className="flex shrink-0 gap-0.5">
-						<Button
-							variant="ghost"
-							size="icon"
-							className={`size-7 ${isFavorite ? 'text-accent' : 'text-ink-faint hover:text-accent'}`}
-							onClick={e => {
-								stop(e)
-								onFavoriteToggle(exercise)
-							}}
-							aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
-							aria-pressed={isFavorite}
-						>
-							<Star className="size-3.5" fill={isFavorite ? 'currentColor' : 'none'} />
-						</Button>
-						{isMine && (
+					{isMine && (
+						<div className="flex shrink-0 gap-0.5">
 							<Button
 								variant="ghost"
 								size="icon"
@@ -115,8 +100,8 @@ export const ExerciseCard: FC<ExerciseCardProps> = ({ exercise, isMine, onDelete
 							>
 								<Trash2 className="size-3.5 text-ink-faint" />
 							</Button>
-						)}
-					</div>
+						</div>
+					)}
 				</div>
 			</Card>
 		</Link>

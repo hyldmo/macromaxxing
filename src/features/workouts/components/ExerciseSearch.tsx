@@ -1,4 +1,4 @@
-import { Plus, Search, Star } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Card, Input } from '~/components/ui'
 import { fuzzyMatch } from '~/lib/fuzzy'
@@ -35,8 +35,6 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 				.slice(0, RESULT_CAP)
 				.map(r => r.exercise)
 		: []
-
-	const favoriteList = search ? [] : exercises.filter(e => e.isFavorite).slice(0, RESULT_CAP)
 
 	const renderRow = (exercise: Exercise) => (
 		<button
@@ -79,23 +77,11 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 					className="pl-8"
 				/>
 			</div>
-			{showDropdown && (search.length > 0 || favoriteList.length > 0) && (
+			{showDropdown && search.length > 0 && (
 				<Card className="absolute top-full z-10 mt-1 w-full">
-					{search.length > 0 ? (
-						<>
-							{filtered.map(renderRow)}
-							{filtered.length === 0 && (
-								<div className="px-3 py-2 text-ink-faint text-sm">No exercises found</div>
-							)}
-						</>
-					) : (
-						<>
-							<div className="flex items-center gap-1.5 px-3 pt-2 pb-1 text-[10px] text-ink-faint uppercase tracking-wide">
-								<Star className="size-3" fill="currentColor" />
-								Favorites
-							</div>
-							{favoriteList.map(renderRow)}
-						</>
+					{filtered.map(renderRow)}
+					{filtered.length === 0 && (
+						<div className="px-3 py-2 text-ink-faint text-sm">No exercises found</div>
 					)}
 				</Card>
 			)}

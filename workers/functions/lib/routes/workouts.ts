@@ -19,7 +19,6 @@ import {
 	type TrainingGoal,
 	type TypeIDString,
 	trainingGoal,
-	userExerciseFavorites,
 	userSettings,
 	WINDOW_CUTOFF_MS,
 	withZones,
@@ -290,21 +289,14 @@ export const workoutsRouter = router({
 		.input(z.object({ type: exerciseType.optional() }).optional())
 		.query(async ({ ctx, input }) => {
 			const typeFilter = input?.type ? { type: input.type } : {}
-			const rows = await ctx.db.query.exercises.findMany({
+			return ctx.db.query.exercises.findMany({
 				where: {
 					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }],
 					...typeFilter
 				},
-				with: {
-					muscles: true,
-					userExerciseFavorites: { where: { userId: ctx.user.id } }
-				},
+				with: { muscles: true },
 				orderBy: { name: 'asc' }
 			})
-			return rows.map(({ userExerciseFavorites, ...row }) => ({
-				...row,
-				isFavorite: userExerciseFavorites.length > 0
-			}))
 		}),
 
 	createExercise: protectedProcedure
@@ -432,45 +424,6 @@ export const workoutsRouter = router({
 			}
 
 			await ctx.db.delete(exercises).where(eq(exercises.id, input.id))
-		}),
-
-	favoriteExercise: protectedProcedure
-		.meta({ description: 'Mark an exercise as a favorite for the current user (idempotent)' })
-		.input(z.object({ exerciseId: zodTypeID('exc') }))
-		.mutation(async ({ ctx, input }) => {
-			// IDOR defense: only allow favoriting system exercises or the user's own.
-			// Return 404 (not 403) to avoid leaking the existence of other users' private exercises.
-			const visible = await ctx.db.query.exercises.findFirst({
-				where: {
-					id: input.exerciseId,
-					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }]
-				}
-			})
-			if (!visible) {
-				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
-			}
-
-			await ctx.db
-				.insert(userExerciseFavorites)
-				.values({ userId: ctx.user.id, exerciseId: input.exerciseId, createdAt: Date.now() })
-				.onConflictDoNothing()
-
-			return { ok: true } as const
-		}),
-
-	unfavoriteExercise: protectedProcedure
-		.meta({ description: 'Unmark an exercise as a favorite for the current user (idempotent)' })
-		.input(z.object({ exerciseId: zodTypeID('exc') }))
-		.mutation(async ({ ctx, input }) => {
-			await ctx.db
-				.delete(userExerciseFavorites)
-				.where(
-					and(
-						eq(userExerciseFavorites.userId, ctx.user.id),
-						eq(userExerciseFavorites.exerciseId, input.exerciseId)
-					)
-				)
-			return { ok: true } as const
 		}),
 
 	// ─── Exercise Guides ──────────────────────────────────────────

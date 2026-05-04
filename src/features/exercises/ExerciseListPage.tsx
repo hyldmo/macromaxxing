@@ -1,6 +1,6 @@
 import type { MuscleGroup } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
-import { ArrowDown, ArrowUp, Plus, Star } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, Input, LinkButton, Spinner, TRPCError } from '~/components/ui'
@@ -22,7 +22,6 @@ export function ExerciseListPage() {
 	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [sortKey, setSortKey] = useState<'name' | 'type' | 'tier'>('name')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-	const [favoritesOnly, setFavoritesOnly] = useState(false)
 	const [hoveredExercise, setHoveredExercise] = useState<Exercise | null>(null)
 	const utils = trpc.useUtils()
 
@@ -32,33 +31,6 @@ export function ExerciseListPage() {
 
 	const deleteMutation = trpc.workout.deleteExercise.useMutation({
 		onSuccess: () => utils.workout.listExercises.invalidate()
-	})
-
-	type FavoriteContext = { prev: Exercise[] | undefined }
-
-	async function applyFavoriteOptimistic(exerciseId: Exercise['id'], next: boolean): Promise<FavoriteContext> {
-		await utils.workout.listExercises.cancel()
-		const prev = utils.workout.listExercises.getData()
-		utils.workout.listExercises.setData(undefined, old =>
-			old?.map(e => (e.id === exerciseId ? { ...e, isFavorite: next } : e))
-		)
-		return { prev }
-	}
-
-	function rollbackFavorite(ctx: FavoriteContext | undefined) {
-		if (ctx?.prev) utils.workout.listExercises.setData(undefined, ctx.prev)
-	}
-
-	const favoriteMutation = trpc.workout.favoriteExercise.useMutation({
-		onMutate: ({ exerciseId }) => applyFavoriteOptimistic(exerciseId, true),
-		onError: (_err, _vars, ctx) => rollbackFavorite(ctx),
-		onSettled: () => utils.workout.listExercises.invalidate()
-	})
-
-	const unfavoriteMutation = trpc.workout.unfavoriteExercise.useMutation({
-		onMutate: ({ exerciseId }) => applyFavoriteOptimistic(exerciseId, false),
-		onError: (_err, _vars, ctx) => rollbackFavorite(ctx),
-		onSettled: () => utils.workout.listExercises.invalidate()
 	})
 
 	const toggleSort = (key: typeof sortKey) => {
@@ -72,29 +44,20 @@ export function ExerciseListPage() {
 
 	const filtered = useMemo(() => {
 		const all = exercisesQuery.data ?? []
-		const afterFavorite = favoritesOnly ? all.filter(e => e.isFavorite) : all
 		const list = search
-			? afterFavorite.filter(e => {
+			? all.filter(e => {
 					const muscles = e.muscles.map(m => m.muscleGroup.replace('_', ' ')).join(' ')
 					const text = `${e.name} ${e.type} ${muscles} tier ${e.fatigueTier}`
 					return fuzzyMatch(search, text) !== null
 				})
-			: afterFavorite
-		const sorted = list.toSorted((a, b) => {
+			: all
+		return list.toSorted((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
 			if (sortKey === 'type') return dir * a.type.localeCompare(b.type)
 			return dir * (a.fatigueTier - b.fatigueTier)
 		})
-		// Pin favorites to the top only when the user hasn't filtered or re-sorted —
-		// once they're searching, sorting by type/tier, or already filtering to favorites,
-		// the pinning is either redundant or against the user's explicit choice.
-		const pinFavorites = !(search || favoritesOnly) && sortKey === 'name' && sortDir === 'asc'
-		if (!pinFavorites) return sorted
-		const favorites = sorted.filter(e => e.isFavorite)
-		const rest = sorted.filter(e => !e.isFavorite)
-		return [...favorites, ...rest]
-	}, [exercisesQuery.data, search, sortKey, sortDir, favoritesOnly])
+	}, [exercisesQuery.data, search, sortKey, sortDir])
 
 	const hoveredVolumes = useMemo(() => {
 		const volumes = new Map<MuscleGroup, number>()
@@ -107,14 +70,6 @@ export function ExerciseListPage() {
 
 	function handleDelete(id: Exercise['id']) {
 		deleteMutation.mutate({ id })
-	}
-
-	function handleFavoriteToggle(exercise: Exercise) {
-		if (exercise.isFavorite) {
-			unfavoriteMutation.mutate({ exerciseId: exercise.id })
-		} else {
-			favoriteMutation.mutate({ exerciseId: exercise.id })
-		}
 	}
 
 	return (
@@ -133,15 +88,6 @@ export function ExerciseListPage() {
 				<div className="flex items-center gap-2">
 					<Input placeholder="Search exercises..." value={search} onChange={e => setSearch(e.target.value)} />
 					<div className="flex shrink-0 gap-1">
-						<button
-							type="button"
-							aria-pressed={favoritesOnly}
-							className={`inline-flex items-center gap-0.5 rounded-md border px-2 py-1 text-xs transition-colors ${favoritesOnly ? 'border-accent bg-accent/10 text-accent' : 'border-edge text-ink-muted hover:bg-surface-2'}`}
-							onClick={() => setFavoritesOnly(v => !v)}
-						>
-							<Star className="size-3" fill={favoritesOnly ? 'currentColor' : 'none'} />
-							Favorites
-						</button>
 						{(['name', 'type', 'tier'] as const).map(key => (
 							<button
 								key={key}
@@ -172,11 +118,7 @@ export function ExerciseListPage() {
 
 				{filtered.length === 0 && !exercisesQuery.isLoading && (
 					<Card className="py-12 text-center text-ink-faint">
-						{search
-							? 'No exercises match your search.'
-							: favoritesOnly
-								? 'No favorited exercises yet — tap a star to favorite one.'
-								: 'No exercises yet.'}
+						{search ? 'No exercises match your search.' : 'No exercises yet.'}
 					</Card>
 				)}
 
@@ -188,7 +130,6 @@ export function ExerciseListPage() {
 								exercise={exercise}
 								isMine={exercise.userId === userId}
 								onDelete={handleDelete}
-								onFavoriteToggle={handleFavoriteToggle}
 							/>
 						))}
 					</div>
@@ -203,7 +144,6 @@ export function ExerciseListPage() {
 						onToggleSort={toggleSort}
 						onHover={setHoveredExercise}
 						onDelete={handleDelete}
-						onFavoriteToggle={handleFavoriteToggle}
 					/>
 				)}
 			</div>

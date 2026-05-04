@@ -1,5 +1,5 @@
 import { startCase } from 'es-toolkit'
-import { ArrowDown, ArrowUp, ExternalLink, Star, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ExternalLink, Trash2 } from 'lucide-react'
 import type { FC, MouseEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '~/components/ui'
@@ -28,7 +28,6 @@ export interface ExerciseTableProps {
 	onToggleSort: (key: SortKey) => void
 	onHover: (exercise: Exercise | null) => void
 	onDelete: (id: Exercise['id']) => void
-	onFavoriteToggle: (exercise: Exercise) => void
 }
 
 export const ExerciseTable: FC<ExerciseTableProps> = ({
@@ -38,8 +37,7 @@ export const ExerciseTable: FC<ExerciseTableProps> = ({
 	sortDir,
 	onToggleSort,
 	onHover,
-	onDelete,
-	onFavoriteToggle
+	onDelete
 }) => {
 	const navigate = useNavigate()
 
@@ -79,7 +77,6 @@ export const ExerciseTable: FC<ExerciseTableProps> = ({
 						<th className="px-2 py-1.5 text-right text-ink-muted">Hyp Range</th>
 						<th className="px-2 py-1.5 text-left text-ink-muted">Muscles</th>
 						<th className="w-8" />
-						<th className="w-8" />
 					</tr>
 				</thead>
 				<tbody>
@@ -87,7 +84,6 @@ export const ExerciseTable: FC<ExerciseTableProps> = ({
 						const isMine = exercise.userId === userId
 						const primary = exercise.muscles.filter(m => m.intensity >= 0.7)
 						const secondary = exercise.muscles.filter(m => m.intensity >= 0.5 && m.intensity < 0.7)
-						const isFavorite = exercise.isFavorite
 						return (
 							<tr
 								key={exercise.id}
@@ -152,21 +148,6 @@ export const ExerciseTable: FC<ExerciseTableProps> = ({
 											</span>
 										))}
 									</div>
-								</td>
-								<td className="px-1 py-1.5">
-									<Button
-										variant="ghost"
-										size="icon"
-										className={`size-7 ${isFavorite ? 'text-accent' : 'text-ink-faint hover:text-accent'}`}
-										onClick={e => {
-											stop(e)
-											onFavoriteToggle(exercise)
-										}}
-										aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
-										aria-pressed={isFavorite}
-									>
-										<Star className="size-3.5" fill={isFavorite ? 'currentColor' : 'none'} />
-									</Button>
 								</td>
 								<td className="px-1 py-1.5">
 									{isMine && (
