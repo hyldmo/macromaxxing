@@ -1,4 +1,4 @@
-import { mealPlanInventory, mealPlans } from '@macromaxxing/db'
+import { mealPlanInventory, mealPlans, type TypeIDString } from '@macromaxxing/db'
 import { eq, inArray } from 'drizzle-orm'
 import { protectedProcedure, router } from '../trpc'
 
@@ -6,7 +6,7 @@ export const dashboardRouter = router({
 	summary: protectedProcedure
 		.meta({ description: "Get today's meals, recent workout sessions, and macro progress" })
 		.query(async ({ ctx }) => {
-			const [sessions, templates, plansShallow, planRecipes] = await Promise.all([
+			const [sessions, templates, plansShallow, planRecipes, settings] = await Promise.all([
 				// Recent workout sessions (3 levels — acceptable)
 				ctx.db.query.workoutSessions.findMany({
 					where: { userId: ctx.user.id },
@@ -62,6 +62,16 @@ export const dashboardRouter = router({
 							orderBy: { sortOrder: 'asc' }
 						}
 					}
+				}),
+
+				// Q5: Active program (with ordered items) for dashboard cycling
+				ctx.db.query.userSettings.findFirst({
+					where: { userId: ctx.user.id },
+					with: {
+						activeProgram: {
+							with: { items: { orderBy: { sortOrder: 'asc' } } }
+						}
+					}
 				})
 			])
 
@@ -75,6 +85,15 @@ export const dashboardRouter = router({
 				}))
 			}))
 
-			return { plans, sessions, templates }
+			const activeProgram: { id: TypeIDString<'wpr'>; name: string; workoutIds: TypeIDString<'wkt'>[] } | null =
+				settings?.activeProgram
+					? {
+							id: settings.activeProgram.id,
+							name: settings.activeProgram.name,
+							workoutIds: settings.activeProgram.items.map(i => i.workoutId)
+						}
+					: null
+
+			return { plans, sessions, templates, activeProgram }
 		})
 })

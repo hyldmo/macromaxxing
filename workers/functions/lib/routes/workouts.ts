@@ -18,17 +18,22 @@ import {
 	type TrainingGoal,
 	type TypeIDString,
 	trainingGoal,
+	userSettings,
 	withZones,
 	workoutExercises,
 	workoutLogs,
+	workoutProgramItems,
+	workoutPrograms,
 	workoutSessions,
 	workouts,
 	zodTypeID
 } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
+import type { BatchItem } from 'drizzle-orm/batch'
 import { z } from 'zod'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
+import { ensureUserSettingsRow } from '../utils'
 
 const CUE_MAX = 300
 const DESCRIPTION_MAX = 500
@@ -194,6 +199,65 @@ function inferExercise(name: string): InferredExercise {
 
 	// Unknown — default to compound with empty muscles
 	return { type: 'compound', fatigueTier: 2, muscles: [] }
+}
+
+/** Throws BAD_REQUEST naming any workoutIds that don't belong to the user */
+async function assertWorkoutsOwned(
+	db: import('../db').Database,
+	userId: string,
+	workoutIds: TypeIDString<'wkt'>[]
+): Promise<void> {
+	if (workoutIds.length === 0) return
+	const found = await db
+		.select({ id: workouts.id })
+		.from(workouts)
+		.where(and(inArray(workouts.id, workoutIds), eq(workouts.userId, userId)))
+	if (found.length === workoutIds.length) return
+	const foundSet = new Set(found.map(r => r.id))
+	const missing = workoutIds.filter(id => !foundSet.has(id))
+	throw new TRPCError({
+		code: 'BAD_REQUEST',
+		message: `Workouts not found or not owned: ${missing.join(', ')}`
+	})
+}
+
+/** Insert program items in 20-row chunks (D1 100-bound-param limit, 5 cols) */
+async function insertProgramItems(
+	db: import('../db').Database,
+	programId: TypeIDString<'wpr'>,
+	workoutIds: TypeIDString<'wkt'>[],
+	now: number
+): Promise<void> {
+	const CHUNK = 20
+	for (let i = 0; i < workoutIds.length; i += CHUNK) {
+		const slice = workoutIds.slice(i, i + CHUNK)
+		await db.insert(workoutProgramItems).values(
+			slice.map((workoutId, idx) => ({
+				programId,
+				workoutId,
+				sortOrder: i + idx,
+				createdAt: now
+			}))
+		)
+	}
+}
+
+async function getProgramOrThrow(db: import('../db').Database, userId: string, id: TypeIDString<'wpr'>) {
+	const program = await db.query.workoutPrograms.findFirst({
+		where: { id, userId },
+		with: { items: { orderBy: { sortOrder: 'asc' }, with: { workout: true } } }
+	})
+	if (!program) {
+		throw new TRPCError({ code: 'NOT_FOUND', message: `Program ${id} not found or not owned by current user` })
+	}
+	return {
+		id: program.id,
+		name: program.name,
+		sortOrder: program.sortOrder,
+		createdAt: program.createdAt,
+		updatedAt: program.updatedAt,
+		workouts: program.items.map(i => i.workout)
+	}
 }
 
 /** Shared `with` for workout template queries */
@@ -1659,6 +1723,249 @@ export const workoutsRouter = router({
 				sessionsCreated: input.sessionId ? 0 : sessions.length,
 				setsImported: totalSets,
 				exercisesCreated
+			}
+		}),
+
+	// ─── Workout Programs ─────────────────────────────────────────
+
+	listPrograms: protectedProcedure
+		.meta({
+			description:
+				"List the user's workout programs (named ordered groupings of workout templates), each with its embedded workouts in cycle order"
+		})
+		.query(async ({ ctx }) => {
+			const programs = await ctx.db.query.workoutPrograms.findMany({
+				where: { userId: ctx.user.id },
+				with: {
+					items: {
+						orderBy: { sortOrder: 'asc' },
+						with: { workout: true }
+					}
+				},
+				orderBy: { sortOrder: 'asc' }
+			})
+			return programs.map(p => ({
+				id: p.id,
+				name: p.name,
+				sortOrder: p.sortOrder,
+				createdAt: p.createdAt,
+				updatedAt: p.updatedAt,
+				workouts: p.items.map(i => i.workout)
+			}))
+		}),
+
+	getProgram: protectedProcedure
+		.meta({ description: 'Get a workout program by ID with its ordered list of workout templates' })
+		.input(z.object({ id: zodTypeID('wpr') }))
+		.query(async ({ ctx, input }) => {
+			const program = await ctx.db.query.workoutPrograms.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				with: {
+					items: {
+						orderBy: { sortOrder: 'asc' },
+						with: { workout: true }
+					}
+				}
+			})
+			if (!program) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.id} not found or not owned by current user`
+				})
+			}
+			return {
+				id: program.id,
+				name: program.name,
+				sortOrder: program.sortOrder,
+				createdAt: program.createdAt,
+				updatedAt: program.updatedAt,
+				workouts: program.items.map(i => i.workout)
+			}
+		}),
+
+	createProgram: protectedProcedure
+		.meta({
+			description:
+				'Create a named workout program from an ordered list of workout template IDs (cycle order = array order). All workoutIds must be owned by the user; duplicates rejected. Program name must be unique per user'
+		})
+		.input(
+			z.object({
+				name: z.string().min(1).max(100),
+				workoutIds: z
+					.array(zodTypeID('wkt'))
+					.refine(ids => new Set(ids).size === ids.length, { message: 'workoutIds contains duplicates' })
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			await assertWorkoutsOwned(ctx.db, ctx.user.id, input.workoutIds)
+
+			const now = Date.now()
+			const existingCount = await ctx.db
+				.select({ count: sql<number>`count(*)` })
+				.from(workoutPrograms)
+				.where(eq(workoutPrograms.userId, ctx.user.id))
+			const sortOrder = existingCount[0]?.count ?? 0
+
+			let program: { id: TypeIDString<'wpr'> }
+			try {
+				const [created] = await ctx.db
+					.insert(workoutPrograms)
+					.values({ userId: ctx.user.id, name: input.name, sortOrder, createdAt: now, updatedAt: now })
+					.returning({ id: workoutPrograms.id })
+				program = created
+			} catch (err) {
+				if (err instanceof Error && /UNIQUE/.test(err.message)) {
+					// biome-ignore lint/nursery/useErrorCause: TRPCError takes cause inside its options object
+					throw new TRPCError({
+						code: 'CONFLICT',
+						message: `A program with the name "${input.name}" already exists`,
+						cause: err
+					})
+				}
+				throw err
+			}
+
+			if (input.workoutIds.length > 0) {
+				await insertProgramItems(ctx.db, program.id, input.workoutIds, now)
+			}
+			return getProgramOrThrow(ctx.db, ctx.user.id, program.id)
+		}),
+
+	updateProgram: protectedProcedure
+		.meta({
+			description:
+				"Update a program's name and/or replace its full ordered list of workout template IDs (atomic replace, not patch)"
+		})
+		.input(
+			z.object({
+				id: zodTypeID('wpr'),
+				name: z.string().min(1).max(100).optional(),
+				workoutIds: z
+					.array(zodTypeID('wkt'))
+					.refine(ids => new Set(ids).size === ids.length, { message: 'workoutIds contains duplicates' })
+					.optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.workoutPrograms.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				columns: { id: true }
+			})
+			if (!existing) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.id} not found or not owned by current user`
+				})
+			}
+
+			if (input.workoutIds !== undefined) {
+				await assertWorkoutsOwned(ctx.db, ctx.user.id, input.workoutIds)
+			}
+
+			const now = Date.now()
+			const set: Record<string, unknown> = { updatedAt: now }
+			if (input.name !== undefined) set.name = input.name
+
+			try {
+				if (input.workoutIds !== undefined) {
+					// Atomic replace: delete all items + chunked inserts + name update in a single batch
+					const CHUNK = 20 // 5 cols × 20 rows = 100 bound params (D1 limit)
+					const stmts: BatchItem<'sqlite'>[] = [
+						ctx.db.delete(workoutProgramItems).where(eq(workoutProgramItems.programId, input.id))
+					]
+					for (let i = 0; i < input.workoutIds.length; i += CHUNK) {
+						const chunk = input.workoutIds.slice(i, i + CHUNK)
+						stmts.push(
+							ctx.db.insert(workoutProgramItems).values(
+								chunk.map((workoutId, idx) => ({
+									programId: input.id,
+									workoutId,
+									sortOrder: i + idx,
+									createdAt: now
+								}))
+							)
+						)
+					}
+					stmts.push(ctx.db.update(workoutPrograms).set(set).where(eq(workoutPrograms.id, input.id)))
+					await ctx.db.batch(stmts as [BatchItem<'sqlite'>, ...BatchItem<'sqlite'>[]])
+				} else {
+					await ctx.db.update(workoutPrograms).set(set).where(eq(workoutPrograms.id, input.id))
+				}
+			} catch (err) {
+				if (err instanceof Error && /UNIQUE/.test(err.message)) {
+					// biome-ignore lint/nursery/useErrorCause: TRPCError takes cause inside its options object
+					throw new TRPCError({
+						code: 'CONFLICT',
+						message: `A program with the name "${input.name}" already exists`,
+						cause: err
+					})
+				}
+				throw err
+			}
+
+			return getProgramOrThrow(ctx.db, ctx.user.id, input.id)
+		}),
+
+	deleteProgram: protectedProcedure
+		.meta({
+			description:
+				'Delete a workout program. If it was the active program, the user falls back to legacy "cycle all templates" behavior'
+		})
+		.input(z.object({ id: zodTypeID('wpr') }))
+		.mutation(async ({ ctx, input }) => {
+			const result = await ctx.db
+				.delete(workoutPrograms)
+				.where(and(eq(workoutPrograms.id, input.id), eq(workoutPrograms.userId, ctx.user.id)))
+				.returning({ id: workoutPrograms.id })
+			if (result.length === 0) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.id} not found or not owned by current user`
+				})
+			}
+		}),
+
+	setActiveProgram: protectedProcedure
+		.meta({
+			description:
+				'Set the user\'s active workout program (drives Dashboard "Up next" cycling). Pass null to clear and revert to legacy behavior. Idempotent — safe to retry'
+		})
+		.input(z.object({ id: zodTypeID('wpr').nullable() }))
+		.mutation(async ({ ctx, input }) => {
+			let program: { id: TypeIDString<'wpr'>; name: string } | null = null
+			if (input.id !== null) {
+				const found = await ctx.db.query.workoutPrograms.findFirst({
+					where: { id: input.id, userId: ctx.user.id },
+					columns: { id: true, name: true }
+				})
+				if (!found) {
+					throw new TRPCError({
+						code: 'NOT_FOUND',
+						message: `Program ${input.id} not found or not owned by current user`
+					})
+				}
+				program = found
+			}
+
+			await ensureUserSettingsRow(ctx.db, ctx.user.id)
+			await ctx.db
+				.update(userSettings)
+				.set({ activeProgramId: program?.id ?? null })
+				.where(eq(userSettings.userId, ctx.user.id))
+
+			return { activeProgramId: program?.id ?? null, activeProgramName: program?.name ?? null }
+		}),
+
+	reorderPrograms: protectedProcedure
+		.meta({ description: 'Reorder workout programs by providing their IDs in the desired order' })
+		.input(z.object({ ids: z.array(zodTypeID('wpr')) }))
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			for (let i = 0; i < input.ids.length; i++) {
+				await ctx.db
+					.update(workoutPrograms)
+					.set({ sortOrder: i, updatedAt: now })
+					.where(and(eq(workoutPrograms.id, input.ids[i]), eq(workoutPrograms.userId, ctx.user.id)))
 			}
 		}),
 

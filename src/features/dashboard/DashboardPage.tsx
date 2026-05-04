@@ -16,9 +16,11 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
-import { cn, DAYS_LONG, totalVolume, useDocumentTitle } from '~/lib'
+import { cn, DAYS_LONG, type ProgramCycleResult, pickNextWorkout, totalVolume, useDocumentTitle } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+
+type Template = RouterOutput['dashboard']['summary']['templates'][number]
 
 function todayDayIndex(): number {
 	const d = new Date().getDay() // 0=Sun, 6=Sat
@@ -104,16 +106,10 @@ const DashboardContent: FC = () => {
 
 	const dayTotals = useMemo(() => calculateDayTotals(todayMeals.map(m => m.macros)), [todayMeals])
 
-	const nextWorkout = useMemo(() => {
+	const cycleResult = useMemo<ProgramCycleResult<Template> | null>(() => {
 		const data = summaryQuery.data
-		if (!data || data.templates.length === 0) return null
-		const { templates, sessions } = data
-		// Find the most recently completed session that references a template
-		const lastCompleted = sessions.find(s => s.completedAt && s.workoutId)
-		if (!lastCompleted) return templates[0]
-		const lastIdx = templates.findIndex(t => t.id === lastCompleted.workoutId)
-		if (lastIdx === -1) return templates[0]
-		return templates[(lastIdx + 1) % templates.length]
+		if (!data) return null
+		return pickNextWorkout(data.templates, data.sessions, data.activeProgram)
 	}, [summaryQuery.data])
 
 	if (summaryQuery.isLoading) {
@@ -133,6 +129,8 @@ const DashboardContent: FC = () => {
 	const recentCompleted = sessions.filter(s => s.completedAt).slice(0, 3)
 	const today = todayDayIndex()
 
+	const cycleForDisplay = !activeSession ? cycleResult : null
+
 	return (
 		<div className="space-y-4">
 			<h1 className="font-semibold text-ink text-lg">{DAYS_LONG[today]}</h1>
@@ -146,10 +144,13 @@ const DashboardContent: FC = () => {
 				{/* Right column: Workouts */}
 				<div className="space-y-3">
 					{activeSession && <ActiveSessionBanner session={activeSession} />}
+					{cycleForDisplay?.kind === 'emptyActiveProgram' && (
+						<EmptyProgramBanner programName={cycleForDisplay.programName} />
+					)}
 					<WorkoutTemplatesSection
 						templates={templates}
 						sessions={sessions}
-						nextWorkoutId={!activeSession ? (nextWorkout?.id ?? null) : null}
+						cycleResult={cycleForDisplay}
 						onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
 						isPending={createSessionMutation.isPending}
 					/>
@@ -265,7 +266,7 @@ const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
 interface WorkoutTemplatesSectionProps {
 	templates: RouterOutput['dashboard']['summary']['templates']
 	sessions: RouterOutput['dashboard']['summary']['sessions']
-	nextWorkoutId: RouterOutput['dashboard']['summary']['templates'][number]['id'] | null
+	cycleResult: ProgramCycleResult<Template> | null
 	onStartSession: (workoutId: RouterOutput['dashboard']['summary']['templates'][number]['id']) => void
 	isPending: boolean
 }
@@ -273,7 +274,7 @@ interface WorkoutTemplatesSectionProps {
 const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	templates,
 	sessions,
-	nextWorkoutId,
+	cycleResult,
 	onStartSession,
 	isPending
 }) => {
@@ -290,6 +291,15 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 		}
 		return map
 	}, [sessions])
+
+	const nextTemplate = cycleResult && cycleResult.kind !== 'emptyActiveProgram' ? cycleResult.template : null
+	const nextWorkoutId = nextTemplate?.id ?? null
+	const programLabel =
+		cycleResult?.kind === 'program'
+			? cycleResult.total === 1
+				? cycleResult.programName
+				: `${cycleResult.programName} · Day ${cycleResult.day} of ${cycleResult.total}`
+			: null
 
 	// Rotate templates so the "up next" workout is first
 	const orderedTemplates = useMemo(() => {
@@ -345,6 +355,11 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 										{template.exercises.length} exercises
 										{lastDone && ` · ${formatRelativeDate(lastDone)}`}
 									</div>
+									{isUpNext && programLabel && (
+										<div className="font-mono text-ink-faint text-xs tabular-nums">
+											{programLabel}
+										</div>
+									)}
 								</div>
 								<Button size="sm" onClick={() => onStartSession(template.id)} disabled={isPending}>
 									<Play className="size-3.5" />
@@ -358,6 +373,26 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 		</Card>
 	)
 }
+
+// ─── Empty Program Banner ────────────────────────────────────────────
+
+const EmptyProgramBanner: FC<{ programName: string }> = ({ programName }) => (
+	<Link to="/plans">
+		<Card className="border-amber-500/40 bg-amber-500/5 transition-colors hover:bg-amber-500/10">
+			<CardContent>
+				<div className="flex items-center gap-3">
+					<div className="min-w-0 flex-1">
+						<div className="font-medium text-ink text-sm">
+							Active program "{programName}" has no workouts
+						</div>
+						<div className="text-ink-muted text-xs">Edit program →</div>
+					</div>
+					<ChevronRight className="size-4 shrink-0 text-ink-faint" />
+				</div>
+			</CardContent>
+		</Card>
+	</Link>
+)
 
 // ─── Recent Sessions ─────────────────────────────────────────────────
 

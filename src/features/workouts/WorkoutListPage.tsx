@@ -3,7 +3,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import type { TypeIDString } from '@macromaxxing/db'
 import { Dumbbell, Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -19,7 +19,9 @@ export function WorkoutListPage() {
 	const [showImport, setShowImport] = useState(false)
 	const workoutsQuery = trpc.workout.listWorkouts.useQuery()
 	const sessionsQuery = trpc.workout.listSessions.useQuery()
+	const summaryQuery = trpc.dashboard.summary.useQuery()
 	const utils = trpc.useUtils()
+	const activeProgram = summaryQuery.data?.activeProgram ?? null
 
 	const createSession = trpc.workout.createSession.useMutation({
 		onSuccess: session => {
@@ -65,8 +67,24 @@ export function WorkoutListPage() {
 	return (
 		<div className="flex flex-col gap-3 lg:flex-row lg:gap-6">
 			<div className="flex-1 space-y-4">
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h1 className="flex-1 font-semibold text-ink">Workouts</h1>
+				<div className="space-y-1">
+					<h1 className="font-semibold text-ink">Workouts</h1>
+					<div className="font-mono text-ink-faint text-xs tabular-nums">
+						{activeProgram ? (
+							<>
+								Active program: <span className="text-ink-muted">{activeProgram.name}</span>{' '}
+								<Link to="/plans" className="text-accent hover:underline">
+									Manage →
+								</Link>
+							</>
+						) : (
+							<Link to="/plans" className="text-accent hover:underline">
+								Set up a program →
+							</Link>
+						)}
+					</div>
+				</div>
+				<div className="flex flex-wrap items-center justify-end gap-2">
 					<LinkButton to="/exercises" variant="outline">
 						<Dumbbell className="size-4" />
 						Exercises
