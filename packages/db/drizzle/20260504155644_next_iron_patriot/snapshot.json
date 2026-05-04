@@ -1,7 +1,7 @@
 {
 	"version": "7",
 	"dialect": "sqlite",
-	"id": "71b0a19a-6204-45e2-9924-58b7d2a064b3",
+	"id": "1c07a621-fee8-4eed-ab50-e0b5e6dc2790",
 	"prevIds": ["a8f7c129-1f0c-45a7-a4b7-e0279404d29f"],
 	"ddl": [
 		{
@@ -62,10 +62,6 @@
 		},
 		{
 			"name": "usda_portions",
-			"entityType": "tables"
-		},
-		{
-			"name": "user_exercise_favorites",
 			"entityType": "tables"
 		},
 		{
@@ -1222,36 +1218,6 @@
 		},
 		{
 			"type": "text",
-			"notNull": true,
-			"autoincrement": false,
-			"default": null,
-			"generated": null,
-			"name": "user_id",
-			"entityType": "columns",
-			"table": "user_exercise_favorites"
-		},
-		{
-			"type": "text",
-			"notNull": true,
-			"autoincrement": false,
-			"default": null,
-			"generated": null,
-			"name": "exercise_id",
-			"entityType": "columns",
-			"table": "user_exercise_favorites"
-		},
-		{
-			"type": "integer",
-			"notNull": true,
-			"autoincrement": false,
-			"default": null,
-			"generated": null,
-			"name": "created_at",
-			"entityType": "columns",
-			"table": "user_exercise_favorites"
-		},
-		{
-			"type": "text",
 			"notNull": false,
 			"autoincrement": false,
 			"default": null,
@@ -2076,28 +2042,6 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "NO ACTION",
 			"nameExplicit": false,
-			"name": "fk_user_exercise_favorites_user_id_users_id_fk",
-			"entityType": "fks",
-			"table": "user_exercise_favorites"
-		},
-		{
-			"columns": ["exercise_id"],
-			"tableTo": "exercises",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"nameExplicit": false,
-			"name": "fk_user_exercise_favorites_exercise_id_exercises_id_fk",
-			"entityType": "fks",
-			"table": "user_exercise_favorites"
-		},
-		{
-			"columns": ["user_id"],
-			"tableTo": "users",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "NO ACTION",
-			"nameExplicit": false,
 			"name": "user_settings_user_id_users_id_fk",
 			"entityType": "fks",
 			"table": "user_settings"
@@ -2222,13 +2166,6 @@
 			"name": "workouts_user_id_users_id_fk",
 			"entityType": "fks",
 			"table": "workouts"
-		},
-		{
-			"columns": ["user_id", "exercise_id"],
-			"nameExplicit": false,
-			"name": "user_exercise_favorites_pk",
-			"entityType": "pks",
-			"table": "user_exercise_favorites"
 		},
 		{
 			"columns": ["id"],
