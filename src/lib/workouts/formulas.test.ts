@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimated1RM, roundWeight, weightForReps } from './formulas'
+import { estimated1RM, isE1rmPR, isStalledExercise, metricHierarchy, roundWeight, weightForReps } from './formulas'
 
 describe('estimated1RM', () => {
 	// Brzycki: weight × 36 / (37 − reps), capped at 12 reps
@@ -138,5 +138,136 @@ describe('roundWeight', () => {
 			expect(roundWeight(7.3, 'lbs')).toBe(7)
 			expect(roundWeight(7.6, 'lbs')).toBe(8)
 		})
+	})
+})
+
+describe('isE1rmPR', () => {
+	it('returns true when set e1RM exceeds prior max by > 0.5kg', () => {
+		// estimated1RM(100, 5) = 112.5; 112.5 > 100 + 0.5
+		expect(isE1rmPR({ weightKg: 100, reps: 5 }, 100)).toBe(true)
+	})
+
+	it('returns false when set e1RM exactly equals prior max', () => {
+		const prior = estimated1RM(100, 5) // 112.5
+		expect(isE1rmPR({ weightKg: 100, reps: 5 }, prior)).toBe(false)
+	})
+
+	it('returns false for marginal increase under 0.5kg tolerance', () => {
+		const prior = estimated1RM(100, 5) // 112.5
+		// 0.3kg above prior — under tolerance
+		expect(isE1rmPR({ weightKg: 100, reps: 5 }, prior - 0.3)).toBe(false)
+	})
+
+	it('returns true once increase clears the 0.5kg tolerance', () => {
+		const prior = estimated1RM(100, 5) // 112.5
+		// 0.6kg above prior — over tolerance
+		expect(isE1rmPR({ weightKg: 100, reps: 5 }, prior - 0.6)).toBe(true)
+	})
+
+	it('returns false for bodyweight set (weightKg = 0)', () => {
+		expect(isE1rmPR({ weightKg: 0, reps: 10 }, 0)).toBe(false)
+		expect(isE1rmPR({ weightKg: 0, reps: 10 }, 100)).toBe(false)
+	})
+
+	it('returns false for zero-rep set', () => {
+		expect(isE1rmPR({ weightKg: 100, reps: 0 }, 50)).toBe(false)
+	})
+
+	it('returns false for negative weight or reps', () => {
+		expect(isE1rmPR({ weightKg: -10, reps: 5 }, 0)).toBe(false)
+		expect(isE1rmPR({ weightKg: 100, reps: -1 }, 0)).toBe(false)
+	})
+
+	it('does not flip on float-noise near-ties', () => {
+		// Adversarial: prior max is the same e1RM perturbed by ~1e-10.
+		// Without tolerance, this would oscillate true/false based on rounding.
+		const e1rm = estimated1RM(100, 10) // 133.333…
+		expect(isE1rmPR({ weightKg: 100, reps: 10 }, e1rm + 1e-10)).toBe(false)
+		expect(isE1rmPR({ weightKg: 100, reps: 10 }, e1rm - 1e-10)).toBe(false)
+	})
+})
+
+describe('isStalledExercise', () => {
+	it('returns false with fewer than 3 sessions', () => {
+		expect(isStalledExercise([])).toBe(false)
+		expect(isStalledExercise([100])).toBe(false)
+		expect(isStalledExercise([100, 101])).toBe(false)
+	})
+
+	it('returns true when last 3 sessions show <2.5% gain', () => {
+		// (101 - 100) / 100 = 1% ≤ 2.5%
+		expect(isStalledExercise([100, 100.5, 101])).toBe(true)
+	})
+
+	it('returns true on flat progression (0% gain)', () => {
+		expect(isStalledExercise([100, 100, 100])).toBe(true)
+	})
+
+	it('returns true on regression (negative gain)', () => {
+		expect(isStalledExercise([100, 99, 98])).toBe(true)
+	})
+
+	it('returns false when last 3 sessions show >=2.5% gain', () => {
+		// (103 - 100) / 100 = 3% > 2.5%
+		expect(isStalledExercise([100, 101.5, 103])).toBe(false)
+	})
+
+	it('returns false at exactly the threshold boundary (>2.5%)', () => {
+		// Just above 2.5% threshold
+		expect(isStalledExercise([100, 101, 102.6])).toBe(false)
+	})
+
+	it('returns false when first of last 3 is zero (bodyweight / invalid)', () => {
+		expect(isStalledExercise([0, 0, 0])).toBe(false)
+		// Window is the last 3 entries; here first-of-window is 0 → bail to caller's fallback
+		expect(isStalledExercise([100, 0, 0, 0])).toBe(false)
+	})
+
+	it('returns false when first of last 3 is negative', () => {
+		expect(isStalledExercise([-1, 5, 10])).toBe(false)
+	})
+
+	it('considers ONLY the last 3 entries even when more provided', () => {
+		// First 7 entries show big growth, but last 3 are flat
+		// Last 3 = [100, 100.5, 101] → 1% gain → stalled
+		expect(isStalledExercise([10, 20, 30, 40, 50, 60, 70, 100, 100.5, 101])).toBe(true)
+
+		// Inverse: first 7 flat, but last 3 show 5% gain → not stalled
+		expect(isStalledExercise([100, 100, 100, 100, 100, 100, 100, 100, 102, 105])).toBe(false)
+	})
+
+	it('respects custom threshold', () => {
+		// 3% gain — stalled at threshold=0.05, not stalled at threshold=0.025
+		expect(isStalledExercise([100, 101.5, 103], 0.05)).toBe(true)
+		expect(isStalledExercise([100, 101.5, 103], 0.025)).toBe(false)
+	})
+})
+
+describe('metricHierarchy', () => {
+	it('returns e1rm kind for normal weighted set', () => {
+		const result = metricHierarchy({ weightKg: 100, reps: 5 })
+		expect(result.kind).toBe('e1rm')
+		expect(result.value).toBe(estimated1RM(100, 5))
+	})
+
+	it('e1rm value matches estimated1RM output exactly', () => {
+		const result = metricHierarchy({ weightKg: 80, reps: 8 })
+		expect(result).toEqual({ kind: 'e1rm', value: estimated1RM(80, 8) })
+	})
+
+	it('returns reps kind for bodyweight set (weightKg = 0, reps > 0)', () => {
+		expect(metricHierarchy({ weightKg: 0, reps: 12 })).toEqual({ kind: 'reps', value: 12 })
+	})
+
+	it('returns recency kind for empty set (weightKg = 0, reps = 0)', () => {
+		expect(metricHierarchy({ weightKg: 0, reps: 0 })).toEqual({ kind: 'recency', value: null })
+	})
+
+	it('returns recency kind when reps logged but weight is negative (invalid)', () => {
+		expect(metricHierarchy({ weightKg: -5, reps: 5 })).toEqual({ kind: 'recency', value: null })
+	})
+
+	it('returns recency kind when weight set but reps zero', () => {
+		expect(metricHierarchy({ weightKg: 100, reps: 0 })).toEqual({ kind: 'recency', value: null })
 	})
 })

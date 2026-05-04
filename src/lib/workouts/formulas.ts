@@ -164,6 +164,59 @@ export function exerciseE1rmStats(
 	return stats.sort((a, b) => b.e1rm - a.e1rm)
 }
 
+// ─── Progression Detection ──────────────────────────────────────────
+
+/** kg of e1RM tolerance for PR detection — below this, treat as float noise rather than a real PR */
+const E1RM_PR_TOLERANCE_KG = 0.5
+
+/** Default relative gain over the last 3 sessions below which an exercise is considered stalled (2.5%) */
+const DEFAULT_STALL_THRESHOLD = 0.025
+
+/**
+ * Returns true iff this set's estimated 1RM beats `priorMaxE1rm` by more than the float-noise tolerance.
+ * Bodyweight (weightKg <= 0) and zero-rep sets don't count as e1RM PRs — see `metricHierarchy` for the fallback.
+ */
+export function isE1rmPR(set: { weightKg: number; reps: number }, priorMaxE1rm: number): boolean {
+	if (set.weightKg <= 0 || set.reps <= 0) return false
+	return estimated1RM(set.weightKg, set.reps) > priorMaxE1rm + E1RM_PR_TOLERANCE_KG
+}
+
+/**
+ * Returns true iff the last 3 entries of `sessionMaxE1rms` (oldest → newest) show <= `threshold` relative gain.
+ * Returns false for: insufficient data (< 3 entries), bodyweight/invalid (first <= 0), or healthy progression.
+ * Caller distinguishes "stalled" from "insufficient data" / "bodyweight" via separate logic.
+ */
+export function isStalledExercise(
+	sessionMaxE1rms: ReadonlyArray<number>,
+	threshold: number = DEFAULT_STALL_THRESHOLD
+): boolean {
+	if (sessionMaxE1rms.length < 3) return false
+	const last3 = sessionMaxE1rms.slice(-3)
+	const first = last3[0]
+	const last = last3[last3.length - 1]
+	if (first === undefined || last === undefined || first <= 0) return false
+	return (last - first) / first <= threshold
+}
+
+export type ProgressionMetric =
+	| { kind: 'e1rm'; value: number }
+	| { kind: 'reps'; value: number }
+	| { kind: 'recency'; value: null }
+
+/**
+ * Pick the appropriate progression metric for a set: e1RM (weighted) → reps (bodyweight) → recency (no data).
+ * Lets callers render "last time" for bodyweight exercises without inventing fake e1RM values.
+ */
+export function metricHierarchy(set: { weightKg: number; reps: number }): ProgressionMetric {
+	if (set.weightKg > 0 && set.reps > 0) {
+		return { kind: 'e1rm', value: estimated1RM(set.weightKg, set.reps) }
+	}
+	if (set.weightKg === 0 && set.reps > 0) {
+		return { kind: 'reps', value: set.reps }
+	}
+	return { kind: 'recency', value: null }
+}
+
 /** Height-based limb length factor for leverage adjustment */
 export function limbLengthFactor(heightCm: number): number {
 	if (heightCm <= 185) return 1.0
