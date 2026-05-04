@@ -54,3 +54,18 @@ export function formatAgo(ts: number): string {
 	if (isThisWeek) return d.toLocaleDateString(undefined, { weekday: 'short' })
 	return `${formatDate(ts)} ${formatTime(ts)}`
 }
+
+/**
+ * Compact relative-time formatter for "X ago" hints.
+ * `today` for <24h, `Nd ago` for <14d, `Nw ago` for <8w, `Nmo ago` for <365d, else `Ny ago`.
+ * Negative, zero, or non-finite deltas (future / now / NaN) collapse to `today`.
+ */
+export function formatRecency(ageMs: number): string {
+	if (!Number.isFinite(ageMs) || ageMs < 86_400_000) return 'today'
+	const days = Math.floor(ageMs / 86_400_000)
+	if (days < 14) return `${days}d ago`
+	const weeks = Math.floor(days / 7)
+	if (weeks < 8) return `${weeks}w ago`
+	if (days < 365) return `${Math.floor(days / 30)}mo ago`
+	return `${Math.floor(days / 365)}y ago`
+}

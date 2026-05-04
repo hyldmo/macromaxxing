@@ -5,6 +5,7 @@ import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { buildSupersetRounds, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
+import { LastSessionHint, type LastSessionHintProps } from './LastSessionHint'
 import { SetRow } from './SetRow'
 
 type Log = RouterOutput['workout']['getSession']['logs'][number]
@@ -18,6 +19,7 @@ export interface SupersetFormProps {
 		plannedSets: PlannedSet[]
 		setMode: SetMode
 		trainingGoal?: TrainingGoal
+		lastSession?: LastSessionHintProps['lastSession']
 	}>
 	goal: TrainingGoal
 	readOnly?: boolean
@@ -126,6 +128,22 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 									/>
 								</div>
 							))}
+						</div>
+					)}
+
+					{/* Per-exercise "last time" hints (shown once, above the rounds) */}
+					{exercises.some(e => e.lastSession) && (
+						<div className="mb-2 space-y-0.5">
+							{exercises.map((exData, i) =>
+								exData.lastSession ? (
+									<div key={exData.exercise.id} className="flex items-center gap-1.5">
+										<span className="w-4 shrink-0 text-center font-medium font-mono text-[10px] text-accent">
+											{String.fromCharCode(65 + i)}
+										</span>
+										<LastSessionHint lastSession={exData.lastSession} />
+									</div>
+								) : null
+							)}
 						</div>
 					)}
 

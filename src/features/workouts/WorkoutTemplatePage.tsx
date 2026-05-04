@@ -47,6 +47,20 @@ export function WorkoutTemplatePage() {
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
 	const sex = profileQuery.data?.sex ?? 'male'
 
+	const lastSessionExerciseIds = useMemo(() => {
+		const ids = new Set<TypeIDString<'exc'>>()
+		for (const e of exercises) ids.add(e.exerciseId)
+		return [...ids]
+	}, [exercises])
+
+	// Batched "last time" hints — most recent session per exercise (no `before`
+	// filter; the template is being edited, not actively logged).
+	const lastSessionsQuery = trpc.workout.lastSessionsForExercises.useQuery(
+		{ exerciseIds: lastSessionExerciseIds },
+		{ enabled: lastSessionExerciseIds.length > 0 }
+	)
+	const lastSessions = lastSessionsQuery.data
+
 	useEffect(() => {
 		if (workoutQuery.data) {
 			setName(workoutQuery.data.name)
@@ -343,6 +357,7 @@ export function WorkoutTemplatePage() {
 										isSuperset={ex.supersetGroup !== null}
 										isFirstInGroup={!isLinkedAbove && ex.supersetGroup !== null}
 										isLastInGroup={!isLinkedBelow && ex.supersetGroup !== null}
+										lastSession={lastSessions?.[ex.exerciseId] ?? null}
 										onUpdate={updates => updateExercise(idx, updates)}
 										onRemove={() => removeExercise(idx)}
 									/>

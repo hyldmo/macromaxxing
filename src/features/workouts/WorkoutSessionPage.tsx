@@ -112,6 +112,29 @@ export function WorkoutSessionPage() {
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const standardsQuery = trpc.workout.listStandards.useQuery()
 
+	// Batched "last time" hints — one query per page covering every exercise in
+	// the template plus any extras logged so far. `before: session.startedAt`
+	// excludes the in-progress session from the lookup.
+	const lastSessionExerciseIds = useMemo<Exercise['id'][]>(() => {
+		if (!sessionQuery.data) return []
+		const ids = new Set<Exercise['id']>()
+		for (const we of sessionQuery.data.workout?.exercises ?? []) {
+			const replacement = templateReplacements.get(we.exerciseId)
+			ids.add(replacement?.id ?? we.exerciseId)
+		}
+		for (const log of sessionQuery.data.logs) ids.add(log.exerciseId)
+		return [...ids]
+	}, [sessionQuery.data, templateReplacements])
+
+	const lastSessionsQuery = trpc.workout.lastSessionsForExercises.useQuery(
+		{
+			exerciseIds: lastSessionExerciseIds,
+			before: sessionQuery.data?.startedAt
+		},
+		{ enabled: lastSessionExerciseIds.length > 0 && !!sessionQuery.data }
+	)
+	const lastSessions = lastSessionsQuery.data
+
 	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
 
 	const addSetMutation = trpc.workout.addSet.useMutation({
@@ -582,7 +605,8 @@ export function WorkoutSessionPage() {
 									logs: e.logs,
 									plannedSets: e.planned,
 									setMode: exerciseModes.get(e.exerciseId) ?? 'working',
-									trainingGoal: exerciseGoals.get(e.exerciseId)
+									trainingGoal: exerciseGoals.get(e.exerciseId),
+									lastSession: lastSessions?.[e.exerciseId] ?? null
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
@@ -621,6 +645,7 @@ export function WorkoutSessionPage() {
 							trainingGoal={exerciseGoals.get(item.exerciseId)}
 							workoutGoal={goal}
 							active={activeExerciseId === item.exerciseId}
+							lastSession={lastSessions?.[item.exerciseId] ?? null}
 							onSetModeChange={mode => {
 								setModeOverrides(prev => {
 									const next = new Map(prev)
