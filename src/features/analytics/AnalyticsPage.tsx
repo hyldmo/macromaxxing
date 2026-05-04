@@ -2,6 +2,7 @@ import type { MuscleGroup } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { Activity, Award, CalendarDays, Dumbbell, TrendingUp, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
 import { MuscleHeatGrid } from '~/features/workouts/components/MuscleHeatGrid'
 import { useDocumentTitle } from '~/lib'
@@ -11,7 +12,16 @@ import { RecentPRsList } from './components/RecentPRsList'
 import { StalledList } from './components/StalledList'
 import { WeeklyTrendList } from './components/WeeklyTrendList'
 
-type AnalyticsWindow = '4w' | '12w' | '1y'
+const VALID_WINDOWS = ['4w', '12w', '1y'] as const
+type AnalyticsWindow = (typeof VALID_WINDOWS)[number]
+const DEFAULT_WINDOW: AnalyticsWindow = '12w'
+
+function parseWindow(raw: string | null): AnalyticsWindow {
+	if (raw && (VALID_WINDOWS as readonly string[]).includes(raw)) {
+		return raw as AnalyticsWindow
+	}
+	return DEFAULT_WINDOW
+}
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
 type PR = RouterOutput['analytics']['recentPRs'][number]
@@ -35,8 +45,22 @@ const MUSCLE_FILTER_INTENSITY = 0.3
 export const AnalyticsPage: FC = () => {
 	useDocumentTitle('Analytics')
 
-	// TODO: Task 14 — sync to URL params (?window=12w) via useSearchParams.
-	const [window, setWindow] = useState<AnalyticsWindow>('12w')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const window = parseWindow(searchParams.get('window'))
+	const setWindow = (next: AnalyticsWindow) => {
+		setSearchParams(
+			prev => {
+				const params = new URLSearchParams(prev)
+				if (next === DEFAULT_WINDOW) {
+					params.delete('window')
+				} else {
+					params.set('window', next)
+				}
+				return params
+			},
+			{ replace: true }
+		)
+	}
 	const [activeMuscle, setActiveMuscle] = useState<MuscleGroup | null>(null)
 
 	const prsQuery = trpc.analytics.recentPRs.useQuery({ window })
