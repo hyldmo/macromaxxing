@@ -447,6 +447,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - Subquery `in` doesn't accept builders directly: `{ id: { RAW: t => inArray(t.id, sub) } }`
 - Migration folder is one directory per migration (`tag/migration.sql` + `tag/snapshot.json`), no `meta/_journal.json`
 - `drizzle-kit` drops `ON DELETE` from `ALTER TABLE ... ADD ... REFERENCES`. New tables in `CREATE TABLE` are fine, but additive `ALTER TABLE` columns need a manual edit to re-add `ON DELETE SET NULL` (or whichever) after `REFERENCES x(id)`.
+- `drizzle-kit` emits `snapshot.json` with 2-space indent; biome formats with tabs. Run `yarn fix` after `yarn db:generate` or expect a lint failure on the snapshot.
 
 **Backend / tRPC**
 - Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD
