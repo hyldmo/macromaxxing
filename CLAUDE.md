@@ -313,6 +313,7 @@ trpc.workout.exerciseMuscleLoad             # Single-exercise muscle breakdown a
 trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown with MEV/MAV/MRV zones + balance ratios
 trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual working sets + balance ratios
 trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
+trpc.workout.exerciseHistory                # Per-exercise time series (top set, e1RM, volume per session) over 4w/12w/1y
 trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text

@@ -51,6 +51,14 @@ function pickTopE1rm(sets: ReadonlyArray<{ weightKg: number; reps: number }>): n
 	return best
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+/** Window enum → milliseconds. Used by `exerciseHistory` (and any future analytics endpoint). */
+const WINDOW_CUTOFF_MS: Record<'4w' | '12w' | '1y', number> = {
+	'4w': 28 * DAY_MS,
+	'12w': 84 * DAY_MS,
+	'1y': 365 * DAY_MS
+}
+
 const zGuideInput = z.object({
 	description: z.string().min(10).max(DESCRIPTION_MAX),
 	cues: z.array(z.string().min(3).max(CUE_MAX)).min(1).max(CUES_MAX_COUNT),
@@ -955,7 +963,7 @@ export const workoutsRouter = router({
 				with: {
 					logs: {
 						where: { exerciseId: input.exerciseId, setType: 'working' },
-						orderBy: { setNumber: 'asc' }
+						orderBy: { createdAt: 'asc' }
 					}
 				},
 				orderBy: { startedAt: 'desc' }
@@ -973,6 +981,8 @@ export const workoutsRouter = router({
 				sessionId: session.id,
 				startedAt: session.startedAt,
 				workingSets,
+				// `topE1rm: 0` for bodyweight-only sessions (every set has weightKg <= 0).
+				// Callers should fall back to reps/recency in that case (see metricHierarchy).
 				topE1rm: pickTopE1rm(workingSets)
 			}
 		}),
@@ -1075,9 +1085,87 @@ export const workoutsRouter = router({
 					sessionId: bestId,
 					startedAt: winner.startedAt,
 					workingSets: winner.sets,
+					// `topE1rm: 0` for bodyweight-only sessions; callers fall back to reps/recency.
 					topE1rm: pickTopE1rm(winner.sets)
 				}
 			}
+			return out
+		}),
+
+	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
+	// Returns one point per session (oldest → newest), so callers can plot a
+	// time series of weight, e1RM, and volume for a single exercise.
+	exerciseHistory: protectedProcedure
+		.meta({
+			description: 'Per-exercise workout history time series: weight, e1RM, volume per session over a time window'
+		})
+		.input(
+			z.object({
+				exerciseId: zodTypeID('exc'),
+				window: z.enum(['4w', '12w', '1y']).default('12w')
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const cutoffMs = WINDOW_CUTOFF_MS[input.window]
+			const since = Date.now() - cutoffMs
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: { userId: ctx.user.id, startedAt: { gte: since } },
+				with: {
+					logs: {
+						where: { exerciseId: input.exerciseId, setType: 'working' },
+						orderBy: { createdAt: 'asc' }
+					}
+				},
+				orderBy: { startedAt: 'asc' }
+			})
+
+			const out: Array<{
+				sessionId: TypeIDString<'wks'>
+				startedAt: number
+				topSet: { weightKg: number; reps: number; rpe: number | null }
+				e1rm: number
+				volume: number
+				workingSetCount: number
+			}> = []
+
+			for (const session of sessions) {
+				if (session.logs.length === 0) continue
+
+				// Seed e1RM tracking from 0 and only consider valid sets (weight > 0 AND reps > 0).
+				// Seeding from the first log would be wrong: estimated1RM(W, 0) === W, so a 0-rep
+				// first set would inflate topE1rm to W and shadow any real working set with a
+				// genuinely lower e1RM. Mirrors the pattern in `pickTopE1rm`.
+				let topSet: (typeof session.logs)[number] | null = null
+				let topE1rm = 0
+				let volume = 0
+				let weightedCount = 0
+
+				for (const log of session.logs) {
+					volume += log.weightKg * log.reps
+					// Skip invalid sets for e1RM but still count them for volume/setCount.
+					if (log.weightKg <= 0 || log.reps <= 0) continue
+					weightedCount += 1
+					const e = estimated1RM(log.weightKg, log.reps)
+					if (e > topE1rm) {
+						topE1rm = e
+						topSet = log
+					}
+				}
+
+				// `e1rm: 0` for bodyweight-only sessions (no set with both weight > 0 and reps > 0).
+				// `topSet` falls back to the first logged set so callers still get a record of what was logged.
+				const fallback = topSet ?? session.logs[0]
+				out.push({
+					sessionId: session.id,
+					startedAt: session.startedAt,
+					topSet: { weightKg: fallback.weightKg, reps: fallback.reps, rpe: fallback.rpe },
+					e1rm: weightedCount > 0 ? topE1rm : 0,
+					volume,
+					workingSetCount: session.logs.length
+				})
+			}
+
 			return out
 		}),
 
