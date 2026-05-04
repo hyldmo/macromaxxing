@@ -72,7 +72,9 @@ src/
     user.tsx                                # useUser() hook (Clerk)
     cn.ts                                   # cn() utility (clsx + twMerge)
     images.ts                               # getImageUrl, isExternalImage, getImageAttribution (R2/external URL)
-    workouts/                               # Pure helpers: programCycle (pickNextWorkout), programLoad (computeProgramLoad), formulas, sets, etc.
+    chart/                                  # scale.ts: shared SVG chart scale helpers (linear/log, ticks, padding)
+    workouts/                               # Pure helpers: programCycle (pickNextWorkout), programLoad (computeProgramLoad), sets, etc.
+                                            #   formulas.ts re-exports from @macromaxxing/db (shared with workers/)
   components/
     ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
@@ -105,7 +107,12 @@ src/
       components/IngredientForm.tsx          # Add/edit ingredient form
     exercises/
       ExerciseListPage.tsx                  # List with search, sort, BodyMap sidebar, inline edit form
-      components/ExerciseForm.tsx            # Add/edit exercise form (name, type, tier, rep ranges, muscles)
+      ExerciseDetailPage.tsx                # /exercises/:id (and /new): editor + history chart/table
+      components/                           # ExerciseForm, ExerciseCard, ExerciseTable,
+                                            #   HistoryChart (SVG time-series), HistoryTable
+    analytics/
+      AnalyticsPage.tsx                     # /analytics: PRs, stalled lifts, weekly trend, calendar heatmap
+      components/                           # RecentPRsList, StalledList, WeeklyTrendList, CalendarHeatmap
     mealPlans/
       PlansPage.tsx                         # /plans hub: composes MealPlansSection + ProgramsSection
       MealPlansSection.tsx                  # List/create/delete meal plans (formerly MealPlanListPage)
@@ -142,8 +149,9 @@ src/
         ProgramEditor.tsx                   # /plans/programs/:id route: name + drag-reorder workouts + sidebar
         ProgramCyclePreview.tsx             # Numbered cycle: "1. Push → 2. Pull → wraps to 1"
         ProgramMuscleSidebar.tsx            # Stats + BodyMap + balance bars; exports BelowMevWarning
+        LastSessionHint.tsx                 # Inline "last time: 80kg × 8" hint above set rows
+        ExerciseGuideContent.tsx            # Renders technique guide (description + cues + pitfalls)
       utils/
-        formulas.ts                         # estimated1RM, limbLengthFactor, totalVolume, BMR/TDEE, computeDivergences
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
     settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile
@@ -153,6 +161,9 @@ packages/db/                                # Shared package @macromaxxing/db
   types.ts                                  # Inferred types (Recipe, Ingredient, Exercise, Workout, etc.)
   custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
   preparation.ts                            # Preparation descriptor extraction (extractPreparation)
+  formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isE1rmPR, isStalledExercise)
+                                            #   shared between src/ and workers/ (workers/ can't import from src/)
+  muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios)
 workers/functions/
   [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
@@ -171,6 +182,7 @@ workers/functions/
       ingredients.ts                        # ingredient.* endpoints
       mealPlans.ts                          # mealPlan.* endpoints
       workouts.ts                           # workout.* endpoints
+      analytics.ts                          # analytics.* endpoints (PRs, stalled, top, weeklyTrend, calendarHeatmap)
       ai.ts                                 # ai.* endpoints
       settings.ts                           # settings.* endpoints
       user.ts                               # user.* endpoints
@@ -189,6 +201,8 @@ scripts/
 /recipes/:id/cook                    → CookModePage
 /ingredients                         → IngredientListPage
 /exercises                           → ExerciseListPage
+/exercises/new                       → ExerciseDetailPage (create mode)
+/exercises/:id                       → ExerciseDetailPage (editor + history chart/table)
 /plans                               → PlansPage (Meal Plans + Workout Programs sections)
 /plans/programs/new                  → ProgramEditor (new program)
 /plans/programs/:id                  → ProgramEditor (edit program)
@@ -199,6 +213,7 @@ scripts/
 /workouts/:workoutId/session         → WorkoutSessionPage (new session from template)
 /workouts/sessions/:sessionId        → WorkoutSessionPage (existing session)
 /workouts/sessions/:sessionId/timer  → TimerMode (nested child route)
+/analytics                           → AnalyticsPage (PRs, stalled lifts, weekly trend, calendar heatmap)
 /settings                            → SettingsPage
 ```
 
@@ -222,6 +237,7 @@ mealPlans(id typeid:mpl, userId, name)
 exercises(id typeid:exc, userId?, name, type: compound|isolation, fatigueTier: 1-4)
   → exerciseMuscles(id typeid:exm, exerciseId, muscleGroup, intensity 0.0-1.0)
   → exerciseGuides(id typeid:egd, exerciseId unique, description, cues JSON string[], pitfalls JSON string[]?, updatedAt)
+  → userExerciseFavorites(userId, exerciseId, createdAt) -- composite PK (userId, exerciseId), exerciseId ON DELETE CASCADE
 
 strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
 
@@ -276,6 +292,8 @@ No shadows — borders-only depth strategy.
 - Cards use `Card`, `CardHeader`, `CardContent` from `~/components/ui/Card`
 - tRPC client: `import { trpc } from '~/lib/trpc'`
 - Global UI chrome (Nav, banners, overlays) that reacts to workout state must source from `useWorkoutSessionStore`, not `useMatch`/route. Route gating misses routes you navigate away to mid-session. Pick the signal carefully: `sessionId !== null` = session exists (even before user starts), `sessionStartedAt !== null` = timer activated (user has started at least one set), `rest !== null` = rest countdown running. Example: `const timerActive = useWorkoutSessionStore(s => s.sessionStartedAt !== null)`.
+- **PR detection:** `e1RM > priorMax + 0.5kg` tolerance via `isE1rmPR` from `@macromaxxing/db`. Render PRs as `text-success` + `↑` glyph — no chrome, no toast, no celebration animation (locked design decision).
+- **Hand-rolled SVG charts:** no charting library in v1. Use `<svg viewBox>` + responsive sizing; share scale math via `src/lib/chart/scale.ts` (linear/log scales, ticks, padding). Defer Recharts/Visx until brushing/zoom/multi-series demand it.
 - React components should have this style, using implicit return if possible:
 	```tsx
 	export interface CookedWeightInputProps {
@@ -299,13 +317,16 @@ trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
-trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
+trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings; listExercises returns isFavorite per row
+trpc.workout.favoriteExercise/unfavoriteExercise                          # Mark/unmark exercise as user favorite (drives sort + filter in pickers)
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
 trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
 trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
+trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI hot-path: LastSessionHint)
+trpc.workout.lastSessionsForExercises       # Batched variant — single query for N exercises (avoids N+1 on session entry)
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
 trpc.workout.coverageStats                  # Template muscle coverage for body map
@@ -319,6 +340,11 @@ trpc.workout.importWorkouts                 # Import workout templates from spre
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
 trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout templates
+trpc.analytics.recentPRs                    # Recent personal records (e1RM PRs vs prior max) within window
+trpc.analytics.stalledExercises             # Exercises with no progression over N sessions (flag for deload/swap)
+trpc.analytics.topExercises                 # Top exercises by working-set count over window
+trpc.analytics.weeklyTrend                  # Per-muscle current-period vs prior-period delta (sets + tonnage)
+trpc.analytics.calendarHeatmap              # Per-day training density (sessions, sets) for calendar grid
 trpc.settings.get/save
 trpc.settings.listTokens/createToken/deleteToken    # Personal access token management
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
@@ -429,6 +455,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - Always index foreign keys on new tables: `t => [index('table_fk_idx').on(t.fkColumn)]`
 - `userSettings` rows are NOT auto-created on signup. Mutations writing to it must upsert or call `ensureUserSettingsRow(userId)` first; bare `UPDATE` silently no-ops for new users.
 - Pure utility functions (date helpers, math, formatting) go in `src/lib/`, not feature-specific `utils/` folders
+- `workers/` workspace cannot import from `src/` (separate tsconfig + Workers runtime). Pure logic shared between frontend and backend lives in `packages/db/` (precedent: `packages/db/formulas.ts` for workout math, `packages/db/muscle-load.ts` for muscle aggregation). The frontend re-exports via `src/lib/workouts/formulas.ts` so existing `~/lib/workouts/formulas` imports keep working.
 
 **CI / build**
 - Builds that resolve version via `git describe --tags` need `fetch-depth: 0` on `actions/checkout`. Default is shallow → `git describe` throws → silent fallback to default version string.

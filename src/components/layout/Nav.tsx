@@ -1,5 +1,6 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import {
+	BarChart3,
 	CalendarDays,
 	ChefHat,
 	CookingPot,
@@ -23,12 +24,14 @@ const publicLinks = [
 
 const desktopAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
+	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ] satisfies Link[]
 
 const mobileAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
+	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
+	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ] satisfies Link[]
 
 export interface Link {
