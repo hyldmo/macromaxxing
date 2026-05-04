@@ -1969,6 +1969,68 @@ export const workoutsRouter = router({
 			}
 		}),
 
+	programMuscleLoad: protectedProcedure
+		.meta({
+			description:
+				'Per-muscle breakdown for a workout program — aggregates sets across every workout in the cycle (assumes one full cycle is performed). Returns volume-landmark zones (MEV/MAV/MRV), totals, balance ratios, and the list of muscles falling below MEV.'
+		})
+		.input(z.object({ programId: zodTypeID('wpr') }))
+		.query(async ({ ctx, input }) => {
+			const program = await ctx.db.query.workoutPrograms.findFirst({
+				where: { id: input.programId, userId: ctx.user.id },
+				with: {
+					items: {
+						orderBy: { sortOrder: 'asc' },
+						with: { workout: { with: workoutExercisesWith } }
+					}
+				}
+			})
+			if (!program) {
+				throw new TRPCError({
+					code: 'NOT_FOUND',
+					message: `Program ${input.programId} not found or not owned by current user`
+				})
+			}
+
+			const contributions: MuscleContribution[] = []
+			let exerciseCount = 0
+			for (const item of program.items) {
+				const workout = item.workout
+				for (const we of workout.exercises) {
+					exerciseCount++
+					const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
+					const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+					for (const m of we.exercise.muscles) {
+						contributions.push({
+							muscleGroup: m.muscleGroup,
+							intensity: m.intensity,
+							sets,
+							reps: we.targetReps ?? undefined,
+							weightKg: we.targetWeight ?? undefined,
+							exerciseType: we.exercise.type,
+							fatigueTier: we.exercise.fatigueTier,
+							trainingGoal: goal
+						})
+					}
+				}
+			}
+
+			const loads = computeMuscleLoad(contributions)
+			const muscles = withZones(loads)
+			return {
+				program: {
+					id: program.id,
+					name: program.name,
+					workoutCount: program.items.length,
+					exerciseCount
+				},
+				muscles,
+				totals: sumTotals(loads),
+				balances: computeBalances(loads),
+				belowMev: muscles.filter(m => m.zone === 'below_mev' && m.workingSets > 0)
+			}
+		}),
+
 	// ─── Strength Standards ────────────────────────────────────────
 
 	listStandards: protectedProcedure
