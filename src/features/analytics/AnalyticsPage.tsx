@@ -1,4 +1,4 @@
-import { Activity, Award, CalendarDays, Dumbbell, TrendingUp } from 'lucide-react'
+import { Activity, Award, CalendarDays, Dumbbell, Star, TrendingUp } from 'lucide-react'
 import type { FC } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
@@ -6,6 +6,7 @@ import { MuscleHeatGrid } from '~/features/workouts/components/MuscleHeatGrid'
 import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { CalendarHeatmap } from './components/CalendarHeatmap'
+import { FavoriteExercisesList } from './components/FavoriteExercisesList'
 import { RecentPRsList } from './components/RecentPRsList'
 import { StalledList } from './components/StalledList'
 import { WeeklyTrendList } from './components/WeeklyTrendList'
@@ -57,6 +58,7 @@ export const AnalyticsPage: FC = () => {
 	const stalledQuery = trpc.analytics.stalledExercises.useQuery({ window })
 	const weeklyTrendQuery = trpc.analytics.weeklyTrend.useQuery({ window })
 	const heatmapQuery = trpc.analytics.calendarHeatmap.useQuery({ window })
+	const exercisesQuery = trpc.workout.listExercises.useQuery()
 
 	return (
 		<div className="space-y-4">
@@ -141,6 +143,27 @@ export const AnalyticsPage: FC = () => {
 					</CardHeader>
 					<CardContent>
 						<MuscleHeatGrid />
+					</CardContent>
+				</Card>
+
+				{/* Favorite exercises */}
+				<Card>
+					<CardHeader>
+						<div className="flex items-center gap-2">
+							<Star className="size-4 text-ink-muted" />
+							<h2 className="font-medium text-ink text-sm">Favorite exercises</h2>
+						</div>
+					</CardHeader>
+					<CardContent>
+						{exercisesQuery.isLoading ? (
+							<div className="flex justify-center py-6">
+								<Spinner />
+							</div>
+						) : exercisesQuery.error ? (
+							<TRPCError error={exercisesQuery.error} />
+						) : (
+							<FavoriteExercisesList exercises={exercisesQuery.data ?? []} />
+						)}
 					</CardContent>
 				</Card>
 			</div>
