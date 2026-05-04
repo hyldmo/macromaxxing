@@ -429,6 +429,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - `worker-configuration.d.ts` is committed (generated locally where `.dev.vars` exists; CI types depend on it). Excluded from biome via `files.includes` negation.
 - CI needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — the latter bypasses `/memberships` which fails with scoped tokens
 - `wrangler d1 execute --file` resolves paths from the workspace wrangler runs in, not cwd. Use absolute paths in scripts.
+- **Wrangler `d1 migrations apply` only reads flat `*.sql` files** — Drizzle v1 beta generates `<tag>/migration.sql` subdirectories that wrangler silently skips. `yarn db:generate` runs a post-step (`db:flatten`) that copies each `<tag>/migration.sql` → `<tag>.sql` so wrangler can find them. Both the subdirs (for drizzle-kit) and flat copies (for wrangler) are committed. After `db:generate`, always commit the new flat `.sql` file alongside the subdirectory.
 - D1 supports FTS5 but Drizzle can't model it — use raw SQL migrations + `db.all()` queries
 - `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
 - D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
