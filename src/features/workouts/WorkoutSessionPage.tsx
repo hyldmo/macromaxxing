@@ -60,6 +60,7 @@ export function WorkoutSessionPage() {
 	const storeSessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
 	const transitionQueueRef = useRef<boolean[]>([])
 	const logIdCallbackRef = useRef<((id: SessionLog['id']) => void) | null>(null)
+	const sessionRef = useRef<{ id: string; hasLogs: boolean; completed: boolean; deleted: boolean } | null>(null)
 	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
 	const [templateReplacements, setTemplateReplacements] = useState<Map<Exercise['id'], SessionExercise>>(new Map())
@@ -74,6 +75,9 @@ export function WorkoutSessionPage() {
 	})
 
 	const completeSession = trpc.workout.completeSession.useMutation({
+		onMutate: () => {
+			if (sessionRef.current) sessionRef.current.completed = true
+		},
 		onSuccess: () => {
 			storeReset()
 			utils.workout.getSession.invalidate({ id: effectiveSessionId! })
@@ -98,6 +102,43 @@ export function WorkoutSessionPage() {
 		{ id: effectiveSessionId! },
 		{ enabled: !!effectiveSessionId }
 	)
+
+	// Keep cleanup ref in sync with latest session data
+	if (sessionQuery.data) {
+		sessionRef.current = {
+			id: sessionQuery.data.id,
+			hasLogs: sessionQuery.data.logs.length > 0,
+			completed: !!sessionQuery.data.completedAt,
+			deleted: sessionRef.current?.deleted ?? false
+		}
+	}
+
+	// Auto-delete empty sessions on unmount (navigating away without logging any sets)
+	// biome-ignore lint/suspicious/noEmptyBlockStatements: initialized on next line
+	const cleanupRef = useRef(() => {})
+	cleanupRef.current = () => {
+		const state = sessionRef.current
+		if (state && !state.hasLogs && !state.completed && !state.deleted) {
+			state.deleted = true
+			storeReset()
+			utils.workout.listSessions.invalidate()
+			fetch('/api/trpc/workout.deleteSession', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ json: { id: state.id } }),
+				keepalive: true
+			})
+		}
+	}
+	useEffect(() => {
+		const onBeforeUnload = () => cleanupRef.current()
+		window.addEventListener('beforeunload', onBeforeUnload)
+		return () => {
+			window.removeEventListener('beforeunload', onBeforeUnload)
+			cleanupRef.current()
+		}
+	}, [])
 
 	// Signal rest timer that a session is active
 	const isCompleteSession = !!sessionQuery.data?.completedAt
@@ -243,6 +284,9 @@ export function WorkoutSessionPage() {
 	})
 
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
+		onMutate: () => {
+			if (sessionRef.current) sessionRef.current.deleted = true
+		},
 		onSuccess: () => {
 			storeReset()
 			utils.workout.listSessions.invalidate()
