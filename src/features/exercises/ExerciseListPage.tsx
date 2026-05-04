@@ -3,13 +3,12 @@ import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
+import { Card, Input, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle, useUser } from '~/lib'
 import { fuzzyMatch } from '~/lib/fuzzy'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { BodyMap } from '../workouts/components/BodyMap'
 import { ExerciseCard } from './components/ExerciseCard'
-import { ExerciseForm } from './components/ExerciseForm'
 import { ExerciseTable } from './components/ExerciseTable'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
@@ -21,8 +20,6 @@ export function ExerciseListPage() {
 	const [searchParams, setSearchParams] = useSearchParams()
 	const search = searchParams.get('search') ?? ''
 	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
-	const [showForm, setShowForm] = useState(false)
-	const [editId, setEditId] = useState<string | null>(null)
 	const [sortKey, setSortKey] = useState<'name' | 'type' | 'tier'>('name')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 	const [hoveredExercise, setHoveredExercise] = useState<Exercise | null>(null)
@@ -34,6 +31,33 @@ export function ExerciseListPage() {
 
 	const deleteMutation = trpc.workout.deleteExercise.useMutation({
 		onSuccess: () => utils.workout.listExercises.invalidate()
+	})
+
+	type FavoriteContext = { prev: Exercise[] | undefined }
+
+	async function applyFavoriteOptimistic(exerciseId: Exercise['id'], next: boolean): Promise<FavoriteContext> {
+		await utils.workout.listExercises.cancel()
+		const prev = utils.workout.listExercises.getData()
+		utils.workout.listExercises.setData(undefined, old =>
+			old?.map(e => (e.id === exerciseId ? { ...e, isFavorite: next } : e))
+		)
+		return { prev }
+	}
+
+	function rollbackFavorite(ctx: FavoriteContext | undefined) {
+		if (ctx?.prev) utils.workout.listExercises.setData(undefined, ctx.prev)
+	}
+
+	const favoriteMutation = trpc.workout.favoriteExercise.useMutation({
+		onMutate: ({ exerciseId }) => applyFavoriteOptimistic(exerciseId, true),
+		onError: (_err, _vars, ctx) => rollbackFavorite(ctx),
+		onSettled: () => utils.workout.listExercises.invalidate()
+	})
+
+	const unfavoriteMutation = trpc.workout.unfavoriteExercise.useMutation({
+		onMutate: ({ exerciseId }) => applyFavoriteOptimistic(exerciseId, false),
+		onError: (_err, _vars, ctx) => rollbackFavorite(ctx),
+		onSettled: () => utils.workout.listExercises.invalidate()
 	})
 
 	const toggleSort = (key: typeof sortKey) => {
@@ -54,12 +78,19 @@ export function ExerciseListPage() {
 					return fuzzyMatch(search, text) !== null
 				})
 			: all
-		return list.toSorted((a, b) => {
+		const sorted = list.toSorted((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
 			if (sortKey === 'type') return dir * a.type.localeCompare(b.type)
 			return dir * (a.fatigueTier - b.fatigueTier)
 		})
+		// Pin favorites to the top only when the user hasn't filtered or re-sorted —
+		// once they're searching or sorting by type/tier, favorites should obey that order.
+		const pinFavorites = !search && sortKey === 'name' && sortDir === 'asc'
+		if (!pinFavorites) return sorted
+		const favorites = sorted.filter(e => e.isFavorite)
+		const rest = sorted.filter(e => !e.isFavorite)
+		return [...favorites, ...rest]
 	}, [exercisesQuery.data, search, sortKey, sortDir])
 
 	const hoveredVolumes = useMemo(() => {
@@ -71,13 +102,16 @@ export function ExerciseListPage() {
 		return volumes
 	}, [hoveredExercise])
 
-	function handleEdit(id: string) {
-		setEditId(id)
-		setShowForm(false)
+	function handleDelete(id: Exercise['id']) {
+		deleteMutation.mutate({ id })
 	}
 
-	function handleDelete(id: string) {
-		deleteMutation.mutate({ id: id as Exercise['id'] })
+	function handleFavoriteToggle(exercise: Exercise) {
+		if (exercise.isFavorite) {
+			unfavoriteMutation.mutate({ exerciseId: exercise.id })
+		} else {
+			favoriteMutation.mutate({ exerciseId: exercise.id })
+		}
 	}
 
 	return (
@@ -86,23 +120,12 @@ export function ExerciseListPage() {
 				<div className="flex items-center justify-between">
 					<h1 className="font-semibold text-ink">Exercises</h1>
 					{user && (
-						<Button
-							onClick={() => {
-								setEditId(null)
-								setShowForm(true)
-							}}
-						>
+						<LinkButton to="/exercises/new">
 							<Plus className="size-4" />
 							Add Exercise
-						</Button>
+						</LinkButton>
 					)}
 				</div>
-
-				{showForm && !editId && (
-					<Card className="p-4">
-						<ExerciseForm onClose={() => setShowForm(false)} />
-					</Card>
-				)}
 
 				<div className="flex items-center gap-2">
 					<Input placeholder="Search exercises..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -143,24 +166,15 @@ export function ExerciseListPage() {
 
 				{filtered.length > 0 && (
 					<div className="grid gap-2 md:hidden">
-						{filtered.map(exercise => {
-							if (exercise.id === editId) {
-								return (
-									<Card key={exercise.id} className="p-4">
-										<ExerciseForm editExercise={exercise} onClose={() => setEditId(null)} />
-									</Card>
-								)
-							}
-							return (
-								<ExerciseCard
-									key={exercise.id}
-									exercise={exercise}
-									isMine={exercise.userId === userId}
-									onEdit={handleEdit}
-									onDelete={handleDelete}
-								/>
-							)
-						})}
+						{filtered.map(exercise => (
+							<ExerciseCard
+								key={exercise.id}
+								exercise={exercise}
+								isMine={exercise.userId === userId}
+								onDelete={handleDelete}
+								onFavoriteToggle={handleFavoriteToggle}
+							/>
+						))}
 					</div>
 				)}
 
@@ -168,14 +182,12 @@ export function ExerciseListPage() {
 					<ExerciseTable
 						exercises={filtered}
 						userId={userId}
-						editId={editId}
-						onCloseEdit={() => setEditId(null)}
 						sortKey={sortKey}
 						sortDir={sortDir}
 						onToggleSort={toggleSort}
 						onHover={setHoveredExercise}
-						onEdit={handleEdit}
 						onDelete={handleDelete}
+						onFavoriteToggle={handleFavoriteToggle}
 					/>
 				)}
 			</div>
