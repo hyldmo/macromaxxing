@@ -6,7 +6,7 @@ import { GripVertical, Plus, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
-import { cn, useDocumentTitle } from '~/lib'
+import { cn, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { ProgramCyclePreview } from './ProgramCyclePreview'
 import { BelowMevWarning, ProgramMuscleSidebar } from './ProgramMuscleSidebar'
@@ -61,6 +61,24 @@ export const ProgramEditor: FC = () => {
 			navigate('/plans')
 		}
 	})
+
+	const dirty = useMemo(() => {
+		if (isNew) return name.trim() !== '' || items.length > 0
+		const data = programQuery.data
+		if (!data) return false
+		if (name !== data.name) return true
+		if (items.length !== data.workouts.length) return true
+		return items.some((it, i) => it.workoutId !== data.workouts[i].id)
+	}, [isNew, name, items, programQuery.data])
+
+	const isMutating =
+		createMutation.isPending ||
+		createMutation.isSuccess ||
+		updateMutation.isPending ||
+		updateMutation.isSuccess ||
+		deleteMutation.isPending ||
+		deleteMutation.isSuccess
+	useUnsavedChanges(dirty && !isMutating)
 
 	const availableWorkouts = useMemo(() => {
 		const used = new Set(items.map(i => i.workoutId))
