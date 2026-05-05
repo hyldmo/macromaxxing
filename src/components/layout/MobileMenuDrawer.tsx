@@ -7,18 +7,11 @@ import { cn, FAVORITABLE_ROUTES, MAX_FAVORITES, useScrollLock } from '~/lib'
 export interface MobileMenuDrawerProps {
 	open: boolean
 	onClose: () => void
-	favorites: string[]
 	isFavorite: (route: string) => boolean
 	onToggleFavorite: (route: string) => void
 }
 
-export const MobileMenuDrawer: FC<MobileMenuDrawerProps> = ({
-	open,
-	onClose,
-	favorites,
-	isFavorite,
-	onToggleFavorite
-}) => {
+export const MobileMenuDrawer: FC<MobileMenuDrawerProps> = ({ open, onClose, isFavorite, onToggleFavorite }) => {
 	const location = useLocation()
 
 	// Close on route change (e.g. when a row navigates).
@@ -38,14 +31,7 @@ export const MobileMenuDrawer: FC<MobileMenuDrawerProps> = ({
 	}, [open, onClose])
 
 	if (!open) return null
-	return (
-		<DrawerBody
-			onClose={onClose}
-			favorites={favorites}
-			isFavorite={isFavorite}
-			onToggleFavorite={onToggleFavorite}
-		/>
-	)
+	return <DrawerBody onClose={onClose} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} />
 }
 
 const DrawerBody: FC<Omit<MobileMenuDrawerProps, 'open'>> = ({ onClose, isFavorite, onToggleFavorite }) => {
