@@ -308,12 +308,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 
 	const nextTemplate = cycleResult && cycleResult.kind !== 'emptyActiveProgram' ? cycleResult.template : null
 	const nextWorkoutId = nextTemplate?.id ?? null
-	const programLabel =
-		cycleResult?.kind === 'program'
-			? cycleResult.total === 1
-				? cycleResult.programName
-				: `${cycleResult.programName} · Day ${cycleResult.day} of ${cycleResult.total}`
-			: null
+	const programLabel = cycleResult?.kind === 'program' ? cycleResult.programName : null
 
 	// Rotate templates so the "up next" workout is first
 	const orderedTemplates = useMemo(() => {
@@ -329,6 +324,9 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 				<div className="flex items-center gap-2">
 					<Dumbbell className="size-4 text-ink-muted" />
 					<h2 className="font-medium text-ink text-sm">Workouts</h2>
+					{programLabel && (
+						<span className="font-mono text-ink-faint text-xs tabular-nums">{programLabel}</span>
+					)}
 					<Link to="/workouts" className="ml-auto text-ink-faint text-xs hover:text-ink">
 						View all
 					</Link>
@@ -369,11 +367,6 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 										{template.exercises.length} exercises
 										{lastDone && ` · ${formatRelativeDate(lastDone)}`}
 									</div>
-									{isUpNext && programLabel && (
-										<div className="font-mono text-ink-faint text-xs tabular-nums">
-											{programLabel}
-										</div>
-									)}
 								</div>
 								<Button size="sm" onClick={() => onStartSession(template.id)} disabled={isPending}>
 									<Play className="size-3.5" />
