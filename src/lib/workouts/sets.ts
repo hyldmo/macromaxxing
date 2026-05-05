@@ -334,28 +334,31 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 			const { rounds } = buildSupersetRounds(
 				item.exercises.map(e => ({ exercise: e.exercise, logs: e.logs, plannedSets: e.planned }))
 			)
-			const totalSets = item.exercises.reduce((sum, e) => sum + e.planned.length, 0)
 			const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 			const supersetExercises = item.exercises.map((e, i) => ({
 				exerciseId: e.exerciseId,
 				name: e.exercise.name,
 				letter: LETTERS[i]
 			}))
-			let setNum = 0
+			// Per-exercise set numbering so unequal supersets read naturally
+			// (e.g. "Set 3 of 3 for A" instead of "Set 5 of 5" across the whole block).
+			const totalsByExercise = new Map(item.exercises.map(e => [e.exerciseId, e.planned.length]))
+			const seenByExercise = new Map<string, number>()
 			for (const round of rounds) {
 				for (let setIdx = 0; setIdx < round.sets.length; setIdx++) {
-					setNum++
 					const entry = round.sets[setIdx]
 					const isLastInRound = setIdx === round.sets.length - 1
 					const exerciseIndex = item.exercises.findIndex(e => e.exerciseId === entry.exerciseId)
+					const nextNum = (seenByExercise.get(entry.exerciseId) ?? 0) + 1
+					seenByExercise.set(entry.exerciseId, nextNum)
 					result.push({
 						exerciseId: entry.exerciseId,
 						exerciseName: entry.exercise.name,
 						setType: entry.planned.setType,
 						weightKg: entry.planned.weightKg,
 						reps: entry.planned.reps,
-						setNumber: setNum,
-						totalSets,
+						setNumber: nextNum,
+						totalSets: totalsByExercise.get(entry.exerciseId) ?? 0,
 						transition: !isLastInRound,
 						itemIndex: itemIdx,
 						completed: entry.log !== null,

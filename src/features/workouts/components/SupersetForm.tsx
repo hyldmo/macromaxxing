@@ -160,120 +160,129 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 					)}
 
 					{/* Interleaved rounds */}
-					{rounds.map((round, roundIdx) => (
-						<div key={`${round.setType}-${roundIdx}`}>
-							{roundIdx > 0 && <div className="my-1.5 border-edge border-t" />}
-							<div className="mb-0.5 font-mono text-[10px] text-ink-faint">
-								Round {roundIdx + 1} — {round.setType}
-							</div>
-							<div className="space-y-0.5">
-								{round.sets.map((entry, setIdx) => {
-									const isLastInRound = setIdx === round.sets.length - 1
+					{rounds.map((round, roundIdx) => {
+						const soloLetter =
+							round.sets.length === 1 ? String.fromCharCode(65 + round.sets[0].exerciseIndex) : null
+						return (
+							<div key={`${round.setType}-${roundIdx}`}>
+								{roundIdx > 0 && <div className="my-1.5 border-edge border-t" />}
+								<div className="mb-0.5 font-mono text-[10px] text-ink-faint">
+									{soloLetter ?? `Round ${roundIdx + 1}`} — {round.setType}
+								</div>
+								<div className="space-y-0.5">
+									{round.sets.map((entry, setIdx) => {
+										const isLastInRound = setIdx === round.sets.length - 1
 
-									if (entry.log) {
-										const isUnchecked = uncheckedIds.has(entry.log.id)
+										if (entry.log) {
+											const isUnchecked = uncheckedIds.has(entry.log.id)
+											return (
+												<div key={entry.log.id} className="flex items-center gap-1.5">
+													<ExerciseLabel index={entry.exerciseIndex} />
+													<div className="min-w-0 flex-1">
+														<SetRow
+															weightKg={entry.log.weightKg}
+															reps={entry.log.reps}
+															setType={entry.log.setType}
+															rpe={isUnchecked ? undefined : entry.log.rpe}
+															failureFlag={
+																isUnchecked ? undefined : entry.log.failureFlag
+															}
+															done={!isUnchecked}
+															priorMaxE1rm={
+																priorMaxByExercise.get(entry.exerciseId) ?? null
+															}
+															onWeightChange={v => {
+																if (v != null)
+																	onUpdateSet(entry.log!.id, { weightKg: v })
+															}}
+															onRepsChange={v => onUpdateSet(entry.log!.id, { reps: v })}
+															onConfirm={() => {
+																if (isUnchecked) {
+																	setUncheckedIds(prev => {
+																		const next = new Set(prev)
+																		next.delete(entry.log!.id)
+																		return next
+																	})
+																} else {
+																	setUncheckedIds(prev =>
+																		new Set(prev).add(entry.log!.id)
+																	)
+																}
+															}}
+														/>
+													</div>
+												</div>
+											)
+										}
+
+										if (readOnly) return null
+
+										const isFirstPending = !firstPendingFound
+										if (isFirstPending) firstPendingFound = true
+
+										const key = `${entry.exerciseId}-${entry.planned.setType}-${entry.planned.setNumber}`
+										const overrides = editableTargets.get(key)
+										const weightKg =
+											overrides?.weight !== undefined ? overrides.weight : entry.planned.weightKg
+										const reps = overrides?.reps !== undefined ? overrides.reps : entry.planned.reps
+
 										return (
-											<div key={entry.log.id} className="flex items-center gap-1.5">
+											<div key={key} className="flex items-center gap-1.5">
 												<ExerciseLabel index={entry.exerciseIndex} />
 												<div className="min-w-0 flex-1">
 													<SetRow
-														weightKg={entry.log.weightKg}
-														reps={entry.log.reps}
-														setType={entry.log.setType}
-														rpe={isUnchecked ? undefined : entry.log.rpe}
-														failureFlag={isUnchecked ? undefined : entry.log.failureFlag}
-														done={!isUnchecked}
-														priorMaxE1rm={priorMaxByExercise.get(entry.exerciseId) ?? null}
-														onWeightChange={v => {
-															if (v != null) onUpdateSet(entry.log!.id, { weightKg: v })
-														}}
-														onRepsChange={v => onUpdateSet(entry.log!.id, { reps: v })}
+														weightKg={weightKg}
+														reps={reps}
+														setType={entry.planned.setType}
+														active={active && isFirstPending}
 														onConfirm={() => {
-															if (isUnchecked) {
-																setUncheckedIds(prev => {
-																	const next = new Set(prev)
-																	next.delete(entry.log!.id)
-																	return next
-																})
-															} else {
-																setUncheckedIds(prev =>
-																	new Set(prev).add(entry.log!.id)
-																)
-															}
+															onAddSet({
+																exerciseId: entry.exerciseId,
+																weightKg: weightKg ?? 0,
+																reps,
+																setType: entry.planned.setType,
+																transition: !isLastInRound
+															})
+															setEditableTargets(prev => {
+																const next = new Map(prev)
+																next.delete(key)
+																return next
+															})
 														}}
+														onWeightChange={w =>
+															setEditableTargets(prev => {
+																const next = new Map(prev)
+																const existing = next.get(key)
+																next.set(key, {
+																	weight: w,
+																	reps: existing?.reps ?? entry.planned.reps
+																})
+																return next
+															})
+														}
+														onRepsChange={r =>
+															setEditableTargets(prev => {
+																const next = new Map(prev)
+																const existing = next.get(key)
+																next.set(key, {
+																	weight:
+																		existing?.weight !== undefined
+																			? existing.weight
+																			: entry.planned.weightKg,
+																	reps: r
+																})
+																return next
+															})
+														}
 													/>
 												</div>
 											</div>
 										)
-									}
-
-									if (readOnly) return null
-
-									const isFirstPending = !firstPendingFound
-									if (isFirstPending) firstPendingFound = true
-
-									const key = `${entry.exerciseId}-${entry.planned.setType}-${entry.planned.setNumber}`
-									const overrides = editableTargets.get(key)
-									const weightKg =
-										overrides?.weight !== undefined ? overrides.weight : entry.planned.weightKg
-									const reps = overrides?.reps !== undefined ? overrides.reps : entry.planned.reps
-
-									return (
-										<div key={key} className="flex items-center gap-1.5">
-											<ExerciseLabel index={entry.exerciseIndex} />
-											<div className="min-w-0 flex-1">
-												<SetRow
-													weightKg={weightKg}
-													reps={reps}
-													setType={entry.planned.setType}
-													active={active && isFirstPending}
-													onConfirm={() => {
-														onAddSet({
-															exerciseId: entry.exerciseId,
-															weightKg: weightKg ?? 0,
-															reps,
-															setType: entry.planned.setType,
-															transition: !isLastInRound
-														})
-														setEditableTargets(prev => {
-															const next = new Map(prev)
-															next.delete(key)
-															return next
-														})
-													}}
-													onWeightChange={w =>
-														setEditableTargets(prev => {
-															const next = new Map(prev)
-															const existing = next.get(key)
-															next.set(key, {
-																weight: w,
-																reps: existing?.reps ?? entry.planned.reps
-															})
-															return next
-														})
-													}
-													onRepsChange={r =>
-														setEditableTargets(prev => {
-															const next = new Map(prev)
-															const existing = next.get(key)
-															next.set(key, {
-																weight:
-																	existing?.weight !== undefined
-																		? existing.weight
-																		: entry.planned.weightKg,
-																reps: r
-															})
-															return next
-														})
-													}
-												/>
-											</div>
-										</div>
-									)
-								})}
+									})}
+								</div>
 							</div>
-						</div>
-					))}
+						)
+					})}
 
 					{/* Extra logs beyond planned */}
 					{extraLogs.length > 0 && (
