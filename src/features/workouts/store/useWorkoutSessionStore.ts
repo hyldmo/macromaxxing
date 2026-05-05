@@ -312,21 +312,19 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 		}
 
 		const state = get()
-
-		// Subtract elapsed superset transition time
-		let adjusted = durationSec
-		if (state._roundStartedAt !== null) {
-			const elapsed = Math.floor((Date.now() - state._roundStartedAt) / 1000)
-			adjusted = Math.max(0, durationSec - elapsed)
-		}
-
 		const now = Date.now()
-		const endAt = now + adjusted * 1000
+
+		// Subtract elapsed superset transition time from the countdown — but keep `total`
+		// equal to the full duration and backdate `startedAt` so the "rested" readout
+		// (total - remaining) reflects time already elapsed during the round.
+		const roundElapsedMs = state._roundStartedAt !== null ? Math.max(0, now - state._roundStartedAt) : 0
+		const remainingMs = Math.max(0, durationSec * 1000 - roundElapsedMs)
+		const endAt = now + remainingMs
 
 		scheduleNotification(endAt, state.sessionId)
 
 		set({
-			rest: { startedAt: now, endAt, total: adjusted, setType },
+			rest: { startedAt: now - roundElapsedMs, endAt, total: durationSec, setType },
 			_roundStartedAt: null
 		})
 	},

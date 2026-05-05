@@ -248,8 +248,11 @@ describe('startRest() [checklist mode]', () => {
 		vi.setSystemTime(11000) // 10 seconds later
 
 		store().startRest(60, 'working')
-		// 60 - 10 = 50 seconds adjusted
-		expect(store().rest!.total).toBe(50)
+		// total stays at full duration; endAt reflects the 10s already elapsed during the round
+		expect(store().rest!.total).toBe(60)
+		expect(store().rest!.endAt).toBe(11000 + 50 * 1000)
+		// startedAt backdated to when the round began so (total - remaining) shows time already rested
+		expect(store().rest!.startedAt).toBe(1000)
 		expect(store()._roundStartedAt).toBeNull() // cleared after use
 	})
 })
@@ -272,9 +275,11 @@ describe('superset rest timing', () => {
 		vi.setSystemTime(41000)
 		store().confirmSet() // Confirm B1 (transition=false, last in round)
 
-		// Start rest — 10 seconds of transition time should be subtracted
+		// Start rest — total stays 60; the 10s of transition time is reflected by backdated startedAt
 		store().startRest(60, 'working')
-		expect(store().rest!.total).toBe(50) // 60 - 10 = 50
+		expect(store().rest!.total).toBe(60)
+		expect(store().rest!.endAt).toBe(41000 + 50 * 1000)
+		expect(store().rest!.startedAt).toBe(31000)
 	})
 })
 

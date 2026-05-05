@@ -1,5 +1,17 @@
+import type { Exercise } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
-import { calculateRest, generateBackoffSets, generateWarmupSets, shouldSkipWarmup } from './sets'
+import {
+	buildSupersetRounds,
+	calculateRest,
+	flattenSets,
+	generateBackoffSets,
+	generateWarmupSets,
+	type PlannedSet,
+	type RenderItem,
+	type SessionLog,
+	type SupersetExerciseInput,
+	shouldSkipWarmup
+} from './sets'
 
 describe('calculateRest', () => {
 	// Formula: TIER_BASE[tier] × GOAL_MULT[goal] + reps × 3
@@ -370,5 +382,205 @@ describe('shouldSkipWarmup', () => {
 		const warmed = new Map([['biceps', 1.0]])
 		// covered = min(0.3, 1.0) = 0.3, total = 0.3, ratio = 1.0 → skip
 		expect(shouldSkipWarmup(current, warmed)).toBe(true)
+	})
+})
+
+// --- buildSupersetRounds ---
+
+// Test fixtures — the real SessionExercise type carries muscles + many other fields,
+// but buildSupersetRounds/flattenSets only read `id` and `name`. Cast at the fixture
+// boundary keeps tests focused on what the functions actually consume.
+function makeExercise(id: string, name: string) {
+	return { id, name } as unknown as SupersetExerciseInput['exercise']
+}
+
+function makeLog(id: string, exerciseId: string, setNumber: number, setType: PlannedSet['setType']): SessionLog {
+	return {
+		id,
+		exerciseId,
+		setNumber,
+		setType,
+		weightKg: 80,
+		reps: 8,
+		rpe: null,
+		failureFlag: false,
+		exercise: makeExercise(exerciseId, exerciseId)
+	} as unknown as SessionLog
+}
+
+function planned(setType: PlannedSet['setType'], setNumber: number, weightKg = 80, reps = 8): PlannedSet {
+	return { setNumber, setType, weightKg, reps }
+}
+
+describe('buildSupersetRounds', () => {
+	it('equal-length pair: interleaves into one round per planned set', () => {
+		const a = makeExercise('exc_a', 'A')
+		const b = makeExercise('exc_b', 'B')
+		const { rounds, extraLogs } = buildSupersetRounds([
+			{ exercise: a, logs: [], plannedSets: [planned('working', 1), planned('working', 2)] },
+			{ exercise: b, logs: [], plannedSets: [planned('working', 1), planned('working', 2)] }
+		])
+
+		expect(rounds.length).toBe(2)
+		expect(rounds.map(r => r.sets.map(s => s.exerciseId))).toEqual([
+			['exc_a', 'exc_b'],
+			['exc_a', 'exc_b']
+		])
+		expect(extraLogs).toEqual([])
+	})
+
+	it('unequal: trailing rounds contain only the longer exercise', () => {
+		const a = makeExercise('exc_a', 'A')
+		const b = makeExercise('exc_b', 'B')
+		const { rounds } = buildSupersetRounds([
+			{
+				exercise: a,
+				logs: [],
+				plannedSets: [planned('working', 1), planned('working', 2), planned('working', 3)]
+			},
+			{ exercise: b, logs: [], plannedSets: [planned('working', 1), planned('working', 2)] }
+		])
+
+		expect(rounds.length).toBe(3)
+		expect(rounds[0].sets.map(s => s.exerciseId)).toEqual(['exc_a', 'exc_b'])
+		expect(rounds[1].sets.map(s => s.exerciseId)).toEqual(['exc_a', 'exc_b'])
+		expect(rounds[2].sets.map(s => s.exerciseId)).toEqual(['exc_a'])
+	})
+
+	it('groups by phase: warmup rounds, then working rounds, then backoff rounds', () => {
+		const a = makeExercise('exc_a', 'A')
+		const b = makeExercise('exc_b', 'B')
+		const { rounds } = buildSupersetRounds([
+			{
+				exercise: a,
+				logs: [],
+				plannedSets: [planned('warmup', 1), planned('working', 2), planned('backoff', 3)]
+			},
+			{
+				exercise: b,
+				logs: [],
+				plannedSets: [planned('working', 1), planned('backoff', 2)]
+			}
+		])
+
+		expect(rounds.map(r => r.setType)).toEqual(['warmup', 'working', 'backoff'])
+		// A's warmup is solo (B has none)
+		expect(rounds[0].sets.map(s => s.exerciseId)).toEqual(['exc_a'])
+		// Working round: both
+		expect(rounds[1].sets.map(s => s.exerciseId)).toEqual(['exc_a', 'exc_b'])
+		// Backoff round: both
+		expect(rounds[2].sets.map(s => s.exerciseId)).toEqual(['exc_a', 'exc_b'])
+	})
+
+	it('logs match planned by index within phase; extra logs surface separately', () => {
+		const a = makeExercise('exc_a', 'A')
+		const { rounds, extraLogs } = buildSupersetRounds([
+			{
+				exercise: a,
+				logs: [
+					makeLog('wkl_1', 'exc_a', 1, 'working'),
+					makeLog('wkl_2', 'exc_a', 2, 'working'),
+					makeLog('wkl_3', 'exc_a', 3, 'working') // beyond planned
+				],
+				plannedSets: [planned('working', 1), planned('working', 2)]
+			}
+		])
+
+		expect(rounds.length).toBe(2)
+		expect(rounds[0].sets[0].log?.id).toBe('wkl_1')
+		expect(rounds[1].sets[0].log?.id).toBe('wkl_2')
+		expect(extraLogs.map(e => e.log.id)).toEqual(['wkl_3'])
+	})
+})
+
+// --- flattenSets ---
+
+function supersetRenderItem(opts: {
+	group: number
+	a: { sets: number; mode?: PlannedSet['setType'] }
+	b: { sets: number; mode?: PlannedSet['setType'] }
+}): RenderItem {
+	const a = makeExercise('exc_a', 'Bench Press')
+	const b = makeExercise('exc_b', 'Row')
+	return {
+		type: 'superset',
+		group: opts.group,
+		exercises: [
+			{
+				exerciseId: 'exc_a' as Exercise['id'],
+				exercise: a,
+				logs: [],
+				planned: Array.from({ length: opts.a.sets }, (_, i) => planned(opts.a.mode ?? 'working', i + 1))
+			},
+			{
+				exerciseId: 'exc_b' as Exercise['id'],
+				exercise: b,
+				logs: [],
+				planned: Array.from({ length: opts.b.sets }, (_, i) => planned(opts.b.mode ?? 'working', i + 1))
+			}
+		]
+	}
+}
+
+describe('flattenSets', () => {
+	it('standalone: setNumber + totalSets per exercise, transition=false', () => {
+		const flat = flattenSets([
+			{
+				type: 'standalone',
+				exerciseId: 'exc_solo' as Exercise['id'],
+				exercise: makeExercise('exc_solo', 'Squat'),
+				logs: [],
+				planned: [planned('working', 1), planned('working', 2), planned('working', 3)]
+			}
+		])
+
+		expect(flat.map(s => s.setNumber)).toEqual([1, 2, 3])
+		expect(flat.map(s => s.totalSets)).toEqual([3, 3, 3])
+		expect(flat.every(s => !s.transition)).toBe(true)
+		expect(flat.every(s => s.superset === null)).toBe(true)
+	})
+
+	it('equal-length superset: transition flips on last-in-round; per-exercise numbering', () => {
+		const flat = flattenSets([supersetRenderItem({ group: 1, a: { sets: 2 }, b: { sets: 2 } })])
+
+		expect(flat.length).toBe(4)
+		// Order: A1, B1, A2, B2
+		expect(flat.map(s => s.exerciseId)).toEqual(['exc_a', 'exc_b', 'exc_a', 'exc_b'])
+		// Transitions: A1 → switch (true), B1 → rest (false), A2 → switch, B2 → rest
+		expect(flat.map(s => s.transition)).toEqual([true, false, true, false])
+		// Per-exercise numbering, not cumulative
+		expect(flat.map(s => s.setNumber)).toEqual([1, 1, 2, 2])
+		expect(flat.map(s => s.totalSets)).toEqual([2, 2, 2, 2])
+	})
+
+	it('unequal superset (A=3, B=2): trailing A3 is solo round with transition=false', () => {
+		const flat = flattenSets([supersetRenderItem({ group: 1, a: { sets: 3 }, b: { sets: 2 } })])
+
+		// Order: A1, B1, A2, B2, A3
+		expect(flat.map(s => s.exerciseId)).toEqual(['exc_a', 'exc_b', 'exc_a', 'exc_b', 'exc_a'])
+		// A3 is alone in its round → transition=false (rest after it)
+		expect(flat.map(s => s.transition)).toEqual([true, false, true, false, false])
+		// Per-exercise numbering: A reads 1,2,3 of 3; B reads 1,2 of 2
+		expect(flat.map(s => `${s.exerciseId}:${s.setNumber}/${s.totalSets}`)).toEqual([
+			'exc_a:1/3',
+			'exc_b:1/2',
+			'exc_a:2/3',
+			'exc_b:2/2',
+			'exc_a:3/3'
+		])
+	})
+
+	it('superset attaches superset metadata (group + letters) to every set', () => {
+		const flat = flattenSets([supersetRenderItem({ group: 2, a: { sets: 1 }, b: { sets: 1 } })])
+
+		expect(flat[0].superset).toEqual({
+			group: 2,
+			exerciseLetter: 'A',
+			exercises: [
+				{ exerciseId: 'exc_a', name: 'Bench Press', letter: 'A' },
+				{ exerciseId: 'exc_b', name: 'Row', letter: 'B' }
+			]
+		})
+		expect(flat[1].superset?.exerciseLetter).toBe('B')
 	})
 })
