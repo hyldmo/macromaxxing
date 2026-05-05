@@ -112,6 +112,20 @@ const DashboardContent: FC = () => {
 		return pickNextWorkout(data.templates, data.sessions, data.activeProgram ?? null)
 	}, [summaryQuery.data])
 
+	// When an active program is set, scope the template list to program members in cycle order.
+	// Off-program templates are still accessible from /workouts.
+	const visibleTemplates = useMemo(() => {
+		const data = summaryQuery.data
+		if (!data) return []
+		const { templates, activeProgram } = data
+		if (!activeProgram || activeProgram.workoutIds.length === 0) return templates
+		const byId = new Map(templates.map(t => [t.id, t]))
+		return activeProgram.workoutIds.flatMap(id => {
+			const t = byId.get(id)
+			return t ? [t] : []
+		})
+	}, [summaryQuery.data])
+
 	if (summaryQuery.isLoading) {
 		return (
 			<div className="flex justify-center py-12">
@@ -124,7 +138,7 @@ const DashboardContent: FC = () => {
 		return <TRPCError error={summaryQuery.error} />
 	}
 
-	const { sessions, templates } = summaryQuery.data!
+	const { sessions } = summaryQuery.data!
 	const activeSession = sessions.find(s => !s.completedAt)
 	const recentCompleted = sessions.filter(s => s.completedAt).slice(0, 3)
 	const today = todayDayIndex()
@@ -148,7 +162,7 @@ const DashboardContent: FC = () => {
 						<EmptyProgramBanner programName={cycleForDisplay.programName} />
 					)}
 					<WorkoutTemplatesSection
-						templates={templates}
+						templates={visibleTemplates}
 						sessions={sessions}
 						cycleResult={cycleForDisplay}
 						onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
