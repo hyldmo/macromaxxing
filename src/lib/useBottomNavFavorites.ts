@@ -8,6 +8,7 @@ import {
 	Settings,
 	UtensilsCrossed
 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 
 export interface FavoritableRoute {
 	to: string
@@ -65,4 +66,51 @@ export function nextFavorites(current: string[], route: string): string[] {
 	return [...current.slice(1), route]
 }
 
-// Hook implementation lives here in Task 2.
+function readFromStorage(): string[] {
+	if (typeof window === 'undefined') return DEFAULT_FAVORITES
+	try {
+		return parseStoredFavorites(window.localStorage.getItem(STORAGE_KEY))
+	} catch {
+		return DEFAULT_FAVORITES
+	}
+}
+
+function writeToStorage(value: string[]): void {
+	try {
+		window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
+	} catch {
+		// Quota or privacy mode — favorites simply won't persist.
+	}
+}
+
+export interface UseBottomNavFavorites {
+	favorites: string[]
+	isFavorite: (route: string) => boolean
+	toggle: (route: string) => void
+}
+
+export function useBottomNavFavorites(): UseBottomNavFavorites {
+	const [favorites, setFavorites] = useState<string[]>(readFromStorage)
+
+	useEffect(() => {
+		const onStorage = (e: StorageEvent) => {
+			if (e.key !== STORAGE_KEY) return
+			setFavorites(parseStoredFavorites(e.newValue))
+		}
+		window.addEventListener('storage', onStorage)
+		return () => window.removeEventListener('storage', onStorage)
+	}, [])
+
+	const toggle = useCallback((route: string) => {
+		setFavorites(prev => {
+			const next = nextFavorites(prev, route)
+			if (next === prev) return prev
+			writeToStorage(next)
+			return next
+		})
+	}, [])
+
+	const isFavorite = useCallback((route: string) => favorites.includes(route), [favorites])
+
+	return { favorites, isFavorite, toggle }
+}
