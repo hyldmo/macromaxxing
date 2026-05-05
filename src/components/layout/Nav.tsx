@@ -11,7 +11,7 @@ import {
 	Settings,
 	UtensilsCrossed
 } from 'lucide-react'
-import { type FC, type HTMLAttributes, useCallback, useState } from 'react'
+import { type FC, type HTMLAttributes, useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
@@ -42,6 +42,11 @@ export function Nav() {
 	const { favorites, isFavorite, toggle } = useBottomNavFavorites()
 	const [menuOpen, setMenuOpen] = useState(false)
 	const closeMenu = useCallback(() => setMenuOpen(false), [])
+
+	// Close menu when a workout timer starts so the RestTimer isn't covered by an open drawer.
+	useEffect(() => {
+		if (timerActive) closeMenu()
+	}, [timerActive, closeMenu])
 
 	// Bottom bar = canonical order filtered by favorites.
 	const mobileFavLinks: Link[] = FAVORITABLE_ROUTES.filter(r => favorites.includes(r.to)).map(r => ({
@@ -91,6 +96,7 @@ export function Nav() {
 								onClick={() => setMenuOpen(true)}
 								aria-label="Open menu"
 								aria-expanded={menuOpen}
+								aria-controls="mobile-menu-drawer"
 								className={cn(
 									'rounded-sm p-1.5 text-ink-muted transition-colors hover:text-ink md:hidden',
 									timerActive && 'hidden'

@@ -37,7 +37,13 @@ export const MobileMenuDrawer: FC<MobileMenuDrawerProps> = ({ open, onClose, isF
 const DrawerBody: FC<Omit<MobileMenuDrawerProps, 'open'>> = ({ onClose, isFavorite, onToggleFavorite }) => {
 	useScrollLock()
 	return (
-		<div className="fixed inset-0 z-[60] md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+		<div
+			id="mobile-menu-drawer"
+			className="fixed inset-0 z-[60] md:hidden"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Menu"
+		>
 			<button type="button" className="absolute inset-0 bg-black/50" aria-label="Close menu" onClick={onClose} />
 			<div className="absolute top-0 right-0 flex h-full w-[85%] max-w-sm flex-col border-edge border-l bg-surface-1">
 				<header className="flex items-center justify-between border-edge border-b px-4 py-3">
