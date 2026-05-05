@@ -308,12 +308,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 
 	const nextTemplate = cycleResult && cycleResult.kind !== 'emptyActiveProgram' ? cycleResult.template : null
 	const nextWorkoutId = nextTemplate?.id ?? null
-	const programLabel =
-		cycleResult?.kind === 'program'
-			? cycleResult.total === 1
-				? cycleResult.programName
-				: `${cycleResult.programName} · Day ${cycleResult.day} of ${cycleResult.total}`
-			: null
+	const programLabel = cycleResult?.kind === 'program' ? cycleResult.programName : null
 
 	// Rotate templates so the "up next" workout is first
 	const orderedTemplates = useMemo(() => {
