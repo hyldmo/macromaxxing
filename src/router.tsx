@@ -45,7 +45,8 @@ export const router = createBrowserRouter([
 				children: [{ path: 'timer', element: <TimerMode /> }]
 			},
 			{ path: 'analytics', element: <AnalyticsPage />, errorElement: <ErrorBoundary /> },
-			{ path: 'settings', element: <SettingsPage />, errorElement: <ErrorBoundary /> }
+			{ path: 'settings', element: <SettingsPage />, errorElement: <ErrorBoundary /> },
+			{ path: '*', element: <ErrorBoundary /> }
 		]
 	}
 ])
