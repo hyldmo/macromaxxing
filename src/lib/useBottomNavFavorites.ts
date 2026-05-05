@@ -103,6 +103,7 @@ export function useBottomNavFavorites(): UseBottomNavFavorites {
 
 	const toggle = useCallback((route: string) => {
 		setFavorites(prev => {
+			// nextFavorites returns the same reference for no-ops; the === guard skips redundant writes.
 			const next = nextFavorites(prev, route)
 			if (next === prev) return prev
 			writeToStorage(next)
