@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { TypeIDString } from '@macromaxxing/db'
 import { GripVertical, Plus, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
 import { cn, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -278,7 +278,12 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, onRemove }) 
 				<GripVertical className="size-4" />
 			</button>
 			<span className="font-mono text-ink-faint text-xs tabular-nums">{index + 1}.</span>
-			<span className="flex-1 truncate font-medium text-ink text-sm">{item.name}</span>
+			<Link
+				to={`/workouts/${item.workoutId}`}
+				className="flex-1 truncate font-medium text-ink text-sm hover:text-accent"
+			>
+				{item.name}
+			</Link>
 			<Button variant="ghost" size="icon" onClick={onRemove} aria-label="Remove workout">
 				<Trash2 className="size-4" />
 			</Button>
