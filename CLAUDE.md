@@ -343,6 +343,7 @@ trpc.analytics.stalledExercises             # Exercises with no progression over
 trpc.analytics.topExercises                 # Top exercises by working-set count over window
 trpc.analytics.weeklyTrend                  # Per-muscle current-period vs prior-period delta (sets + tonnage)
 trpc.analytics.calendarHeatmap              # Per-day training density (sessions, sets) for calendar grid
+trpc.analytics.weeklyVolumeByMuscle         # Per-week intensity-weighted volume by muscle group (Monday-aligned UTC grid)
 trpc.settings.get/save
 trpc.settings.listTokens/createToken/deleteToken    # Personal access token management
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g

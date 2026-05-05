@@ -1,4 +1,4 @@
-import { Activity, Award, CalendarDays, Dumbbell, Flame, TrendingUp } from 'lucide-react'
+import { Activity, Award, BarChart3, CalendarDays, Dumbbell, Flame, TrendingUp } from 'lucide-react'
 import type { FC } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
@@ -10,6 +10,7 @@ import { RecentPRsList } from './components/RecentPRsList'
 import { StalledList } from './components/StalledList'
 import { TopExercisesList } from './components/TopExercisesList'
 import { WeeklyTrendList } from './components/WeeklyTrendList'
+import { WeeklyVolumeChart } from './components/WeeklyVolumeChart'
 
 const VALID_WINDOWS = ['4w', '12w', '1y'] as const
 type AnalyticsWindow = (typeof VALID_WINDOWS)[number]
@@ -59,6 +60,7 @@ export const AnalyticsPage: FC = () => {
 	const weeklyTrendQuery = trpc.analytics.weeklyTrend.useQuery({ window })
 	const heatmapQuery = trpc.analytics.calendarHeatmap.useQuery({ window })
 	const topExercisesQuery = trpc.analytics.topExercises.useQuery({ window, limit: 10 })
+	const weeklyVolumeQuery = trpc.analytics.weeklyVolumeByMuscle.useQuery({ window })
 
 	return (
 		<div className="space-y-4">
@@ -167,6 +169,27 @@ export const AnalyticsPage: FC = () => {
 					</CardContent>
 				</Card>
 			</div>
+
+			{/* Weekly volume by muscle group — full-width stacked bar chart. */}
+			<Card>
+				<CardHeader>
+					<div className="flex items-center gap-2">
+						<BarChart3 className="size-4 text-ink-muted" />
+						<h2 className="font-medium text-ink text-sm">Weekly volume by muscle group</h2>
+					</div>
+				</CardHeader>
+				<CardContent>
+					{weeklyVolumeQuery.isLoading ? (
+						<div className="flex justify-center py-6">
+							<Spinner />
+						</div>
+					) : weeklyVolumeQuery.error ? (
+						<TRPCError error={weeklyVolumeQuery.error} />
+					) : (
+						<WeeklyVolumeChart data={weeklyVolumeQuery.data ?? []} />
+					)}
+				</CardContent>
+			</Card>
 
 			{/* Calendar heatmap stays full-width — needs the room for 1y (53 cols). */}
 			<Card>
