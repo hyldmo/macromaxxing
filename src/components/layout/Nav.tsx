@@ -7,15 +7,17 @@ import {
 	Dumbbell,
 	LogIn,
 	type LucideIcon,
+	Menu,
 	Settings,
 	UtensilsCrossed
 } from 'lucide-react'
-import type { FC, HTMLAttributes } from 'react'
+import { type FC, type HTMLAttributes, useCallback, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { useWorkoutSessionStore } from '~/features/workouts/store'
-import { cn } from '~/lib'
+import { cn, FAVORITABLE_ROUTES, useBottomNavFavorites } from '~/lib'
+import { MobileMenuDrawer } from './MobileMenuDrawer'
 
 const publicLinks = [
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
@@ -28,13 +30,6 @@ const desktopAuthLinks = [
 	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ] satisfies Link[]
 
-// Analytics deliberately omitted from mobile bottom nav — no clean slot.
-// Reachable via direct URL or desktop nav. See TODOs for follow-up options.
-const mobileAuthLinks = [
-	{ to: '/plans', label: 'Plans', icon: CalendarDays },
-	{ to: '/workouts', label: 'Workouts', icon: Dumbbell }
-] satisfies Link[]
-
 export interface Link {
 	to: string
 	label: string
@@ -44,9 +39,20 @@ export interface Link {
 
 export function Nav() {
 	const timerActive = useWorkoutSessionStore(s => s.sessionStartedAt !== null)
+	const { favorites, isFavorite, toggle } = useBottomNavFavorites()
+	const [menuOpen, setMenuOpen] = useState(false)
+	const closeMenu = useCallback(() => setMenuOpen(false), [])
+
+	// Bottom bar = canonical order filtered by favorites.
+	const mobileFavLinks: Link[] = FAVORITABLE_ROUTES.filter(r => favorites.includes(r.to)).map(r => ({
+		to: r.to,
+		label: r.label,
+		icon: r.icon
+	}))
+
 	return (
 		<>
-			{/* Desktop top nav */}
+			{/* Top nav (desktop full, mobile collapsed to brand + status + hamburger) */}
 			<nav className="sticky top-0 z-50 border-edge border-b bg-surface-1">
 				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-4">
 					<NavLink to="/" className="flex items-center gap-2 font-semibold text-accent">
@@ -66,15 +72,42 @@ export function Nav() {
 					<div className="ml-auto flex items-center gap-2">
 						<OfflineIndicator />
 						<RestTimer />
-						<div className={cn('flex items-center gap-2', timerActive && 'max-md:hidden')}>
+						{/* Desktop-only: settings + avatar inline. */}
+						<div className="hidden items-center gap-2 md:flex">
 							<SignedIn>
 								<WebLink to="/settings" icon={Settings} />
 								<UserButton />
 							</SignedIn>
+							<SignedOut>
+								<SignInButton mode="modal">
+									<WebLink icon={LogIn} label="Sign in" />
+								</SignInButton>
+							</SignedOut>
 						</div>
+						{/* Mobile-only hamburger. Hidden during active workout timer to keep RestTimer focused. */}
+						<SignedIn>
+							<button
+								type="button"
+								onClick={() => setMenuOpen(true)}
+								aria-label="Open menu"
+								aria-expanded={menuOpen}
+								className={cn(
+									'rounded-sm p-1.5 text-ink-muted transition-colors hover:text-ink md:hidden',
+									timerActive && 'hidden'
+								)}
+							>
+								<Menu className="size-5" />
+							</button>
+						</SignedIn>
 						<SignedOut>
 							<SignInButton mode="modal">
-								<WebLink icon={LogIn} label="Sign in" />
+								<button
+									type="button"
+									aria-label="Sign in"
+									className="rounded-sm p-1.5 text-ink-muted transition-colors hover:text-ink md:hidden"
+								>
+									<LogIn className="size-5" />
+								</button>
 							</SignInButton>
 						</SignedOut>
 					</div>
@@ -84,17 +117,19 @@ export function Nav() {
 			{/* Mobile bottom tab bar */}
 			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
 				<div className="grid auto-cols-fr grid-flow-col justify-center px-3 2xs:py-1">
-					<AppLinks links={publicLinks} />
 					<SignedIn>
-						<AppLinks links={mobileAuthLinks} />
+						<AppLinks links={mobileFavLinks} />
 					</SignedIn>
 					<SignedOut>
+						<AppLinks links={publicLinks} />
 						<SignInButton mode="modal">
 							<AppLink icon={LogIn} label="Sign in" />
 						</SignInButton>
 					</SignedOut>
 				</div>
 			</nav>
+
+			<MobileMenuDrawer open={menuOpen} onClose={closeMenu} isFavorite={isFavorite} onToggleFavorite={toggle} />
 		</>
 	)
 }
