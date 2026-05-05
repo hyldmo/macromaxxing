@@ -20,32 +20,32 @@ import { WorkoutTemplatePage } from '~/features/workouts/WorkoutTemplatePage'
 export const router = createBrowserRouter([
 	{
 		element: <RootLayout />,
-		errorElement: <ErrorBoundary />,
 		children: [
-			{ index: true, element: <DashboardPage /> },
-			{ path: 'recipes', element: <RecipeListPage /> },
-			{ path: 'recipes/new', element: <RecipeEditorPage /> },
-			{ path: 'recipes/:id', element: <RecipeEditorPage /> },
-			{ path: 'recipes/:id/cook', element: <CookModePage /> },
-			{ path: 'ingredients', element: <IngredientListPage /> },
-			{ path: 'exercises', element: <ExerciseListPage /> },
-			{ path: 'exercises/new', element: <ExerciseDetailPage /> },
-			{ path: 'exercises/:id', element: <ExerciseDetailPage /> },
-			{ path: 'plans', element: <PlansPage /> },
-			{ path: 'plans/programs/new', element: <ProgramEditor /> },
-			{ path: 'plans/programs/:id', element: <ProgramEditor /> },
-			{ path: 'plans/:id', element: <MealPlannerPage /> },
-			{ path: 'workouts', element: <WorkoutListPage /> },
-			{ path: 'workouts/new', element: <WorkoutTemplatePage /> },
-			{ path: 'workouts/:workoutId', element: <WorkoutTemplatePage /> },
-			{ path: 'workouts/:workoutId/session', element: <WorkoutSessionPage /> },
+			{ index: true, element: <DashboardPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'recipes', element: <RecipeListPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'recipes/new', element: <RecipeEditorPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'recipes/:id', element: <RecipeEditorPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'recipes/:id/cook', element: <CookModePage />, errorElement: <ErrorBoundary /> },
+			{ path: 'ingredients', element: <IngredientListPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'exercises', element: <ExerciseListPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'exercises/new', element: <ExerciseDetailPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'exercises/:id', element: <ExerciseDetailPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'plans', element: <PlansPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'plans/programs/new', element: <ProgramEditor />, errorElement: <ErrorBoundary /> },
+			{ path: 'plans/programs/:id', element: <ProgramEditor />, errorElement: <ErrorBoundary /> },
+			{ path: 'plans/:id', element: <MealPlannerPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'workouts', element: <WorkoutListPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'workouts/new', element: <WorkoutTemplatePage />, errorElement: <ErrorBoundary /> },
+			{ path: 'workouts/:workoutId', element: <WorkoutTemplatePage />, errorElement: <ErrorBoundary /> },
+			{ path: 'workouts/:workoutId/session', element: <WorkoutSessionPage />, errorElement: <ErrorBoundary /> },
 			{
 				path: 'workouts/sessions/:sessionId',
 				element: <WorkoutSessionPage />,
+				errorElement: <ErrorBoundary />,
 				children: [{ path: 'timer', element: <TimerMode /> }]
 			},
-			{ path: 'analytics', element: <AnalyticsPage /> },
-			{ path: 'settings', element: <SettingsPage /> }
+			{ path: 'analytics', element: <AnalyticsPage />, errorElement: <ErrorBoundary /> },
+			{ path: 'settings', element: <SettingsPage />, errorElement: <ErrorBoundary /> }
 		]
 	}
 ])
