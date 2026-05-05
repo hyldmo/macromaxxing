@@ -10,6 +10,7 @@ import {
 	estimated1RM,
 	isE1rmPR,
 	isStalledExercise,
+	MUSCLE_GROUPS,
 	type MuscleGroup,
 	type TypeIDString,
 	utcDateKey,
@@ -315,5 +316,72 @@ export const analyticsRouter = router({
 			}))
 			out.sort((a, b) => a.date.localeCompare(b.date))
 			return out
+		}),
+
+	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
+	// Per-week (Monday-aligned UTC) volume by muscle group, weighted by exercise-muscle intensity.
+	// Output is a fixed grid: one entry per ISO week from window-start Monday → current Monday,
+	// even when no sessions fell in a given week. The fixed grid is what makes the data shape
+	// usable for a stacked bar chart without client-side gap filling.
+	weeklyVolumeByMuscle: protectedProcedure
+		.meta({
+			description:
+				'Weekly per-muscle volume time series (kg·reps × intensity), Monday-aligned UTC weeks across the time window'
+		})
+		.input(windowInput)
+		.query(async ({ ctx, input }) => {
+			const cutoffMs = WINDOW_CUTOFF_MS[input.window]
+			const now = Date.now()
+			const since = now - cutoffMs
+
+			// Monday-anchored UTC week start for any timestamp.
+			const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+			const mondayUtc = (ms: number): number => {
+				const d = new Date(ms)
+				// Date#getUTCDay: 0 = Sunday … 6 = Saturday. Map to days-since-Monday (Mon=0…Sun=6).
+				const dow = (d.getUTCDay() + 6) % 7
+				return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - dow * 24 * 60 * 60 * 1000
+			}
+
+			const startMonday = mondayUtc(since)
+			const endMonday = mondayUtc(now)
+			const weekKeys: string[] = []
+			for (let t = startMonday; t <= endMonday; t += WEEK_MS) {
+				weekKeys.push(utcDateKey(t))
+			}
+
+			type Volumes = Partial<Record<MuscleGroup, number>>
+			const perWeek = new Map<string, Volumes>()
+			for (const key of weekKeys) perWeek.set(key, {})
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: { userId: ctx.user.id, startedAt: { gte: startMonday } },
+				with: {
+					logs: {
+						where: { setType: 'working' },
+						with: { exercise: { with: { muscles: true } } }
+					}
+				}
+			})
+
+			for (const session of sessions) {
+				const key = utcDateKey(mondayUtc(session.startedAt))
+				const bucket = perWeek.get(key)
+				if (!bucket) continue
+				for (const log of session.logs) {
+					const setVolume = log.weightKg * log.reps
+					if (setVolume <= 0) continue
+					for (const m of log.exercise.muscles) {
+						bucket[m.muscleGroup] = (bucket[m.muscleGroup] ?? 0) + setVolume * m.intensity
+					}
+				}
+			}
+
+			return weekKeys.map(weekStart => {
+				const volumes = perWeek.get(weekStart) ?? {}
+				let total = 0
+				for (const mg of MUSCLE_GROUPS) total += volumes[mg] ?? 0
+				return { weekStart, volumes, totalVolume: total }
+			})
 		})
 })
