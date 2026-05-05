@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { TrainingGoal } from '@macromaxxing/db'
 import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, NumberInput } from '~/components/ui'
 import { cn, estimated1RM, getRepRange, TRAINING_DEFAULTS } from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
@@ -78,7 +79,11 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 						{supersetLabel}
 					</span>
 				)}
-				<span className="min-w-40 flex-1 text-ink text-sm">{exercise.exerciseName}</span>
+				<span className="min-w-40 flex-1 text-ink text-sm">
+					<Link to={`/exercises/${exercise.exerciseId}`} className="hover:underline">
+						{exercise.exerciseName}
+					</Link>
+				</span>
 				{exercise.targetWeight && exercise.targetReps && (
 					<span className="text-ink-muted text-xs max-lg:hidden">
 						{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}kg e1RM

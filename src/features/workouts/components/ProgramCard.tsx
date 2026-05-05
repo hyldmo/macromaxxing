@@ -50,7 +50,9 @@ export const ProgramCard: FC<ProgramCardProps> = ({ program, templates, isActive
 				aria-label={isActive ? 'Deactivate program' : 'Activate program'}
 				title={isActive ? 'Active — click to deactivate' : 'Set as active'}
 			>
-				<Star className={cn('size-4', isActive ? 'fill-accent text-accent' : 'text-ink-faint')} />
+				<Star
+					className={cn('size-4 cursor-pointer', isActive ? 'fill-accent text-accent' : 'text-ink-faint')}
+				/>
 			</Button>
 			<Link to={`/plans/programs/${program.id}`} className="min-w-0 flex-1">
 				<h3 className="truncate font-medium text-ink text-sm">{program.name}</h3>

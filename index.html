@@ -24,7 +24,7 @@
 				recovered = true
 				try {
 					console.warn('[app] stale-client recovery:', detail)
-				} catch (e) {
+				} catch {
 					// console may be unavailable; ignore
 				}
 				var root = document.getElementById('root') || document.body
