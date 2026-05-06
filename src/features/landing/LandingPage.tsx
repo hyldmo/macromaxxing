@@ -1,6 +1,8 @@
 import type { FC } from 'react'
 import { useDocumentTitle } from '~/lib'
 import {
+	AutoSection,
+	CycleSection,
 	FaqSection,
 	FooterCta,
 	Hero,
@@ -8,7 +10,8 @@ import {
 	IntelligenceSection,
 	NumbersRail,
 	PlateSection,
-	RackSection
+	RackSection,
+	SignalSection
 } from './sections'
 
 export const LandingPage: FC = () => {
@@ -20,6 +23,9 @@ export const LandingPage: FC = () => {
 			<NumbersRail />
 			<PlateSection />
 			<RackSection />
+			<CycleSection />
+			<SignalSection />
+			<AutoSection />
 			<IntelligenceSection />
 			<HowItWorks />
 			<FaqSection />
