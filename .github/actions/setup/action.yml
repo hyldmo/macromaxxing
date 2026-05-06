@@ -23,6 +23,6 @@ runs:
       shell: bash
       run: yarn --immutable
 
-    - name: Generate PWA icons
+    - name: Generate types and PWA icons
       shell: bash
-      run: yarn pwa:generate-icons
+      run: yarn generate

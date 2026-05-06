@@ -1,45 +1,22 @@
 import { ClerkProvider } from '@clerk/clerk-react'
 import { dark } from '@clerk/themes'
-import { persistQueryClient } from '@tanstack/query-persist-client-core'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { type FC, type ReactNode, useState } from 'react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import type { FC, ReactNode } from 'react'
 import { Links, Meta, Scripts, ScrollRestoration } from 'react-router'
 import { ErrorBoundary as AppErrorBoundary } from '~/components/ErrorBoundary'
 import { RootLayout } from '~/components/layout/RootLayout'
-import { createIDBPersister, UserProvider } from '~/lib'
-import { createTRPCClient, trpc } from '~/lib/trpc'
+import { UserProvider } from '~/lib'
+import { queryClient, trpc, trpcClient } from '~/lib/trpc'
 import '@mdxeditor/editor/style.css'
 import '~/index.css'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-const ONE_DAY = 1000 * 60 * 60 * 24
 
 interface LayoutProps {
 	children: ReactNode
 }
 
 export const Layout: FC<LayoutProps> = ({ children }) => {
-	const [queryClient] = useState(() => {
-		const client = new QueryClient({
-			defaultOptions: {
-				queries: {
-					gcTime: ONE_DAY,
-					staleTime: 1000 * 60 * 5,
-					refetchOnMount: 'always',
-					networkMode: 'offlineFirst'
-				},
-				mutations: {
-					networkMode: 'offlineFirst'
-				}
-			}
-		})
-		if (!import.meta.env.SSR) {
-			persistQueryClient({ queryClient: client, persister: createIDBPersister(), maxAge: ONE_DAY })
-		}
-		return client
-	})
-	const [trpcClient] = useState(createTRPCClient)
-
 	return (
 		<html lang="en">
 			<head>
