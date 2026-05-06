@@ -473,7 +473,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - Builds that resolve version via `git describe --tags` need `fetch-depth: 0` on `actions/checkout`. Default is shallow → `git describe` throws → silent fallback to default version string.
 - `prek install` only sets up pre-commit, not pre-push. Prek's `priority` field allows parallel hook execution at the same priority.
 
-**Yarn 4** — `yarn workspaces foreach` needs `run`: `yarn workspaces foreach --all --parallel run typecheck`
+**Yarn 4** — `yarn workspaces foreach` needs `run`: `yarn workspaces foreach --all --parallel run typecheck`. Also: `yarn workspace <name> <bin> --env-file path` is intercepted by Node 24's own `--env-file` parser and fails with `node: <path>: not found` even though `<bin> --env-file path` works directly. Wrap the binary in a script field on the workspace's package.json (e.g. `"generate:wrangler": "wrangler types --env-file .dev.vars.template"`) and call via `yarn workspace <name> run generate:wrangler`.
 
 **Zustand** — never subscribe to the entire store (`const store = useStore()` infinite-loops any effect with `store` in deps). Selectors only: `useStore(s => s.field)` for reactive state, `useStore.getState().action()` for callbacks.
 
