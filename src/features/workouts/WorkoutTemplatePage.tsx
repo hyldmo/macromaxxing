@@ -3,7 +3,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import type { ExerciseType, MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router'
 import { Button, ButtonGroup, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
 import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'

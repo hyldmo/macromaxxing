@@ -1,6 +1,6 @@
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react'
 import type { FC } from 'react'
-import { isRouteErrorResponse, Link, useRouteError } from 'react-router-dom'
+import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
 import { ReloadPrompt } from './ui/ReloadPrompt'
 
 async function clearCacheAndReload() {

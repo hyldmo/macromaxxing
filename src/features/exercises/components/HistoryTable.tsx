@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { formatDate } from '~/lib/date'
 import type { RouterOutput } from '~/lib/trpc'
 

@@ -1,7 +1,7 @@
 import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, ExternalLink, Trash2 } from 'lucide-react'
 import type { FC, MouseEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { Button } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 

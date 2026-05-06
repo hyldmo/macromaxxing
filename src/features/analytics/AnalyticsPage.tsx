@@ -1,6 +1,6 @@
 import { Activity, Award, BarChart3, CalendarDays, Dumbbell, Flame, TrendingUp } from 'lucide-react'
 import type { FC } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
 import { MuscleHeatGrid } from '~/features/workouts/components/MuscleHeatGrid'
 import { useDocumentTitle } from '~/lib'

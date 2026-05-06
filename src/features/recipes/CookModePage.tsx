@@ -1,7 +1,7 @@
 import type { Recipe } from '@macromaxxing/db'
 import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { Button, Spinner, TRPCError } from '~/components/ui'
 import { getImageAttribution, getImageUrl, isExternalImage, useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'

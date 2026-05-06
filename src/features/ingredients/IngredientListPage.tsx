@@ -1,7 +1,7 @@
 import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, ScanLine, Sparkles, Trash2 } from 'lucide-react'
 import { Fragment, useCallback, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router'
 import { USDA } from '~/components/icons'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import type { OFFProduct } from '~/lib'

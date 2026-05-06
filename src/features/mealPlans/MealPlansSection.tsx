@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { getISOWeek, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'

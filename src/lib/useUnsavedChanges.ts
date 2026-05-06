@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useBlocker } from 'react-router-dom'
+import { useBlocker } from 'react-router'
 
 /**
  * Shows the browser's native "unsaved changes" confirmation dialog

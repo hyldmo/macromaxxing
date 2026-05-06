@@ -1,7 +1,7 @@
 name = "macromaxxing"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = "dist"
+pages_build_output_dir = "dist/client"
 
 [[d1_databases]]
 binding = "DB"

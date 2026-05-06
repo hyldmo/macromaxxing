@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
+import { reactRouter } from '@react-router/dev/vite'
 import tailwind from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import pkg from './package.json' with { type: 'json' }
@@ -18,14 +18,15 @@ function resolveAppVersion(): string {
 	}
 }
 
-// https://vitejs.dev/config/
+const isTest = process.env.VITEST === 'true'
+const buildRevision = `${Date.now()}`
+
 export default defineConfig({
 	define: {
 		'import.meta.env.VITE_REPO_URL': JSON.stringify(pkg.repository.url.replace(/\.git$/, '')),
 		'import.meta.env.VITE_APP_VERSION': JSON.stringify(resolveAppVersion())
 	},
 	build: {
-		outDir: 'workers/dist',
 		sourcemap: true
 	},
 	server: {
@@ -35,7 +36,7 @@ export default defineConfig({
 		}
 	},
 	plugins: [
-		react(),
+		!isTest && reactRouter(),
 		tailwind(),
 		VitePWA({
 			registerType: 'prompt',
@@ -60,7 +61,8 @@ export default defineConfig({
 				navigateFallback: '/index.html',
 				navigateFallbackDenylist: [/^\/api\//],
 				importScripts: ['/sw-custom.js'],
-				cleanupOutdatedCaches: true
+				cleanupOutdatedCaches: true,
+				additionalManifestEntries: [{ url: 'index.html', revision: buildRevision }]
 			}
 		})
 	],

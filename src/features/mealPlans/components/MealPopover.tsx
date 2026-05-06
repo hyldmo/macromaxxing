@@ -1,6 +1,6 @@
 import { Copy, ExternalLink, RefreshCw, Trash2, X } from 'lucide-react'
 import { type FC, type RefObject, useLayoutEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Button, Spinner, TRPCError } from '~/components/ui'
 import { cn, DAYS_SHORT } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'

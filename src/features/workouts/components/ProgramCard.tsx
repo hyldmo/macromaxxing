@@ -1,7 +1,7 @@
 import type { TypeIDString } from '@macromaxxing/db'
 import { Star } from 'lucide-react'
 import { type FC, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Button, Card } from '~/components/ui'
 import { cn, computeProgramLoad } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'

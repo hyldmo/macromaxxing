@@ -1,7 +1,7 @@
 import type { TRPCClientErrorLike } from '@trpc/client'
 import { AlertTriangle } from 'lucide-react'
 import type { FC, ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { cn } from '~/lib'
 import type { AppRouter } from '../../../workers/functions/lib/router'
 

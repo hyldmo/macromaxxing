@@ -9,7 +9,7 @@ Recipe nutrition tracker for meal preppers. Track macros per portion.
 
 ## Stack
 
-- **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, react-router-dom, PWA (vite-plugin-pwa + Workbox)
+- **Frontend:** React 19, Vite 7, Tailwind 4, tRPC, React Router 7 (framework mode, SPA-only via `ssr: false`), PWA (vite-plugin-pwa + Workbox)
 - **Backend:** Cloudflare Pages Functions (Hono + tRPC), D1 (SQLite), R2 (images), Drizzle ORM
 - **Auth:** Cookie-based via Clerk (Google/GitHub OAuth), user ID in context
 - **AI:** Multi-provider (Gemini/OpenAI/Anthropic), BYOK, keys encrypted with AES-GCM
@@ -64,8 +64,9 @@ VITE_R2_BASE_URL=https://pub-xxx.r2.dev   # R2 public bucket URL (shared across 
 
 ```
 src/
-  main.tsx                                  # App entry (Clerk provider + RouterProvider)
-  router.tsx                                # All routes (see Routes below)
+  root.tsx                                  # App shell: Layout (HTML doc + providers), Root (default), HydrateFallback, ErrorBoundary
+  routes.ts                                 # flatRoutes() from @react-router/fs-routes
+  routes/                                   # File-based route shims, one per URL (see Routes below)
   index.css                                 # Design tokens + Tailwind
   lib/
     trpc.ts                                 # tRPC react-query client
@@ -409,7 +410,7 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - Workbox precaches all static assets (`js, css, html, ico, png, svg, woff2`) with SPA `navigateFallback` (excludes `/api/`)
 - `registerType: 'prompt'` — `ReloadPrompt` component shows update banner when new version is available. `autoUpdate` is intentionally avoided because vite-plugin-pwa forces `skipWaiting` + `clientsClaim` in that mode and reloads the page mid-session, which would interrupt in-progress workout logging.
 - `cleanupOutdatedCaches: true` so activating a new SW drops stale precache entries (prevents unbounded cache growth across deploys)
-- Inline self-heal script in `index.html` catches `<script>/<link>` load failures for `/assets/*` paths (the symptom of a stale SW or browser cache referencing a removed hashed chunk), unregisters the SW, clears caches, and reloads with a `_v=<timestamp>` cache-bust param. Guards: skips when offline, skips when already on a `_v=` URL to prevent reload loops. This is the recovery path when the React bundle itself can't run — the in-app `ReloadPrompt` banner needs the bundle to render, so a fully stuck client needs the HTML-level watchdog.
+- `public/self-heal.js` (loaded synchronously in `<head>` via `src/root.tsx`) catches `<script>/<link>` load failures for `/assets/*` paths (the symptom of a stale SW or browser cache referencing a removed hashed chunk), unregisters the SW, clears caches, and reloads with a `_v=<timestamp>` cache-bust param. Guards: skips when offline, skips when already on a `_v=` URL to prevent reload loops. This is the recovery path when the React bundle itself can't run — the in-app `ReloadPrompt` banner needs the bundle to render, so a fully stuck client needs the HTML-level watchdog.
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
 
@@ -438,6 +439,15 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 
 **CF Pages routing**
 - Pages Functions route by filesystem path. `functions/api/[[route]].ts` only receives `/api/*` — Hono routes for paths outside that prefix silently fall through to SPA. New top-level paths need a new file at the literal path (e.g. `functions/.well-known/oauth-authorization-server.ts`). Dotted directory names work.
+
+**React Router framework mode (SPA)**
+- `ssr: false` in `react-router.config.ts` — RR still pre-renders the root route at build time to generate `workers/dist/client/index.html`. Anything in `root.tsx` that touches browser-only APIs (e.g. `indexedDB` via `persistQueryClient`) must be gated behind `if (!import.meta.env.SSR) { ... }` or moved to `useEffect`, otherwise the prerender phase throws.
+- Build output is `<buildDirectory>/client/` — the `client/` subfolder is structural and can't be flattened. We set `buildDirectory: 'workers/dist'` in `react-router.config.ts` and `pages_build_output_dir = "dist/client"` in `workers/wrangler.toml` to align CF Pages with RR's output.
+- `vite-plugin-pwa` runs **before** RR emits `index.html` and the `assets/manifest-*.js` chunk, so neither lands in Workbox's precache (vite-plugin-pwa#809). Two-part fix: `additionalManifestEntries: [{ url: 'index.html', revision: <build timestamp> }]` in `vite.config.ts` for the SPA shell, plus `scripts/fix-sw.ts` (postbuild) that finds the hashed `manifest-*.js` chunk and patches it into `precacheAndRoute([...])` in `sw.js`. Without both, `createHandlerBoundToURL("index.html")` throws `non-precached-url` at runtime and silently breaks every Workbox `runtimeCaching` strategy after that line.
+- Inline `<script>` tags in `root.tsx` `<head>` are blocked by build hooks. Self-heal + standalone-viewport scripts live as static files in `public/` and load via `<script src="/...">` — RR doesn't add `defer` so they run synchronously before the React bundle, which is the order the self-heal listener needs.
+- `react-router build` requires a server runtime even in SPA mode (`@react-router/node` in dependencies, not devDependencies — RR's auto-detection looks at the dependencies field). Without it: `Could not determine server runtime` at typegen/build.
+- `routes.ts` uses `flatRoutes()` from `@react-router/fs-routes` over `src/routes/`. Flat-file convention: `recipes.$id.tsx` = `/recipes/:id`; `recipes.$id_.cook.tsx` (trailing underscore) = `/recipes/:id/cook` as a sibling, NOT nested under the `:id` parent. Without the trailing underscore, RR nests cook inside an Outlet on the editor page.
+- Test runs need `reactRouter()` gated off (`!process.env.VITEST`) in `vite.config.ts` plugins array, otherwise vitest tries to resolve route modules and fails.
 
 **MCP server**
 - Use `CfWorkerJsonSchemaValidator` from `@modelcontextprotocol/sdk/validation/cfworker` (Workers can't use AJV — dynamic eval). Needs `@cfworker/json-schema` peer dep.

@@ -1,6 +1,6 @@
 import { Dumbbell } from 'lucide-react'
 import type { FC } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { cn, formatTimer, SET_TYPE_STYLES } from '~/lib'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import { useWorkoutSessionStore } from '../store'

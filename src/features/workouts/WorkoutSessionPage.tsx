@@ -1,7 +1,7 @@
 import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
 import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Outlet, useNavigate, useParams } from 'react-router-dom'
+import { Link, Outlet, useNavigate, useParams } from 'react-router'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import {
 	calculateRest,
