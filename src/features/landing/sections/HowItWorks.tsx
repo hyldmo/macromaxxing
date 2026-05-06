@@ -27,7 +27,7 @@ const LOG_STEPS: Array<{ title: string; body: string; meta: string }> = [
 export const HowItWorks: FC = () => (
 	<SectionShell
 		id="log"
-		marker="§ 04 / Log"
+		marker="§ 06 / Log"
 		title="The loop."
 		kicker="Four steps. Repeat weekly. The app gets out of the way."
 		variant="alt"

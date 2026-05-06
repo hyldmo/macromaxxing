@@ -1,6 +1,6 @@
 import { MUSCLE_GROUPS, type MuscleGroup } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
-import { type FC, type MouseEvent, useMemo, useRef, useState } from 'react'
+import { type FC, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { RouterOutput } from '~/lib/trpc'
 
 type WeekRow = RouterOutput['analytics']['weeklyVolumeByMuscle'][number]
@@ -42,6 +42,19 @@ function formatVolume(kg: number): string {
 export const WeeklyVolumeChart: FC<WeeklyVolumeChartProps> = ({ data }) => {
 	const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 	const svgRef = useRef<SVGSVGElement>(null)
+	const containerRef = useRef<HTMLDivElement>(null)
+	const [containerWidth, setContainerWidth] = useState(600)
+
+	useEffect(() => {
+		const el = containerRef.current
+		if (!el) return
+		const observer = new ResizeObserver(entries => {
+			const width = entries[0]?.contentRect.width ?? 0
+			if (width > 0) setContainerWidth(width)
+		})
+		observer.observe(el)
+		return () => observer.disconnect()
+	}, [])
 
 	const { yMax, presentMuscles } = useMemo(() => {
 		let max = 0
@@ -62,7 +75,7 @@ export const WeeklyVolumeChart: FC<WeeklyVolumeChartProps> = ({ data }) => {
 		return <div className="py-6 text-center text-ink-faint text-sm">No working sets logged in this window yet</div>
 	}
 
-	const chartWidth = 600
+	const chartWidth = Math.max(200, containerWidth)
 	const innerWidth = chartWidth - PADDING_LEFT - PADDING_RIGHT
 	const innerHeight = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM
 	const barGap = 2
@@ -103,7 +116,7 @@ export const WeeklyVolumeChart: FC<WeeklyVolumeChartProps> = ({ data }) => {
 	}
 
 	return (
-		<div className="space-y-3">
+		<div ref={containerRef} className="space-y-3">
 			<svg
 				ref={svgRef}
 				viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}

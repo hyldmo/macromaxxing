@@ -5,14 +5,15 @@ const RAIL_ITEMS = [
 	['14', 'Muscle groups'],
 	['4', 'Fatigue tiers'],
 	['0.1 g', 'Macro resolution'],
+	['e1RM', 'PRs auto-detected'],
 	['AES-GCM', 'BYOK key storage'],
 	['FTS5', 'Search engine'],
 	['MCP', 'Server exposed'],
+	['Programs', 'Cycle-aware dashboard'],
 	['PWA', 'Offline-first'],
 	['D1', 'SQLite at the edge'],
 	['R2', 'Image storage'],
-	['3', 'AI providers'],
-	['∞', 'Recipes per user']
+	['3', 'AI providers']
 ] as const
 
 export const NumbersRail: FC = () => {

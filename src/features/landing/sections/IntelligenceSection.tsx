@@ -26,7 +26,7 @@ const SPEC_ROWS: Array<{ key: string; value: string; body: string }> = [
 	{
 		key: 'External API',
 		value: 'MCP server · bearer',
-		body: 'Point Claude, Cursor, or any MCP client at /api/mcp. Personal tokens scoped per device.'
+		body: 'Point Claude, Cursor, or any MCP client at /api/mcp. Read recipes, log workouts, query analytics — every annotated procedure exposed as a tool.'
 	},
 	{
 		key: 'Infra',
@@ -38,7 +38,7 @@ const SPEC_ROWS: Array<{ key: string; value: string; body: string }> = [
 export const IntelligenceSection: FC = () => (
 	<SectionShell
 		id="instrument"
-		marker="§ 03 / Instrument"
+		marker="§ 05 / Instrument"
 		title="Built to be trusted."
 		kicker="The tooling underneath. Encrypted, portable, scriptable. Nothing you can't walk away from."
 	>

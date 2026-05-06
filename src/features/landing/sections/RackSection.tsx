@@ -44,7 +44,8 @@ const MUSCLE_VOLUMES: Array<[MuscleGroup, number]> = [
 	['core', 0.5]
 ]
 
-const HEAT_STOPS = [0.1, 0.25, 0.45, 0.65, 0.85]
+// Mirrors src/lib/workouts/muscles.ts intensityClass: green → blue → yellow → red.
+const HEAT_STOPS = ['bg-macro-protein', 'bg-macro-carbs', 'bg-macro-fat', 'bg-macro-kcal'] as const
 
 const RackBodyMap: FC = () => (
 	<div className="border border-edge bg-surface-0 p-6">
@@ -55,13 +56,9 @@ const RackBodyMap: FC = () => (
 		<BodyMap muscleVolumes={new Map(MUSCLE_VOLUMES)} sex="male" />
 		<div className="mt-5 flex items-center gap-3 border-edge border-t pt-3 font-mono text-[10px] text-ink-muted uppercase tracking-[0.15em]">
 			<span>Low</span>
-			<div className="flex flex-1 items-center">
-				{HEAT_STOPS.map(v => (
-					<div
-						key={v}
-						className="h-1.5 flex-1"
-						style={{ backgroundColor: `oklch(0.7 ${0.05 + v * 0.15} 55)` }}
-					/>
+			<div className="flex flex-1 items-center gap-px">
+				{HEAT_STOPS.map(cls => (
+					<div key={cls} className={cn('h-1.5 flex-1', cls)} />
 				))}
 			</div>
 			<span>High</span>
