@@ -101,3 +101,9 @@ workers/dist/
 # Playwright MCP stray artifacts
 .playwright-mcp/
 pictogram-test-result.png
+
+# Stray screenshots / images at repo root (debug artifacts)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
