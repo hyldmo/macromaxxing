@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { useDocumentTitle } from '~/lib'
 import {
+	AutoSection,
 	CycleSection,
 	FaqSection,
 	FooterCta,
@@ -24,6 +25,7 @@ export const LandingPage: FC = () => {
 			<RackSection />
 			<CycleSection />
 			<SignalSection />
+			<AutoSection />
 			<IntelligenceSection />
 			<HowItWorks />
 			<FaqSection />

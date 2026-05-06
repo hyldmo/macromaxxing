@@ -98,7 +98,13 @@ const FAQ_ITEMS: Array<{ q: string; a: ReactNode }> = [
 ]
 
 export const FaqSection: FC = () => (
-	<SectionShell id="faq" marker="§ 07 / Notes" title="Questions." kicker="Plain answers. No accordions.">
+	<SectionShell
+		id="faq"
+		marker="§ 08 / Notes"
+		title="Questions."
+		kicker="Plain answers. No accordions."
+		variant="alt"
+	>
 		<ol className="border border-edge">
 			{FAQ_ITEMS.map((item, i) => (
 				<li

@@ -38,7 +38,8 @@ const SPEC_ROWS: Array<{ key: string; value: string; body: string }> = [
 export const IntelligenceSection: FC = () => (
 	<SectionShell
 		id="instrument"
-		marker="§ 05 / Instrument"
+		marker="§ 06 / Instrument"
+		variant="alt"
 		title="Built to be trusted."
 		kicker="The tooling underneath. Encrypted, portable, scriptable. Nothing you can't walk away from."
 	>

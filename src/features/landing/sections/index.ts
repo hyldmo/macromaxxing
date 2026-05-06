@@ -1,3 +1,4 @@
+export { AutoSection } from './AutoSection'
 export { CycleSection } from './CycleSection'
 export { FaqSection } from './FaqSection'
 export { FooterCta } from './FooterCta'

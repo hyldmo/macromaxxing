@@ -27,10 +27,9 @@ const LOG_STEPS: Array<{ title: string; body: string; meta: string }> = [
 export const HowItWorks: FC = () => (
 	<SectionShell
 		id="log"
-		marker="§ 06 / Log"
+		marker="§ 07 / Log"
 		title="The loop."
 		kicker="Four steps. Repeat weekly. The app gets out of the way."
-		variant="alt"
 	>
 		<div className="grid gap-6 md:grid-cols-2">
 			{LOG_STEPS.map((s, i) => (
