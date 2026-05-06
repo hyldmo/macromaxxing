@@ -22,7 +22,7 @@
     "typecheck:packages": "numux -p -w 'typecheck'",
     "generate": "numux -p 'generate:*'",
     "generate:react-router": "react-router typegen",
-    "generate:wrangler": "test -f .dev.vars && yarn workspace @macromaxxing/workers wrangler types || true",
+    "generate:wrangler": "yarn workspace @macromaxxing/workers run generate:wrangler",
     "generate:pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
     "check": "numux -p 'npm:lint' 'npm:typecheck' 'npm:test'",
     "fix": "biome check . --fix --unsafe",
