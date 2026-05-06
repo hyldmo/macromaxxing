@@ -42,7 +42,7 @@ export const ProgramsSection: FC = () => {
 				</Card>
 			)}
 
-			<div className="grid gap-2">
+			<div className="grid grid-cols-1 gap-2">
 				{programsQuery.data?.map(program => (
 					<ProgramCard
 						key={program.id}
