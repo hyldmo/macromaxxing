@@ -86,7 +86,10 @@ src/
     landing/
       LandingPage.tsx                     # Signed-out home; composition of sections
       components/                         # SectionShell, MonoLabel, BarcodeStrip, GridPaperBackground
-      sections/                           # Hero, NumbersRail, PlateSection, RackSection, IntelligenceSection,
+      sections/                           # Hero, NumbersRail, PlateSection, RackSection, CycleSection (programs +
+                                          #   technique guides), SignalSection (composes live RecentPRsList /
+                                          #   StalledList / WeeklyVolumeChart / CalendarHeatmap / HistoryChart with
+                                          #   mock data typed via ComponentProps<typeof X>), IntelligenceSection,
                                           #   HowItWorks, FaqSection, FooterCta (one file per section)
     recipes/
       RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
