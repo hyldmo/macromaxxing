@@ -3,7 +3,9 @@ import type { FC } from 'react'
 import { Link } from 'react-router'
 import type { RouterOutput } from '~/lib/trpc'
 
-type PR = RouterOutput['analytics']['recentPRs'][number]
+type ServerPR = RouterOutput['analytics']['recentPRs'][number]
+// exerciseId nullable so demo/landing surfaces can render entries without a destination.
+type PR = Omit<ServerPR, 'exerciseId'> & { exerciseId: ServerPR['exerciseId'] | null }
 
 export interface RecentPRsListProps {
 	prs: PR[]
@@ -32,12 +34,16 @@ export const RecentPRsList: FC<RecentPRsListProps> = ({ prs, limit = 10 }) => {
 					className="flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2"
 				>
 					<div className="min-w-0 flex-1">
-						<Link
-							to={`/exercises/${pr.exerciseId}`}
-							className="font-medium text-ink text-sm hover:underline"
-						>
-							{pr.exerciseName}
-						</Link>
+						{pr.exerciseId ? (
+							<Link
+								to={`/exercises/${pr.exerciseId}`}
+								className="font-medium text-ink text-sm hover:underline"
+							>
+								{pr.exerciseName}
+							</Link>
+						) : (
+							<span className="font-medium text-ink text-sm">{pr.exerciseName}</span>
+						)}
 						<div className="font-mono text-ink-faint text-xs tabular-nums">
 							{pr.weightKg.toFixed(1)} kg × {pr.reps} · {formatDate(pr.startedAt)}
 						</div>

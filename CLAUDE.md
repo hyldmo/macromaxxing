@@ -87,7 +87,10 @@ src/
     landing/
       LandingPage.tsx                     # Signed-out home; composition of sections
       components/                         # SectionShell, MonoLabel, BarcodeStrip, GridPaperBackground
-      sections/                           # Hero, NumbersRail, PlateSection, RackSection, IntelligenceSection,
+      sections/                           # Hero, NumbersRail, PlateSection, RackSection, CycleSection (programs +
+                                          #   technique guides), SignalSection (composes live RecentPRsList /
+                                          #   StalledList / WeeklyVolumeChart / CalendarHeatmap / HistoryChart with
+                                          #   mock data typed via ComponentProps<typeof X>), IntelligenceSection,
                                           #   HowItWorks, FaqSection, FooterCta (one file per section)
     recipes/
       RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
@@ -479,6 +482,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **CSS**
 - `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
 - In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
+- `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes
 

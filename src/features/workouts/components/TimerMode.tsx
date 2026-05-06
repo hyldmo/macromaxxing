@@ -1,27 +1,13 @@
 import type { Exercise, SetType, WorkoutSession } from '@macromaxxing/db'
-import {
-	ArrowLeftRight,
-	ChevronLeft,
-	ChevronRight,
-	Dumbbell,
-	HelpCircle,
-	Minimize2,
-	NotebookPen,
-	Pause,
-	Square,
-	Undo2
-} from 'lucide-react'
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useOutletContext, useParams } from 'react-router'
-import { Button, ButtonGroup, NumberInput } from '~/components/ui'
-import { cn, flattenSets, formatTimer, type RenderItem, SET_TYPE_STYLES, useScrollLock } from '~/lib'
+import { flattenSets, type RenderItem, useScrollLock } from '~/lib'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import { useWorkoutSessionStore } from '../store'
 import { useWakeLock } from '../useWakeLock'
 import { ExerciseGuideModal } from './ExerciseGuideModal'
-import { SecondaryTimer } from './SecondaryTimer'
 import { SessionNotesModal } from './SessionNotesModal'
-import { TimerRing } from './TimerRing'
+import { TimerModeView } from './TimerModeView'
 
 export interface TimerModeContext {
 	exerciseGroups: RenderItem[]
@@ -57,6 +43,7 @@ export const TimerMode: FC = () => {
 	const actions = useWorkoutSessionStore.getState
 	const [guideOpen, setGuideOpen] = useState(false)
 	const [notesOpen, setNotesOpen] = useState(false)
+	const [activeGuideExercise, setActiveGuideExercise] = useState<{ id: Exercise['id']; name: string } | null>(null)
 	const hasNotes = (session.notes ?? '').trim().length > 0
 	useWakeLock()
 	useScrollLock()
@@ -174,6 +161,11 @@ export const TimerMode: FC = () => {
 	const handleNavigate = useCallback((direction: -1 | 1) => actions().navigate(direction), [])
 	const handleNavigateSet = useCallback((direction: -1 | 1) => actions().navigateSet(direction), [])
 
+	const handleOpenGuide = useCallback((id: Exercise['id'], name: string) => {
+		setActiveGuideExercise({ id, name })
+		setGuideOpen(true)
+	}, [])
+
 	// Keyboard: Enter/Space confirms or dismisses, Escape closes
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
@@ -211,287 +203,49 @@ export const TimerMode: FC = () => {
 
 	const isDoingSet =
 		active?.setTimer !== null && active?.setTimer !== undefined && !isResting && !active.setTimer.isPaused
-	const isSetPaused = active?.setTimer?.isPaused && !isResting
+	const isSetPaused = (active?.setTimer?.isPaused && !isResting) ?? false
 	const hasConfirmedSets = confirmedIndices.length > 0
 
 	return (
 		<>
-			<div className="fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0">
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={onClose}
-					aria-label="Minimize timer mode"
-					className="absolute top-4 left-4 rounded-full"
-				>
-					<Minimize2 className="size-5" />
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={() => setNotesOpen(true)}
-					aria-label="Open session notes"
-					className="absolute top-4 right-4 rounded-full"
-				>
-					<NotebookPen className="size-5" />
-					{hasNotes && (
-						<span className="absolute top-1 right-1 size-1.5 rounded-full bg-accent" aria-hidden />
-					)}
-				</Button>
-				<div className="mx-auto flex h-full w-full max-w-sm flex-col">
-					{/* Main content */}
-					<div className="flex flex-1 flex-col items-center justify-center gap-5 px-4">
-						{currentSet === null ? (
-							/* All sets complete */
-							<>
-								<div className="flex size-16 items-center justify-center rounded-full bg-success/20">
-									<Dumbbell className="size-8 text-success" />
-								</div>
-								<h2 className="font-semibold text-ink text-lg">All sets complete!</h2>
-								<div className="font-mono text-ink-muted text-sm tabular-nums">
-									{formatTimer((Date.now() - session.startedAt) / 1000)} elapsed
-								</div>
-								<Button onClick={onClose} className="w-full">
-									Close
-								</Button>
-							</>
-						) : (
-							<>
-								<h2 className="font-mono text-ink-muted text-sm tabular-nums">
-									Exercise {currentSet.itemIndex + 1} / {exerciseGroups.length}
-								</h2>
-								{/* Exercise name with nav arrows */}
-								<div className="flex w-full items-center justify-center gap-2">
-									<button
-										type="button"
-										className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-										onClick={() => handleNavigate(-1)}
-									>
-										<ChevronLeft className="size-5" />
-									</button>
-									<h2 className="flex items-center gap-1.5 font-semibold text-ink text-xl">
-										{currentSet.exerciseName}
-										<button
-											type="button"
-											onClick={() => setGuideOpen(true)}
-											aria-label={`Open guide for ${currentSet.exerciseName}`}
-											className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-										>
-											<HelpCircle className="size-4" />
-										</button>
-									</h2>
-									<button
-										type="button"
-										className="rounded-full p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-										onClick={() => handleNavigate(1)}
-									>
-										<ChevronRight className="size-5" />
-									</button>
-								</div>
-
-								{/* Superset exercise strip */}
-								{currentSet.superset && (
-									<ButtonGroup
-										options={currentSet.superset.exercises.map(ex => ({
-											value: ex.exerciseId,
-											label: ex.letter
-										}))}
-										value={currentSet.exerciseId}
-										size="sm"
-									/>
-								)}
-
-								{/* Badge + set progress + target */}
-								<div className="flex flex-col items-center gap-1">
-									<div className="flex items-center gap-2">
-										<span
-											className={cn(
-												'rounded-full px-2 py-0.5 font-mono text-xs',
-												SET_TYPE_STYLES[currentSet.setType]
-											)}
-										>
-											{currentSet.setType}
-										</span>
-										{currentSet.superset && (
-											<span className="rounded-full bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-accent">
-												SS{currentSet.superset.group}
-											</span>
-										)}
-										<div className="flex items-center gap-1">
-											<button
-												type="button"
-												className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-												onClick={() => handleNavigateSet(-1)}
-												aria-label="Previous set"
-											>
-												<ChevronLeft className="size-3.5" />
-											</button>
-											<span className="font-mono text-ink-muted text-sm tabular-nums">
-												Set {currentSet.setNumber} of {currentSet.totalSets}
-											</span>
-											<button
-												type="button"
-												className="rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-												onClick={() => handleNavigateSet(1)}
-												aria-label="Next set"
-											>
-												<ChevronRight className="size-3.5" />
-											</button>
-										</div>
-									</div>
-									<span className="font-mono text-ink text-lg tabular-nums">
-										{currentSet.weightKg ?? 0}kg &times; {currentSet.reps} reps
-									</span>
-								</div>
-
-								{/* Timer ring — always rendered, content crossfades */}
-								<TimerRing
-									remaining={isResting ? preciseRemaining : 0}
-									total={isResting ? (rest?.total ?? 0) : 0}
-									setType={rest?.setType ?? 'working'}
-								>
-									{isResting ? (
-										<>
-											<span className="text-ink-faint text-xs">Rest</span>
-											<span
-												className={cn(
-													'font-mono text-5xl tabular-nums',
-													preciseRemaining <= 0 ? 'text-destructive' : 'text-ink'
-												)}
-											>
-												{formatTimer(preciseRemaining)}
-											</span>
-											<span className="font-mono text-ink-faint text-xs tabular-nums">
-												{formatTimer((rest?.total ?? 0) - preciseRemaining)} rested
-											</span>
-										</>
-									) : (
-										<>
-											{isSetPaused && <span className="text-ink-faint text-xs">Paused</span>}
-											<span
-												className={cn(
-													'font-mono text-4xl tabular-nums',
-													isSetPaused ? 'text-ink-muted' : 'text-ink'
-												)}
-											>
-												{formatTimer(setElapsedMs / 1000)}
-											</span>
-											{isInSuperset && (
-												<SecondaryTimer startedAt={_roundStartedAt} label="round" />
-											)}
-										</>
-									)}
-								</TimerRing>
-
-								{/* Weight x Reps inputs — editable during rest to update the logged set */}
-								<div className="flex items-center gap-3">
-									<NumberInput
-										className="w-28 text-center text-2xl"
-										value={active?.weight ?? ''}
-										placeholder="kg"
-										unit="kg"
-										onChange={e => {
-											const v = Number.parseFloat(e.target.value)
-											handleEditWeight(Number.isNaN(v) ? null : v)
-										}}
-										step={2.5}
-										min={0}
-									/>
-									<span className="text-ink-faint text-xl">&times;</span>
-									<NumberInput
-										className="w-24 text-center text-2xl"
-										value={active?.reps ?? 0}
-										onChange={e => {
-											const v = Number.parseInt(e.target.value, 10)
-											if (!Number.isNaN(v) && v >= 0) handleEditReps(v)
-										}}
-										unit="r"
-										step={1}
-										min={0}
-									/>
-								</div>
-
-								{/* Action buttons */}
-								<div className="flex w-full items-center gap-2">
-									{isDoingSet && (
-										<Button variant="outline" size="icon" onClick={handlePause}>
-											<Pause className="size-4" />
-										</Button>
-									)}
-									{isSetPaused && (
-										<Button variant="outline" size="icon" onClick={handleStopSet}>
-											<Square className="size-4" />
-										</Button>
-									)}
-									{!(isDoingSet || isSetPaused) && hasConfirmedSets && (
-										<Button variant="outline" size="icon" onClick={handleUndo}>
-											<Undo2 className="size-4" />
-										</Button>
-									)}
-									<Button
-										onClick={
-											isResting
-												? handleDismissTimer
-												: isSetPaused
-													? handleResume
-													: isDoingSet
-														? handleConfirm
-														: handleStartSet
-										}
-										className="flex-1"
-									>
-										{isResting
-											? preciseRemaining <= 0
-												? 'Next Set'
-												: 'Skip Rest'
-											: isSetPaused
-												? 'Resume'
-												: isDoingSet
-													? currentSet?.transition
-														? 'Next'
-														: 'Done'
-													: 'Start'}
-									</Button>
-								</div>
-
-								{/* Next set preview */}
-								{nextSet && (
-									<div className="flex w-full items-center gap-3 rounded-md border border-edge bg-surface-1 px-3 py-2.5">
-										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-1.5 text-[10px] text-ink-faint">
-												{currentSet.transition ? (
-													<>
-														<ArrowLeftRight className="size-3 text-accent" />
-														<span className="text-accent">SWITCH</span>
-													</>
-												) : (
-													'NEXT UP'
-												)}
-											</div>
-											<div className="font-medium text-ink text-sm">{nextSet.exerciseName}</div>
-										</div>
-										<span
-											className={cn(
-												'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
-												SET_TYPE_STYLES[nextSet.setType]
-											)}
-										>
-											{nextSet.setType}
-										</span>
-										<span className="font-mono text-ink text-sm tabular-nums">
-											{nextSet.weightKg ?? 0}kg &times; {nextSet.reps}
-										</span>
-									</div>
-								)}
-							</>
-						)}
-					</div>
-				</div>
-			</div>
-			{guideOpen && currentSet !== null && (
+			<TimerModeView
+				fixed
+				exerciseGroupCount={exerciseGroups.length}
+				currentSet={currentSet ?? null}
+				nextSet={nextSet ?? null}
+				isResting={isResting}
+				isDoingSet={isDoingSet}
+				isSetPaused={isSetPaused}
+				isInSuperset={isInSuperset}
+				hasConfirmedSets={hasConfirmedSets}
+				hasNotes={hasNotes}
+				setElapsedSec={setElapsedMs / 1000}
+				restRemainingSec={preciseRemaining}
+				restTotalSec={rest?.total ?? 0}
+				restSetType={rest?.setType ?? 'working'}
+				roundStartedAt={_roundStartedAt}
+				sessionElapsedSec={(Date.now() - session.startedAt) / 1000}
+				weight={active?.weight ?? null}
+				reps={active?.reps ?? 0}
+				onClose={onClose}
+				onOpenNotes={() => setNotesOpen(true)}
+				onOpenGuide={handleOpenGuide}
+				onNavigate={handleNavigate}
+				onNavigateSet={handleNavigateSet}
+				onConfirm={handleConfirm}
+				onStartSet={handleStartSet}
+				onPause={handlePause}
+				onResume={handleResume}
+				onStopSet={handleStopSet}
+				onUndo={handleUndo}
+				onDismissTimer={handleDismissTimer}
+				onEditWeight={handleEditWeight}
+				onEditReps={handleEditReps}
+			/>
+			{guideOpen && activeGuideExercise && (
 				<ExerciseGuideModal
-					exerciseId={currentSet.exerciseId}
-					exerciseName={currentSet.exerciseName}
+					exerciseId={activeGuideExercise.id}
+					exerciseName={activeGuideExercise.name}
 					onClose={() => setGuideOpen(false)}
 				/>
 			)}

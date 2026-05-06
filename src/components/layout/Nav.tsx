@@ -1,4 +1,4 @@
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react'
 import {
 	BarChart3,
 	CalendarDays,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { type FC, type HTMLAttributes, useCallback, useEffect, useState } from 'react'
 import { NavLink } from 'react-router'
+import { Button } from '~/components/ui/Button'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { useWorkoutSessionStore } from '~/features/workouts/store'
@@ -84,6 +85,9 @@ export function Nav() {
 								<UserButton />
 							</SignedIn>
 							<SignedOut>
+								<SignUpButton mode="modal">
+									<Button>Sign up</Button>
+								</SignUpButton>
 								<SignInButton mode="modal">
 									<WebLink icon={LogIn} label="Sign in" />
 								</SignInButton>
@@ -106,6 +110,9 @@ export function Nav() {
 							</button>
 						</SignedIn>
 						<SignedOut>
+							<SignUpButton mode="modal">
+								<Button className="md:hidden">Sign up</Button>
+							</SignUpButton>
 							<SignInButton mode="modal">
 								<button
 									type="button"

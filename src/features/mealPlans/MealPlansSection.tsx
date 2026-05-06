@@ -88,7 +88,7 @@ export const MealPlansSection: FC = () => {
 				<Card className="py-12 text-center text-ink-faint">No meal plans yet. Create your first one!</Card>
 			)}
 
-			<div className="grid gap-2">
+			<div className="grid grid-cols-1 gap-2">
 				{plansQuery.data?.map(plan => (
 					<Link key={plan.id} to={`/plans/${plan.id}`}>
 						<Card className="flex items-center gap-4 p-3 transition-colors hover:bg-surface-2">

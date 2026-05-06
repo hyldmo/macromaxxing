@@ -1,7 +1,7 @@
 import type { MuscleGroup } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { BodyMap } from '~/features/workouts/components/BodyMap'
-import { cn } from '~/lib'
+import { cn, HEAT_GRADIENT } from '~/lib'
 import { MonoLabel, SectionShell } from '../components'
 
 export const RackSection: FC = () => (
@@ -44,8 +44,6 @@ const MUSCLE_VOLUMES: Array<[MuscleGroup, number]> = [
 	['core', 0.5]
 ]
 
-const HEAT_STOPS = [0.1, 0.25, 0.45, 0.65, 0.85]
-
 const RackBodyMap: FC = () => (
 	<div className="border border-edge bg-surface-0 p-6">
 		<div className="mb-4 flex items-baseline justify-between">
@@ -55,15 +53,7 @@ const RackBodyMap: FC = () => (
 		<BodyMap muscleVolumes={new Map(MUSCLE_VOLUMES)} sex="male" />
 		<div className="mt-5 flex items-center gap-3 border-edge border-t pt-3 font-mono text-[10px] text-ink-muted uppercase tracking-[0.15em]">
 			<span>Low</span>
-			<div className="flex flex-1 items-center">
-				{HEAT_STOPS.map(v => (
-					<div
-						key={v}
-						className="h-1.5 flex-1"
-						style={{ backgroundColor: `oklch(0.7 ${0.05 + v * 0.15} 55)` }}
-					/>
-				))}
-			</div>
+			<div className="h-1.5 flex-1" style={{ backgroundImage: HEAT_GRADIENT }} />
 			<span>High</span>
 		</div>
 	</div>

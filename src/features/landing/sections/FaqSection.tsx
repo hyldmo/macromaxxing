@@ -41,6 +41,25 @@ const FAQ_ITEMS: Array<{ q: string; a: ReactNode }> = [
 		)
 	},
 	{
+		q: 'Can I follow a program (PPL, Upper / Lower, etc.)?',
+		a: (
+			<>
+				Yes. Group your workout templates into a named program and star one as active. The dashboard cycles
+				through it day by day — finish Push A, "Up next" becomes Pull A. Reorder anytime; the cycle adjusts.
+			</>
+		)
+	},
+	{
+		q: 'Do I get progress charts and PR detection?',
+		a: (
+			<>
+				Yes. <span className="font-mono">/analytics</span> shows recent PRs (estimated 1RM beats prior best by{' '}
+				<span className="font-mono">&gt; 0.5 kg</span>), stalled lifts, weekly volume by muscle, and a calendar
+				heatmap. Each exercise gets its own e1RM / volume / top-set chart.
+			</>
+		)
+	},
+	{
 		q: 'Is this a recipe app or a training app?',
 		a: (
 			<>
@@ -79,7 +98,13 @@ const FAQ_ITEMS: Array<{ q: string; a: ReactNode }> = [
 ]
 
 export const FaqSection: FC = () => (
-	<SectionShell id="faq" marker="§ 05 / Notes" title="Questions." kicker="Plain answers. No accordions.">
+	<SectionShell
+		id="faq"
+		marker="§ 08 / Notes"
+		title="Questions."
+		kicker="Plain answers. No accordions."
+		variant="alt"
+	>
 		<ol className="border border-edge">
 			{FAQ_ITEMS.map((item, i) => (
 				<li
