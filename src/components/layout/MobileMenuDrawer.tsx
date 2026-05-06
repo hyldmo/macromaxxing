@@ -1,7 +1,7 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import { ChefHat, LogIn, Star, X } from 'lucide-react'
 import { type FC, useEffect } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router'
 import { cn, FAVORITABLE_ROUTES, MAX_FAVORITES, useScrollLock } from '~/lib'
 
 export interface MobileMenuDrawerProps {

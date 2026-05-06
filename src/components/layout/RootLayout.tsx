@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+import { Outlet } from 'react-router'
 import { ReloadPrompt } from '../ui/ReloadPrompt'
 import { Nav } from './Nav'
 

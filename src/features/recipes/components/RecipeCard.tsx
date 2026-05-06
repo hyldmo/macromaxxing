@@ -1,6 +1,6 @@
 import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Image } from '~/components/ui/Image'
 import { cn, getImageUrl } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'

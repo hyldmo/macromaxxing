@@ -1,7 +1,7 @@
 import { startCase } from 'es-toolkit'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import type { FC, MouseEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { Button, Card } from '~/components/ui'
 import type { RouterOutput } from '~/lib/trpc'
 

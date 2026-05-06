@@ -16,9 +16,10 @@
 		"paths": {
 			"~/*": ["src/*"]
 		},
-		"types": ["vite/client", "react", "react-dom"]
+		"types": ["vite/client", "react", "react-dom"],
+		"rootDirs": [".", "./.react-router/types"]
 	},
 	"files": ["workers/worker-configuration.d.ts"],
-	"include": ["src"],
-	"exclude": ["vite.config.ts", "scripts"]
+	"include": ["src", ".react-router/types/**/*"],
+	"exclude": ["vite.config.ts", "react-router.config.ts", "scripts"]
 }

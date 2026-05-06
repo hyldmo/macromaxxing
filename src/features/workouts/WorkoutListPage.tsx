@@ -3,7 +3,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import type { TypeIDString } from '@macromaxxing/db'
 import { Dumbbell, Plus, Upload } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'

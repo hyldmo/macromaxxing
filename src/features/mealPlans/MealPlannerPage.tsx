@@ -1,7 +1,7 @@
 import type { MealPlan, MealPlanInventory, MealPlanSlot } from '@macromaxxing/db'
 import { ArrowLeft, Copy, ShoppingCart, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router'
 import { Button, CopyButton, Input, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'

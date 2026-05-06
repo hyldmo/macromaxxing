@@ -12,7 +12,7 @@ import {
 	UtensilsCrossed
 } from 'lucide-react'
 import { type FC, type HTMLAttributes, useCallback, useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router'
 import { Button } from '~/components/ui/Button'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'

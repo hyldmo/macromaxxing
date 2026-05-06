@@ -1,6 +1,6 @@
 import type { Exercise, SetType, WorkoutSession } from '@macromaxxing/db'
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import { useNavigate, useOutletContext, useParams } from 'react-router'
 import { flattenSets, type RenderItem, useScrollLock } from '~/lib'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
 import { useWorkoutSessionStore } from '../store'

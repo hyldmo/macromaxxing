@@ -1,7 +1,7 @@
 import type { ImageSource } from '@macromaxxing/db'
 import { ArrowLeft, FileText, Globe, X } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { Button, Input, Modal, Spinner, Textarea, TRPCError } from '~/components/ui'
 import { cn, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'

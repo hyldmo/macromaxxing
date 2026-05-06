@@ -1,6 +1,6 @@
 import { ArrowUp } from 'lucide-react'
 import type { FC } from 'react'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import type { RouterOutput } from '~/lib/trpc'
 
 type ServerPR = RouterOutput['analytics']['recentPRs'][number]
