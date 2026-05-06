@@ -29,23 +29,17 @@
 		inner.appendChild(sub)
 		wrap.appendChild(inner)
 		root.appendChild(wrap)
-		var done = function () {
+		var done = () => {
 			var sep = location.search ? '&' : '?'
-			location.replace(location.pathname + location.search + sep + '_v=' + Date.now())
+			location.replace(`${location.pathname + location.search + sep}_v=${Date.now()}`)
 		}
 		var tasks = []
 		if ('serviceWorker' in navigator) {
 			tasks.push(
 				navigator.serviceWorker
 					.getRegistrations()
-					.then(function (regs) {
-						return Promise.all(
-							regs.map(function (r) {
-								return r.unregister()
-							})
-						)
-					})
-					.catch(function () {
+					.then(regs => Promise.all(regs.map(r => r.unregister())))
+					.catch(() => {
 						// best-effort cleanup; reload anyway
 					})
 			)
@@ -54,14 +48,8 @@
 			tasks.push(
 				caches
 					.keys()
-					.then(function (names) {
-						return Promise.all(
-							names.map(function (n) {
-								return caches.delete(n)
-							})
-						)
-					})
-					.catch(function () {
+					.then(names => Promise.all(names.map(n => caches.delete(n))))
+					.catch(() => {
 						// best-effort cleanup; reload anyway
 					})
 			)
@@ -70,14 +58,14 @@
 	}
 	window.addEventListener(
 		'error',
-		function (e) {
+		e => {
 			var t = e.target
 			if (!t || t === window) return
 			var src = t.src || t.href
 			if (!src || src.indexOf('/assets/') === -1) return
 			if (navigator.onLine === false) return
 			if (location.search.indexOf('_v=') !== -1) return
-			recover('asset load failed: ' + src)
+			recover(`asset load failed: ${src}`)
 		},
 		true
 	)
