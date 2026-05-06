@@ -56,7 +56,7 @@ export const ProgramCard: FC<ProgramCardProps> = ({ program, templates, isActive
 			</Button>
 			<Link to={`/plans/programs/${program.id}`} className="min-w-0 flex-1">
 				<h3 className="truncate font-medium text-ink text-sm">{program.name}</h3>
-				<p className="truncate font-mono text-ink-faint text-xs tabular-nums">
+				<p className="font-mono text-ink-faint text-xs tabular-nums">
 					{count === 0 ? '(empty)' : `${count} workout${count === 1 ? '' : 's'} · ${itemNames}`}
 				</p>
 				{stats && (
