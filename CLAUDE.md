@@ -66,7 +66,9 @@ VITE_R2_BASE_URL=https://pub-xxx.r2.dev   # R2 public bucket URL (shared across 
 src/
   root.tsx                                  # App shell: Layout (HTML doc + providers), Root (default), HydrateFallback, ErrorBoundary
   routes.ts                                 # flatRoutes() from @react-router/fs-routes
-  routes/                                   # File-based route shims, one per URL (see Routes below)
+  routes/                                   # One file per URL. Each file is the page component (default export).
+                                            #   For URLs that share a page (new + edit), the route file re-exports
+                                            #   from features/ — see Routes below.
   index.css                                 # Design tokens + Tailwind
   lib/
     trpc.ts                                 # tRPC react-query client
@@ -81,11 +83,12 @@ src/
     layout/Nav.tsx                           # Top nav + mobile bottom tabs + RestTimer
     layout/RootLayout.tsx                    # Shell: nav + <Outlet />
     ErrorBoundary.tsx
-  features/
-    dashboard/
-      DashboardPage.tsx                   # Home page: today's meals, macro progress, workouts, recent sessions
+  features/                                 # Domain helpers: sub-components, hooks, utils. Single-URL page
+                                            #   components live in routes/; pages shared across multiple URLs
+                                            #   (RecipeEditor, ExerciseDetail, WorkoutTemplate, WorkoutSession,
+                                            #   ProgramEditor) live here and the route files import them.
     landing/
-      LandingPage.tsx                     # Signed-out home; composition of sections
+      LandingPage.tsx                     # Signed-out home; composition of sections (used inline by routes/_index.tsx)
       components/                         # SectionShell, MonoLabel, BarcodeStrip, GridPaperBackground
       sections/                           # Hero, NumbersRail, PlateSection, RackSection, CycleSection (programs +
                                           #   technique guides), SignalSection (composes live RecentPRsList /
@@ -93,9 +96,8 @@ src/
                                           #   mock data typed via ComponentProps<typeof X>), IntelligenceSection,
                                           #   HowItWorks, FaqSection, FooterCta (one file per section)
     recipes/
-      RecipeListPage.tsx                    # List with All/Mine filter, search, import/premade dialogs
-      RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions)
-      CookModePage.tsx                      # Read-only cook mode with batch scaling, ingredient checklist, method steps
+      RecipeEditorPage.tsx                  # Create/edit recipe (ingredients table, macros, portions). Shared by
+                                            #   /recipes/new and /recipes/:id.
       components/                           # MacroRing, MacroBar, MacroReadout, MacroCell, RecipeIngredientTable,
                                             #   RecipeIngredientRow, RecipeSummaryRow, RecipeTotalsBar, PortionPanel,
                                             #   PortionSizeInput, CookedWeightInput, IngredientSearchInput,
@@ -107,27 +109,24 @@ src/
       utils/macros.ts                       # Pure math: macro calculations
       utils/format.ts                       # Number/unit formatting helpers
     ingredients/
-      IngredientListPage.tsx                # List with All/Mine filter, inline edit form
       components/IngredientForm.tsx          # Add/edit ingredient form
+      components/MacroInput.tsx              # Macro number input
     exercises/
-      ExerciseListPage.tsx                  # List with search, sort, BodyMap sidebar, inline edit form
-      ExerciseDetailPage.tsx                # /exercises/:id (and /new): editor + history chart/table
+      ExerciseDetailPage.tsx                # /exercises/:id (and /new): editor + history chart/table. Shared by both routes.
       components/                           # ExerciseForm, ExerciseCard, ExerciseTable,
                                             #   HistoryChart (SVG time-series), HistoryTable
     analytics/
-      AnalyticsPage.tsx                     # /analytics: PRs, stalled lifts, weekly trend, calendar heatmap
       components/                           # RecentPRsList, StalledList, WeeklyTrendList, CalendarHeatmap
     mealPlans/
-      PlansPage.tsx                         # /plans hub: composes MealPlansSection + ProgramsSection
-      MealPlansSection.tsx                  # List/create/delete meal plans (formerly MealPlanListPage)
-      MealPlannerPage.tsx                   # Weekly planner: inventory sidebar + 7-day grid
+      MealPlansSection.tsx                  # List/create/delete meal plans (composed in routes/plans._index.tsx)
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
     workouts/
-      WorkoutListPage.tsx                   # Workout templates list + body map + recent sessions
-      WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets)
-      WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets
+      WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets). Shared by
+                                            #   /workouts/new and /workouts/:workoutId.
+      WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets. Shared by
+                                            #   /workouts/:workoutId/session and /workouts/sessions/:sessionId.
       WorkoutMode.tsx                       # Workout execution mode
       store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, active, rest, setTimer) — canonical "is session in progress" signal; persists across routes
       components/
@@ -142,7 +141,7 @@ src/
         ExerciseSearch.tsx                  # Exercise typeahead (system + custom, shows type + muscles)
         SessionReview.tsx                   # Post-workout divergence review (update template targets)
         SessionSummary.tsx                  # Completed session summary (1RM stats, volume, plan comparison)
-        TimerMode.tsx                       # Full-screen timer overlay (child route)
+        TimerModeView.tsx                   # Presentational timer overlay (consumed by routes/workouts.sessions.$sessionId.timer.tsx and landing AutoSection)
         SessionNotesModal.tsx               # In-session notes scratchpad (debounced autosave to workoutSessions.notes)
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
@@ -150,7 +149,7 @@ src/
         ProfileForm.tsx                     # Body profile inputs (height/weight/sex)
         ProgramCard.tsx                     # Program row: star toggle for active + N sets/cycle stat
         ProgramsSection.tsx                 # Programs list + "New program" CTA, embedded into /plans
-        ProgramEditor.tsx                   # /plans/programs/:id route: name + drag-reorder workouts + sidebar
+        ProgramEditor.tsx                   # Shared by /plans/programs/new and /plans/programs/:id (drag-reorder workouts + sidebar)
         ProgramCyclePreview.tsx             # Numbered cycle: "1. Push → 2. Pull → wraps to 1"
         ProgramMuscleSidebar.tsx            # Stats + BodyMap + balance bars; exports BelowMevWarning
         LastSessionHint.tsx                 # Inline "last time: 80kg × 8" hint above set rows
@@ -158,7 +157,6 @@ src/
       utils/
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
-    settings/SettingsPage.tsx               # AI provider/key config, batch/fallback toggles, body profile
 packages/db/                                # Shared package @macromaxxing/db
   schema.ts                                 # All tables (see DB Schema below)
   relations.ts                              # Drizzle relations
