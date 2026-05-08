@@ -461,6 +461,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - Migration folder is one directory per migration (`tag/migration.sql` + `tag/snapshot.json`), no `meta/_journal.json`
 - `drizzle-kit` drops `ON DELETE` from `ALTER TABLE ... ADD ... REFERENCES`. New tables in `CREATE TABLE` are fine, but additive `ALTER TABLE` columns need a manual edit to re-add `ON DELETE SET NULL` (or whichever) after `REFERENCES x(id)`.
 - `drizzle-kit` emits `snapshot.json` with 2-space indent; biome formats with tabs. Run `yarn fix` after `yarn db:generate` or expect a lint failure on the snapshot.
+- Boolean-ish columns (`isPublic`, `isDefault`, `batchLookups`, `failureFlag`, etc.) are plain `integer` 0/1 — typed as `number`, not `boolean`. JSX short-circuits like `{recipe.isPublic && <X/>}` render a literal `0` in the DOM when false. Use `!!value &&` or `value === 1` before rendering.
 
 **Backend / tRPC**
 - Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD
