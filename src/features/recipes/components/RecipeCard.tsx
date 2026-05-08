@@ -1,4 +1,5 @@
 import type { AbsoluteMacros } from '@macromaxxing/db'
+import { Globe } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import { Image } from '~/components/ui/Image'
@@ -37,6 +38,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 								yours
 							</span>
 						)}
+						{recipe.isPublic && <Globe className="size-3 shrink-0 text-ink-faint" aria-label="Published" />}
 					</div>
 					<span className="shrink-0 font-bold font-mono text-lg text-macro-kcal tabular-nums">
 						{portion.kcal.toFixed(0)}
