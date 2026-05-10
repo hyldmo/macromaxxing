@@ -53,7 +53,8 @@ export function Nav() {
 	const mobileFavLinks: Link[] = FAVORITABLE_ROUTES.filter(r => favorites.includes(r.to)).map(r => ({
 		to: r.to,
 		label: r.label,
-		icon: r.icon
+		icon: r.icon,
+		end: r.end
 	}))
 
 	return (

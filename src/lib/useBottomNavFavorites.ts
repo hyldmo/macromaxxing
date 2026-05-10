@@ -4,6 +4,7 @@ import {
 	CalendarDays,
 	CookingPot,
 	Dumbbell,
+	Home,
 	type LucideIcon,
 	Settings,
 	UtensilsCrossed
@@ -14,10 +15,12 @@ export interface FavoritableRoute {
 	to: string
 	label: string
 	icon: LucideIcon
+	end?: boolean
 }
 
 /** Canonical order — drives both the menu list and the bottom-bar render order. */
-export const FAVORITABLE_ROUTES = [
+export const FAVORITABLE_ROUTES: readonly FavoritableRoute[] = [
+	{ to: '/', label: 'Home', icon: Home, end: true },
 	{ to: '/recipes', label: 'Recipes', icon: CookingPot },
 	{ to: '/ingredients', label: 'Ingredients', icon: UtensilsCrossed },
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
@@ -25,7 +28,7 @@ export const FAVORITABLE_ROUTES = [
 	{ to: '/exercises', label: 'Exercises', icon: BicepsFlexed },
 	{ to: '/analytics', label: 'Analytics', icon: BarChart3 },
 	{ to: '/settings', label: 'Settings', icon: Settings }
-] as const satisfies readonly FavoritableRoute[]
+]
 
 export const MAX_FAVORITES = 4
 export const STORAGE_KEY = 'macromaxxing:bottomNavFavorites'
