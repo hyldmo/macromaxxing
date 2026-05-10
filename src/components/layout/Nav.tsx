@@ -61,7 +61,7 @@ export function Nav() {
 		<>
 			{/* Top nav (desktop full, mobile collapsed to brand + status + hamburger) */}
 			<nav className="sticky top-0 z-50 border-edge border-b bg-surface-1">
-				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-4">
+				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-3 md:px-4">
 					<NavLink to="/" className="flex items-center gap-2 font-semibold text-accent">
 						<ChefHat className="size-5" />
 						<span className="tracking-tight">macromaxxing</span>
