@@ -79,12 +79,13 @@ const DrawerBody: FC<Omit<MobileMenuDrawerProps, 'open'>> = ({ onClose, isFavori
 
 				<nav className="flex-1 overflow-y-auto py-2">
 					<SignedIn>
-						{FAVORITABLE_ROUTES.map(({ to, label, icon: Icon }) => {
+						{FAVORITABLE_ROUTES.map(({ to, label, icon: Icon, end }) => {
 							const starred = isFavorite(to)
 							return (
 								<div key={to} className="flex items-stretch">
 									<NavLink
 										to={to}
+										end={end}
 										className="flex flex-1 items-center gap-3 px-4 py-3 current:font-medium current:text-accent text-ink-muted transition-colors hover:text-ink"
 									>
 										<Icon className="size-5" />
