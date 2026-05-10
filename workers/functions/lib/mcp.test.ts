@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { extractMcpTools, procedurePathToToolName } from './mcp'
+import { deriveAnnotations, extractMcpTools, procedurePathToToolName } from './mcp'
 import { appRouter } from './router'
 
 describe('procedurePathToToolName', () => {
@@ -14,6 +14,46 @@ describe('procedurePathToToolName', () => {
 
 	it('handles single-segment paths', () => {
 		expect(procedurePathToToolName('dashboard')).toBe('dashboard')
+	})
+})
+
+describe('deriveAnnotations', () => {
+	it('queries are read-only and non-destructive by default', () => {
+		expect(deriveAnnotations('recipe.list', 'query', {})).toEqual({
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: undefined,
+			openWorldHint: false
+		})
+	})
+
+	it('non-delete mutations are not flagged destructive', () => {
+		const ann = deriveAnnotations('recipe.create', 'mutation', {})
+		expect(ann.readOnlyHint).toBe(false)
+		expect(ann.destructiveHint).toBe(false)
+	})
+
+	it('delete*/remove* mutations are flagged destructive', () => {
+		expect(deriveAnnotations('recipe.delete', 'mutation', {}).destructiveHint).toBe(true)
+		expect(deriveAnnotations('recipe.removeIngredient', 'mutation', {}).destructiveHint).toBe(true)
+	})
+
+	it('meta overrides win over the default', () => {
+		// e.g. a mutation that's actually idempotent
+		expect(deriveAnnotations('settings.save', 'mutation', { idempotent: true }).idempotentHint).toBe(true)
+		// e.g. a mutation that we want to mark read-only because it's a no-op cache warmer
+		expect(deriveAnnotations('foo.bar', 'mutation', { readOnly: true }).readOnlyHint).toBe(true)
+		// override destructive default
+		expect(deriveAnnotations('recipe.delete', 'mutation', { destructive: false }).destructiveHint).toBe(false)
+	})
+
+	it('extracted tools carry annotations consistent with their procedure type', () => {
+		const tools = extractMcpTools(appRouter)
+		const list = tools.find(t => t.name === 'recipe_list')
+		expect(list?.annotations.readOnlyHint).toBe(true)
+		const del = tools.find(t => t.name === 'recipe_delete')
+		expect(del?.annotations.readOnlyHint).toBe(false)
+		expect(del?.annotations.destructiveHint).toBe(true)
 	})
 })
 
