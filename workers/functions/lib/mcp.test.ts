@@ -18,11 +18,11 @@ describe('procedurePathToToolName', () => {
 })
 
 describe('deriveAnnotations', () => {
-	it('queries are read-only and non-destructive by default', () => {
+	it('queries are read-only, non-destructive, and idempotent by default', () => {
 		expect(deriveAnnotations('recipe.list', 'query', {})).toEqual({
 			readOnlyHint: true,
 			destructiveHint: false,
-			idempotentHint: undefined,
+			idempotentHint: true,
 			openWorldHint: false
 		})
 	})
@@ -36,6 +36,26 @@ describe('deriveAnnotations', () => {
 	it('delete*/remove* mutations are flagged destructive', () => {
 		expect(deriveAnnotations('recipe.delete', 'mutation', {}).destructiveHint).toBe(true)
 		expect(deriveAnnotations('recipe.removeIngredient', 'mutation', {}).destructiveHint).toBe(true)
+	})
+
+	it('create*/add* mutations are flagged non-idempotent', () => {
+		expect(deriveAnnotations('recipe.create', 'mutation', {}).idempotentHint).toBe(false)
+		expect(deriveAnnotations('recipe.addIngredient', 'mutation', {}).idempotentHint).toBe(false)
+	})
+
+	it('delete/remove/update/set/upsert/save/reorder mutations are flagged idempotent', () => {
+		expect(deriveAnnotations('recipe.delete', 'mutation', {}).idempotentHint).toBe(true)
+		expect(deriveAnnotations('recipe.removeIngredient', 'mutation', {}).idempotentHint).toBe(true)
+		expect(deriveAnnotations('recipe.update', 'mutation', {}).idempotentHint).toBe(true)
+		expect(deriveAnnotations('workout.setActiveProgram', 'mutation', {}).idempotentHint).toBe(true)
+		expect(deriveAnnotations('workout.upsertGuide', 'mutation', {}).idempotentHint).toBe(true)
+		expect(deriveAnnotations('settings.save', 'mutation', {}).idempotentHint).toBe(true)
+		expect(deriveAnnotations('workout.reorderWorkouts', 'mutation', {}).idempotentHint).toBe(true)
+	})
+
+	it('ambiguous mutations leave idempotent unset', () => {
+		expect(deriveAnnotations('workout.completeSession', 'mutation', {}).idempotentHint).toBeUndefined()
+		expect(deriveAnnotations('ai.parseRecipe', 'mutation', {}).idempotentHint).toBeUndefined()
 	})
 
 	it('meta overrides win over the default', () => {
