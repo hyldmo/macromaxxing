@@ -38,9 +38,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, isMine }) => 
 								yours
 							</span>
 						)}
-						{recipe.isPublic === 1 && (
-							<Globe className="size-3 shrink-0 text-ink-faint" aria-label="Published" />
-						)}
+						{recipe.isPublic && <Globe className="size-3 shrink-0 text-ink-faint" aria-label="Published" />}
 					</div>
 					<span className="shrink-0 font-bold font-mono text-lg text-macro-kcal tabular-nums">
 						{portion.kcal.toFixed(0)}

@@ -204,7 +204,7 @@ export function WorkoutSessionPage() {
 									weightKg: variables.weightKg,
 									reps: variables.reps,
 									rpe: null,
-									failureFlag: 0,
+									failureFlag: false,
 									createdAt: Date.now(),
 									exercise: exerciseData
 								}
@@ -262,7 +262,7 @@ export function WorkoutSessionPage() {
 										...(variables.setType !== undefined && { setType: variables.setType }),
 										...(variables.rpe !== undefined && { rpe: variables.rpe }),
 										...(variables.failureFlag !== undefined && {
-											failureFlag: variables.failureFlag ? 1 : 0
+											failureFlag: variables.failureFlag
 										})
 									}
 								: log

@@ -52,8 +52,8 @@ export const settingsRouter = router({
 			return {
 				provider: settings.aiProvider,
 				hasKey: Boolean(settings.aiApiKey),
-				batchLookups: Boolean(settings.batchLookups),
-				modelFallback: Boolean(settings.modelFallback),
+				batchLookups: settings.batchLookups,
+				modelFallback: settings.modelFallback,
 				heightCm: settings.heightCm,
 				weightKg: settings.weightKg,
 				sex: settings.sex
@@ -109,8 +109,8 @@ export const settingsRouter = router({
 		})
 
 		const toggleUpdates = {
-			...(input.batchLookups !== undefined && { batchLookups: input.batchLookups ? 1 : 0 }),
-			...(input.modelFallback !== undefined && { modelFallback: input.modelFallback ? 1 : 0 })
+			...(input.batchLookups !== undefined && { batchLookups: input.batchLookups }),
+			...(input.modelFallback !== undefined && { modelFallback: input.modelFallback })
 		}
 
 		// If providing a new key, verify it first
@@ -198,7 +198,7 @@ export async function getDecryptedApiKey(
 	return {
 		apiKey,
 		provider: settings.aiProvider,
-		batchLookups: Boolean(settings.batchLookups),
-		modelFallback: Boolean(settings.modelFallback)
+		batchLookups: settings.batchLookups,
+		modelFallback: settings.modelFallback
 	}
 }
