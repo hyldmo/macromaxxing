@@ -12,6 +12,14 @@ export interface TRPCContext {
 
 export interface McpMeta {
 	description: string
+	/** Override the default `readOnlyHint` (defaults to `true` for queries, `false` for mutations). */
+	readOnly?: boolean
+	/** Override the default `destructiveHint` (defaults to `true` for `delete*`/`remove*` mutations). */
+	destructive?: boolean
+	/** Set the `idempotentHint`. No default — leave unset unless the procedure is genuinely idempotent. */
+	idempotent?: boolean
+	/** Set the `openWorldHint`. Defaults to `false` (all our procedures touch our own DB only). */
+	openWorld?: boolean
 }
 
 const t = initTRPC.context<TRPCContext>().meta<McpMeta>().create()
