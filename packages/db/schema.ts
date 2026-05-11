@@ -28,8 +28,8 @@ export const userSettings = sqliteTable('user_settings', {
 	aiApiKey: text('ai_api_key').notNull(), // AES-GCM encrypted
 	aiKeyIv: text('ai_key_iv').notNull(), // IV for decryption
 	aiModel: text('ai_model').notNull(),
-	batchLookups: integer('batch_lookups').notNull().default(0), // 0=off, 1=on
-	modelFallback: integer('model_fallback').notNull().default(0), // 0=off, 1=on
+	batchLookups: integer('batch_lookups', { mode: 'boolean' }).notNull().default(false),
+	modelFallback: integer('model_fallback', { mode: 'boolean' }).notNull().default(false),
 	heightCm: real('height_cm'),
 	weightKg: real('weight_kg'),
 	sex: text('sex').notNull().default('male').$type<Sex>(),
@@ -87,7 +87,7 @@ export const ingredientUnits = sqliteTable('ingredient_units', {
 		.references(() => ingredients.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(), // 'tbsp', 'scoop', 'pcs', 'medium'
 	grams: real('grams').notNull(), // Grams per 1 unit
-	isDefault: integer('is_default').notNull().default(0), // Default unit for this ingredient
+	isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // Default unit for this ingredient
 	source: text('source').notNull(), // 'usda' | 'ai' | 'manual'
 	createdAt: integer('created_at').notNull()
 })
@@ -106,7 +106,7 @@ export const recipes = sqliteTable(
 		instructions: text('instructions'),
 		cookedWeight: real('cooked_weight'), // nullable, null = use raw total
 		portionSize: real('portion_size'), // null = entire dish is 1 portion
-		isPublic: integer('is_public').notNull().default(0), // 0 = private, 1 = public
+		isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(false),
 		sourceUrl: text('source_url'), // URL the recipe was imported from (null = manual/text)
 		image: text('image').$type<ImageSource>(),
 		createdAt: integer('created_at').notNull(),
@@ -357,7 +357,7 @@ export const workoutLogs = sqliteTable(
 		weightKg: real('weight_kg').notNull(),
 		reps: integer('reps').notNull(),
 		rpe: real('rpe'), // 6-10
-		failureFlag: integer('failure_flag').notNull().default(0),
+		failureFlag: integer('failure_flag', { mode: 'boolean' }).notNull().default(false),
 		createdAt: integer('created_at').notNull()
 	},
 	t => [
@@ -435,7 +435,7 @@ export const usdaPortions = sqliteTable(
 			.references(() => usdaFoods.fdcId),
 		name: text('name').notNull(), // normalized: 'cup', 'tbsp', 'pcs', etc.
 		grams: real('grams').notNull(), // grams per 1 unit
-		isVolume: integer('is_volume').notNull().default(0) // 1 = volume unit derived from density
+		isVolume: integer('is_volume', { mode: 'boolean' }).notNull().default(false) // true = volume unit derived from density
 	},
 	t => [index('usda_portions_fdc_id_idx').on(t.fdcId)]
 )

@@ -81,8 +81,8 @@ export const recipesRouter = router({
 	list: publicProcedure.meta({ description: 'List all recipes with macro summaries' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
 			where: ctx.user
-				? { OR: [{ isPublic: 1, type: 'recipe' }, { userId: ctx.user.id }] }
-				: { isPublic: 1, type: 'recipe' },
+				? { OR: [{ isPublic: true, type: 'recipe' }, { userId: ctx.user.id }] }
+				: { isPublic: true, type: 'recipe' },
 			with: recipeIngredientsWith,
 			orderBy: { updatedAt: 'desc' },
 			limit: 50
@@ -132,7 +132,7 @@ export const recipesRouter = router({
 				.update(recipes)
 				.set({
 					...updates,
-					...(isPublic !== undefined && { isPublic: isPublic ? 1 : 0 }),
+					...(isPublic !== undefined && { isPublic }),
 					...(image !== undefined && { image }),
 					updatedAt: Date.now()
 				})
@@ -346,7 +346,7 @@ export const recipesRouter = router({
 				ingredientId: ingredient.id,
 				name: 'g',
 				grams: 1,
-				isDefault: 1,
+				isDefault: true,
 				source: 'manual',
 				createdAt: now
 			})
@@ -359,7 +359,7 @@ export const recipesRouter = router({
 					name: input.name,
 					type: 'premade',
 					portionSize: null,
-					isPublic: 0,
+					isPublic: false,
 					sourceUrl: input.sourceUrl ?? null,
 					createdAt: now,
 					updatedAt: now

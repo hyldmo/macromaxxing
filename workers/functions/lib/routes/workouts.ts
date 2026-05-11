@@ -1197,7 +1197,7 @@ export const workoutsRouter = router({
 					weightKg: input.weightKg,
 					reps: input.reps,
 					rpe: input.rpe ?? null,
-					failureFlag: input.failureFlag ? 1 : 0,
+					failureFlag: !!input.failureFlag,
 					createdAt: Date.now()
 				})
 				.returning()
@@ -1919,7 +1919,7 @@ export const workoutsRouter = router({
 					weightKg: number
 					reps: number
 					rpe: number | null
-					failureFlag: number
+					failureFlag: boolean
 					createdAt: number
 				}> = []
 				const exerciseSetCounts = new Map<string, number>()
@@ -1971,7 +1971,7 @@ export const workoutsRouter = router({
 							weightKg: row.weightKg,
 							reps: row.reps,
 							rpe: null,
-							failureFlag: 0,
+							failureFlag: false,
 							createdAt: Date.now()
 						})
 					}

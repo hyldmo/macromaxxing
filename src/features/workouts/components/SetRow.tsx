@@ -17,7 +17,7 @@ export interface SetRowProps {
 	done?: boolean
 	active?: boolean
 	rpe?: number | null
-	failureFlag?: number | null
+	failureFlag?: boolean | null
 	/**
 	 * Prior best e1RM for this exercise — used to flag PRs on confirmed working sets.
 	 * v1 sources this from `lastSession.topE1rm` (most-recent-session best, not all-time max).
@@ -105,7 +105,7 @@ export const SetRow: FC<SetRowProps> = ({
 					@{rpe}
 				</span>
 			)}
-			{failureFlag === 1 && <span className="text-[10px] text-destructive">F</span>}
+			{failureFlag === true && <span className="text-[10px] text-destructive">F</span>}
 			{onConfirm && (
 				<button
 					type="button"

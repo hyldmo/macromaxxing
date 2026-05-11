@@ -86,7 +86,7 @@ function parseSingleIngredient(text: string): ParsedSingleIngredient | null {
 
 function parseIngredientList(
 	text: string,
-	ingredients: Array<{ name: string; units?: Array<{ name: string; grams: number; isDefault: number }> }>
+	ingredients: Array<{ name: string; units?: Array<{ name: string; grams: number; isDefault: boolean }> }>
 ): ParsedIngredient[] {
 	const lines = text.split('\n').filter(line => line.trim())
 	const results: ParsedIngredient[] = []
