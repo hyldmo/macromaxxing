@@ -19,8 +19,10 @@ export function procedurePathToToolName(path: string): string {
  * Defaults:
  *   - `readOnlyHint`     ← procedure type (`query` → true, `mutation` → false)
  *   - `destructiveHint`  ← method name starts with `delete` or `remove` (mutations only)
+ *   - `idempotentHint`   ← queries + `delete*`/`remove*`/`update*`/`set*`/`upsert*`/`save*`/`reorder*`
+ *                          mutations. `create*`/`add*` are explicitly non-idempotent. Other
+ *                          mutations stay unset.
  *   - `openWorldHint`    ← false (every procedure touches our own DB only)
- *   - `idempotentHint`   ← unset (no safe default; opt in via meta)
  */
 export function deriveAnnotations(
 	procedurePath: string,
@@ -30,11 +32,14 @@ export function deriveAnnotations(
 	const isQuery = type === 'query'
 	const method = procedurePath.split('.').at(-1) ?? ''
 	const looksDestructive = !isQuery && /^(delete|remove)/.test(method)
+	const looksIdempotent = !isQuery && /^(delete|remove|update|set|upsert|save|reorder)/.test(method)
+	const looksNonIdempotent = !isQuery && /^(create|add)/.test(method)
+	const idempotentDefault = isQuery || looksIdempotent ? true : looksNonIdempotent ? false : undefined
 
 	return {
 		readOnlyHint: meta.readOnly ?? isQuery,
 		destructiveHint: meta.destructive ?? (isQuery ? false : looksDestructive),
-		idempotentHint: meta.idempotent,
+		idempotentHint: meta.idempotent ?? idempotentDefault,
 		openWorldHint: meta.openWorld ?? false
 	}
 }
