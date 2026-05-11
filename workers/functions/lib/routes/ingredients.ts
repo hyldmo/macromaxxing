@@ -100,7 +100,7 @@ async function insertIngredientWithUnits(
 			ingredientId: ingredient.id,
 			name: unit.name,
 			grams: unit.grams,
-			isDefault: !!unit.isDefault,
+			isDefault: unit.isDefault,
 			source: unit.source,
 			createdAt: Date.now()
 		}))
@@ -624,7 +624,7 @@ export const ingredientsRouter = router({
 				ingredientId: input.ingredientId,
 				name: input.name,
 				grams: input.grams,
-				isDefault: !!input.isDefault,
+				isDefault: input.isDefault,
 				source: 'manual',
 				createdAt: Date.now()
 			})
@@ -653,10 +653,7 @@ export const ingredientsRouter = router({
 				.where(eq(ingredientUnits.ingredientId, unit.ingredientId))
 		}
 
-		await ctx.db
-			.update(ingredientUnits)
-			.set({ ...updates, isDefault: !!updates.isDefault })
-			.where(eq(ingredientUnits.id, id))
+		await ctx.db.update(ingredientUnits).set(updates).where(eq(ingredientUnits.id, id))
 
 		return ctx.db.query.ingredientUnits.findFirst({ where: { id } })
 	}),

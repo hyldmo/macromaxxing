@@ -105,7 +105,7 @@ export const SetRow: FC<SetRowProps> = ({
 					@{rpe}
 				</span>
 			)}
-			{failureFlag === true && <span className="text-[10px] text-destructive">F</span>}
+			{failureFlag && <span className="text-[10px] text-destructive">F</span>}
 			{onConfirm && (
 				<button
 					type="button"

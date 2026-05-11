@@ -1197,7 +1197,7 @@ export const workoutsRouter = router({
 					weightKg: input.weightKg,
 					reps: input.reps,
 					rpe: input.rpe ?? null,
-					failureFlag: !!input.failureFlag,
+					failureFlag: input.failureFlag,
 					createdAt: Date.now()
 				})
 				.returning()

@@ -262,7 +262,7 @@ export function WorkoutSessionPage() {
 										...(variables.setType !== undefined && { setType: variables.setType }),
 										...(variables.rpe !== undefined && { rpe: variables.rpe }),
 										...(variables.failureFlag !== undefined && {
-											failureFlag: !!variables.failureFlag
+											failureFlag: variables.failureFlag
 										})
 									}
 								: log
