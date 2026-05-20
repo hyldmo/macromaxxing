@@ -1,8 +1,6 @@
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import type { TypeIDString } from '@macromaxxing/db'
-import { GripVertical, Pencil, Play } from 'lucide-react'
-import type { FC } from 'react'
+import { Pencil, Play } from 'lucide-react'
+import { forwardRef, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button, Card } from '~/components/ui'
 import { cn, generatePlannedSets, resolveExerciseTargets, totalVolume } from '~/lib'
@@ -28,73 +26,92 @@ function workoutVolume(workout: Workout): number {
 	return vol
 }
 
+function workingSetCount(workout: Workout): number {
+	let sets = 0
+	for (const we of workout.exercises) {
+		const { sets: s } = resolveExerciseTargets(we, workout.trainingGoal)
+		sets += s
+	}
+	return sets
+}
+
 export interface WorkoutCardProps {
 	label?: string
 	workout: Workout
 	onStartSession: (workoutId: TypeIDString<'wkt'>) => void
 	isPending?: boolean
+	variant?: 'full' | 'compact'
+	highlighted?: boolean
+	dragHandle?: ReactNode
+	className?: string
+	style?: React.CSSProperties
 }
 
-export const WorkoutCard: FC<WorkoutCardProps> = ({ label, workout, onStartSession, isPending }) => {
-	const navigate = useNavigate()
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-		id: workout.id
-	})
+export const WorkoutCard = forwardRef<HTMLDivElement, WorkoutCardProps>(
+	(
+		{ label, workout, onStartSession, isPending, variant = 'full', highlighted, dragHandle, className, style },
+		ref
+	) => {
+		const navigate = useNavigate()
+		const vol = workoutVolume(workout)
+		const isCompact = variant === 'compact'
 
-	const style = {
-		transform: CSS.Translate.toString(transform),
-		transition
-	}
-
-	return (
-		<Card
-			ref={setNodeRef}
-			style={style}
-			className={cn('flex items-center gap-2 px-2', isDragging && 'z-10 opacity-50')}
-		>
-			<button
-				type="button"
-				className="flex shrink-0 cursor-grab touch-none items-center text-ink-faint hover:text-ink active:cursor-grabbing"
-				{...attributes}
-				{...listeners}
+		return (
+			<Card
+				ref={ref}
+				style={style}
+				className={cn('flex items-center gap-2 px-2', highlighted && 'border-accent', className)}
 			>
-				<GripVertical className="size-4" />
-			</button>
+				{dragHandle}
 
-			<div className="min-w-0 flex-1 gap-2 py-2">
-				<div className="flex items-center justify-between gap-2">
-					<h3 className="font-medium text-ink">{label ?? workout.name}</h3>
-					<span className="font-mono text-ink-muted text-xs tabular-nums">
-						{(workoutVolume(workout) / 1000).toFixed(1)}k Vol
-					</span>
-				</div>
-				<div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0 font-mono text-xs tabular-nums">
-					{workout.exercises.slice(0, 6).map(we => (
-						<span key={we.id} className="text-ink-muted">
-							{we.exercise.name}{' '}
-							<span className="text-ink-faint">
-								{we.targetSets}×{we.targetReps}
+				<div className={cn('min-w-0 flex-1 gap-2', isCompact ? 'py-1.5' : 'py-2')}>
+					<div className="flex items-center gap-2">
+						<h3 className="min-w-0 truncate font-medium text-ink">{label ?? workout.name}</h3>
+						{highlighted && (
+							<span className="shrink-0 font-mono text-[10px] text-accent uppercase tracking-wide">
+								up next
 							</span>
+						)}
+						<span className="ml-auto shrink-0 font-mono text-ink-muted text-xs tabular-nums">
+							{(vol / 1000).toFixed(1)}k vol
 						</span>
-					))}
-					{workout.exercises.length > 6 && (
-						<span className="text-ink-faint">+{workout.exercises.length - 6} more</span>
+					</div>
+					{isCompact ? (
+						<div className="mt-0.5 font-mono text-ink-faint text-xs tabular-nums">
+							{workout.exercises.length} exercise{workout.exercises.length === 1 ? '' : 's'} ·{' '}
+							{workingSetCount(workout)} working sets
+						</div>
+					) : (
+						<div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0 font-mono text-xs tabular-nums">
+							{workout.exercises.slice(0, 6).map(we => (
+								<span key={we.id} className="text-ink-muted">
+									{we.exercise.name}{' '}
+									<span className="text-ink-faint">
+										{we.targetSets}×{we.targetReps}
+									</span>
+								</span>
+							))}
+							{workout.exercises.length > 6 && (
+								<span className="text-ink-faint">+{workout.exercises.length - 6} more</span>
+							)}
+						</div>
 					)}
 				</div>
-			</div>
 
-			<Button
-				variant="ghost"
-				size="icon"
-				className="size-7 text-ink-faint hover:text-ink"
-				onClick={() => navigate(`/workouts/${workout.id}`)}
-			>
-				<Pencil className="size-3.5" />
-			</Button>
-			<Button size="sm" onClick={() => onStartSession(workout.id)} disabled={isPending}>
-				<Play className="size-3.5" />
-				Start
-			</Button>
-		</Card>
-	)
-}
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-7 text-ink-faint hover:text-ink"
+					onClick={() => navigate(`/workouts/${workout.id}`)}
+				>
+					<Pencil className="size-3.5" />
+				</Button>
+				<Button size="sm" onClick={() => onStartSession(workout.id)} disabled={isPending}>
+					<Play className="size-3.5" />
+					Start
+				</Button>
+			</Card>
+		)
+	}
+)
+WorkoutCard.displayName = 'WorkoutCard'

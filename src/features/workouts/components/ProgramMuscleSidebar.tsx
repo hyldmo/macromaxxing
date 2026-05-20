@@ -84,6 +84,17 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 					<div className="text-right text-ink">
 						{load.totals.compoundSets.toFixed(0)} · {load.totals.isolationSets.toFixed(0)}
 					</div>
+					{load.totals.volumeKg > 0 && (
+						<>
+							<div className="text-ink-faint">Volume</div>
+							<div
+								className="text-right text-ink"
+								title="Σ(weight × reps × sets × intensity) across one cycle"
+							>
+								{Math.round(load.totals.volumeKg).toLocaleString()} kg·reps
+							</div>
+						</>
+					)}
 				</div>
 			</Card>
 
