@@ -5,6 +5,7 @@ import { cn, computeProgramLoad } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { programCycleDays } from '~/lib/workouts/programRest'
+import { estimateWorkoutDurationSec } from '~/lib/workouts/sets'
 import { BodyMap } from './BodyMap'
 
 interface BalanceLabel {
@@ -33,6 +34,11 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 
 	const load = useMemo(() => computeProgramLoad(workouts), [workouts])
 	const cycleDays = useMemo(() => programCycleDays(workouts), [workouts])
+	const avgSessionMin = useMemo(() => {
+		if (workouts.length === 0) return 0
+		const total = workouts.reduce((sum, w) => sum + estimateWorkoutDurationSec(w), 0)
+		return Math.round(total / workouts.length / 60)
+	}, [workouts])
 
 	const muscleVolumes = useMemo(() => {
 		const volumes = new Map<MuscleGroup, number>()
@@ -62,6 +68,13 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 						title="Sum of recovery hours across all cycle transitions (≥24h each), rounded up to days"
 					>
 						{cycleDays} {cycleDays === 1 ? 'day' : 'days'}
+					</div>
+					<div className="text-ink-faint">Avg session</div>
+					<div
+						className="text-right text-ink"
+						title="Estimated time per workout: planned sets × (4s/rep + inter-set rest) + 60s setup per exercise"
+					>
+						{avgSessionMin} min
 					</div>
 					<div className="text-ink-faint">Exercises</div>
 					<div className="text-right text-ink">{load.exerciseCount}</div>
