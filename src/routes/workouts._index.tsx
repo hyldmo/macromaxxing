@@ -112,7 +112,8 @@ export default function WorkoutListPage() {
 	}
 
 	const hasGroups = programs && programs.length > 0
-	const isLoading = workoutsQuery.isLoading || programsQuery.isLoading
+	const hasData = !!(workouts && programs)
+	const isFirstLoad = (workoutsQuery.isLoading || programsQuery.isLoading) && !hasData
 	const error = workoutsQuery.error ?? programsQuery.error
 
 	return (
@@ -144,11 +145,12 @@ export default function WorkoutListPage() {
 				</div>
 			</div>
 
-			{isLoading ? (
+			{error && hasData && <TRPCError error={error} />}
+			{isFirstLoad ? (
 				<div className="flex justify-center py-8">
 					<Spinner />
 				</div>
-			) : error ? (
+			) : error && !hasData ? (
 				<TRPCError error={error} />
 			) : !workouts || workouts.length === 0 ? (
 				<Card className="py-6 text-center text-ink-faint">

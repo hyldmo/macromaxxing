@@ -151,13 +151,14 @@ export const ProgramEditor: FC = () => {
 			</div>
 		)
 	}
-	if (!isNew && programQuery.error) return <TRPCError error={programQuery.error} />
+	if (!(isNew || programQuery.data) && programQuery.error) return <TRPCError error={programQuery.error} />
 
 	const isPending = createMutation.isPending || updateMutation.isPending
 	const error = createMutation.error || updateMutation.error || deleteMutation.error
 
 	return (
 		<div className="space-y-4">
+			{!isNew && programQuery.error && <TRPCError error={programQuery.error} />}
 			<div className="flex items-center justify-between gap-2">
 				<h1 className="font-semibold text-ink">{isNew ? 'New Program' : 'Edit Program'}</h1>
 				<div className="flex items-center gap-2">

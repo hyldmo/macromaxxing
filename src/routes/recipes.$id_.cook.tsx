@@ -35,11 +35,10 @@ export default function CookModePage() {
 		)
 	}
 
-	if (recipeQuery.error) {
-		return <TRPCError error={recipeQuery.error} />
+	if (!(recipe && calculations)) {
+		if (recipeQuery.error) return <TRPCError error={recipeQuery.error} />
+		return null
 	}
-
-	if (!(recipe && calculations)) return null
 
 	const cookedWeight = getEffectiveCookedWeight(calculations.totals.weight, recipe.cookedWeight)
 	const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
@@ -51,6 +50,7 @@ export default function CookModePage() {
 
 	return (
 		<div className="mx-auto max-w-2xl space-y-6">
+			{recipeQuery.error && <TRPCError error={recipeQuery.error} />}
 			{/* Header */}
 			<div className="flex items-center gap-3">
 				<Link to={`/recipes/${id}`}>

@@ -250,10 +250,11 @@ export function WorkoutTemplatePage() {
 			</div>
 		)
 	}
-	if (isEditing && workoutQuery.error) return <TRPCError error={workoutQuery.error} />
+	if (isEditing && !workoutQuery.data && workoutQuery.error) return <TRPCError error={workoutQuery.error} />
 
 	return (
 		<div className="space-y-4">
+			{isEditing && workoutQuery.error && <TRPCError error={workoutQuery.error} />}
 			<div className="flex items-center gap-3">
 				<Link to="/workouts" className="text-ink-muted hover:text-ink">
 					<ArrowLeft className="size-5" />

@@ -96,14 +96,15 @@ const AnalyticsPage: FC = () => {
 						</div>
 					</CardHeader>
 					<CardContent>
-						{prsQuery.isLoading ? (
+						{prsQuery.isLoading && !prsQuery.data ? (
 							<div className="flex justify-center py-6">
 								<Spinner />
 							</div>
-						) : prsQuery.error ? (
-							<TRPCError error={prsQuery.error} />
 						) : (
-							<RecentPRsList prs={prsQuery.data ?? []} />
+							<>
+								{prsQuery.error && <TRPCError error={prsQuery.error} />}
+								<RecentPRsList prs={prsQuery.data ?? []} />
+							</>
 						)}
 					</CardContent>
 				</Card>
@@ -117,14 +118,15 @@ const AnalyticsPage: FC = () => {
 						</div>
 					</CardHeader>
 					<CardContent>
-						{stalledQuery.isLoading ? (
+						{stalledQuery.isLoading && !stalledQuery.data ? (
 							<div className="flex justify-center py-6">
 								<Spinner />
 							</div>
-						) : stalledQuery.error ? (
-							<TRPCError error={stalledQuery.error} />
 						) : (
-							<StalledList stalled={stalledQuery.data ?? []} />
+							<>
+								{stalledQuery.error && <TRPCError error={stalledQuery.error} />}
+								<StalledList stalled={stalledQuery.data ?? []} />
+							</>
 						)}
 					</CardContent>
 				</Card>
@@ -138,14 +140,15 @@ const AnalyticsPage: FC = () => {
 						</div>
 					</CardHeader>
 					<CardContent>
-						{weeklyTrendQuery.isLoading ? (
+						{weeklyTrendQuery.isLoading && !weeklyTrendQuery.data ? (
 							<div className="flex justify-center py-6">
 								<Spinner />
 							</div>
-						) : weeklyTrendQuery.error ? (
-							<TRPCError error={weeklyTrendQuery.error} />
 						) : (
-							<WeeklyTrendList trend={weeklyTrendQuery.data ?? []} />
+							<>
+								{weeklyTrendQuery.error && <TRPCError error={weeklyTrendQuery.error} />}
+								<WeeklyTrendList trend={weeklyTrendQuery.data ?? []} />
+							</>
 						)}
 					</CardContent>
 				</Card>
@@ -172,14 +175,15 @@ const AnalyticsPage: FC = () => {
 						</div>
 					</CardHeader>
 					<CardContent>
-						{topExercisesQuery.isLoading ? (
+						{topExercisesQuery.isLoading && !topExercisesQuery.data ? (
 							<div className="flex justify-center py-6">
 								<Spinner />
 							</div>
-						) : topExercisesQuery.error ? (
-							<TRPCError error={topExercisesQuery.error} />
 						) : (
-							<TopExercisesList top={topExercisesQuery.data ?? []} />
+							<>
+								{topExercisesQuery.error && <TRPCError error={topExercisesQuery.error} />}
+								<TopExercisesList top={topExercisesQuery.data ?? []} />
+							</>
 						)}
 					</CardContent>
 				</Card>
@@ -194,14 +198,15 @@ const AnalyticsPage: FC = () => {
 					</div>
 				</CardHeader>
 				<CardContent>
-					{weeklyVolumeQuery.isLoading ? (
+					{weeklyVolumeQuery.isLoading && !weeklyVolumeQuery.data ? (
 						<div className="flex justify-center py-6">
 							<Spinner />
 						</div>
-					) : weeklyVolumeQuery.error ? (
-						<TRPCError error={weeklyVolumeQuery.error} />
 					) : (
-						<WeeklyVolumeChart data={weeklyVolumeQuery.data ?? []} />
+						<>
+							{weeklyVolumeQuery.error && <TRPCError error={weeklyVolumeQuery.error} />}
+							<WeeklyVolumeChart data={weeklyVolumeQuery.data ?? []} />
+						</>
 					)}
 				</CardContent>
 			</Card>
@@ -215,14 +220,15 @@ const AnalyticsPage: FC = () => {
 					</div>
 				</CardHeader>
 				<CardContent>
-					{heatmapQuery.isLoading ? (
+					{heatmapQuery.isLoading && !heatmapQuery.data ? (
 						<div className="flex justify-center py-6">
 							<Spinner />
 						</div>
-					) : heatmapQuery.error ? (
-						<TRPCError error={heatmapQuery.error} />
 					) : (
-						<CalendarHeatmap data={heatmapQuery.data ?? []} weeks={WINDOW_WEEKS[window]} />
+						<>
+							{heatmapQuery.error && <TRPCError error={heatmapQuery.error} />}
+							<CalendarHeatmap data={heatmapQuery.data ?? []} weeks={WINDOW_WEEKS[window]} />
+						</>
 					)}
 				</CardContent>
 			</Card>
