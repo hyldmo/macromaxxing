@@ -4,6 +4,7 @@ import { Card } from '~/components/ui'
 import { cn, computeProgramLoad } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { programCycleDays } from '~/lib/workouts/programRest'
 import { BodyMap } from './BodyMap'
 
 interface BalanceLabel {
@@ -31,6 +32,7 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 	const sex = profileQuery.data?.sex ?? 'male'
 
 	const load = useMemo(() => computeProgramLoad(workouts), [workouts])
+	const cycleDays = useMemo(() => programCycleDays(workouts), [workouts])
 
 	const muscleVolumes = useMemo(() => {
 		const volumes = new Map<MuscleGroup, number>()
@@ -54,6 +56,13 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 				<div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs tabular-nums">
 					<div className="text-ink-faint">Workouts</div>
 					<div className="text-right text-ink">{workouts.length}</div>
+					<div className="text-ink-faint">Cycle length</div>
+					<div
+						className="text-right text-ink"
+						title="Sum of recovery hours across all cycle transitions (≥24h each), rounded up to days"
+					>
+						{cycleDays} {cycleDays === 1 ? 'day' : 'days'}
+					</div>
 					<div className="text-ink-faint">Exercises</div>
 					<div className="text-right text-ink">{load.exerciseCount}</div>
 					<div className="text-ink-faint">Working sets</div>

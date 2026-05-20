@@ -2,14 +2,19 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TypeIDString } from '@macromaxxing/db'
-import { GripVertical, Plus, Trash2 } from 'lucide-react'
-import { type FC, useEffect, useMemo, useState } from 'react'
+import { GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { type FC, Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
 import { cn, useDocumentTitle, useUnsavedChanges } from '~/lib'
-import { trpc } from '~/lib/trpc'
+import { type RouterOutput, trpc } from '~/lib/trpc'
+import { collectWorkoutMuscles, computeProgramRest, findOptimalOrder } from '~/lib/workouts/programRest'
+import { MuscleVolumeChip } from './MuscleChip'
 import { ProgramCyclePreview } from './ProgramCyclePreview'
 import { BelowMevWarning, ProgramMuscleSidebar } from './ProgramMuscleSidebar'
+import { ProgramRestTransition } from './ProgramRestTransition'
+
+type WorkoutTemplate = RouterOutput['workout']['listWorkouts'][number]
 
 type WorkoutId = TypeIDString<'wkt'>
 
@@ -94,6 +99,8 @@ export const ProgramEditor: FC = () => {
 		})
 	}, [items, workoutsQuery.data])
 
+	const restTransitions = useMemo(() => computeProgramRest(resolvedItems), [resolvedItems])
+
 	function handleDragEnd(event: DragEndEvent) {
 		const { active, over } = event
 		if (!over || active.id === over.id) return
@@ -129,6 +136,13 @@ export const ProgramEditor: FC = () => {
 		if (!confirm('Delete this program? Active state will fall back to cycling all templates.')) return
 		deleteMutation.mutate({ id: id as TypeIDString<'wpr'> })
 	}
+
+	function handleOptimize() {
+		if (resolvedItems.length < 3 || resolvedItems.length !== items.length) return
+		const order = findOptimalOrder(resolvedItems)
+		setItems(order.map(i => items[i]))
+	}
+	const canOptimize = items.length >= 3 && resolvedItems.length === items.length
 
 	if (!isNew && programQuery.isLoading) {
 		return (
@@ -173,21 +187,41 @@ export const ProgramEditor: FC = () => {
 						</div>
 
 						<div className="space-y-2">
-							<div className="font-medium text-ink-muted text-xs">Workouts</div>
+							<div className="flex items-baseline justify-between">
+								<div className="font-medium text-ink-muted text-xs">Workouts</div>
+								{items.length > 1 && (
+									<div className="font-mono text-[10px] text-ink-faint uppercase tracking-wide">
+										recovery hours shown between rows
+									</div>
+								)}
+							</div>
 							<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
 								<SortableContext
 									items={items.map(i => i.workoutId)}
 									strategy={verticalListSortingStrategy}
 								>
 									<div className="space-y-1">
-										{items.map((item, i) => (
-											<DraggableItemRow
-												key={item.workoutId}
-												index={i}
-												item={item}
-												onRemove={() => removeWorkout(item.workoutId)}
-											/>
-										))}
+										{items.map((item, i) => {
+											const workout = resolvedItems[i]
+											const transition = restTransitions[i]
+											const isWrap = i === items.length - 1
+											return (
+												<Fragment key={item.workoutId}>
+													<DraggableItemRow
+														index={i}
+														item={item}
+														workout={workout}
+														onRemove={() => removeWorkout(item.workoutId)}
+													/>
+													{transition && items.length > 1 && (
+														<ProgramRestTransition
+															transition={transition}
+															isWrap={isWrap}
+														/>
+													)}
+												</Fragment>
+											)
+										})}
 									</div>
 								</SortableContext>
 							</DndContext>
@@ -231,12 +265,28 @@ export const ProgramEditor: FC = () => {
 
 					{error && <TRPCError error={error} />}
 
-					{!isNew && (
-						<div className="flex justify-end">
-							<Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-								<Trash2 className="size-4" />
-								Delete program
-							</Button>
+					{(canOptimize || !isNew) && (
+						<div className="flex justify-end gap-2">
+							{canOptimize && (
+								<Button
+									variant="outline"
+									onClick={handleOptimize}
+									title="Reorder workouts to minimize muscle overlap between consecutive sessions"
+								>
+									<Sparkles className="size-4" />
+									Optimize order
+								</Button>
+							)}
+							{!isNew && (
+								<Button
+									variant="destructive"
+									onClick={handleDelete}
+									disabled={deleteMutation.isPending}
+								>
+									<Trash2 className="size-4" />
+									Delete program
+								</Button>
+							)}
 						</div>
 					)}
 				</div>
@@ -253,18 +303,24 @@ export const ProgramEditor: FC = () => {
 interface DraggableItemRowProps {
 	index: number
 	item: DraftItem
+	workout: WorkoutTemplate | undefined
 	onRemove: () => void
 }
 
-const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, onRemove }) => {
+const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, onRemove }) => {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.workoutId })
 	const style = { transform: CSS.Translate.toString(transform), transition }
+
+	const exerciseNames = workout?.exercises.map(e => e.exercise.name) ?? []
+	const muscles = useMemo(() => (workout ? collectWorkoutMuscles(workout) : []), [workout])
+	const maxSets = muscles.reduce((m, x) => Math.max(m, x.effectiveSets), 0)
+
 	return (
 		<div
 			ref={setNodeRef}
 			style={style}
 			className={cn(
-				'flex items-center gap-2 rounded-sm border border-edge bg-surface-1 px-2 py-1.5',
+				'flex items-stretch gap-2 rounded-sm border border-edge bg-surface-1 px-2 py-1.5',
 				isDragging && 'z-10 opacity-50'
 			)}
 		>
@@ -277,14 +333,33 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, onRemove }) 
 			>
 				<GripVertical className="size-4" />
 			</button>
-			<span className="font-mono text-ink-faint text-xs tabular-nums">{index + 1}.</span>
-			<Link
-				to={`/workouts/${item.workoutId}`}
-				className="flex-1 truncate font-medium text-ink text-sm hover:text-accent"
-			>
-				{item.name}
-			</Link>
-			<Button variant="ghost" size="icon" onClick={onRemove} aria-label="Remove workout">
+			<span className="flex items-center font-mono text-ink-faint text-xs tabular-nums">{index + 1}.</span>
+			<div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+				<Link
+					to={`/workouts/${item.workoutId}`}
+					className="truncate font-medium text-ink text-sm hover:text-accent"
+				>
+					{item.name}
+				</Link>
+				{exerciseNames.length > 0 && (
+					<div className="truncate font-mono text-[11px] text-ink-faint" title={exerciseNames.join(' · ')}>
+						{exerciseNames.join(' · ')}
+					</div>
+				)}
+				{muscles.length > 0 && (
+					<div className="flex flex-wrap gap-1">
+						{muscles.map(m => (
+							<MuscleVolumeChip
+								key={m.muscleGroup}
+								muscleGroup={m.muscleGroup}
+								effectiveSets={m.effectiveSets}
+								maxSets={maxSets}
+							/>
+						))}
+					</div>
+				)}
+			</div>
+			<Button variant="ghost" size="icon" onClick={onRemove} aria-label="Remove workout" className="self-start">
 				<Trash2 className="size-4" />
 			</Button>
 		</div>
