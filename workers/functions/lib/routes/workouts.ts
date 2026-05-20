@@ -300,7 +300,11 @@ export const workoutsRouter = router({
 		}),
 
 	createExercise: protectedProcedure
-		.meta({ description: 'Create a custom exercise with muscle group intensities and training rep ranges' })
+		.meta({
+			description:
+				'Create a custom exercise with muscle group intensities, training rep ranges, and optional technique guide'
+		})
+		// TODO: collapse to drizzle-zod once https://github.com/drizzle-team/drizzle-orm/pull/5192 lands
 		.input(
 			z.object({
 				name: z.string().min(1),
@@ -310,20 +314,22 @@ export const workoutsRouter = router({
 				strengthRepsMin: z.number().int().min(1).nullable(),
 				strengthRepsMax: z.number().int().min(1).nullable(),
 				hypertrophyRepsMin: z.number().int().min(1).nullable(),
-				hypertrophyRepsMax: z.number().int().min(1).nullable()
+				hypertrophyRepsMax: z.number().int().min(1).nullable(),
+				guide: zGuideInput.optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
 			const tier = (input.fatigueTier ?? (input.type === 'compound' ? 2 : 4)) as FatigueTier
+			const { muscles, guide, ...exerciseFields } = input
 			const [exercise] = await ctx.db
 				.insert(exercises)
-				.values({ ...input, userId: ctx.user.id, fatigueTier: tier, createdAt: now })
+				.values({ ...exerciseFields, userId: ctx.user.id, fatigueTier: tier, createdAt: now })
 				.returning()
 
-			if (input.muscles.length > 0) {
+			if (muscles.length > 0) {
 				await ctx.db.insert(exerciseMuscles).values(
-					input.muscles.map(m => ({
+					muscles.map(m => ({
 						exerciseId: exercise.id,
 						muscleGroup: m.muscleGroup,
 						intensity: m.intensity
@@ -331,9 +337,20 @@ export const workoutsRouter = router({
 				)
 			}
 
+			if (guide) {
+				await ctx.db.insert(exerciseGuides).values({
+					id: newId('egd'),
+					exerciseId: exercise.id,
+					description: guide.description,
+					cues: JSON.stringify(guide.cues),
+					pitfalls: guide.pitfalls === null ? null : JSON.stringify(guide.pitfalls),
+					updatedAt: now
+				})
+			}
+
 			return ctx.db.query.exercises.findFirst({
 				where: { id: exercise.id },
-				with: { muscles: true }
+				with: { muscles: true, guide: true }
 			})
 		}),
 
