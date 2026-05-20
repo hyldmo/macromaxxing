@@ -15,7 +15,7 @@ export const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
 			gcTime: ONE_DAY,
-			staleTime: 1000 * 60 * 5,
+			staleTime: 0,
 			networkMode: 'offlineFirst'
 		},
 		mutations: {

@@ -79,7 +79,7 @@ export function ExerciseDetailPage() {
 		)
 	}
 
-	if (exercisesQuery.error) {
+	if (!exercisesQuery.data && exercisesQuery.error) {
 		return (
 			<div className="space-y-3">
 				<BackLink />
@@ -102,7 +102,12 @@ export function ExerciseDetailPage() {
 		)
 	}
 
-	return <ViewEditMode exercise={exercise} isOwned={isOwned} onDelete={() => navigate('/exercises')} />
+	return (
+		<>
+			{exercisesQuery.error && <TRPCError error={exercisesQuery.error} />}
+			<ViewEditMode exercise={exercise} isOwned={isOwned} onDelete={() => navigate('/exercises')} />
+		</>
+	)
 }
 
 interface CreateModeProps {

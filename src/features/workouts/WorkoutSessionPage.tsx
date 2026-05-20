@@ -556,14 +556,17 @@ export function WorkoutSessionPage() {
 		)
 	}
 
-	if (sessionQuery.error) return <TRPCError error={sessionQuery.error} />
-	if (createSession.error) return <TRPCError error={createSession.error} />
-	if (!session) return null
+	if (!session) {
+		if (sessionQuery.error) return <TRPCError error={sessionQuery.error} />
+		if (createSession.error) return <TRPCError error={createSession.error} />
+		return null
+	}
 
 	const totalExercises = exerciseGroups.reduce((acc, g) => acc + (g.type === 'superset' ? g.exercises.length : 1), 0)
 
 	return (
 		<div className="space-y-3">
+			{sessionQuery.error && <TRPCError error={sessionQuery.error} />}
 			<div className="flex flex-col gap-3 md:flex-row md:items-center">
 				<Link to="/workouts" className="text-ink-muted hover:text-ink">
 					<ArrowLeft className="size-5" />

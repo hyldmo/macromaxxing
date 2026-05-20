@@ -88,16 +88,14 @@ const MealPlannerPage: FC = () => {
 		)
 	}
 
-	if (planQuery.error) {
-		return <TRPCError error={planQuery.error} />
-	}
-
 	if (!planQuery.data) {
+		if (planQuery.error) return <TRPCError error={planQuery.error} />
 		return <div className="py-12 text-center text-ink-faint">Plan not found</div>
 	}
 
 	return (
 		<div className="space-y-3">
+			{planQuery.error && <TRPCError error={planQuery.error} />}
 			{/* Header */}
 			<div className="flex items-center gap-3">
 				<Link to="/plans">

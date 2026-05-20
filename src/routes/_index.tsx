@@ -146,11 +146,11 @@ const DashboardContent: FC = () => {
 		)
 	}
 
-	if (summaryQuery.error) {
+	if (!summaryQuery.data) {
 		return <TRPCError error={summaryQuery.error} />
 	}
 
-	const { sessions } = summaryQuery.data!
+	const { sessions } = summaryQuery.data
 	const activeSession = sessions.find(s => !s.completedAt)
 	const recentCompleted = sessions.filter(s => s.completedAt).slice(0, 3)
 	const today = todayDayIndex()
@@ -159,6 +159,7 @@ const DashboardContent: FC = () => {
 
 	return (
 		<div className="space-y-4">
+			{summaryQuery.error && <TRPCError error={summaryQuery.error} />}
 			<h1 className="font-semibold text-ink text-lg">{DAYS_LONG[today]}</h1>
 
 			<div className="grid gap-4 lg:grid-cols-2">
