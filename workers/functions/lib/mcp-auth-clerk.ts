@@ -1,4 +1,4 @@
-import { getAuth } from '@hono/clerk-auth'
+import { getAuth } from '@clerk/hono'
 import type { Context } from 'hono'
 import { type AuthUser, resolveClerkUser } from './auth'
 import type { Database } from './db'
