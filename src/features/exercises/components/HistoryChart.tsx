@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { formatTickDate, linearScale, pickTickIndices } from '~/lib/chart/scale'
 import { cn } from '~/lib/cn'
+import { type ExerciseMetric, METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 
 export interface HistoryChartDatum {
 	sessionId: string
@@ -10,7 +11,7 @@ export interface HistoryChartDatum {
 	volume: number // kg·reps
 }
 
-export type HistoryChartMetric = 'e1rm' | 'volume' | 'weight'
+export type HistoryChartMetric = ExerciseMetric
 
 export interface HistoryChartProps {
 	data: HistoryChartDatum[]
@@ -29,18 +30,6 @@ const PLOT_RIGHT = VIEW_W - PAD_RIGHT
 const PLOT_TOP = PAD_TOP
 const PLOT_BOTTOM = VIEW_H - PAD_BOTTOM
 const Y_GRID_LINES = 4 // min, max, plus 2 between
-
-const METRIC_LABEL: Record<HistoryChartMetric, string> = {
-	e1rm: 'e1RM',
-	volume: 'Volume',
-	weight: 'Top set'
-}
-
-const METRIC_UNIT: Record<HistoryChartMetric, string> = {
-	e1rm: 'kg',
-	volume: 'kg·reps',
-	weight: 'kg'
-}
 
 function getMetricValue(d: HistoryChartDatum, metric: HistoryChartMetric): number {
 	switch (metric) {

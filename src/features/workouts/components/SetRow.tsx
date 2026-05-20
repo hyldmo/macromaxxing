@@ -2,7 +2,7 @@ import type { SetType } from '@macromaxxing/db'
 import { Check, Circle } from 'lucide-react'
 import type { FC } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn, estimated1RM, isE1rmPR, SET_TYPE_STYLES } from '~/lib'
+import { cn, estimated1RM, isE1rmPR, METRIC_LABEL, SET_TYPE_STYLES } from '~/lib'
 
 const CONFIRM_BORDER_STYLES = {
 	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',
@@ -97,7 +97,8 @@ export const SetRow: FC<SetRowProps> = ({
 						isPR ? 'text-success' : 'text-ink-faint'
 					)}
 				>
-					{isPR && '↑ '}e1RM {e1rm.toFixed(0)}
+					{isPR && '↑ '}
+					{METRIC_LABEL.e1rm} {e1rm.toFixed(0)}
 				</span>
 			)}
 			{rpe != null && (

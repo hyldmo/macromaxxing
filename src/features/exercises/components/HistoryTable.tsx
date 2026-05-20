@@ -2,6 +2,7 @@ import type { FC } from 'react'
 import { Link } from 'react-router'
 import { formatDate } from '~/lib/date'
 import type { RouterOutput } from '~/lib/trpc'
+import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 
 type HistoryEntry = RouterOutput['workout']['exerciseHistory'][number]
 
@@ -17,7 +18,7 @@ function formatNumber(n: number, digits = 1): string {
 
 function formatTopSet(top: HistoryEntry['topSet']): string {
 	if (top.weightKg <= 0 && top.reps <= 0) return '—'
-	return `${formatNumber(top.weightKg)}kg × ${top.reps}`
+	return `${formatNumber(top.weightKg)}${METRIC_UNIT.weight} × ${top.reps}`
 }
 
 export const HistoryTable: FC<HistoryTableProps> = ({ data }) => {
@@ -44,18 +45,26 @@ export const HistoryTable: FC<HistoryTableProps> = ({ data }) => {
 							</div>
 							<div className="mt-1 grid grid-cols-3 gap-2 font-mono text-xs tabular-nums">
 								<div>
-									<div className="text-[10px] text-ink-faint uppercase tracking-wide">Top set</div>
+									<div className="text-[10px] text-ink-faint uppercase tracking-wide">
+										{METRIC_LABEL.weight}
+									</div>
 									<div className="text-ink">{formatTopSet(entry.topSet)}</div>
 								</div>
 								<div>
-									<div className="text-[10px] text-ink-faint uppercase tracking-wide">e1RM</div>
+									<div className="text-[10px] text-ink-faint uppercase tracking-wide">
+										{METRIC_LABEL.e1rm}
+									</div>
 									<div className="text-ink">
-										{entry.e1rm > 0 ? `${formatNumber(entry.e1rm)}kg` : '—'}
+										{entry.e1rm > 0 ? `${formatNumber(entry.e1rm)}${METRIC_UNIT.e1rm}` : '—'}
 									</div>
 								</div>
 								<div>
-									<div className="text-[10px] text-ink-faint uppercase tracking-wide">Volume</div>
-									<div className="text-ink">{formatNumber(entry.volume, 0)} kg·reps</div>
+									<div className="text-[10px] text-ink-faint uppercase tracking-wide">
+										{METRIC_LABEL.volume}
+									</div>
+									<div className="text-ink">
+										{formatNumber(entry.volume, 0)} {METRIC_UNIT.volume}
+									</div>
 								</div>
 							</div>
 						</Link>
@@ -69,9 +78,9 @@ export const HistoryTable: FC<HistoryTableProps> = ({ data }) => {
 					<thead>
 						<tr className="border-edge border-b bg-surface-2/50 text-xs">
 							<th className="px-3 py-1.5 text-left text-ink-muted">Date</th>
-							<th className="px-3 py-1.5 text-right text-ink-muted">Top set</th>
-							<th className="px-3 py-1.5 text-right text-ink-muted">e1RM</th>
-							<th className="px-3 py-1.5 text-right text-ink-muted">Volume</th>
+							<th className="px-3 py-1.5 text-right text-ink-muted">{METRIC_LABEL.weight}</th>
+							<th className="px-3 py-1.5 text-right text-ink-muted">{METRIC_LABEL.e1rm}</th>
+							<th className="px-3 py-1.5 text-right text-ink-muted">{METRIC_LABEL.volume}</th>
 							<th className="px-3 py-1.5 text-right text-ink-muted">Sets</th>
 						</tr>
 					</thead>
@@ -93,7 +102,7 @@ export const HistoryTable: FC<HistoryTableProps> = ({ data }) => {
 									{formatTopSet(entry.topSet)}
 								</td>
 								<td className="px-3 py-1.5 text-right font-mono text-ink tabular-nums">
-									{entry.e1rm > 0 ? `${formatNumber(entry.e1rm)}kg` : '—'}
+									{entry.e1rm > 0 ? `${formatNumber(entry.e1rm)}${METRIC_UNIT.e1rm}` : '—'}
 								</td>
 								<td className="px-3 py-1.5 text-right font-mono text-ink tabular-nums">
 									{formatNumber(entry.volume, 0)}

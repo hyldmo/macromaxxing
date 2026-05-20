@@ -5,7 +5,7 @@ import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import { Button, NumberInput } from '~/components/ui'
-import { cn, estimated1RM, getRepRange, TRAINING_DEFAULTS } from '~/lib'
+import { cn, estimated1RM, getRepRange, METRIC_LABEL, METRIC_UNIT, TRAINING_DEFAULTS } from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
@@ -86,7 +86,8 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				</span>
 				{exercise.targetWeight && exercise.targetReps && (
 					<span className="text-ink-muted text-xs max-lg:hidden">
-						{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}kg e1RM
+						{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}
+						{METRIC_UNIT.e1rm} {METRIC_LABEL.e1rm}
 					</span>
 				)}
 				<TrainingGoalToggle

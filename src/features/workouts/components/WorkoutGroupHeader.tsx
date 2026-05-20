@@ -14,9 +14,17 @@ interface WorkoutGroupHeaderProps {
 	status?: ReactNode
 	cycle?: CycleItem[]
 	meta?: ReactNode
+	detailed?: boolean
 }
 
-export const WorkoutGroupHeader: FC<WorkoutGroupHeaderProps> = ({ title, titleHref, status, cycle, meta }) => (
+export const WorkoutGroupHeader: FC<WorkoutGroupHeaderProps> = ({
+	title,
+	titleHref,
+	status,
+	cycle,
+	meta,
+	detailed = false
+}) => (
 	<header className="space-y-1.5">
 		<div className="flex items-baseline gap-2 border-edge border-b pb-1">
 			{titleHref ? (
@@ -28,7 +36,7 @@ export const WorkoutGroupHeader: FC<WorkoutGroupHeaderProps> = ({ title, titleHr
 			)}
 			{status}
 		</div>
-		{cycle && cycle.length > 0 && (
+		{detailed && cycle && cycle.length > 0 && (
 			<ol className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-ink-muted text-xs tabular-nums">
 				{cycle.map((item, i) => (
 					<li key={item.id} className="flex items-center gap-2">
@@ -40,6 +48,6 @@ export const WorkoutGroupHeader: FC<WorkoutGroupHeaderProps> = ({ title, titleHr
 				{cycle.length > 1 && <li className="text-ink-faint italic">→ wraps</li>}
 			</ol>
 		)}
-		{meta && <div className="font-mono text-ink-faint text-xs tabular-nums">{meta}</div>}
+		{detailed && meta && <div className="font-mono text-ink-faint text-xs tabular-nums">{meta}</div>}
 	</header>
 )

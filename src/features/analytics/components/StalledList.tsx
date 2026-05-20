@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import type { RouterOutput } from '~/lib/trpc'
+import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 
 type ServerStalled = RouterOutput['analytics']['stalledExercises'][number]
 // exerciseId nullable so demo/landing surfaces can render entries without a destination.
@@ -47,7 +48,8 @@ export const StalledList: FC<StalledListProps> = ({ stalled }) => {
 							<span className="text-[10px] text-ink-faint uppercase tracking-wide">stalled</span>
 						</div>
 						<div className="font-mono text-ink-faint text-xs tabular-nums">
-							e1RM {s.currentMaxE1rm.toFixed(1)} kg · last {formatRelative(s.lastSessionAt)}
+							{METRIC_LABEL.e1rm} {s.currentMaxE1rm.toFixed(1)} {METRIC_UNIT.e1rm} · last{' '}
+							{formatRelative(s.lastSessionAt)}
 						</div>
 					</div>
 				</div>

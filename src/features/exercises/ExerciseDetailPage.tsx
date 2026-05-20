@@ -7,6 +7,7 @@ import { Button, ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError 
 import { useDocumentTitle, useUser } from '~/lib'
 import { formatDate } from '~/lib/date'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 import { ExerciseGuideContent } from '../workouts/components/ExerciseGuideContent'
 import { ExerciseForm } from './components/ExerciseForm'
 import { HistoryChart, type HistoryChartMetric } from './components/HistoryChart'
@@ -23,9 +24,9 @@ const TYPE_BADGE = {
 type HistoryWindow = '4w' | '12w' | '1y'
 
 const METRIC_OPTIONS: { value: HistoryChartMetric; label: string }[] = [
-	{ value: 'e1rm', label: 'e1RM' },
-	{ value: 'volume', label: 'Volume' },
-	{ value: 'weight', label: 'Weight' }
+	{ value: 'e1rm', label: METRIC_LABEL.e1rm },
+	{ value: 'volume', label: METRIC_LABEL.volume },
+	{ value: 'weight', label: METRIC_LABEL.weight }
 ]
 
 const WINDOW_OPTIONS: { value: HistoryWindow; label: string }[] = [
@@ -239,11 +240,15 @@ const ViewEditMode = ({ exercise, isOwned, onDelete }: ViewEditModeProps) => {
 						<dl className="grid gap-3 border-edge border-t pt-3 text-sm sm:grid-cols-2">
 							{bestEver && (
 								<div>
-									<dt className="text-[10px] text-ink-faint uppercase tracking-wide">Best e1RM</dt>
+									<dt className="text-[10px] text-ink-faint uppercase tracking-wide">
+										Best {METRIC_LABEL.e1rm}
+									</dt>
 									<dd className="mt-0.5 font-mono text-ink tabular-nums">
-										{formatNumber(bestEver.e1rm)}kg
+										{formatNumber(bestEver.e1rm)}
+										{METRIC_UNIT.e1rm}
 										<span className="ml-2 text-ink-faint text-xs">
-											{bestEver.topSet.weightKg}kg × {bestEver.topSet.reps} on{' '}
+											{bestEver.topSet.weightKg}
+											{METRIC_UNIT.e1rm} × {bestEver.topSet.reps} on{' '}
 											{formatDate(bestEver.startedAt)}
 										</span>
 									</dd>
@@ -255,7 +260,8 @@ const ViewEditMode = ({ exercise, isOwned, onDelete }: ViewEditModeProps) => {
 									<dd className="mt-0.5 font-mono text-ink tabular-nums">
 										{formatDate(lastLogged.startedAt)}
 										<span className="ml-2 text-ink-faint text-xs">
-											{lastLogged.topSet.weightKg}kg × {lastLogged.topSet.reps}
+											{lastLogged.topSet.weightKg}
+											{METRIC_UNIT.weight} × {lastLogged.topSet.reps}
 											{lastLogged.workingSetCount > 1 && ` (${lastLogged.workingSetCount} sets)`}
 										</span>
 									</dd>

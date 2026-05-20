@@ -593,8 +593,8 @@ describe('estimateWorkoutDurationSec', () => {
 
 	it('computes setup + N work intervals + (N-1) rests for a single exercise', () => {
 		// Hypertrophy, tier 2, 3 sets × 10 reps:
-		//   rest = 80 × 1.0 + 10 × 3 = 110s, work = 10 × 4 = 40s, setup = 60s
-		//   total = 60 + 3×40 + 2×110 = 400s
+		//   rest = 80 × 1.0 + 10 × 3 = 110s, work = 10 × 6 = 60s, setup = 120s
+		//   total = 120 + 3×60 + 2×110 = 520s
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'hypertrophy',
 			exercises: [
@@ -606,13 +606,13 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(400)
+		expect(sec).toBe(520)
 	})
 
 	it('falls back to TRAINING_DEFAULTS when targetSets/targetReps are null', () => {
 		// Strength defaults: 5 sets × 5 reps. Tier 1:
-		//   rest = 120 × 2.0 + 5 × 3 = 255s, work = 5 × 4 = 20s, setup = 60s
-		//   total = 60 + 5×20 + 4×255 = 1180s
+		//   rest = 120 × 2.0 + 5 × 3 = 255s, work = 5 × 6 = 30s, setup = 120s
+		//   total = 120 + 5×30 + 4×255 = 1290s
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'strength',
 			exercises: [
@@ -624,7 +624,7 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(1180)
+		expect(sec).toBe(1290)
 	})
 
 	it('respects per-exercise trainingGoal override', () => {
@@ -640,7 +640,7 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(1180)
+		expect(sec).toBe(1290)
 	})
 
 	it('sums across multiple exercises', () => {

@@ -4,6 +4,7 @@ import { Card } from '~/components/ui'
 import { cn, computeProgramLoad } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 import { programCycleDays } from '~/lib/workouts/programRest'
 import { estimateWorkoutDurationSec } from '~/lib/workouts/sets'
 import { BodyMap } from './BodyMap'
@@ -86,12 +87,12 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 					</div>
 					{load.totals.volumeKg > 0 && (
 						<>
-							<div className="text-ink-faint">Volume</div>
+							<div className="text-ink-faint">{METRIC_LABEL.volume}</div>
 							<div
 								className="text-right text-ink"
 								title="Σ(weight × reps × sets × intensity) across one cycle"
 							>
-								{Math.round(load.totals.volumeKg).toLocaleString()} kg·reps
+								{Math.round(load.totals.volumeKg).toLocaleString()} {METRIC_UNIT.volume}
 							</div>
 						</>
 					)}

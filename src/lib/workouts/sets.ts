@@ -40,10 +40,10 @@ export function calculateRest(
 	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 
-/** Typical concentric+eccentric rep duration. 1-1-2 tempo ≈ 4s per rep. */
-const SECONDS_PER_REP = 4
+/** Typical concentric+eccentric rep duration */
+const SECONDS_PER_REP = 6
 /** Setup/transition between exercises: load weights, walk to rack, take seat. */
-const SECONDS_PER_EXERCISE_SETUP = 60
+const SECONDS_PER_EXERCISE_SETUP = 120
 
 interface DurationExercise {
 	targetSets: number | null

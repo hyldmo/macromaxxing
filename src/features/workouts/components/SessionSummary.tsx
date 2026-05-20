@@ -3,6 +3,7 @@ import { ArrowRight, Clock, Dumbbell } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import { cn, computeDivergences, type Divergence, exerciseE1rmStats, totalVolume } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 import { E1rmTable } from './E1rmTable'
 
 type Session = RouterOutput['workout']['getSession']
@@ -87,7 +88,9 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 					<Dumbbell className="size-4 text-ink-faint" />
 					<div>
 						<div className="font-mono text-ink text-sm tabular-nums">{(vol / 1000).toFixed(1)}k</div>
-						<div className="text-[10px] text-ink-faint">Volume (kg)</div>
+						<div className="text-[10px] text-ink-faint">
+							{METRIC_LABEL.volume} ({METRIC_UNIT.volume})
+						</div>
 					</div>
 				</div>
 			</div>
