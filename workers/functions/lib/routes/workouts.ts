@@ -844,10 +844,20 @@ export const workoutsRouter = router({
 			})
 			if (!session) throw new Error('Session not found')
 
+			// Use the last logged set's timestamp so a forgotten "complete" tap
+			// doesn't inflate the session duration. Fall back to now when nothing
+			// was logged (or the last log predates session start).
+			const [lastLog] = await ctx.db
+				.select({ lastLoggedAt: sql<number | null>`max(${workoutLogs.createdAt})` })
+				.from(workoutLogs)
+				.where(eq(workoutLogs.sessionId, input.id))
+			const lastLoggedAt = lastLog?.lastLoggedAt ?? null
+			const completedAt = lastLoggedAt !== null && lastLoggedAt >= session.startedAt ? lastLoggedAt : Date.now()
+
 			await ctx.db
 				.update(workoutSessions)
 				.set({
-					completedAt: Date.now(),
+					completedAt,
 					...(input.notes !== undefined ? { notes: input.notes } : {})
 				})
 				.where(eq(workoutSessions.id, input.id))
