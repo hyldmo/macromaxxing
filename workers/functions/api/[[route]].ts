@@ -1,4 +1,4 @@
-import { clerkMiddleware } from '@hono/clerk-auth'
+import { clerkMiddleware } from '@clerk/hono'
 import { trpcServer } from '@hono/trpc-server'
 import { recipes, type TypeIDString } from '@macromaxxing/db'
 import { eq } from 'drizzle-orm'

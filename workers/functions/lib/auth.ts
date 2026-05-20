@@ -1,5 +1,5 @@
 import type { ClerkClient } from '@clerk/backend'
-import { getAuth } from '@hono/clerk-auth'
+import { getAuth } from '@clerk/hono'
 import { users } from '@macromaxxing/db'
 import { eq } from 'drizzle-orm'
 import type { Context } from 'hono'
