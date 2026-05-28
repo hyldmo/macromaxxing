@@ -472,6 +472,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **CI / build**
 - Builds that resolve version via `git describe --tags` need `fetch-depth: 0` on `actions/checkout`. Default is shallow → `git describe` throws → silent fallback to default version string.
 - `prek install` only sets up pre-commit, not pre-push. Prek's `priority` field allows parallel hook execution at the same priority.
+- `wrangler pages deploy` auto-pulls the git HEAD commit message and ships it to the CF API in a path that mangles multibyte UTF-8, failing with `Invalid commit message, it must be a valid UTF-8 string. [code: 8000111]` — the bytes ARE valid UTF-8; wrangler's serialization isn't. Commit messages (subject + body + footer) are enforced ASCII-only via `commitlint.config.js`. Don't relax this without also wiring `--commit-message="$(git log -1 --format=%s)"` into the deploy workflow.
 
 **Yarn 4** — `yarn workspaces foreach` needs `run`: `yarn workspaces foreach --all --parallel run typecheck`. Also: `yarn workspace <name> <bin> --env-file path` is intercepted by Node 24's own `--env-file` parser and fails with `node: <path>: not found` even though `<bin> --env-file path` works directly. Wrap the binary in a script field on the workspace's package.json (e.g. `"generate:wrangler": "wrangler types --env-file .dev.vars.template"`) and call via `yarn workspace <name> run generate:wrangler`.
 

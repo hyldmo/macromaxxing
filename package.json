@@ -78,11 +78,6 @@
     "zod": "^4.3.6",
     "zustand": "^5.0.12"
   },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
     "@commitlint/cli": "^20.4.2",
