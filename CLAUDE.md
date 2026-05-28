@@ -477,6 +477,8 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 
 **Zustand** — never subscribe to the entire store (`const store = useStore()` infinite-loops any effect with `store` in deps). Selectors only: `useStore(s => s.field)` for reactive state, `useStore.getState().action()` for callbacks.
 
+**html5-qrcode** — `scanner.stop()` throws **synchronously** (not as a rejected Promise) if the scanner never reached RUNNING. React Strict Mode's dev double-mount triggers this every time: first mount's cleanup fires before async `start()` resolves. A bare `.stop().catch()` won't catch the sync throw — wrap the whole call in `try/catch` in the effect cleanup of `BarcodeScanner.tsx`.
+
 **CSS**
 - `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
 - In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
