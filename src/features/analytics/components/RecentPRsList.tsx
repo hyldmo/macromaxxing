@@ -28,9 +28,9 @@ export const RecentPRsList: FC<RecentPRsListProps> = ({ prs, limit = 10 }) => {
 
 	return (
 		<div className="space-y-1">
-			{visible.map(pr => (
+			{visible.map((pr, idx) => (
 				<div
-					key={`${pr.sessionId}-${pr.exerciseId}`}
+					key={`${pr.sessionId}-${pr.exerciseId}-${idx}`}
 					className="flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2"
 				>
 					<div className="min-w-0 flex-1">

@@ -74,18 +74,24 @@ export const BarcodeScanner: FC<BarcodeScannerProps> = ({ onScan, onError, activ
 
 		return () => {
 			cancelled = true
-			scanner
-				.stop()
-				.catch(() => {
-					// may not have been scanning yet
-				})
-				.finally(() => {
-					try {
-						scanner.clear()
-					} catch {
-						// element may already be unmounted
-					}
-				})
+			const safeClear = () => {
+				try {
+					scanner.clear()
+				} catch {
+					// element may already be unmounted
+				}
+			}
+			try {
+				// stop() throws synchronously if scanner never reached RUNNING (e.g. strict-mode double-mount)
+				scanner
+					.stop()
+					.catch(() => {
+						// scanner was never RUNNING — nothing to stop
+					})
+					.finally(safeClear)
+			} catch {
+				safeClear()
+			}
 		}
 	}, [active, elementId, onScan, onError])
 
