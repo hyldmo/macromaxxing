@@ -3,6 +3,8 @@ export interface OFFProduct {
 	brand: string | null
 	servingSize: number
 	servings: number | null
+	/** Net package weight in grams (product_quantity), null when OFF has no value */
+	packageSize: number | null
 	protein: number
 	carbs: number
 	fat: number
@@ -77,6 +79,7 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 			brand,
 			servingSize: round1(servingSize),
 			servings,
+			packageSize: productQty > 0 ? round1(productQty) : null,
 			protein: round1(per100.protein * factor),
 			carbs: round1(per100.carbs * factor),
 			fat: round1(per100.fat * factor),
