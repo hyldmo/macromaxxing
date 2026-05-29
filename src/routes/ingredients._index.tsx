@@ -48,7 +48,9 @@ export default function IngredientListPage() {
 				fat: product.per100g.fat,
 				kcal: product.per100g.kcal,
 				fiber: product.per100g.fiber,
-				source: 'manual'
+				source: 'openfoodfacts',
+				sourceId: product.barcode,
+				units: product.packageSize ? [{ name: 'pkg', grams: product.packageSize }] : undefined
 			})
 			setShowBarcodeDialog(false)
 		},

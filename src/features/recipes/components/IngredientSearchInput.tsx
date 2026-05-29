@@ -248,7 +248,9 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				fat: product.per100g.fat,
 				kcal: product.per100g.kcal,
 				fiber: product.per100g.fiber,
-				source: 'manual'
+				source: 'openfoodfacts',
+				sourceId: product.barcode,
+				units: product.packageSize ? [{ name: 'pkg', grams: product.packageSize }] : undefined
 			})
 			addIngredient.mutate({
 				recipeId,
@@ -276,8 +278,12 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				.slice(0, 10)
 		: []
 
-	// USDA results: filter out items that match local ingredients by fdcId
-	const localFdcIds = new Set(searchResults.map(r => r.ingredient.fdcId).filter(Boolean))
+	// USDA results: filter out items already saved locally as USDA ingredients (match on fdcId)
+	const localFdcIds = new Set(
+		searchResults
+			.map(r => (r.ingredient.source === 'usda' && r.ingredient.sourceId ? Number(r.ingredient.sourceId) : null))
+			.filter((id): id is number => id !== null)
+	)
 	const usdaResults = (usdaSearchQuery.data ?? []).filter(r => !localFdcIds.has(r.fdcId))
 
 	// Recipe search: filter out self, premade, and already-added subrecipes

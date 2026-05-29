@@ -1,4 +1,4 @@
-import { ingredients, ingredientUnits, zodTypeID } from '@macromaxxing/db'
+import { ingredientSource, ingredients, ingredientUnits, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -71,7 +71,7 @@ async function insertIngredientWithUnits(
 	data: {
 		name: string
 		macros: { protein: number; carbs: number; fat: number; kcal: number; fiber: number }
-		fdcId?: number | null
+		sourceId?: string | null
 		density: number | null
 		source: UnitSource
 		units: PortionUnit[]
@@ -83,7 +83,7 @@ async function insertIngredientWithUnits(
 			userId,
 			name: data.name,
 			...data.macros,
-			fdcId: data.fdcId ?? null,
+			sourceId: data.sourceId ?? null,
 			density: data.density,
 			source: data.source,
 			createdAt: Date.now()
@@ -123,8 +123,9 @@ const createIngredientSchema = z.object({
 	kcal: z.number().nonnegative(),
 	fiber: z.number().nonnegative(),
 	density: z.number().nonnegative().nullable().optional(),
-	fdcId: z.number().int().nullable().optional(),
-	source: z.enum(['manual', 'ai', 'usda', 'label'])
+	sourceId: z.string().nullable().optional(),
+	source: ingredientSource,
+	units: z.array(z.object({ name: z.string().min(1), grams: z.number().positive() })).optional()
 })
 
 const updateIngredientSchema = z.object({
@@ -136,8 +137,8 @@ const updateIngredientSchema = z.object({
 	kcal: z.number().nonnegative().optional(),
 	fiber: z.number().nonnegative().optional(),
 	density: z.number().nonnegative().nullable().optional(),
-	fdcId: z.number().int().nullable().optional(),
-	source: z.enum(['manual', 'ai', 'usda']).optional()
+	sourceId: z.string().nullable().optional(),
+	source: ingredientSource.optional()
 })
 
 const createUnitSchema = z.object({
@@ -186,7 +187,7 @@ export const ingredientsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			// Check if ingredient with same fdcId already exists
 			const existing = await ctx.db.query.ingredients.findFirst({
-				where: { fdcId: input.fdcId },
+				where: { source: 'usda', sourceId: String(input.fdcId) },
 				with: { units: true }
 			})
 			if (existing) {
@@ -227,7 +228,7 @@ export const ingredientsRouter = router({
 			const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
 				name: normalizeIngredientName(input.name),
 				macros,
-				fdcId: input.fdcId,
+				sourceId: String(input.fdcId),
 				density,
 				source: 'usda',
 				units: nonVolumeUnits
@@ -239,15 +240,31 @@ export const ingredientsRouter = router({
 		.meta({ description: 'Create a custom ingredient with macro values' })
 		.input(createIngredientSchema)
 		.mutation(async ({ ctx, input }) => {
+			const { units, ...data } = input
+			const now = Date.now()
 			const [ingredient] = await ctx.db
 				.insert(ingredients)
 				.values({
 					userId: ctx.user.id,
-					...input,
-					name: normalizeIngredientName(input.name),
-					createdAt: Date.now()
+					...data,
+					name: normalizeIngredientName(data.name),
+					createdAt: now
 				})
 				.returning()
+
+			if (units?.length) {
+				await ctx.db.insert(ingredientUnits).values(
+					units.map(unit => ({
+						ingredientId: ingredient.id,
+						name: unit.name,
+						grams: unit.grams,
+						isDefault: false,
+						source: 'manual',
+						createdAt: now
+					}))
+				)
+			}
+
 			return ingredient
 		}),
 
@@ -329,7 +346,7 @@ export const ingredientsRouter = router({
 				const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
 					name: normalizedName,
 					macros: usdaData.macros,
-					fdcId: usdaData.fdcId,
+					sourceId: String(usdaData.fdcId),
 					density,
 					source: 'usda',
 					units
@@ -582,7 +599,7 @@ export const ingredientsRouter = router({
 				const ingredient = await insertIngredientWithUnits(ctx.db, ctx.user.id, {
 					name,
 					macros,
-					fdcId,
+					sourceId: fdcId != null ? String(fdcId) : null,
 					density,
 					source,
 					units

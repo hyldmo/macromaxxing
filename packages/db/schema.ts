@@ -71,8 +71,8 @@ export const ingredients = sqliteTable(
 		kcal: real('kcal').notNull(),
 		fiber: real('fiber').notNull(),
 		density: real('density'), // g/ml, for volume conversions (null for solids)
-		fdcId: integer('fdc_id'), // USDA FoodData Central ID
-		source: text('source').notNull(), // 'manual' | 'ai' | 'usda'
+		sourceId: text('source_id'), // external record id: USDA fdcId (as text) or OFF barcode; null for manual/ai
+		source: text('source').notNull(), // 'manual' | 'ai' | 'usda' | 'openfoodfacts' | 'label'
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('ingredients_user_id_idx').on(t.userId)]
