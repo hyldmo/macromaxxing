@@ -1,5 +1,6 @@
 export * from './custom-types'
 export * from './formulas'
+export * from './ingredient-source'
 export * from './muscle-load'
 export * from './preparation'
 export * from './relations'

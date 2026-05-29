@@ -24,6 +24,9 @@ export type AiProvider = z.infer<typeof zAiProvider>
 export const zAiProvider = z.enum(['gemini', 'openai', 'anthropic'])
 export const AI_PROVIDER_OPTIONS = zAiProvider.options.map(p => ({ value: p, label: startCase(p) }))
 
+export const ingredientSource = z.enum(['manual', 'ai', 'usda', 'openfoodfacts', 'label'])
+export type IngredientSource = z.infer<typeof ingredientSource>
+
 export const sex = z.enum(['male', 'female'])
 export type Sex = z.infer<typeof sex>
 
