@@ -226,7 +226,7 @@ users(id PK clerk_user_id, email)
   → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
                  heightCm?, weightKg?, sex: male|female)
 
-ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, fdcId?, source: manual|ai|usda|label)
+ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?, source: manual|ai|usda|openfoodfacts|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
 
 recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
@@ -377,6 +377,8 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - Over-allocation allowed with visual warning
 
 **Nutrition lookup priority:** Local USDA D1 (FTS5 search, ~14k foods) → USDA FoodData Central API → AI (user's configured provider)
+
+**Ingredient source linkage** — `source` discriminates provenance; `sourceId` (text, nullable) holds the vendor's external record id (USDA `fdcId` as a decimal string, OFF barcode with leading zeros preserved). `getSourceUrl(source, sourceId)` from `@macromaxxing/db` builds the external link from a per-source registry; `manual`/`ai` have no `sourceId`. Barcode scans are tagged `source: 'openfoodfacts'` (not `manual`). USDA dedup queries on `{ source: 'usda', sourceId }`, not a typed id column.
 
 **Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
 
