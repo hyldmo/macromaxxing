@@ -19,7 +19,12 @@ function resolveAppVersion(): string {
 }
 
 const isTest = process.env.VITEST === 'true'
-const buildRevision = `${Date.now()}`
+// react-router emits index.html after vite-plugin-pwa's hook, so it never lands in
+// Workbox's precache; we add it manually below. The revision is a placeholder that
+// scripts/fix-sw.ts replaces with index.html's content hash post-build. A build
+// timestamp here would change the SW on every deploy — even no-op client builds —
+// and re-trigger the "new version available" prompt indefinitely.
+const INDEX_HTML_REVISION_PLACEHOLDER = '__INDEX_HTML_REVISION__'
 
 export default defineConfig({
 	define: {
@@ -62,7 +67,7 @@ export default defineConfig({
 				navigateFallbackDenylist: [/^\/api\//],
 				importScripts: ['/sw-custom.js'],
 				cleanupOutdatedCaches: true,
-				additionalManifestEntries: [{ url: 'index.html', revision: buildRevision }]
+				additionalManifestEntries: [{ url: 'index.html', revision: INDEX_HTML_REVISION_PLACEHOLDER }]
 			}
 		})
 	],

@@ -1,7 +1,15 @@
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useEffect } from 'react'
 import { Button } from './Button'
 
 const POLL_INTERVAL = 60_000
+// If the prompt reappears within this window of clicking "Update", the update
+// didn't take (activation failed, or the browser immediately re-detected a
+// waiting worker). Suppress it once so a failed update can't tight-loop:
+// update -> reload -> prompt -> update. sessionStorage (not localStorage) so a
+// genuine update in a later session still prompts normally.
+const UPDATE_RETRY_WINDOW = 10_000
+const UPDATE_ATTEMPT_KEY = 'pwa-update-attempted-at'
 
 export const ReloadPrompt = () => {
 	const {
@@ -15,6 +23,18 @@ export const ReloadPrompt = () => {
 		}
 	})
 
+	useEffect(() => {
+		if (!needRefresh) return
+		const attemptedAt = Number(sessionStorage.getItem(UPDATE_ATTEMPT_KEY))
+		sessionStorage.removeItem(UPDATE_ATTEMPT_KEY)
+		if (attemptedAt && Date.now() - attemptedAt < UPDATE_RETRY_WINDOW) setNeedRefresh(false)
+	}, [needRefresh, setNeedRefresh])
+
+	const handleUpdate = () => {
+		sessionStorage.setItem(UPDATE_ATTEMPT_KEY, String(Date.now()))
+		updateServiceWorker(true)
+	}
+
 	if (!needRefresh) return null
 
 	return (
@@ -24,7 +44,7 @@ export const ReloadPrompt = () => {
 				<Button variant="outline" size="sm" onClick={() => setNeedRefresh(false)}>
 					Dismiss
 				</Button>
-				<Button size="sm" onClick={() => updateServiceWorker(true)}>
+				<Button size="sm" onClick={handleUpdate}>
 					Update
 				</Button>
 			</div>
