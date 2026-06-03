@@ -13,7 +13,7 @@ import { prefetchRoute, useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import type { Route } from './+types/analytics._index'
 
-const VALID_WINDOWS = ['4w', '12w', '1y'] as const
+const VALID_WINDOWS = ['4w', '12w', '1y', 'all'] as const
 type AnalyticsWindow = (typeof VALID_WINDOWS)[number]
 const DEFAULT_WINDOW: AnalyticsWindow = '12w'
 
@@ -41,13 +41,27 @@ export const clientLoader = ({ request }: Route.ClientLoaderArgs) => {
 const WINDOW_OPTIONS: { value: AnalyticsWindow; label: string }[] = [
 	{ value: '4w', label: '4w' },
 	{ value: '12w', label: '12w' },
-	{ value: '1y', label: '1y' }
+	{ value: '1y', label: '1y' },
+	{ value: 'all', label: 'All' }
 ]
 
-const WINDOW_WEEKS: Record<AnalyticsWindow, number> = {
+const WINDOW_WEEKS: Record<Exclude<AnalyticsWindow, 'all'>, number> = {
 	'4w': 4,
 	'12w': 12,
 	'1y': 53
+}
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Heatmap column count. Fixed windows map to a preset; all-time spans from the first
+ * logged day (heatmap rows are sorted ascending, so `[0]` is the earliest) to now.
+ */
+function heatmapWeeks(window: AnalyticsWindow, data: { date: string }[]): number {
+	if (window !== 'all') return WINDOW_WEEKS[window]
+	if (data.length === 0) return WINDOW_WEEKS['12w']
+	const earliestMs = Date.parse(`${data[0].date}T00:00:00Z`)
+	return Math.max(Math.ceil((Date.now() - earliestMs) / MS_PER_WEEK) + 1, 4)
 }
 
 const AnalyticsPage: FC = () => {
@@ -227,7 +241,10 @@ const AnalyticsPage: FC = () => {
 					) : (
 						<>
 							{heatmapQuery.error && <TRPCError error={heatmapQuery.error} />}
-							<CalendarHeatmap data={heatmapQuery.data ?? []} weeks={WINDOW_WEEKS[window]} />
+							<CalendarHeatmap
+								data={heatmapQuery.data ?? []}
+								weeks={heatmapWeeks(window, heatmapQuery.data ?? [])}
+							/>
 						</>
 					)}
 				</CardContent>

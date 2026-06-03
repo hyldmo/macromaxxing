@@ -141,10 +141,13 @@ export function metricHierarchy(set: { weightKg: number; reps: number }): Progre
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export type AnalyticsWindow = '4w' | '12w' | '1y'
+export type AnalyticsWindow = '4w' | '12w' | '1y' | 'all'
+
+/** Fixed-length windows — everything except all-time, which has no preset cutoff. */
+export type FixedAnalyticsWindow = Exclude<AnalyticsWindow, 'all'>
 
 /** Window enum → milliseconds. Shared by analytics endpoints + `exerciseHistory`. */
-export const WINDOW_CUTOFF_MS: Record<AnalyticsWindow, number> = {
+export const WINDOW_CUTOFF_MS: Record<FixedAnalyticsWindow, number> = {
 	'4w': 28 * DAY_MS,
 	'12w': 84 * DAY_MS,
 	'1y': 365 * DAY_MS
@@ -153,9 +156,12 @@ export const WINDOW_CUTOFF_MS: Record<AnalyticsWindow, number> = {
 /**
  * Convert a window enum to a unix-epoch ms cutoff: sessions with `startedAt >= cutoff`
  * are in the window `[now - WINDOW_CUTOFF_MS[window], now)`. Pure helper — `now`
- * is injected for testability.
+ * is injected for testability. The `all` window has no fixed cutoff: it returns 0
+ * (epoch) so every session is included, and callers derive the real start from the
+ * first logged session.
  */
 export function windowSinceMs(window: AnalyticsWindow, now: number = Date.now()): number {
+	if (window === 'all') return 0
 	return now - WINDOW_CUTOFF_MS[window]
 }
 
