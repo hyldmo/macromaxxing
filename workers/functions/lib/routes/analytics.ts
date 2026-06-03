@@ -20,7 +20,7 @@ import {
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 
-const windowInput = z.object({ window: z.enum(['4w', '12w', '1y']).default('12w') })
+const windowInput = z.object({ window: z.enum(['4w', '12w', '1y', 'all']).default('12w') })
 
 const RECENT_PRS_CAP = 30
 
@@ -224,10 +224,11 @@ export const analyticsRouter = router({
 		})
 		.input(windowInput)
 		.query(async ({ ctx, input }) => {
-			const cutoffMs = WINDOW_CUTOFF_MS[input.window]
 			const now = Date.now()
-			const currentStart = now - cutoffMs
-			const priorStart = now - 2 * cutoffMs
+			// 'all' has no prior period — current spans the user's whole history and prior is empty,
+			// so deltas read as the full all-time totals against a zero baseline.
+			const currentStart = input.window === 'all' ? 0 : now - WINDOW_CUTOFF_MS[input.window]
+			const priorStart = input.window === 'all' ? 0 : now - 2 * WINDOW_CUTOFF_MS[input.window]
 			// Pull both periods in one query; bucket per session in JS.
 			const sessions = await ctx.db.query.workoutSessions.findMany({
 				where: { userId: ctx.user.id, startedAt: { gte: priorStart } },
@@ -330,9 +331,7 @@ export const analyticsRouter = router({
 		})
 		.input(windowInput)
 		.query(async ({ ctx, input }) => {
-			const cutoffMs = WINDOW_CUTOFF_MS[input.window]
 			const now = Date.now()
-			const since = now - cutoffMs
 
 			// Monday-anchored UTC week start for any timestamp.
 			const WEEK_MS = 7 * 24 * 60 * 60 * 1000
@@ -343,8 +342,27 @@ export const analyticsRouter = router({
 				return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - dow * 24 * 60 * 60 * 1000
 			}
 
-			const startMonday = mondayUtc(since)
+			// Fixed windows query from the window's start Monday. 'all' pulls the full history
+			// (gte 0) and derives the grid start from the earliest logged session below.
+			const queryStart = input.window === 'all' ? 0 : mondayUtc(now - WINDOW_CUTOFF_MS[input.window])
+
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: { userId: ctx.user.id, startedAt: { gte: queryStart } },
+				with: {
+					logs: {
+						where: { setType: 'working' },
+						with: { exercise: { with: { muscles: true } } }
+					}
+				}
+			})
+
 			const endMonday = mondayUtc(now)
+			const startMonday =
+				input.window === 'all'
+					? sessions.length > 0
+						? mondayUtc(Math.min(...sessions.map(s => s.startedAt)))
+						: endMonday
+					: queryStart
 			const weekKeys: string[] = []
 			for (let t = startMonday; t <= endMonday; t += WEEK_MS) {
 				weekKeys.push(utcDateKey(t))
@@ -353,16 +371,6 @@ export const analyticsRouter = router({
 			type Volumes = Partial<Record<MuscleGroup, number>>
 			const perWeek = new Map<string, Volumes>()
 			for (const key of weekKeys) perWeek.set(key, {})
-
-			const sessions = await ctx.db.query.workoutSessions.findMany({
-				where: { userId: ctx.user.id, startedAt: { gte: startMonday } },
-				with: {
-					logs: {
-						where: { setType: 'working' },
-						with: { exercise: { with: { muscles: true } } }
-					}
-				}
-			})
 
 			for (const session of sessions) {
 				const key = utcDateKey(mondayUtc(session.startedAt))

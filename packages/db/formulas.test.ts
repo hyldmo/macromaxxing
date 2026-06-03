@@ -47,6 +47,11 @@ describe('windowSinceMs', () => {
 		expect(since).toBeGreaterThanOrEqual(before - 28 * DAY_MS)
 		expect(since).toBeLessThanOrEqual(after - 28 * DAY_MS)
 	})
+
+	it('all-time returns epoch 0 so every session is in-window', () => {
+		expect(windowSinceMs('all', NOW)).toBe(0)
+		expect(windowSinceMs('all')).toBe(0)
+	})
 })
 
 describe('utcDateKey', () => {
