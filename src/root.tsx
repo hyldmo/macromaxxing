@@ -5,6 +5,7 @@ import type { FC, ReactNode } from 'react'
 import { Links, Meta, Scripts, ScrollRestoration } from 'react-router'
 import { ErrorBoundary as AppErrorBoundary } from '~/components/ErrorBoundary'
 import { RootLayout } from '~/components/layout/RootLayout'
+import { AppLoader } from '~/components/ui'
 import { UserProvider } from '~/lib'
 import { queryClient, trpc, trpcClient } from '~/lib/trpc'
 import '@mdxeditor/editor/style.css'
@@ -66,10 +67,6 @@ export default function Root() {
 	return <RootLayout />
 }
 
-export const HydrateFallback: FC = () => (
-	<div className="flex min-h-screen items-center justify-center bg-surface-0">
-		<div className="font-mono text-ink-muted text-sm">Loading…</div>
-	</div>
-)
+export const HydrateFallback: FC = () => <AppLoader />
 
 export const ErrorBoundary: FC = () => <AppErrorBoundary />

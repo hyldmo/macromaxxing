@@ -110,3 +110,69 @@ body {
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
+
+/* App boot loader (AppLoader) — timer-dial HydrateFallback. Dash values are
+   precomputed for SIZE 140 / STROKE 20 (radius 60, circumference ~377). */
+.app-loader-rotor {
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: app-loader-rotor 2s linear infinite;
+}
+
+.app-loader-arc {
+	animation:
+		app-loader-dash 2s cubic-bezier(0.65, 0, 0.35, 1) infinite,
+		app-loader-hue 6.5s linear infinite;
+}
+
+@keyframes app-loader-rotor {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes app-loader-dash {
+	0% {
+		stroke-dasharray: 4 597;
+		stroke-dashoffset: 0;
+	}
+	50% {
+		stroke-dasharray: 271 597;
+		stroke-dashoffset: -45;
+	}
+	100% {
+		stroke-dasharray: 271 597;
+		stroke-dashoffset: -373;
+	}
+}
+
+@keyframes app-loader-hue {
+	0% {
+		stroke: var(--color-macro-protein);
+	}
+	20% {
+		stroke: var(--color-macro-carbs);
+	}
+	40% {
+		stroke: var(--color-macro-fat);
+	}
+	60% {
+		stroke: var(--color-macro-kcal);
+	}
+	80% {
+		stroke: var(--color-macro-fiber);
+	}
+	100% {
+		stroke: var(--color-macro-protein);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.app-loader-rotor,
+	.app-loader-arc {
+		animation: none;
+	}
+}

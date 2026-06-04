@@ -11,9 +11,17 @@ async function clearCacheAndReload() {
 	location.reload()
 }
 
+function getErrorMessage(error: unknown): string | null {
+	if (isRouteErrorResponse(error)) return typeof error.data === 'string' ? error.data : error.statusText || null
+	if (error instanceof Error) return error.message
+	if (typeof error === 'string') return error
+	return null
+}
+
 export const ErrorBoundary: FC = () => {
 	const error = useRouteError()
 	const isNotFound = !error || (isRouteErrorResponse(error) && error.status === 404)
+	const message = isNotFound ? null : getErrorMessage(error)
 
 	return (
 		<>
@@ -25,6 +33,11 @@ export const ErrorBoundary: FC = () => {
 						{isNotFound ? "This page doesn't exist." : 'Something went wrong.'}
 					</p>
 				</div>
+				{message && (
+					<pre className="max-w-md whitespace-pre-wrap break-words rounded-sm border border-edge bg-surface-1 px-3 py-2 text-left font-mono text-ink-muted text-xs">
+						{message}
+					</pre>
+				)}
 				<div className="flex gap-2">
 					<Link
 						to="/"

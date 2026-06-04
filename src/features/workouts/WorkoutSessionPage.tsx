@@ -576,6 +576,14 @@ export function WorkoutSessionPage() {
 					<div className="font-mono text-ink-muted text-xs tabular-nums">
 						{formatDate(session.startedAt)} · {totalExercises} exercises · {session.logs.length} sets ·{' '}
 						{(vol / 1000).toFixed(1)}k vol
+						{session.workoutId && session.workout && (
+							<>
+								{' · '}
+								<Link to={`/workouts/${session.workoutId}`} className="text-accent hover:underline">
+									{session.workout.name}
+								</Link>
+							</>
+						)}
 						{isCompleted && (
 							<span className="ml-2 rounded-full bg-success/20 px-1.5 py-0.5 text-[10px] text-success">
 								completed
