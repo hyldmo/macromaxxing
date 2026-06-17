@@ -34,6 +34,7 @@ import { TRPCError } from '@trpc/server'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { z } from 'zod'
+import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
 
@@ -282,6 +283,15 @@ const workoutExercisesWith = {
 } as const
 
 export const workoutsRouter = router({
+	// ─── Orientation ──────────────────────────────────────────────
+
+	guide: publicProcedure
+		.meta({
+			description:
+				'Full conventions reference for training program design: fatigue tiers, rep ranges, muscle-intensity scale, volume landmarks (MEV/MAV/MRV), movement-family classification, home/gym programming, and muscle-load tool gotchas. Call with no arguments before designing or modifying exercises, templates, or programs.'
+		})
+		.query(() => WORKOUT_GUIDE),
+
 	// ─── Exercise CRUD ────────────────────────────────────────────
 
 	listExercises: protectedProcedure

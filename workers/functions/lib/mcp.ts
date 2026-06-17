@@ -5,6 +5,7 @@ import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/sdk/validatio
 import type { AnyRouter } from '@trpc/server'
 import type { AuthUser } from './auth'
 import type { Database } from './db'
+import { MCP_INSTRUCTIONS } from './mcp-instructions'
 import { appRouter } from './router'
 
 export function procedurePathToToolName(path: string): string {
@@ -107,7 +108,7 @@ export async function handleMcpRequest(
 ): Promise<Response> {
 	const server = new McpServer(
 		{ name: 'macromaxxing', version: '1.0.0' },
-		{ jsonSchemaValidator: new CfWorkerJsonSchemaValidator() }
+		{ jsonSchemaValidator: new CfWorkerJsonSchemaValidator(), instructions: MCP_INSTRUCTIONS }
 	)
 
 	const caller = appRouter.createCaller({ db, user, env })
