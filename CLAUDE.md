@@ -318,6 +318,7 @@ trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
+trpc.workout.guide                                                        # No-arg orientation doc (MCP tool workout_guide) — training/program-design conventions reference
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
@@ -422,6 +423,10 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - **Personal access tokens** (Claude Code CLI, scripts) — bearer token from Settings > API Tokens.
 
 Stateless mode (new server per request). Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`). Requires `nodejs_compat` flag in `wrangler.toml` (for `Buffer` used by `@clerk/mcp-tools`).
+
+Two model-orientation channels, both in `workers/functions/lib/mcp-instructions.ts`:
+- **`MCP_INSTRUCTIONS`** — passed to the `McpServer` constructor (`instructions` option), returned in the `initialize` handshake and surfaced by clients automatically (no tool call). GLOBAL (identical for every user, re-sent each handshake) so it holds only the irreducible frame + the few tool caveats agents get wrong. Keep it tight — it is paid on every connection. Strictly user-agnostic: never put one user's body metrics, program, or preferences here (it broadcasts to all clients).
+- **`WORKOUT_GUIDE`** — long-form conventions reference returned on demand by the no-arg `workout.guide` query (tool `workout_guide`). Depth the always-on instructions shouldn't carry. Per-user state (active program, sessions, body metrics) is pulled live from data tools, not encoded here.
 
 All list pages show public content with "All" / "Mine" filter chips. User's own items have accent border and "yours" badge. Edit/delete only available for owned items.
 
