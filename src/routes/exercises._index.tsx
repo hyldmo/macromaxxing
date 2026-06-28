@@ -1,6 +1,6 @@
-import type { MuscleGroup } from '@macromaxxing/db'
+import { type MuscleGroup, MUSCLE_GROUPS } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
-import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { Card, Input, LinkButton, Spinner, TRPCError } from '~/components/ui'
@@ -22,7 +22,19 @@ export default function ExerciseListPage() {
 	const userId = user?.id
 	const [searchParams, setSearchParams] = useSearchParams()
 	const search = searchParams.get('search') ?? ''
-	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
+	const muscleParam = searchParams.get('muscle')
+	const muscle = MUSCLE_GROUPS.find(m => m === muscleParam) ?? null
+
+	const updateParams = (next: { search?: string; muscle?: MuscleGroup | null }) => {
+		const nextSearch = next.search ?? search
+		const nextMuscle = next.muscle === undefined ? muscle : next.muscle
+		const params: Record<string, string> = {}
+		if (nextSearch) params.search = nextSearch
+		if (nextMuscle) params.muscle = nextMuscle
+		setSearchParams(params, { replace: true })
+	}
+	const setSearch = (value: string) => updateParams({ search: value })
+	const toggleMuscle = (m: MuscleGroup) => updateParams({ muscle: muscle === m ? null : m })
 	const [sortKey, setSortKey] = useState<'name' | 'type' | 'tier'>('name')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 	const [hoveredExercise, setHoveredExercise] = useState<Exercise | null>(null)
@@ -47,20 +59,21 @@ export default function ExerciseListPage() {
 
 	const filtered = useMemo(() => {
 		const all = exercisesQuery.data ?? []
+		const byMuscle = muscle ? all.filter(e => e.muscles.some(m => m.muscleGroup === muscle)) : all
 		const list = search
-			? all.filter(e => {
+			? byMuscle.filter(e => {
 					const muscles = e.muscles.map(m => m.muscleGroup.replace('_', ' ')).join(' ')
 					const text = `${e.name} ${e.type} ${muscles} tier ${e.fatigueTier}`
 					return fuzzyMatch(search, text) !== null
 				})
-			: all
+			: byMuscle
 		return list.toSorted((a, b) => {
 			const dir = sortDir === 'asc' ? 1 : -1
 			if (sortKey === 'name') return dir * a.name.localeCompare(b.name)
 			if (sortKey === 'type') return dir * a.type.localeCompare(b.type)
 			return dir * (a.fatigueTier - b.fatigueTier)
 		})
-	}, [exercisesQuery.data, search, sortKey, sortDir])
+	}, [exercisesQuery.data, search, muscle, sortKey, sortDir])
 
 	const hoveredVolumes = useMemo(() => {
 		const volumes = new Map<MuscleGroup, number>()
@@ -110,6 +123,20 @@ export default function ExerciseListPage() {
 					</div>
 				</div>
 
+				{muscle && (
+					<div className="flex items-center gap-2 text-sm">
+						<span className="text-ink-muted">Muscle:</span>
+						<button
+							type="button"
+							onClick={() => toggleMuscle(muscle)}
+							className="inline-flex items-center gap-1 rounded-md border border-accent bg-accent/10 px-2 py-0.5 text-accent text-xs"
+						>
+							{startCase(muscle)}
+							<X className="size-3" />
+						</button>
+					</div>
+				)}
+
 				{exercisesQuery.error && <TRPCError error={exercisesQuery.error} />}
 				{deleteMutation.error && <TRPCError error={deleteMutation.error} />}
 
@@ -121,7 +148,7 @@ export default function ExerciseListPage() {
 
 				{filtered.length === 0 && !exercisesQuery.isLoading && (
 					<Card className="py-12 text-center text-ink-faint">
-						{search ? 'No exercises match your search.' : 'No exercises yet.'}
+						{search || muscle ? 'No exercises match your filters.' : 'No exercises yet.'}
 					</Card>
 				)}
 
@@ -153,12 +180,16 @@ export default function ExerciseListPage() {
 
 			<div className="hidden lg:sticky lg:top-16 lg:block lg:self-start">
 				<div className="w-64 space-y-2">
-					<div className="h-5 text-center font-medium text-ink text-sm">{hoveredExercise?.name}</div>
+					<div className="h-5 text-center font-medium text-ink text-sm">
+						{hoveredExercise?.name ?? (muscle ? startCase(muscle) : '')}
+					</div>
 					<BodyMap
 						muscleVolumes={hoveredVolumes}
 						sex={sex}
-						renderTooltip={muscle => {
-							const m = hoveredExercise?.muscles.find(m => m.muscleGroup === muscle)
+						onMuscleClick={toggleMuscle}
+						selectedMuscle={muscle}
+						renderTooltip={hovered => {
+							const m = hoveredExercise?.muscles.find(m => m.muscleGroup === hovered)
 							if (!m) return null
 							return (
 								<div className="font-mono text-[10px] text-ink-muted tabular-nums">
@@ -167,6 +198,7 @@ export default function ExerciseListPage() {
 							)
 						}}
 					/>
+					<p className="text-center text-ink-faint text-xs">Click a muscle to filter</p>
 				</div>
 			</div>
 		</div>
