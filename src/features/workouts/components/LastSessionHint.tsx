@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { cn, formatRecency } from '~/lib'
+import { METRIC_UNIT } from '~/lib/workouts/constants'
 
 export interface LastSessionHintProps {
 	lastSession: {
@@ -31,7 +32,7 @@ export const LastSessionHint: FC<LastSessionHintProps> = ({ lastSession, classNa
 	if (isBodyweight) {
 		body = `${shown.map(s => s.reps).join(', ')}${truncated ? ', …' : ''} reps`
 	} else {
-		// Group consecutive sets at the same weight: "80×8, 8, 6 · 75×10"
+		// Group consecutive sets at the same weight: "80kg×8, 8, 6 · 75kg×10 reps"
 		const groups: Array<{ weight: number; reps: number[] }> = []
 		for (const s of shown) {
 			const last = groups.at(-1)
@@ -41,8 +42,8 @@ export const LastSessionHint: FC<LastSessionHintProps> = ({ lastSession, classNa
 				groups.push({ weight: s.weightKg, reps: [s.reps] })
 			}
 		}
-		const parts = groups.map(g => `${formatWeight(g.weight)}×${g.reps.join(', ')}`)
-		body = `${parts.join(' · ')}${truncated ? ' · …' : ''}`
+		const parts = groups.map(g => `${formatWeight(g.weight)}${METRIC_UNIT.weight}×${g.reps.join(', ')}`)
+		body = `${parts.join(' · ')}${truncated ? ' · …' : ''} reps`
 	}
 
 	return (
