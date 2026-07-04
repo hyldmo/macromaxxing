@@ -1352,9 +1352,10 @@ export const workoutsRouter = router({
 			if (updates.setType !== undefined) set.setType = updates.setType
 			if (updates.rpe !== undefined) set.rpe = updates.rpe
 			if (updates.failureFlag !== undefined) set.failureFlag = updates.failureFlag ? 1 : 0
-			if (Object.keys(set).length === 0) return
+			if (Object.keys(set).length === 0) return log
 
-			await ctx.db.update(workoutLogs).set(set).where(eq(workoutLogs.id, id))
+			const [updated] = await ctx.db.update(workoutLogs).set(set).where(eq(workoutLogs.id, id)).returning()
+			return updated
 		}),
 
 	removeSet: protectedProcedure

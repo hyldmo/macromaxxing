@@ -1,7 +1,76 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { deriveAnnotations, extractMcpTools, procedurePathToToolName } from './mcp'
+import { deriveAnnotations, extractMcpTools, procedurePathToToolName, serializeToolResult } from './mcp'
 import { appRouter } from './router'
+
+describe('serializeToolResult', () => {
+	it('returns OK for void procedure results', () => {
+		expect(serializeToolResult(undefined)).toBe('OK')
+	})
+
+	it('JSON-stringifies defined values', () => {
+		expect(serializeToolResult({ id: 'wkl_01', weightKg: 11.5 })).toBe(
+			JSON.stringify({ id: 'wkl_01', weightKg: 11.5 }, null, 2)
+		)
+	})
+
+	it('JSON-stringifies null (distinct from void)', () => {
+		expect(serializeToolResult(null)).toBe('null')
+	})
+})
+
+describe('MCP mutations', () => {
+	it('documents all MCP-exposed mutations', () => {
+		const tools = extractMcpTools(appRouter)
+		const procedures = (appRouter as any)._def.procedures as Record<string, { _def: { type: string } }>
+		const mutations = tools.filter(t => procedures[t.procedurePath]?._def?.type === 'mutation')
+		expect(mutations.map(t => t.name).sort()).toMatchInlineSnapshot(`
+			[
+			  "ai_lookup",
+			  "ai_parseRecipe",
+			  "ingredient_create",
+			  "ingredient_findOrCreate",
+			  "mealPlan_addToInventory",
+			  "mealPlan_allocate",
+			  "mealPlan_create",
+			  "mealPlan_delete",
+			  "mealPlan_removeFromInventory",
+			  "mealPlan_removeSlot",
+			  "mealPlan_update",
+			  "recipe_addIngredient",
+			  "recipe_create",
+			  "recipe_delete",
+			  "recipe_removeIngredient",
+			  "recipe_update",
+			  "recipe_updateIngredient",
+			  "workout_addSet",
+			  "workout_completeSession",
+			  "workout_createExercise",
+			  "workout_createProgram",
+			  "workout_createSession",
+			  "workout_createWorkout",
+			  "workout_deleteExercise",
+			  "workout_deleteGuide",
+			  "workout_deleteProgram",
+			  "workout_deleteSession",
+			  "workout_deleteWorkout",
+			  "workout_importSets",
+			  "workout_importWorkouts",
+			  "workout_removeSet",
+			  "workout_reorderPrograms",
+			  "workout_reorderWorkouts",
+			  "workout_replaceSessionExercise",
+			  "workout_setActiveProgram",
+			  "workout_updateExercise",
+			  "workout_updateProgram",
+			  "workout_updateSessionNotes",
+			  "workout_updateSet",
+			  "workout_updateWorkout",
+			  "workout_upsertGuide",
+			]
+		`)
+	})
+})
 
 describe('procedurePathToToolName', () => {
 	it('converts dot-separated path to underscore', () => {
