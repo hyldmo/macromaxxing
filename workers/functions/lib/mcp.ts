@@ -89,6 +89,11 @@ function getTools(): McpToolDef[] {
 	return cachedTools
 }
 
+/** JSON.stringify(undefined) is itself undefined — MCP requires content[].text to be a string. */
+export function serializeToolResult(result: unknown): string {
+	return result === undefined ? 'OK' : JSON.stringify(result, null, 2)
+}
+
 /** Traverse a nested caller object by dot-separated path to get the procedure function */
 function traverseCaller(caller: any, path: string): (...args: any[]) => Promise<any> {
 	const parts = path.split('.')
@@ -126,7 +131,7 @@ export async function handleMcpRequest(
 						const fn = traverseCaller(caller, tool.procedurePath)
 						const result = await fn(args)
 						return {
-							content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+							content: [{ type: 'text' as const, text: serializeToolResult(result) }]
 						}
 					} catch (err: unknown) {
 						const message = err instanceof Error ? err.message : 'Unknown error'
@@ -144,7 +149,7 @@ export async function handleMcpRequest(
 					const fn = traverseCaller(caller, tool.procedurePath)
 					const result = await fn()
 					return {
-						content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }]
+						content: [{ type: 'text' as const, text: serializeToolResult(result) }]
 					}
 				} catch (err: unknown) {
 					const message = err instanceof Error ? err.message : 'Unknown error'
