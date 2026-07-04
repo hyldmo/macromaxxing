@@ -280,3 +280,53 @@ export function computeDivergences(
 
 	return result
 }
+
+/** Template exercises with working logs that have no divergence suggestion */
+export function computeMatchedExercises(
+	logs: ReadonlyArray<LogInput>,
+	plannedExercises: ReadonlyArray<PlannedExerciseInput>,
+	workoutGoal: TrainingGoal,
+	bodyWeightKg: number | null = null,
+	divergenceExerciseIds: ReadonlySet<string> = new Set()
+): Divergence[] {
+	const result: Divergence[] = []
+
+	for (const we of plannedExercises) {
+		if (divergenceExerciseIds.has(we.exerciseId)) continue
+
+		const exerciseLogs = logs.filter(l => l.exerciseId === we.exerciseId && l.setType === 'working')
+		if (exerciseLogs.length === 0) continue
+
+		const exerciseGoal = we.trainingGoal ?? workoutGoal
+		const range = getRepRange(we.exercise, exerciseGoal)
+
+		const templateMode = we.setMode ?? 'working'
+		const hasBackoff = templateMode === 'backoff' || templateMode === 'full'
+		const totalSets = we.targetSets ?? defaultSets(exerciseGoal)
+		const effectiveSets = hasBackoff ? Math.max(1, totalSets - 1) : totalSets
+		const effectiveReps = we.targetReps ?? range.max
+
+		const bestSet = exerciseLogs.reduce((best, l) =>
+			l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
+		)
+
+		const bwMultiplier = we.exercise.bwMultiplier
+		const bestAddedKg = addedWeightKg(bwMultiplier, bodyWeightKg, bestSet.weightKg)
+
+		result.push({
+			exerciseId: we.exerciseId,
+			exerciseName: we.exercise.name,
+			bwMultiplier,
+			planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
+			actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestAddedKg },
+			improved: false,
+			suggestion: {
+				targetSets: exerciseLogs.length,
+				targetReps: bestSet.reps,
+				targetWeight: bestAddedKg > 0 ? bestAddedKg : null
+			}
+		})
+	}
+
+	return result
+}
