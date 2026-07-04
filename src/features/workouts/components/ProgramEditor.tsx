@@ -5,8 +5,8 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { type FC, Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
-import { cn, useDocumentTitle, useUnsavedChanges } from '~/lib'
+import { Button, Card, CopyButton, Input, Select, Spinner, TRPCError } from '~/components/ui'
+import { cn, formatProgram, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { collectWorkoutMuscles, computeProgramRest, findOptimalOrder } from '~/lib/workouts/programRest'
 import { MuscleVolumeChip } from './MuscleChip'
@@ -162,6 +162,17 @@ export const ProgramEditor: FC = () => {
 			<div className="flex items-center justify-between gap-2">
 				<h1 className="font-semibold text-ink">{isNew ? 'New Program' : 'Edit Program'}</h1>
 				<div className="flex items-center gap-2">
+					{resolvedItems.length > 0 && (
+						<CopyButton
+							variant="outline"
+							size="default"
+							getText={() =>
+								formatProgram(name.trim() || programQuery.data?.name || 'Program', resolvedItems)
+							}
+						>
+							Copy All
+						</CopyButton>
+					)}
 					<Button variant="ghost" onClick={() => navigate('/plans')}>
 						Cancel
 					</Button>
@@ -360,6 +371,15 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, onR
 					</div>
 				)}
 			</div>
+			{workout && (
+				<CopyButton
+					variant="ghost"
+					size="icon"
+					getText={() => formatTemplate(workout)}
+					aria-label={`Copy ${item.name}`}
+					className="self-start"
+				/>
+			)}
 			<Button variant="ghost" size="icon" onClick={onRemove} aria-label="Remove workout" className="self-start">
 				<Trash2 className="size-4" />
 			</Button>
