@@ -103,6 +103,13 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 	const isPending = createMutation.isPending || updateMutation.isPending
 	const error = createMutation.error || updateMutation.error
 	const trimmedName = name.trim()
+	const repRangeSource = {
+		type,
+		strengthRepsMin: ranges.strength.min ?? null,
+		strengthRepsMax: ranges.strength.max ?? null,
+		hypertrophyRepsMin: ranges.hypertrophy.min ?? null,
+		hypertrophyRepsMax: ranges.hypertrophy.max ?? null
+	}
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
@@ -143,7 +150,7 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 											[goal]: { ...ranges[goal], [cap]: Number.isNaN(v) ? null : v }
 										}))
 									}}
-									placeholder={getRepRange(editExercise!, goal)[cap].toString()}
+									placeholder={getRepRange(repRangeSource, goal)[cap].toString()}
 									min={1}
 									step={1}
 								/>
