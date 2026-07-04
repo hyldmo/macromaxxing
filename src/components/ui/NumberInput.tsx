@@ -122,6 +122,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 		)
 
 		const enabled = !(props.readOnly || props.disabled)
+		const longUnit = !!unit && unit.length > 2
 
 		return (
 			<div
@@ -156,7 +157,8 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 					{unit && (placeholder === unit ? !!value : true) && (
 						<span
 							className={cn(
-								'pointer-events-none absolute inset-0 flex items-center pt-0.5 font-mono text-[10px] text-ink-faint transition-opacity',
+								'pointer-events-none absolute inset-0 flex font-mono text-[10px] text-ink-faint transition-opacity',
+								longUnit ? '-rotate-90 items-center justify-center' : 'items-center pt-0.5',
 								{ 'group-focus-within:opacity-0 group-hover:opacity-0': enabled }
 							)}
 						>
