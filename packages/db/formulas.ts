@@ -23,6 +23,22 @@ export function weightForReps(oneRM: number, reps: number): number {
 	return oneRM * ((37 - reps) / 36)
 }
 
+/**
+ * Effective load for a set: absolute weight when `bwMultiplier` is 0, otherwise
+ * `bodyWeightKg × bwMultiplier + addedKg`. Returns 0 when BW is required but missing.
+ */
+export function effectiveSetWeightKg(bwMultiplier: number, bodyWeightKg: number | null, addedKg: number): number {
+	if (bwMultiplier <= 0) return addedKg
+	if (bodyWeightKg == null || bodyWeightKg <= 0) return 0
+	return bodyWeightKg * bwMultiplier + addedKg
+}
+
+/** Inverse of effectiveSetWeightKg: recover added kg from a stored effective load. */
+export function addedWeightKg(bwMultiplier: number, bodyWeightKg: number | null, effectiveKg: number): number {
+	if (bwMultiplier <= 0 || bodyWeightKg == null || bodyWeightKg <= 0) return effectiveKg
+	return Math.max(0, effectiveKg - bodyWeightKg * bwMultiplier)
+}
+
 /** Total volume = Σ(weight * reps) */
 export function totalVolume(logs: Array<{ weightKg: number; reps: number; sets?: number }>): number {
 	return logs.reduce((sum, { weightKg, reps, sets = 1 }) => sum + weightKg * reps * sets, 0)

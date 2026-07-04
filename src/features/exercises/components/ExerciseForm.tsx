@@ -32,6 +32,9 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 	const [name, setName] = useState(editExercise?.name ?? '')
 	const [type, setType] = useState<ExerciseType>(editExercise?.type ?? 'compound')
 	const [fatigueTier, setFatigueTier] = useState(editExercise?.fatigueTier ?? 2)
+	const [bwMultiplier, setBwMultiplier] = useState(
+		editExercise?.bwMultiplier != null ? String(editExercise.bwMultiplier) : '0'
+	)
 	const [ranges, setRanges] = useState<Record<TrainingGoal, { min: Nullable<number>; max: Nullable<number> }>>({
 		strength: { min: editExercise?.strengthRepsMin, max: editExercise?.strengthRepsMax },
 		hypertrophy: { min: editExercise?.hypertrophyRepsMin, max: editExercise?.hypertrophyRepsMax }
@@ -59,6 +62,8 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 		const muscleData = muscles
 			.filter(m => m.intensity)
 			.map(m => ({ muscleGroup: m.muscleGroup, intensity: Number.parseFloat(m.intensity) || 0 }))
+		const parsedBw = Number.parseFloat(bwMultiplier)
+		const bwValue = Number.isNaN(parsedBw) ? 0 : parsedBw
 
 		if (editExercise) {
 			updateMutation.mutate({
@@ -66,6 +71,7 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 				name: name.trim(),
 				type,
 				fatigueTier,
+				bwMultiplier: bwValue,
 				strengthRepsMin: ranges.strength.min ?? null,
 				strengthRepsMax: ranges.strength.max ?? null,
 				hypertrophyRepsMin: ranges.hypertrophy.min ?? null,
@@ -77,6 +83,7 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 				name: name.trim(),
 				type,
 				fatigueTier,
+				bwMultiplier: bwValue,
 				strengthRepsMin: ranges.strength.min ?? null,
 				strengthRepsMax: ranges.strength.max ?? null,
 				hypertrophyRepsMin: ranges.hypertrophy.min ?? null,
@@ -126,6 +133,23 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 						onChange={setFatigueTier}
 					/>
 				</Label>
+			</div>
+
+			<div className="grid gap-3 sm:grid-cols-4">
+				<Label label="BW multiplier" className="sm:col-span-1">
+					<NumberInput
+						value={bwMultiplier}
+						onChange={e => setBwMultiplier(e.target.value)}
+						placeholder="0"
+						min={0}
+						max={2}
+						step={0.05}
+					/>
+				</Label>
+				<p className="self-end text-ink-faint text-xs sm:col-span-3">
+					0 = barbell/dumbbell. &gt;0 = bodyweight exercise — log added kg only (e.g. 1.0 pull-up, 0.65
+					push-up).
+				</p>
 			</div>
 
 			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

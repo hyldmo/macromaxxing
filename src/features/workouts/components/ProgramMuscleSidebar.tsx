@@ -32,8 +32,9 @@ interface ProgramMuscleSidebarProps {
 export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }) => {
 	const profileQuery = trpc.settings.getProfile.useQuery()
 	const sex = profileQuery.data?.sex ?? 'male'
+	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 
-	const load = useMemo(() => computeProgramLoad(workouts), [workouts])
+	const load = useMemo(() => computeProgramLoad(workouts, bodyWeightKg), [workouts, bodyWeightKg])
 	const cycleDays = useMemo(() => programCycleDays(workouts), [workouts])
 	const avgSessionMin = useMemo(() => {
 		if (workouts.length === 0) return 0
@@ -131,7 +132,9 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 }
 
 export const BelowMevWarning: FC<ProgramMuscleSidebarProps> = ({ workouts }) => {
-	const load = useMemo(() => computeProgramLoad(workouts), [workouts])
+	const profileQuery = trpc.settings.getProfile.useQuery()
+	const bodyWeightKg = profileQuery.data?.weightKg ?? null
+	const load = useMemo(() => computeProgramLoad(workouts, bodyWeightKg), [workouts, bodyWeightKg])
 	if (load.belowMev.length === 0) return null
 	return (
 		<Card className="space-y-1 border-amber-500/40 bg-amber-500/5 p-3">

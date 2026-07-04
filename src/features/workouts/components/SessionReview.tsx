@@ -2,7 +2,7 @@ import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowRight, Check, Pencil, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button, Modal, NumberInput, Spinner, Switch } from '~/components/ui'
-import { cn, computeDivergences, exerciseE1rmStats } from '~/lib'
+import { addedWeightKg, cn, computeDivergences, exerciseE1rmStats } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { useWorkoutSessionStore } from '../store'
@@ -22,16 +22,18 @@ export interface SessionReviewProps {
 	session: Session
 	template: Template
 	extraExercises: ExtraDef[]
+	bodyWeightKg: number | null
 	onClose: () => void
 }
 
-export const SessionReview: FC<SessionReviewProps> = ({ session, template, extraExercises, onClose }) => {
+export const SessionReview: FC<SessionReviewProps> = ({ session, template, extraExercises, bodyWeightKg, onClose }) => {
 	const utils = trpc.useUtils()
 	const reset = useWorkoutSessionStore(s => s.reset)
 
 	const divergences = useMemo(
-		() => computeDivergences(session.logs, template.exercises, template.trainingGoal ?? 'hypertrophy'),
-		[session.logs, template.exercises, template.trainingGoal]
+		() =>
+			computeDivergences(session.logs, template.exercises, template.trainingGoal ?? 'hypertrophy', bodyWeightKg),
+		[session.logs, template.exercises, template.trainingGoal, bodyWeightKg]
 	)
 
 	const exerciseStats = useMemo(() => exerciseE1rmStats(session.logs), [session.logs])
@@ -82,11 +84,13 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 				const bestSet = workingLogs.reduce((best, l) =>
 					l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
 				)
+				const bwMultiplier = workingLogs[0]?.exercise.bwMultiplier ?? 0
+				const bestAddedKg = addedWeightKg(bwMultiplier, bodyWeightKg, bestSet.weightKg)
 				return {
 					exerciseId: e.exerciseId,
 					targetSets: workingLogs.length,
 					targetReps: bestSet.reps,
-					targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
+					targetWeight: bestAddedKg > 0 ? bestAddedKg : null
 				}
 			})
 
@@ -145,14 +149,16 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 												<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
 													<span className="text-ink-faint">
 														{d.planned.sets}×{d.planned.reps}
-														{d.planned.weight != null && ` @${d.planned.weight}kg`}
+														{d.planned.weight != null &&
+															` @${d.bwMultiplier > 0 ? '+' : ''}${d.planned.weight}kg`}
 													</span>
 													<ArrowRight className="size-3 text-ink-faint" />
 													<span
 														className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}
 													>
 														{sets}×{reps}
-														{weight != null && ` @${weight}kg`}
+														{weight != null &&
+															` @${d.bwMultiplier > 0 ? '+' : ''}${weight}kg`}
 													</span>
 												</div>
 											</div>
@@ -232,7 +238,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 													min={0}
 													step="auto"
 													unit="kg"
-													placeholder="kg"
+													placeholder={d.bwMultiplier > 0 ? '+kg' : 'kg'}
 													onChange={e => {
 														const v = Number.parseFloat(e.target.value)
 														setCustomTargets(p =>

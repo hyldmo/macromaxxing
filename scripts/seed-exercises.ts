@@ -18,6 +18,7 @@ interface ExerciseDef {
 	name: string
 	type: ExerciseType
 	fatigueTier: FatigueTier
+	bwMultiplier?: number
 	muscles: Array<{ group: MuscleGroup; intensity: number }>
 	strengthRepsMin?: number
 	strengthRepsMax?: number
@@ -87,6 +88,7 @@ const EXERCISES: ExerciseDef[] = [
 		name: 'Pull-Up',
 		type: 'compound',
 		fatigueTier: 2,
+		bwMultiplier: 1,
 		strengthRepsMin: 3,
 		strengthRepsMax: 6,
 		hypertrophyRepsMin: 6,
@@ -274,8 +276,9 @@ for (const ex of EXERCISES) {
 	const strMax = ex.strengthRepsMax ?? 'NULL'
 	const hypMin = ex.hypertrophyRepsMin ?? 'NULL'
 	const hypMax = ex.hypertrophyRepsMax ?? 'NULL'
+	const bwMult = ex.bwMultiplier ?? 0
 	exec(
-		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, strength_reps_min, strength_reps_max, hypertrophy_reps_min, hypertrophy_reps_max, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${strMin}, ${strMax}, ${hypMin}, ${hypMax}, ${now})`
+		`INSERT OR REPLACE INTO exercises (id, user_id, name, type, fatigue_tier, strength_reps_min, strength_reps_max, hypertrophy_reps_min, hypertrophy_reps_max, bw_multiplier, created_at) VALUES ('${id}', NULL, '${ex.name}', '${ex.type}', ${ex.fatigueTier}, ${strMin}, ${strMax}, ${hypMin}, ${hypMax}, ${bwMult}, ${now})`
 	)
 	for (const m of ex.muscles) {
 		const mid = `exm_${id.slice(4)}_${m.group}`

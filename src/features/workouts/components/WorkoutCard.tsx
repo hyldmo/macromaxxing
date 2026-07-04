@@ -3,12 +3,13 @@ import { Pencil, Play } from 'lucide-react'
 import { forwardRef, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button, Card } from '~/components/ui'
-import { cn, generatePlannedSets, resolveExerciseTargets, totalVolume } from '~/lib'
+import { cn, effectiveSetWeightKg, generatePlannedSets, resolveExerciseTargets, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { trpc } from '~/lib/trpc'
 
 type Workout = RouterOutput['workout']['listWorkouts'][number]
 
-function workoutVolume(workout: Workout): number {
+function workoutVolume(workout: Workout, bodyWeightKg: number | null): number {
 	const warmedUpMuscles = new Map<string, number>()
 	let vol = 0
 	for (const we of workout.exercises) {
@@ -19,9 +20,15 @@ function workoutVolume(workout: Workout): number {
 			reps,
 			weightKg,
 			muscles: we.exercise.muscles,
-			warmedUpMuscles
+			warmedUpMuscles,
+			bwMultiplier: we.exercise.bwMultiplier
 		})
-		vol += totalVolume(planned.map(s => ({ weightKg: s.weightKg ?? 0, reps: s.reps })))
+		vol += totalVolume(
+			planned.map(s => ({
+				weightKg: effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, s.weightKg ?? 0),
+				reps: s.reps
+			}))
+		)
 	}
 	return vol
 }
@@ -53,7 +60,9 @@ export const WorkoutCard = forwardRef<HTMLDivElement, WorkoutCardProps>(
 		ref
 	) => {
 		const navigate = useNavigate()
-		const vol = workoutVolume(workout)
+		const profileQuery = trpc.settings.getProfile.useQuery()
+		const bodyWeightKg = profileQuery.data?.weightKg ?? null
+		const vol = workoutVolume(workout, bodyWeightKg)
 		const isCompact = variant === 'compact'
 
 		return (

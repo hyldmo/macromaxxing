@@ -1,5 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { utcDateKey, WINDOW_CUTOFF_MS, windowSinceMs } from './formulas'
+import { addedWeightKg, effectiveSetWeightKg, utcDateKey, WINDOW_CUTOFF_MS, windowSinceMs } from './formulas'
+
+describe('effectiveSetWeightKg', () => {
+	it('returns added kg unchanged when bwMultiplier is 0', () => {
+		expect(effectiveSetWeightKg(0, 80, 100)).toBe(100)
+		expect(effectiveSetWeightKg(0, null, 50)).toBe(50)
+	})
+
+	it('computes bodyweight × multiplier + added', () => {
+		expect(effectiveSetWeightKg(1, 80, 0)).toBe(80)
+		expect(effectiveSetWeightKg(1, 80, 20)).toBe(100)
+		expect(effectiveSetWeightKg(0.65, 80, 0)).toBe(52)
+	})
+
+	it('returns 0 when body weight is missing for a bw exercise', () => {
+		expect(effectiveSetWeightKg(1, null, 20)).toBe(0)
+		expect(effectiveSetWeightKg(0.65, 0, 0)).toBe(0)
+	})
+})
+
+describe('addedWeightKg', () => {
+	it('round-trips with effectiveSetWeightKg', () => {
+		expect(addedWeightKg(1, 80, effectiveSetWeightKg(1, 80, 20))).toBe(20)
+		expect(addedWeightKg(0.65, 80, effectiveSetWeightKg(0.65, 80, 0))).toBe(0)
+	})
+
+	it('returns effective kg unchanged for non-BW exercises', () => {
+		expect(addedWeightKg(0, 80, 100)).toBe(100)
+		expect(addedWeightKg(0, null, 50)).toBe(50)
+	})
+
+	it('clamps to zero when effective load is below bodyweight contribution', () => {
+		expect(addedWeightKg(1, 80, 50)).toBe(0)
+	})
+})
 
 const DAY_MS = 24 * 60 * 60 * 1000
 

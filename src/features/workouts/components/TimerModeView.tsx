@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
-import { cn, type FlatSet, formatTimer, SET_TYPE_STYLES } from '~/lib'
+import { cn, effectiveSetWeightKg, type FlatSet, formatTimer, SET_TYPE_STYLES } from '~/lib'
 import { SecondaryTimer } from './SecondaryTimer'
 import { TimerRing } from './TimerRing'
 
@@ -49,6 +49,7 @@ export interface TimerModeViewProps {
 	/** Editable weight + reps for the current set. */
 	weight: number | null
 	reps: number
+	bodyWeightKg?: number | null
 
 	/** Callbacks (all optional → safe for inert demo surfaces). */
 	onClose?: () => void
@@ -86,6 +87,7 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	sessionElapsedSec,
 	weight,
 	reps,
+	bodyWeightKg,
 	onClose,
 	onOpenNotes,
 	onOpenGuide,
@@ -101,6 +103,15 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	onEditWeight,
 	onEditReps
 }) => {
+	const displayWeight = (set: FlatSet | null, addedKg: number | null): number => {
+		if (!set) return 0
+		if (set.bwMultiplier <= 0) return addedKg ?? set.weightKg ?? 0
+		return effectiveSetWeightKg(set.bwMultiplier, bodyWeightKg ?? null, addedKg ?? set.weightKg ?? 0)
+	}
+
+	const currentLoadKg = displayWeight(currentSet, weight)
+	const isBwInput = (currentSet?.bwMultiplier ?? 0) > 0
+
 	// Reset to the app's default sans font so the view looks identical when mounted
 	// on surfaces that set a different font (e.g. landing page uses font-display).
 	const wrapperClass = fixed
@@ -225,7 +236,7 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 									</div>
 								</div>
 								<span className="font-mono text-ink text-lg tabular-nums">
-									{currentSet.weightKg ?? 0}kg &times; {currentSet.reps} reps
+									{currentLoadKg}kg &times; {currentSet.reps} reps
 								</span>
 							</div>
 
@@ -269,7 +280,7 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 								<NumberInput
 									className="w-28 text-center text-2xl"
 									value={weight ?? ''}
-									placeholder="kg"
+									placeholder={isBwInput ? '+kg' : 'kg'}
 									unit="kg"
 									onChange={e => {
 										const v = Number.parseFloat(e.target.value)
@@ -358,7 +369,7 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 										{nextSet.setType}
 									</span>
 									<span className="font-mono text-ink text-sm tabular-nums">
-										{nextSet.weightKg ?? 0}kg &times; {nextSet.reps}
+										{displayWeight(nextSet, nextSet.weightKg)}kg &times; {nextSet.reps}
 									</span>
 								</div>
 							)}

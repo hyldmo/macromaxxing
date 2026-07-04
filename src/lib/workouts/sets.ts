@@ -84,7 +84,19 @@ export interface GeneratedSet {
 	setType: 'warmup' | 'backoff'
 }
 
-export function generateWarmupSets(workingWeight: number, workingReps: number): GeneratedSet[] {
+export function generateWarmupSets(workingWeight: number, workingReps: number, bwMultiplier = 0): GeneratedSet[] {
+	if (bwMultiplier > 0) {
+		if (workingReps <= 0) return []
+		const sets: GeneratedSet[] = []
+		const firstReps = Math.max(3, Math.round(workingReps * 0.6))
+		sets.push({ weightKg: 0, reps: firstReps, setType: 'warmup' })
+		const secondReps = Math.max(2, Math.round(workingReps * 0.4))
+		if (secondReps < firstReps) {
+			sets.push({ weightKg: 0, reps: secondReps, setType: 'warmup' })
+		}
+		return sets
+	}
+
 	if (workingWeight <= 0) return []
 	const sets: GeneratedSet[] = []
 
@@ -128,7 +140,24 @@ export function shouldSkipWarmup(currentMuscles: MuscleEntry[], warmedUpMuscles:
 	return coveredIntensity / totalIntensity >= 0.5
 }
 
-export function generateBackoffSets(workingWeight: number, workingReps: number, count = 2): GeneratedSet[] {
+export function generateBackoffSets(
+	workingWeight: number,
+	workingReps: number,
+	count = 2,
+	bwMultiplier = 0
+): GeneratedSet[] {
+	if (bwMultiplier > 0) {
+		const sets: GeneratedSet[] = []
+		for (let i = 0; i < count; i++) {
+			sets.push({
+				weightKg: 0,
+				reps: workingReps + 2 * (i + 1),
+				setType: 'backoff'
+			})
+		}
+		return sets
+	}
+
 	const sets: GeneratedSet[] = []
 	for (let i = 0; i < count; i++) {
 		const pct = 0.8 - i * 0.1
@@ -155,6 +184,7 @@ export interface GeneratePlannedSetsInput {
 	weightKg: number | null
 	muscles: MuscleMapping[]
 	warmedUpMuscles: Map<string, number>
+	bwMultiplier?: number
 }
 
 /**
@@ -162,18 +192,19 @@ export interface GeneratePlannedSetsInput {
  * Also updates warmedUpMuscles in-place to track cross-exercise warmup coverage.
  */
 export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet[] {
-	const { setMode, sets: targetSets, reps, weightKg, muscles, warmedUpMuscles } = input
+	const { setMode, sets: targetSets, reps, weightKg, muscles, warmedUpMuscles, bwMultiplier = 0 } = input
 	const result: PlannedSet[] = []
 	let setNum = 1
 
 	const hasWarmup = setMode === 'warmup' || setMode === 'full'
 	const hasBackoff = setMode === 'backoff' || setMode === 'full'
+	const canGenerateLoad = bwMultiplier > 0 || (weightKg != null && weightKg > 0)
 
 	// Generate warmup sets
-	if (hasWarmup && weightKg != null && weightKg > 0) {
+	if (hasWarmup && reps > 0 && canGenerateLoad) {
 		const skipWarmup = shouldSkipWarmup(muscles, warmedUpMuscles)
 		if (!skipWarmup) {
-			const warmups = generateWarmupSets(weightKg, reps)
+			const warmups = generateWarmupSets(weightKg ?? 0, reps, bwMultiplier)
 			for (const wu of warmups) {
 				result.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
 			}
@@ -192,8 +223,8 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 	}
 
 	// Generate backoff set
-	if (hasBackoff && weightKg != null && weightKg > 0) {
-		const backoffs = generateBackoffSets(weightKg, reps, 1)
+	if (hasBackoff && reps > 0 && canGenerateLoad) {
+		const backoffs = generateBackoffSets(weightKg ?? 0, reps, 1, bwMultiplier)
 		for (const bo of backoffs) {
 			result.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
 		}
@@ -323,6 +354,7 @@ export interface FlatSet {
 	transition: boolean
 	itemIndex: number
 	completed: boolean
+	bwMultiplier: number
 	superset: SupersetInfo | null
 }
 
@@ -365,6 +397,7 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 					transition: false,
 					itemIndex: itemIdx,
 					completed: i < item.logs.length,
+					bwMultiplier: item.exercise.bwMultiplier,
 					superset: null
 				})
 			}
@@ -400,6 +433,7 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 						transition: !isLastInRound,
 						itemIndex: itemIdx,
 						completed: entry.log !== null,
+						bwMultiplier: entry.exercise.bwMultiplier,
 						superset: {
 							group: item.group,
 							exerciseLetter: LETTERS[exerciseIndex],

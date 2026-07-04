@@ -5,7 +5,15 @@ import { GripVertical, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import { Button, NumberInput } from '~/components/ui'
-import { cn, estimated1RM, getRepRange, METRIC_LABEL, METRIC_UNIT, TRAINING_DEFAULTS } from '~/lib'
+import {
+	cn,
+	effectiveSetWeightKg,
+	estimated1RM,
+	getRepRange,
+	METRIC_LABEL,
+	METRIC_UNIT,
+	TRAINING_DEFAULTS
+} from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
@@ -15,6 +23,7 @@ export interface TemplateExerciseRowProps {
 	id: string
 	exercise: TemplateExercise
 	trainingGoal: TrainingGoal
+	bodyWeightKg: number | null
 	supersetLabel: string | null
 	isSuperset: boolean
 	isFirstInGroup: boolean
@@ -28,6 +37,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	id,
 	exercise,
 	trainingGoal,
+	bodyWeightKg,
 	supersetLabel,
 	isSuperset,
 	isFirstInGroup,
@@ -51,6 +61,11 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 		effectiveGoal
 	)
 	const aboveRange = exercise.targetReps != null && exercise.targetReps > range.max
+	const isBw = exercise.bwMultiplier > 0
+	const effectiveWeight =
+		exercise.targetWeight != null && exercise.targetReps != null
+			? effectiveSetWeightKg(exercise.bwMultiplier, bodyWeightKg, exercise.targetWeight)
+			: null
 	return (
 		<div
 			ref={setNodeRef}
@@ -84,9 +99,9 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 						{exercise.exerciseName}
 					</Link>
 				</span>
-				{exercise.targetWeight && exercise.targetReps && (
+				{effectiveWeight != null && effectiveWeight > 0 && exercise.targetReps && (
 					<span className="text-ink-muted text-xs max-lg:hidden">
-						{Math.round(estimated1RM(exercise.targetWeight, exercise.targetReps))}
+						{Math.round(estimated1RM(effectiveWeight, exercise.targetReps))}
 						{METRIC_UNIT.e1rm} {METRIC_LABEL.e1rm}
 					</span>
 				)}
@@ -131,10 +146,12 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				/>
 				<span className="text-ink-faint text-xs">reps</span>
 				<span className="text-ink-faint text-xs">@</span>
+				{isBw && <span className="text-ink-faint text-xs">+</span>}
 				<NumberInput
 					className="w-20"
 					value={exercise.targetWeight ?? ''}
 					unit="kg"
+					placeholder={isBw ? '+kg' : undefined}
 					onChange={e => {
 						const v = Number.parseFloat(e.target.value)
 						onUpdate({ targetWeight: Number.isNaN(v) ? null : v })

@@ -24,6 +24,7 @@ export interface SupersetFormProps {
 	goal: TrainingGoal
 	readOnly?: boolean
 	active?: boolean
+	bodyWeightKg?: number | null
 	onAddSet: (data: {
 		exerciseId: Exercise['id']
 		weightKg: number
@@ -43,6 +44,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	goal,
 	readOnly,
 	active,
+	bodyWeightKg,
 	onAddSet,
 	onUpdateSet,
 	onReplace,
@@ -188,6 +190,9 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 																isUnchecked ? undefined : entry.log.failureFlag
 															}
 															done={!isUnchecked}
+															bwMultiplier={entry.exercise.bwMultiplier}
+															bodyWeightKg={bodyWeightKg}
+															weightInput="stored"
 															priorMaxE1rm={
 																priorMaxByExercise.get(entry.exerciseId) ?? null
 															}
@@ -235,6 +240,9 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 														reps={reps}
 														setType={entry.planned.setType}
 														active={active && isFirstPending}
+														bwMultiplier={entry.exercise.bwMultiplier}
+														bodyWeightKg={bodyWeightKg}
+														weightInput="added"
 														onConfirm={() => {
 															onAddSet({
 																exerciseId: entry.exerciseId,
@@ -308,6 +316,9 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 													rpe={isUnchecked ? undefined : log.rpe}
 													failureFlag={isUnchecked ? undefined : log.failureFlag}
 													done={!isUnchecked}
+													bwMultiplier={exercise.bwMultiplier}
+													bodyWeightKg={bodyWeightKg}
+													weightInput="stored"
 													priorMaxE1rm={priorMaxByExercise.get(exercise.id) ?? null}
 													onWeightChange={v => {
 														if (v != null) onUpdateSet(log.id, { weightKg: v })
@@ -403,7 +414,7 @@ const AddSetRow: FC<{
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput
 				className="w-20"
-				placeholder="kg"
+				placeholder={exercise.bwMultiplier > 0 ? '+kg' : 'kg'}
 				value={weight}
 				onChange={e => setWeight(e.target.value)}
 				onKeyDown={handleKeyDown}
