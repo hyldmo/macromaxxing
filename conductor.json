@@ -1,8 +1,0 @@
-{
-	"scripts": {
-		"setup": "./scripts/conductor-setup.sh",
-		"run": "yarn dev",
-		"archive": "rm -rf node_modules dist .wrangler"
-	},
-	"runScriptMode": "concurrent"
-}
