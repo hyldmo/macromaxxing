@@ -10,6 +10,8 @@ const RADIUS = (SIZE - STROKE) / 2
 const MAJOR_COUNT = 6
 const TICK_COUNT = MAJOR_COUNT * 3
 
+const roundCoord = (n: number) => Math.round(n * 100) / 100
+
 const ticks = Array.from({ length: TICK_COUNT }, (_, i) => {
 	const angle = (i / TICK_COUNT) * 360
 	const rad = (angle * Math.PI) / 180
@@ -19,10 +21,10 @@ const ticks = Array.from({ length: TICK_COUNT }, (_, i) => {
 	return {
 		angle,
 		isMajor,
-		x1: CENTER + inner * Math.cos(rad),
-		y1: CENTER + inner * Math.sin(rad),
-		x2: CENTER + outer * Math.cos(rad),
-		y2: CENTER + outer * Math.sin(rad)
+		x1: roundCoord(CENTER + inner * Math.cos(rad)),
+		y1: roundCoord(CENTER + inner * Math.sin(rad)),
+		x2: roundCoord(CENTER + outer * Math.cos(rad)),
+		y2: roundCoord(CENTER + outer * Math.sin(rad))
 	}
 })
 
