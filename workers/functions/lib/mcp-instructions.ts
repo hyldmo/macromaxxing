@@ -24,8 +24,9 @@ When designing or modifying TRAINING programs, these are non-negotiable:
 3. workout_createExercise: fill every field. On isolations, pass explicit null for the strength rep range — never omit it. Pass the technique guide (description, cues, pitfalls) inline in the same call, not as a separate workout_upsertGuide follow-up.
 4. One row per exercise per template. Warmup ramps are logged ad hoc during a session, never as separate template rows. setMode "full" means the row covers the warmup ramp plus working sets; its target sets/reps/weight describe the working sets only.
 5. Verify after building: a template with workout_workoutMuscleLoad, a program with workout_programMuscleLoad.
+6. Bodyweight exercises (bwMultiplier > 0): workout_addSet / workout_updateSet take added kg only (belt/vest); the server stores effective load (bodyWeight × multiplier + added). Template targetWeight is also added kg. Logged weightKg in history is the collapsed effective total — never pass it back as added kg. User must have weightKg in settings.
 
-Call workout_guide (no arguments) for the full conventions reference: fatigue tiers, rep ranges, muscle-intensity scale, the volume-landmark table, movement-family classification, home/gym programming, and tool gotchas.`
+Call workout_guide (no arguments) for the full conventions reference: fatigue tiers, rep ranges, muscle-intensity scale, the volume-landmark table, movement-family classification, home/gym programming, bodyweight exercise semantics, and tool gotchas.`
 
 export const WORKOUT_GUIDE = `# Macromaxxing — Training & Program Design Guide
 
@@ -54,6 +55,14 @@ Stable conventions for designing exercises, templates, and programs. Live traini
 - Stretched-position tricep isolations (skullcrushers): hypertrophy 8-12 — heavier than a typical isolation because the stretch position rewards mechanical tension
 
 **Muscle intensity** (0-1 scale): 1.0 primary driver, 0.5-0.8 secondary, 0.3 incidental. Match seed patterns — e.g. a flat press is chest 1.0 / triceps 0.5 / front_delts 0.3.
+
+**Bodyweight multiplier (\`bwMultiplier\`)** — on every exercise; default 0:
+- \`0\` — barbell/dumbbell/cable: all weight fields are absolute kg on the bar or stack.
+- \`> 0\` — bodyweight exercise: weight fields are **added load only** (weight belt, vest, dip belt). The server expands to effective kg at log time: \`userWeightKg × bwMultiplier + addedKg\`, using the user's current \`weightKg\` from settings (settings_get / saveProfile). Stored \`workout_logs.weight_kg\` is always this collapsed effective total.
+- Common values: pull-up / chin-up / dip → \`1.0\`; push-up → \`0.65\`. System Pull-Up is seeded at \`1.0\`.
+- Template \`targetWeight\` follows the same rule: \`0\` = unweighted, \`20\` = +20 kg belt. Warmup/backoff auto-generation and template volume previews expand bodyweight from the user's \`weightKg\` in settings.
+- When reading history (\`workout_exerciseHistory\`, \`workout_lastSessionForExercise\`, session logs): \`weightKg\` is effective. Do **not** pass historical \`weightKg\` back into \`workout_addSet\` for a BW exercise — that would double-count bodyweight.
+- \`workout_importSets\` treats imported weights as added kg and expands to effective load for bodyweight exercises (user must have \`weightKg\` set in settings).
 
 ## Set modes
 
@@ -102,7 +111,7 @@ Well-covered at home: chest, triceps, front/side/rear delts, biceps, forearms, c
 
 ## Working with the tools
 
-- Fill ALL fields when creating exercises. Half-populated exercises (null rep ranges, missing muscle intensities) degrade downstream muscle-load math. On isolations, pass explicit null for the strength rep range — never omit the field. Pass the technique guide (description, cues, pitfalls) inline in the same workout_createExercise call.
+- Fill ALL fields when creating exercises. Half-populated exercises (null rep ranges, missing muscle intensities) degrade downstream muscle-load math. On isolations, pass explicit null for the strength rep range — never omit the field. Set \`bwMultiplier\` explicitly (0 for loaded lifts; >0 for bodyweight — see above). Pass the technique guide (description, cues, pitfalls) inline in the same workout_createExercise call.
 - workout_workoutMuscleLoad (one template's weekly load) vs workout_programMuscleLoad (the whole program cycle + balance ratios) vs workout_sessionMuscleLoad (a logged session, working sets only) are distinct — don't substitute one for another. workout_sessionMuscleLoad counts working sets only, so old-vs-new comparisons stay apples-to-apples.
 - workout_programMuscleLoad is the only reliable source for balance ratios (push/pull, biceps/triceps, anterior/posterior). Never hand-aggregate per-session loads to estimate them. If it fails, fall back to per-template workout_workoutMuscleLoad and aggregate manually, but flag that ratio calculations may be missing.
 - A 4-week window is sufficient for workout_exerciseHistory.

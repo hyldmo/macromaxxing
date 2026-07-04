@@ -16,6 +16,7 @@ export interface TemplateExercise {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	exerciseType: ExerciseType
+	bwMultiplier: number
 	targetSets: number | null
 	targetReps: number | null
 	targetWeight: number | null
@@ -46,6 +47,7 @@ export function WorkoutTemplatePage() {
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
 	const sex = profileQuery.data?.sex ?? 'male'
+	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 
 	const lastSessionExerciseIds = useMemo(() => {
 		const ids = new Set<TypeIDString<'exc'>>()
@@ -71,6 +73,7 @@ export function WorkoutTemplatePage() {
 					exerciseId: e.exerciseId,
 					exerciseName: e.exercise.name,
 					exerciseType: e.exercise.type,
+					bwMultiplier: e.exercise.bwMultiplier,
 					targetSets: e.targetSets,
 					targetReps: e.targetReps,
 					targetWeight: e.targetWeight,
@@ -354,6 +357,7 @@ export function WorkoutTemplatePage() {
 										id={ex.uid}
 										exercise={ex}
 										trainingGoal={trainingGoal}
+										bodyWeightKg={bodyWeightKg}
 										supersetLabel={!isLinkedAbove ? groupLabel : null}
 										isSuperset={ex.supersetGroup !== null}
 										isFirstInGroup={!isLinkedAbove && ex.supersetGroup !== null}
@@ -410,6 +414,7 @@ export function WorkoutTemplatePage() {
 								exerciseId: exercise.id,
 								exerciseName: exercise.name,
 								exerciseType: exercise.type,
+								bwMultiplier: exercise.bwMultiplier,
 								targetSets: null,
 								targetReps: null,
 								targetWeight: null,

@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { Button, Card } from '~/components/ui'
 import { cn, computeProgramLoad } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { trpc } from '~/lib/trpc'
 
 type WorkoutTemplate = RouterOutput['workout']['listWorkouts'][number]
 
@@ -21,6 +22,8 @@ export interface ProgramCardProps {
 }
 
 export const ProgramCard: FC<ProgramCardProps> = ({ program, templates, isActive, onToggleActive, isToggling }) => {
+	const profileQuery = trpc.settings.getProfile.useQuery()
+	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 	const itemNames = program.workouts.map(w => w.name).join(', ')
 	const count = program.workouts.length
 
@@ -32,8 +35,8 @@ export const ProgramCard: FC<ProgramCardProps> = ({ program, templates, isActive
 			return t ? [t] : []
 		})
 		if (resolved.length === 0) return null
-		return computeProgramLoad(resolved)
-	}, [program.workouts, templates, count])
+		return computeProgramLoad(resolved, bodyWeightKg)
+	}, [program.workouts, templates, count, bodyWeightKg])
 
 	return (
 		<Card

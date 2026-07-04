@@ -86,6 +86,7 @@ const CURRENT_SET: FlatSet = {
 	transition: false,
 	itemIndex: 1,
 	completed: false,
+	bwMultiplier: 0,
 	superset: null
 }
 
@@ -100,6 +101,7 @@ const NEXT_SET: FlatSet = {
 	transition: false,
 	itemIndex: 1,
 	completed: false,
+	bwMultiplier: 0,
 	superset: null
 }
 

@@ -2,7 +2,7 @@ import type { SetType } from '@macromaxxing/db'
 import { Check, Circle } from 'lucide-react'
 import type { FC } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn, estimated1RM, isE1rmPR, METRIC_LABEL, SET_TYPE_STYLES } from '~/lib'
+import { cn, effectiveSetWeightKg, estimated1RM, isE1rmPR, METRIC_LABEL, SET_TYPE_STYLES } from '~/lib'
 
 const CONFIRM_BORDER_STYLES = {
 	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',
@@ -18,6 +18,11 @@ export interface SetRowProps {
 	active?: boolean
 	rpe?: number | null
 	failureFlag?: boolean | null
+	/** 0 = absolute load; >0 = fraction of bodyweight (weight field is added kg only). */
+	bwMultiplier?: number
+	bodyWeightKg?: number | null
+	/** `added` for planned/input rows; `stored` for confirmed logs (effective kg). */
+	weightInput?: 'added' | 'stored'
 	/**
 	 * Prior best e1RM for this exercise — used to flag PRs on confirmed working sets.
 	 * v1 sources this from `lastSession.topE1rm` (most-recent-session best, not all-time max).
@@ -38,20 +43,27 @@ export const SetRow: FC<SetRowProps> = ({
 	active,
 	rpe,
 	failureFlag,
+	bwMultiplier = 0,
+	bodyWeightKg,
+	weightInput = 'added',
 	priorMaxE1rm,
 	onWeightChange,
 	onRepsChange,
 	onConfirm
 }) => {
-	const e1rm = done && reps > 0 ? estimated1RM(weightKg ?? 0, reps) : 0
-	// Only working sets count as e1RM PRs — warmups/backoffs are intentionally lighter
-	// and would trigger false positives early in a session.
+	const isBw = bwMultiplier > 0
+	const effectiveWeight =
+		weightInput === 'stored' || !isBw
+			? (weightKg ?? 0)
+			: effectiveSetWeightKg(bwMultiplier, bodyWeightKg ?? null, weightKg ?? 0)
+	const e1rm = reps > 0 && effectiveWeight > 0 ? estimated1RM(effectiveWeight, reps) : 0
 	const isPR =
 		done &&
 		setType === 'working' &&
 		priorMaxE1rm != null &&
 		priorMaxE1rm > 0 &&
-		isE1rmPR({ weightKg: weightKg ?? 0, reps }, priorMaxE1rm)
+		isE1rmPR({ weightKg: effectiveWeight, reps }, priorMaxE1rm)
+	const weightDisabled = done || (weightInput === 'stored' && isBw)
 
 	return (
 		<div className={cn('flex items-center gap-1.5 rounded-sm py-0.5 sm:gap-2', active && 'bg-surface-2')}>
@@ -67,7 +79,7 @@ export const SetRow: FC<SetRowProps> = ({
 			<NumberInput
 				className="w-24"
 				value={weightKg ?? ''}
-				placeholder="kg"
+				placeholder={isBw && weightInput === 'added' ? '+kg' : 'kg'}
 				unit="kg"
 				onChange={e => {
 					const v = Number.parseFloat(e.target.value)
@@ -75,7 +87,7 @@ export const SetRow: FC<SetRowProps> = ({
 				}}
 				step={2.5}
 				min={0}
-				disabled={done}
+				disabled={weightDisabled}
 			/>
 			<span className="text-ink-faint text-xs">×</span>
 			<NumberInput

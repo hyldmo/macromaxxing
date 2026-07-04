@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { estimated1RM, isE1rmPR, isStalledExercise, metricHierarchy, roundWeight, weightForReps } from './formulas'
+import {
+	computeDivergences,
+	estimated1RM,
+	isE1rmPR,
+	isStalledExercise,
+	metricHierarchy,
+	roundWeight,
+	weightForReps
+} from './formulas'
 
 describe('estimated1RM', () => {
 	// Brzycki: weight × 36 / (37 − reps), capped at 12 reps
@@ -269,5 +277,62 @@ describe('metricHierarchy', () => {
 
 	it('returns recency kind when weight set but reps zero', () => {
 		expect(metricHierarchy({ weightKg: 100, reps: 0 })).toEqual({ kind: 'recency', value: null })
+	})
+})
+
+describe('computeDivergences bodyweight', () => {
+	const pullUpExercise = {
+		exerciseId: 'exc_test_pullup' as const,
+		exercise: {
+			name: 'Pull-Up',
+			type: 'compound' as const,
+			bwMultiplier: 1,
+			strengthRepsMin: 5,
+			strengthRepsMax: 8,
+			hypertrophyRepsMin: 8,
+			hypertrophyRepsMax: 12
+		},
+		targetSets: 3,
+		targetReps: 8,
+		targetWeight: 20,
+		setMode: 'working' as const,
+		trainingGoal: null
+	}
+
+	it('does not flag false divergence when logged effective matches template added', () => {
+		const divergences = computeDivergences(
+			[
+				{
+					exerciseId: pullUpExercise.exerciseId,
+					setType: 'working',
+					weightKg: 100,
+					reps: 8
+				}
+			],
+			[pullUpExercise],
+			'hypertrophy',
+			80
+		)
+		expect(divergences).toEqual([])
+	})
+
+	it('suggests added kg when performance beats template', () => {
+		const divergences = computeDivergences(
+			[
+				{
+					exerciseId: pullUpExercise.exerciseId,
+					setType: 'working',
+					weightKg: 110,
+					reps: 10
+				}
+			],
+			[pullUpExercise],
+			'hypertrophy',
+			80
+		)
+		expect(divergences).toHaveLength(1)
+		expect(divergences[0]?.actual.weight).toBe(30)
+		expect(divergences[0]?.suggestion.targetWeight).toBe(30)
+		expect(divergences[0]?.bwMultiplier).toBe(1)
 	})
 })

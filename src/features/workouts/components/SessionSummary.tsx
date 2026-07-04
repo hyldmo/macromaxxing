@@ -11,6 +11,7 @@ type Session = RouterOutput['workout']['getSession']
 export interface SessionSummaryProps {
 	session: Session
 	plannedExercises: Session['plannedExercises']
+	bodyWeightKg: number | null
 }
 
 function formatDuration(startMs: number, endMs: number): string {
@@ -21,32 +22,35 @@ function formatDuration(startMs: number, endMs: number): string {
 	return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
-const DivergenceRow: FC<{ d: Divergence }> = ({ d }) => (
-	<div className="flex items-center gap-2 rounded-sm border border-edge bg-surface-0 px-3 py-2">
-		<div className="min-w-0 flex-1">
-			<div className="text-ink text-sm">{d.exerciseName}</div>
-			<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
-				<span className="text-ink-faint">
-					{d.planned.sets}×{d.planned.reps}
-					{d.planned.weight != null && ` @${d.planned.weight}kg`}
-				</span>
-				<ArrowRight className="size-3 text-ink-faint" />
-				<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
-					{d.actual.sets}×{d.actual.reps}
-					{d.actual.weight > 0 && ` @${d.actual.weight}kg`}
-				</span>
+const DivergenceRow: FC<{ d: Divergence }> = ({ d }) => {
+	const weightPrefix = d.bwMultiplier > 0 ? '+' : ''
+	return (
+		<div className="flex items-center gap-2 rounded-sm border border-edge bg-surface-0 px-3 py-2">
+			<div className="min-w-0 flex-1">
+				<div className="text-ink text-sm">{d.exerciseName}</div>
+				<div className="flex items-center gap-1 font-mono text-[11px] tabular-nums">
+					<span className="text-ink-faint">
+						{d.planned.sets}×{d.planned.reps}
+						{d.planned.weight != null && ` @${weightPrefix}${d.planned.weight}kg`}
+					</span>
+					<ArrowRight className="size-3 text-ink-faint" />
+					<span className={cn(d.improved ? 'text-success' : 'text-macro-kcal')}>
+						{d.actual.sets}×{d.actual.reps}
+						{d.actual.weight > 0 && ` @${weightPrefix}${d.actual.weight}kg`}
+					</span>
+				</div>
 			</div>
 		</div>
-	</div>
-)
+	)
+}
 
-export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExercises }) => {
+export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExercises, bodyWeightKg }) => {
 	const vol = totalVolume(session.logs)
 	const e1rmStats = exerciseE1rmStats(session.logs)
 	const workoutGoal = session.workout?.trainingGoal ?? 'hypertrophy'
 
 	const divergences =
-		plannedExercises.length > 0 ? computeDivergences(session.logs, plannedExercises, workoutGoal) : []
+		plannedExercises.length > 0 ? computeDivergences(session.logs, plannedExercises, workoutGoal, bodyWeightKg) : []
 
 	// Prior best e1RM per exercise — uses most-recent prior session (not all-time max).
 	// Same Option A trade-off as the inline SetRow PR: simple, batched, false-positives

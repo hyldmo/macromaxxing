@@ -17,6 +17,7 @@ function makeSet(overrides: Partial<FlatSet> = {}): FlatSet {
 		transition: false,
 		itemIndex: 0,
 		completed: false,
+		bwMultiplier: 0,
 		superset: null,
 		...overrides
 	}

@@ -1,0 +1,1 @@
+ALTER TABLE `exercises` ADD `bw_multiplier` real DEFAULT 0 NOT NULL;

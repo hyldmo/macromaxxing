@@ -26,11 +26,20 @@ export interface TimerModeContext {
 	onUpdateSet: (id: string, updates: { weightKg?: number; reps?: number }) => void
 	onUndoSet: () => void
 	getRestDuration: (exerciseId: Exercise['id'], reps: number, setType: SetType) => number
+	bodyWeightKg?: number | null
 }
 
 const TimerMode: FC = () => {
-	const { exerciseGroups, setActiveExerciseId, session, onConfirmSet, onUpdateSet, onUndoSet, getRestDuration } =
-		useOutletContext<TimerModeContext>()
+	const {
+		exerciseGroups,
+		setActiveExerciseId,
+		session,
+		onConfirmSet,
+		onUpdateSet,
+		onUndoSet,
+		getRestDuration,
+		bodyWeightKg
+	} = useOutletContext<TimerModeContext>()
 	const { sessionId } = useParams<{ sessionId: string }>()
 	const navigate = useNavigate()
 	const onClose = useCallback(() => navigate('..'), [navigate])
@@ -227,6 +236,7 @@ const TimerMode: FC = () => {
 				sessionElapsedSec={(Date.now() - session.startedAt) / 1000}
 				weight={active?.weight ?? null}
 				reps={active?.reps ?? 0}
+				bodyWeightKg={bodyWeightKg}
 				onClose={onClose}
 				onOpenNotes={() => setNotesOpen(true)}
 				onOpenGuide={handleOpenGuide}

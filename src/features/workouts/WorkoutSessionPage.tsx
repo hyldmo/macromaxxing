@@ -5,6 +5,7 @@ import { Link, Outlet, useNavigate, useParams } from 'react-router'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import {
 	calculateRest,
+	effectiveSetWeightKg,
 	estimateReplacementWeight,
 	formatSession,
 	generatePlannedSets,
@@ -152,6 +153,8 @@ export function WorkoutSessionPage() {
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const standardsQuery = trpc.workout.listStandards.useQuery()
+	const profileQuery = trpc.settings.getProfile.useQuery()
+	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 
 	// Batched "last time" hints — one query per page covering every exercise in
 	// the template plus any extras logged so far. `before: session.startedAt`
@@ -201,7 +204,11 @@ export function WorkoutSessionPage() {
 									exerciseId: variables.exerciseId,
 									setNumber: existingCount + 1,
 									setType: variables.setType ?? 'working',
-									weightKg: variables.weightKg,
+									weightKg: effectiveSetWeightKg(
+										exerciseData.bwMultiplier,
+										bodyWeightKg,
+										variables.weightKg
+									),
 									reps: variables.reps,
 									rpe: null,
 									failureFlag: false,
@@ -249,6 +256,8 @@ export function WorkoutSessionPage() {
 			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
 			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
 			if (previous) {
+				const targetLog = previous.logs.find(log => log.id === variables.id)
+				const bwMultiplier = targetLog?.exercise.bwMultiplier ?? 0
 				utils.workout.getSession.setData(
 					{ id: effectiveSessionId! },
 					{
@@ -257,7 +266,13 @@ export function WorkoutSessionPage() {
 							log.id === variables.id
 								? {
 										...log,
-										...(variables.weightKg !== undefined && { weightKg: variables.weightKg }),
+										...(variables.weightKg !== undefined && {
+											weightKg: effectiveSetWeightKg(
+												bwMultiplier,
+												bodyWeightKg,
+												variables.weightKg
+											)
+										}),
 										...(variables.reps !== undefined && { reps: variables.reps }),
 										...(variables.setType !== undefined && { setType: variables.setType }),
 										...(variables.rpe !== undefined && { rpe: variables.rpe }),
@@ -401,7 +416,8 @@ export function WorkoutSessionPage() {
 					reps: effectiveReps,
 					weightKg: effectiveTargetWeight,
 					muscles: effectiveExercise.muscles,
-					warmedUpMuscles
+					warmedUpMuscles,
+					bwMultiplier: effectiveExercise.bwMultiplier
 				})
 
 				planned.set(effectiveExerciseId, sets)
@@ -631,7 +647,13 @@ export function WorkoutSessionPage() {
 				</div>
 			</div>
 
-			{isCompleted && <SessionSummary session={session} plannedExercises={session.plannedExercises ?? []} />}
+			{isCompleted && (
+				<SessionSummary
+					session={session}
+					plannedExercises={session.plannedExercises ?? []}
+					bodyWeightKg={bodyWeightKg}
+				/>
+			)}
 
 			{!isCompleted && exercisesQuery.data && (
 				<ExerciseSearch
@@ -666,6 +688,7 @@ export function WorkoutSessionPage() {
 								goal={goal}
 								readOnly={isCompleted}
 								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
+								bodyWeightKg={bodyWeightKg}
 								onAddSet={data => {
 									transitionQueueRef.current.push(data.transition ?? false)
 									addSetMutation.mutate({
@@ -716,6 +739,7 @@ export function WorkoutSessionPage() {
 								})
 							}}
 							readOnly={isCompleted}
+							bodyWeightKg={bodyWeightKg}
 							onAddSet={data =>
 								addSetMutation.mutate({
 									sessionId: session.id,
@@ -776,7 +800,8 @@ export function WorkoutSessionPage() {
 						const lastLog = session.logs.at(-1)
 						if (lastLog) removeSetMutation.mutate({ id: lastLog.id })
 					},
-					getRestDuration
+					getRestDuration,
+					bodyWeightKg
 				}}
 			/>
 
@@ -835,6 +860,7 @@ export function WorkoutSessionPage() {
 						exerciseName: eg.exercise.name,
 						logs: eg.logs
 					}))}
+					bodyWeightKg={bodyWeightKg}
 					onClose={() => setShowReview(false)}
 				/>
 			)}

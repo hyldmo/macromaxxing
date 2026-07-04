@@ -2,6 +2,7 @@ import {
 	type BalanceRatio,
 	computeBalances,
 	computeMuscleLoad,
+	effectiveSetWeightKg,
 	type MuscleContribution,
 	type MuscleLoadTotals,
 	type MuscleLoadWithZone,
@@ -26,7 +27,10 @@ export interface ProgramLoad {
  * cycle is completed per planning window. Mirrors the server-side
  * `workoutMuscleLoad` shape but loops across multiple templates.
  */
-export function computeProgramLoad(workouts: readonly WorkoutTemplate[]): ProgramLoad {
+export function computeProgramLoad(
+	workouts: readonly WorkoutTemplate[],
+	bodyWeightKg: number | null = null
+): ProgramLoad {
 	const contributions: MuscleContribution[] = []
 	let exerciseCount = 0
 	for (const workout of workouts) {
@@ -34,13 +38,18 @@ export function computeProgramLoad(workouts: readonly WorkoutTemplate[]): Progra
 			exerciseCount++
 			const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
 			const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+			const targetWeight = we.targetWeight
+			const weightKg =
+				targetWeight != null
+					? effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, targetWeight)
+					: undefined
 			for (const m of we.exercise.muscles) {
 				contributions.push({
 					muscleGroup: m.muscleGroup,
 					intensity: m.intensity,
 					sets,
 					reps: we.targetReps ?? undefined,
-					weightKg: we.targetWeight ?? undefined,
+					weightKg,
 					exerciseType: we.exercise.type,
 					fatigueTier: we.exercise.fatigueTier,
 					trainingGoal: goal

@@ -205,6 +205,8 @@ export const exercises = sqliteTable(
 		strengthRepsMax: integer('strength_reps_max'),
 		hypertrophyRepsMin: integer('hypertrophy_reps_min'),
 		hypertrophyRepsMax: integer('hypertrophy_reps_max'),
+		/** 0 = absolute load; >0 = bodyweight fraction (weight field = added kg only) */
+		bwMultiplier: real('bw_multiplier').notNull().default(0),
 		createdAt: integer('created_at').notNull()
 	},
 	t => [

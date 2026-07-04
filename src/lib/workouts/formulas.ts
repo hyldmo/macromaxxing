@@ -5,7 +5,9 @@ import { midpoint } from '../math'
 // `@macromaxxing/db/formulas`. Re-exported here so existing imports
 // (`~/lib/workouts/formulas`) keep working without consumer churn.
 export {
+	addedWeightKg,
 	type E1rmStat,
+	effectiveSetWeightKg,
 	estimated1RM,
 	exerciseE1rmStats,
 	isE1rmPR,
@@ -16,7 +18,7 @@ export {
 	weightForReps
 } from '@macromaxxing/db'
 
-import { estimated1RM, weightForReps } from '@macromaxxing/db'
+import { addedWeightKg, estimated1RM, weightForReps } from '@macromaxxing/db'
 
 // ─── Rep Range Resolution ───────────────────────────────────────────
 
@@ -177,6 +179,7 @@ export function resolveExerciseTargets(
 export interface Divergence {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
+	bwMultiplier: number
 	planned: { sets: number; reps: number; weight: number | null }
 	actual: { sets: number; reps: number; weight: number }
 	improved: boolean
@@ -185,7 +188,7 @@ export interface Divergence {
 
 interface PlannedExerciseInput {
 	exerciseId: TypeIDString<'exc'>
-	exercise: RepRangeExercise & { name: string }
+	exercise: RepRangeExercise & { name: string; bwMultiplier: number }
 	targetSets: number | null
 	targetReps: number | null
 	targetWeight: number | null
@@ -204,7 +207,8 @@ interface LogInput {
 export function computeDivergences(
 	logs: ReadonlyArray<LogInput>,
 	plannedExercises: ReadonlyArray<PlannedExerciseInput>,
-	workoutGoal: TrainingGoal
+	workoutGoal: TrainingGoal,
+	bodyWeightKg: number | null = null
 ): Divergence[] {
 	const result: Divergence[] = []
 
@@ -225,31 +229,34 @@ export function computeDivergences(
 			l.weightKg > best.weightKg || (l.weightKg === best.weightKg && l.reps > best.reps) ? l : best
 		)
 
-		const weightDiff = we.targetWeight != null ? Math.abs(bestSet.weightKg - we.targetWeight) : 0
+		const bwMultiplier = we.exercise.bwMultiplier
+		const bestAddedKg = addedWeightKg(bwMultiplier, bodyWeightKg, bestSet.weightKg)
+
+		const weightDiff = we.targetWeight != null ? Math.abs(bestAddedKg - we.targetWeight) : 0
 		const repsDiff = Math.abs(bestSet.reps - effectiveReps)
 		const setsDiff = Math.abs(exerciseLogs.length - effectiveSets)
 
 		if (weightDiff > 0.1 || repsDiff > 0 || setsDiff > 0) {
 			const improved =
-				bestSet.weightKg >= (we.targetWeight ?? 0) &&
+				bestAddedKg >= (we.targetWeight ?? 0) &&
 				bestSet.reps >= effectiveReps &&
 				exerciseLogs.length >= effectiveSets
 
 			// Double progression: only suggest weight/reps changes, never sets.
 			// Sets are a volume knob the user controls manually via the template editor.
 			// If reps hit the ceiling, suggest bumping weight and resetting reps to range.min.
-			// Always base on logged weight — it reflects real available equipment better than template targets.
-			const hitCeiling = bestSet.reps >= range.max && bestSet.weightKg > 0
+			// Always base on logged added weight — it reflects real available equipment better than template targets.
+			const hitCeiling = bestSet.reps >= range.max && (bestAddedKg > 0 || bwMultiplier > 0)
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
 						targetSets: effectiveSets,
 						targetReps: range.min,
-						targetWeight: roundWeight(bestSet.weightKg + plateIncrement(bestSet.weightKg, 'kg'), 'kg', 'up')
+						targetWeight: roundWeight(bestAddedKg + plateIncrement(bestAddedKg, 'kg'), 'kg', 'up')
 					}
 				: {
 						targetSets: effectiveSets,
 						targetReps: bestSet.reps,
-						targetWeight: bestSet.weightKg > 0 ? bestSet.weightKg : null
+						targetWeight: bestAddedKg > 0 ? bestAddedKg : null
 					}
 
 			// Skip if the suggestion is identical to the current template
@@ -261,8 +268,9 @@ export function computeDivergences(
 				result.push({
 					exerciseId: we.exerciseId,
 					exerciseName: we.exercise.name,
+					bwMultiplier,
 					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
-					actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestSet.weightKg },
+					actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestAddedKg },
 					improved,
 					suggestion
 				})

@@ -300,6 +300,29 @@ describe('generateBackoffSets', () => {
 	it('0 count returns empty', () => {
 		expect(generateBackoffSets(100, 5, 0)).toEqual([])
 	})
+
+	it('bodyweight exercises emit +0 backoff sets with extra reps', () => {
+		expect(generateBackoffSets(20, 8, 2, 1)).toEqual([
+			{ weightKg: 0, reps: 10, setType: 'backoff' },
+			{ weightKg: 0, reps: 12, setType: 'backoff' }
+		])
+	})
+})
+
+describe('generateWarmupSets bodyweight', () => {
+	it('emits rep-based warmups at +0 for bwMultiplier > 0', () => {
+		expect(generateWarmupSets(20, 5, 1)).toEqual([
+			{ weightKg: 0, reps: 3, setType: 'warmup' },
+			{ weightKg: 0, reps: 2, setType: 'warmup' }
+		])
+	})
+
+	it('works for unweighted pull-ups (workingWeight 0)', () => {
+		expect(generateWarmupSets(0, 8, 1)).toEqual([
+			{ weightKg: 0, reps: 5, setType: 'warmup' },
+			{ weightKg: 0, reps: 3, setType: 'warmup' }
+		])
+	})
 })
 
 describe('shouldSkipWarmup', () => {

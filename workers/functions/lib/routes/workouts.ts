@@ -2,6 +2,7 @@ import {
 	computeBalances,
 	computeMuscleLoad,
 	type ExerciseType,
+	effectiveSetWeightKg,
 	estimated1RM,
 	exerciseGuides,
 	exerciseMuscles,
@@ -34,6 +35,7 @@ import { TRPCError } from '@trpc/server'
 import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { z } from 'zod'
+import type { Database } from '../db'
 import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
@@ -53,6 +55,33 @@ function pickTopE1rm(sets: ReadonlyArray<{ weightKg: number; reps: number }>): n
 	return best
 }
 
+/** Collapse added kg + bodyweight multiplier into the stored `workout_logs.weight_kg`. */
+async function resolveLogWeightKg(
+	db: Database,
+	userId: string,
+	exerciseId: TypeIDString<'exc'>,
+	addedKg: number
+): Promise<number> {
+	const exercise = await db.query.exercises.findFirst({
+		where: { id: exerciseId },
+		columns: { bwMultiplier: true }
+	})
+	if (!exercise || exercise.bwMultiplier <= 0) return addedKg
+
+	const settings = await db.query.userSettings.findFirst({
+		where: { userId },
+		columns: { weightKg: true }
+	})
+	const bodyWeightKg = settings?.weightKg ?? null
+	if (bodyWeightKg == null || bodyWeightKg <= 0) {
+		throw new TRPCError({
+			code: 'PRECONDITION_FAILED',
+			message: 'Set your body weight in Settings before logging bodyweight exercises'
+		})
+	}
+	return effectiveSetWeightKg(exercise.bwMultiplier, bodyWeightKg, addedKg)
+}
+
 const zGuideInput = z.object({
 	description: z.string().min(10).max(DESCRIPTION_MAX),
 	cues: z.array(z.string().min(3).max(CUE_MAX)).min(1).max(CUES_MAX_COUNT),
@@ -62,23 +91,58 @@ const zGuideInput = z.object({
 const zSetType = z.enum(['warmup', 'working', 'backoff'])
 
 type InferredMuscle = { muscleGroup: MuscleGroup; intensity: number }
-type InferredExercise = { type: ExerciseType; fatigueTier: FatigueTier; muscles: InferredMuscle[] }
+type InferredExercise = {
+	type: ExerciseType
+	fatigueTier: FatigueTier
+	muscles: InferredMuscle[]
+	bwMultiplier: number
+}
 
 /** Keyword-based muscle group inference from exercise name */
 function inferExercise(name: string): InferredExercise {
 	const n = name.toLowerCase()
+	const base = { bwMultiplier: 0 as number }
+
+	// Push-up
+	if (/\b(push\s*-?\s*up|press\s*-?\s*up)/i.test(n))
+		return {
+			...base,
+			type: 'compound',
+			fatigueTier: 3,
+			bwMultiplier: 0.65,
+			muscles: [
+				{ muscleGroup: 'chest', intensity: 0.8 },
+				{ muscleGroup: 'triceps', intensity: 0.5 },
+				{ muscleGroup: 'front_delts', intensity: 0.3 }
+			]
+		}
+
+	// Dip
+	if (/\bdip\b/i.test(n))
+		return {
+			...base,
+			type: 'compound',
+			fatigueTier: 3,
+			bwMultiplier: 1,
+			muscles: [
+				{ muscleGroup: 'chest', intensity: 0.6 },
+				{ muscleGroup: 'triceps', intensity: 0.8 },
+				{ muscleGroup: 'front_delts', intensity: 0.4 }
+			]
+		}
 
 	// Core / abs
 	if (/\b(crunch|sit\s*-?up|ab\b|plank|core)/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'core', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'core', intensity: 1.0 }] }
 
 	// Calves
 	if (/\bcalf|calves/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'calves', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'calves', intensity: 1.0 }] }
 
 	// Rear delts
 	if (/\b(face\s*pull|rear\s*delt|reverse\s*(pec|fly|deck))/i.test(n))
 		return {
+			...base,
 			type: 'isolation',
 			fatigueTier: /face\s*pull/i.test(n) ? 3 : 4,
 			muscles: [{ muscleGroup: 'rear_delts', intensity: 1.0 }]
@@ -86,24 +150,25 @@ function inferExercise(name: string): InferredExercise {
 
 	// Lateral raise
 	if (/\blateral\s*raise/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'side_delts', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'side_delts', intensity: 1.0 }] }
 
 	// Leg curl
 	if (/\bleg\s*curl/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'hamstrings', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'hamstrings', intensity: 1.0 }] }
 
 	// Leg extension
 	if (/\bleg\s*ext/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'quads', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'quads', intensity: 1.0 }] }
 
 	// Tricep isolation (pushdown, extension, kickback)
 	if (/\b(pushdown|tricep|skull\s*crush|overhead.*ext)/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'triceps', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'triceps', intensity: 1.0 }] }
 
 	// Bicep isolation (curl variants)
 	if (/\b(curl|preacher)/i.test(n)) {
 		if (/\bhammer/i.test(n))
 			return {
+				...base,
 				type: 'isolation',
 				fatigueTier: 3,
 				muscles: [
@@ -111,20 +176,21 @@ function inferExercise(name: string): InferredExercise {
 					{ muscleGroup: 'forearms', intensity: 0.5 }
 				]
 			}
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'biceps', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'biceps', intensity: 1.0 }] }
 	}
 
 	// Chest fly / pec deck
 	if (/\b(fly|pec\s*deck|cable\s*cross)/i.test(n))
-		return { type: 'isolation', fatigueTier: 3, muscles: [{ muscleGroup: 'chest', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 3, muscles: [{ muscleGroup: 'chest', intensity: 1.0 }] }
 
 	// Wrist / forearm
 	if (/\b(wrist|forearm)/i.test(n))
-		return { type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'forearms', intensity: 1.0 }] }
+		return { ...base, type: 'isolation', fatigueTier: 4, muscles: [{ muscleGroup: 'forearms', intensity: 1.0 }] }
 
 	// Shoulder / overhead press (before generic press)
 	if (/\b(shoulder|overhead|ohp|military)\b.*press/i.test(n) || /\bpress.*\b(shoulder|overhead)/i.test(n))
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: 2,
 			muscles: [
@@ -137,6 +203,7 @@ function inferExercise(name: string): InferredExercise {
 	// Leg press / squat
 	if (/\b(squat|leg\s*press|hack\s*squat|goblet)/i.test(n))
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: /\bsquat\b/i.test(n) && !/hack|goblet/i.test(n) ? 1 : 2,
 			muscles: [
@@ -153,6 +220,7 @@ function inferExercise(name: string): InferredExercise {
 		/\b(bench\s*press|db\s*press|incline.*press|decline.*press)/i.test(n)
 	)
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: 2,
 			muscles: [
@@ -165,6 +233,7 @@ function inferExercise(name: string): InferredExercise {
 	// Deadlift
 	if (/\bdeadlift|rdl\b/i.test(n))
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: /\brdl\b|romanian/i.test(n) ? 2 : 1,
 			muscles: [
@@ -178,6 +247,7 @@ function inferExercise(name: string): InferredExercise {
 	// Row
 	if (/\brow/i.test(n))
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: 2,
 			muscles: [
@@ -190,8 +260,10 @@ function inferExercise(name: string): InferredExercise {
 	// Pulldown / pull-up
 	if (/\b(pulldown|pull\s*-?\s*down|pull\s*-?\s*up|chin\s*-?\s*up|lat\s*pull)/i.test(n))
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: 2,
+			bwMultiplier: /\b(pull\s*-?\s*up|chin\s*-?\s*up)\b/i.test(n) ? 1 : 0,
 			muscles: [
 				{ muscleGroup: 'lats', intensity: 1.0 },
 				{ muscleGroup: 'upper_back', intensity: 0.6 },
@@ -202,6 +274,7 @@ function inferExercise(name: string): InferredExercise {
 	// Generic press fallback
 	if (/\bpress/i.test(n))
 		return {
+			...base,
 			type: 'compound',
 			fatigueTier: 2,
 			muscles: [
@@ -212,15 +285,11 @@ function inferExercise(name: string): InferredExercise {
 		}
 
 	// Unknown — default to compound with empty muscles
-	return { type: 'compound', fatigueTier: 2, muscles: [] }
+	return { ...base, type: 'compound', fatigueTier: 2, muscles: [] }
 }
 
 /** Throws BAD_REQUEST naming any workoutIds that don't belong to the user */
-async function assertWorkoutsOwned(
-	db: import('../db').Database,
-	userId: string,
-	workoutIds: TypeIDString<'wkt'>[]
-): Promise<void> {
+async function assertWorkoutsOwned(db: Database, userId: string, workoutIds: TypeIDString<'wkt'>[]): Promise<void> {
 	if (workoutIds.length === 0) return
 	const found = await db
 		.select({ id: workouts.id })
@@ -237,7 +306,7 @@ async function assertWorkoutsOwned(
 
 /** Insert program items in 20-row chunks (D1 100-bound-param limit, 5 cols) */
 async function insertProgramItems(
-	db: import('../db').Database,
+	db: Database,
 	programId: TypeIDString<'wpr'>,
 	workoutIds: TypeIDString<'wkt'>[],
 	now: number
@@ -256,7 +325,7 @@ async function insertProgramItems(
 	}
 }
 
-async function getProgramOrThrow(db: import('../db').Database, userId: string, id: TypeIDString<'wpr'>) {
+async function getProgramOrThrow(db: Database, userId: string, id: TypeIDString<'wpr'>) {
 	const program = await db.query.workoutPrograms.findFirst({
 		where: { id, userId },
 		with: { items: { orderBy: { sortOrder: 'asc' }, with: { workout: true } } }
@@ -288,14 +357,17 @@ export const workoutsRouter = router({
 	guide: publicProcedure
 		.meta({
 			description:
-				'Full conventions reference for training program design: fatigue tiers, rep ranges, muscle-intensity scale, volume landmarks (MEV/MAV/MRV), movement-family classification, home/gym programming, and muscle-load tool gotchas. Call with no arguments before designing or modifying exercises, templates, or programs.'
+				'Full conventions reference for training program design: fatigue tiers, rep ranges, muscle-intensity scale, volume landmarks (MEV/MAV/MRV), movement-family classification, home/gym programming, bodyweight exercise logging (bwMultiplier), and muscle-load tool gotchas. Call with no arguments before designing or modifying exercises, templates, or programs.'
 		})
 		.query(() => WORKOUT_GUIDE),
 
 	// ─── Exercise CRUD ────────────────────────────────────────────
 
 	listExercises: protectedProcedure
-		.meta({ description: 'List available exercises (system catalog + user-created) with muscle mappings' })
+		.meta({
+			description:
+				'List available exercises (system catalog + user-created) with muscle mappings and bwMultiplier (0 = absolute load, >0 = bodyweight fraction)'
+		})
 		.input(z.object({ type: exerciseType.optional() }).optional())
 		.query(async ({ ctx, input }) => {
 			const typeFilter = input?.type ? { type: input.type } : {}
@@ -312,7 +384,7 @@ export const workoutsRouter = router({
 	createExercise: protectedProcedure
 		.meta({
 			description:
-				'Create a custom exercise with muscle group intensities, training rep ranges, and optional technique guide'
+				'Create a custom exercise with muscle group intensities, training rep ranges, bwMultiplier (0 = absolute kg; >0 = bodyweight — weight fields are added kg only), and optional technique guide'
 		})
 		// TODO: collapse to drizzle-zod once https://github.com/drizzle-team/drizzle-orm/pull/5192 lands
 		.input(
@@ -325,6 +397,7 @@ export const workoutsRouter = router({
 				strengthRepsMax: z.number().int().min(1).nullable(),
 				hypertrophyRepsMin: z.number().int().min(1).nullable(),
 				hypertrophyRepsMax: z.number().int().min(1).nullable(),
+				bwMultiplier: z.number().min(0).max(2).optional(),
 				guide: zGuideInput.optional()
 			})
 		)
@@ -376,6 +449,7 @@ export const workoutsRouter = router({
 				strengthRepsMax: z.number().int().min(1).nullable().optional(),
 				hypertrophyRepsMin: z.number().int().min(1).nullable().optional(),
 				hypertrophyRepsMax: z.number().int().min(1).nullable().optional(),
+				bwMultiplier: z.number().min(0).max(2).optional(),
 				muscles: z
 					.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
 					.optional()
@@ -398,6 +472,7 @@ export const workoutsRouter = router({
 			if (fields.strengthRepsMax !== undefined) set.strengthRepsMax = fields.strengthRepsMax
 			if (fields.hypertrophyRepsMin !== undefined) set.hypertrophyRepsMin = fields.hypertrophyRepsMin
 			if (fields.hypertrophyRepsMax !== undefined) set.hypertrophyRepsMax = fields.hypertrophyRepsMax
+			if (fields.bwMultiplier !== undefined) set.bwMultiplier = fields.bwMultiplier
 
 			if (Object.keys(set).length > 0) {
 				await ctx.db.update(exercises).set(set).where(eq(exercises.id, id))
@@ -1203,7 +1278,8 @@ export const workoutsRouter = router({
 
 	addSet: protectedProcedure
 		.meta({
-			description: 'Log a set (weight, reps, optional RPE and failure flag) for an exercise in an active session'
+			description:
+				'Log a set for an exercise in an active session. weightKg is absolute load for barbell exercises (bwMultiplier 0); for bodyweight exercises it is added kg only — server stores effective load (user bodyWeight × bwMultiplier + added). Requires user weightKg in settings for BW exercises.'
 		})
 		.input(
 			z.object({
@@ -1224,6 +1300,8 @@ export const workoutsRouter = router({
 				.where(and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.exerciseId)))
 			const setNumber = (existing[0]?.count ?? 0) + 1
 
+			const weightKg = await resolveLogWeightKg(ctx.db, ctx.user.id, input.exerciseId, input.weightKg)
+
 			const [log] = await ctx.db
 				.insert(workoutLogs)
 				.values({
@@ -1231,7 +1309,7 @@ export const workoutsRouter = router({
 					exerciseId: input.exerciseId,
 					setNumber,
 					setType: input.setType,
-					weightKg: input.weightKg,
+					weightKg,
 					reps: input.reps,
 					rpe: input.rpe ?? null,
 					failureFlag: input.failureFlag,
@@ -1242,7 +1320,10 @@ export const workoutsRouter = router({
 		}),
 
 	updateSet: protectedProcedure
-		.meta({ description: 'Update a logged set (weight, reps, RPE, type, failure flag)' })
+		.meta({
+			description:
+				'Update a logged set (weight, reps, RPE, type, failure flag). weightKg follows the same added-vs-absolute rule as workout_addSet; stored logs always hold effective kg.'
+		})
 		.input(
 			z.object({
 				id: zodTypeID('wkl'),
@@ -1256,12 +1337,6 @@ export const workoutsRouter = router({
 		.mutation(async ({ ctx, input }) => {
 			const { id, ...updates } = input
 			const set: Record<string, unknown> = {}
-			if (updates.weightKg !== undefined) set.weightKg = updates.weightKg
-			if (updates.reps !== undefined) set.reps = updates.reps
-			if (updates.setType !== undefined) set.setType = updates.setType
-			if (updates.rpe !== undefined) set.rpe = updates.rpe
-			if (updates.failureFlag !== undefined) set.failureFlag = updates.failureFlag ? 1 : 0
-			if (Object.keys(set).length === 0) return
 
 			// Verify ownership via session
 			const log = await ctx.db.query.workoutLogs.findFirst({
@@ -1269,6 +1344,15 @@ export const workoutsRouter = router({
 				with: { session: true }
 			})
 			if (!log || log.session.userId !== ctx.user.id) throw new Error('Set not found')
+
+			if (updates.weightKg !== undefined) {
+				set.weightKg = await resolveLogWeightKg(ctx.db, ctx.user.id, log.exerciseId, updates.weightKg)
+			}
+			if (updates.reps !== undefined) set.reps = updates.reps
+			if (updates.setType !== undefined) set.setType = updates.setType
+			if (updates.rpe !== undefined) set.rpe = updates.rpe
+			if (updates.failureFlag !== undefined) set.failureFlag = updates.failureFlag ? 1 : 0
+			if (Object.keys(set).length === 0) return
 
 			await ctx.db.update(workoutLogs).set(set).where(eq(workoutLogs.id, id))
 		}),
@@ -1469,17 +1553,28 @@ export const workoutsRouter = router({
 			})
 			if (!workout) throw new TRPCError({ code: 'NOT_FOUND', message: 'Workout not found' })
 
+			const settings = await ctx.db.query.userSettings.findFirst({
+				where: { userId: ctx.user.id },
+				columns: { weightKg: true }
+			})
+			const bodyWeightKg = settings?.weightKg ?? null
+
 			const contributions: MuscleContribution[] = []
 			for (const we of workout.exercises) {
 				const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
 				const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+				const targetWeight = we.targetWeight
+				const weightKg =
+					targetWeight != null
+						? effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, targetWeight)
+						: undefined
 				for (const m of we.exercise.muscles) {
 					contributions.push({
 						muscleGroup: m.muscleGroup,
 						intensity: m.intensity,
 						sets,
 						reps: we.targetReps ?? undefined,
-						weightKg: we.targetWeight ?? undefined,
+						weightKg,
 						exerciseType: we.exercise.type,
 						fatigueTier: we.exercise.fatigueTier,
 						trainingGoal: goal
@@ -1630,15 +1725,37 @@ export const workoutsRouter = router({
 
 	generateWarmup: protectedProcedure
 		.meta({
-			description: 'Auto-generate warmup sets (ramp of decreasing reps) for a given working weight and rep target'
+			description:
+				'Auto-generate warmup sets. Working weight is added kg; bodyweight exercises (exerciseId with bwMultiplier > 0) get rep-based warmups at +0.'
 		})
 		.input(
 			z.object({
 				workingWeight: z.number().min(0),
-				workingReps: z.number().int().min(1)
+				workingReps: z.number().int().min(1),
+				exerciseId: zodTypeID('exc').optional()
 			})
 		)
-		.query(({ input }) => {
+		.query(async ({ ctx, input }) => {
+			let bwMultiplier = 0
+			if (input.exerciseId) {
+				const exercise = await ctx.db.query.exercises.findFirst({
+					where: { id: input.exerciseId },
+					columns: { bwMultiplier: true }
+				})
+				bwMultiplier = exercise?.bwMultiplier ?? 0
+			}
+
+			if (bwMultiplier > 0) {
+				const sets: Array<{ weightKg: number; reps: number; setType: 'warmup' }> = []
+				const firstReps = Math.max(3, Math.round(input.workingReps * 0.6))
+				sets.push({ weightKg: 0, reps: firstReps, setType: 'warmup' })
+				const secondReps = Math.max(2, Math.round(input.workingReps * 0.4))
+				if (secondReps < firstReps) {
+					sets.push({ weightKg: 0, reps: secondReps, setType: 'warmup' })
+				}
+				return sets
+			}
+
 			const { workingWeight } = input
 			const bar = 20
 			const round = (w: number) => Math.round(w / 0.5) * 0.5
@@ -1666,17 +1783,41 @@ export const workoutsRouter = router({
 
 	generateBackoff: protectedProcedure
 		.meta({
-			description: 'Auto-generate backoff sets (drop sets with higher reps at reduced weight) for a working set'
+			description:
+				'Auto-generate backoff sets. Working weight is added kg; bodyweight exercises (exerciseId with bwMultiplier > 0) get +0 backoff sets with extra reps.'
 		})
 		.input(
 			z.object({
 				workingWeight: z.number().min(0),
 				workingReps: z.number().int().min(1),
-				count: z.number().int().min(1).max(5).default(2)
+				count: z.number().int().min(1).max(5).default(2),
+				exerciseId: zodTypeID('exc').optional()
 			})
 		)
-		.query(({ input }) => {
+		.query(async ({ ctx, input }) => {
+			let bwMultiplier = 0
+			if (input.exerciseId) {
+				const exercise = await ctx.db.query.exercises.findFirst({
+					where: { id: input.exerciseId },
+					columns: { bwMultiplier: true }
+				})
+				bwMultiplier = exercise?.bwMultiplier ?? 0
+			}
+
 			const { workingWeight, workingReps, count } = input
+
+			if (bwMultiplier > 0) {
+				const sets: Array<{ weightKg: number; reps: number; setType: 'backoff' }> = []
+				for (let i = 0; i < count; i++) {
+					sets.push({
+						weightKg: 0,
+						reps: workingReps + 2 * (i + 1),
+						setType: 'backoff'
+					})
+				}
+				return sets
+			}
+
 			const roundUp = (w: number) => Math.ceil(w / 0.5) * 0.5
 
 			const sets: Array<{ weightKg: number; reps: number; setType: 'backoff' }> = []
@@ -1782,6 +1923,7 @@ export const workoutsRouter = router({
 								name: row.exerciseName,
 								type: inferred.type,
 								fatigueTier: inferred.fatigueTier,
+								bwMultiplier: inferred.bwMultiplier,
 								createdAt: now
 							})
 							.returning()
@@ -1843,7 +1985,7 @@ export const workoutsRouter = router({
 	importSets: protectedProcedure
 		.meta({
 			description:
-				'Bulk-import logged sets from tab/CSV text into a session (creates missing exercises on the fly)'
+				'Bulk-import logged sets from tab/CSV text into a session (creates missing exercises on the fly). Imported weights are treated as added kg and expanded to effective load for bodyweight exercises.'
 		})
 		.input(
 			z.object({
@@ -1853,6 +1995,12 @@ export const workoutsRouter = router({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
+			const settings = await ctx.db.query.userSettings.findFirst({
+				where: { userId: ctx.user.id },
+				columns: { weightKg: true }
+			})
+			const bodyWeightKg = settings?.weightKg ?? null
+
 			// Load all available exercises for matching
 			const allExercises = await ctx.db.query.exercises.findMany({
 				where: { OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }] }
@@ -1924,6 +2072,20 @@ export const workoutsRouter = router({
 			}
 			if (currentSession.rows.length > 0) sessions.push(currentSession)
 
+			// Fail fast if any imported row targets a BW exercise without body weight set
+			for (const parsed of sessions) {
+				for (const row of parsed.rows) {
+					const cached = exerciseCache.get(row.exerciseName.toLowerCase())
+					const bwMultiplier = cached?.bwMultiplier ?? inferExercise(row.exerciseName).bwMultiplier
+					if (bwMultiplier > 0 && (bodyWeightKg == null || bodyWeightKg <= 0)) {
+						throw new TRPCError({
+							code: 'PRECONDITION_FAILED',
+							message: 'Set your body weight in Settings before logging bodyweight exercises'
+						})
+					}
+				}
+			}
+
 			// If caller provided a sessionId, merge all into that single session
 			// Otherwise create one session per parsed session block
 			let totalSets = 0
@@ -1974,6 +2136,7 @@ export const workoutsRouter = router({
 								name: row.exerciseName,
 								type: inferred.type,
 								fatigueTier: inferred.fatigueTier,
+								bwMultiplier: inferred.bwMultiplier,
 								createdAt: now
 							})
 							.returning()
@@ -2005,7 +2168,7 @@ export const workoutsRouter = router({
 							exerciseId: exercise.id,
 							setNumber: setNum,
 							setType: 'working',
-							weightKg: row.weightKg,
+							weightKg: effectiveSetWeightKg(exercise.bwMultiplier, bodyWeightKg, row.weightKg),
 							reps: row.reps,
 							rpe: null,
 							failureFlag: false,
@@ -2295,6 +2458,12 @@ export const workoutsRouter = router({
 				})
 			}
 
+			const settings = await ctx.db.query.userSettings.findFirst({
+				where: { userId: ctx.user.id },
+				columns: { weightKg: true }
+			})
+			const bodyWeightKg = settings?.weightKg ?? null
+
 			const contributions: MuscleContribution[] = []
 			let exerciseCount = 0
 			for (const item of program.items) {
@@ -2303,13 +2472,18 @@ export const workoutsRouter = router({
 					exerciseCount++
 					const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
 					const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
+					const targetWeight = we.targetWeight
+					const weightKg =
+						targetWeight != null
+							? effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, targetWeight)
+							: undefined
 					for (const m of we.exercise.muscles) {
 						contributions.push({
 							muscleGroup: m.muscleGroup,
 							intensity: m.intensity,
 							sets,
 							reps: we.targetReps ?? undefined,
-							weightKg: we.targetWeight ?? undefined,
+							weightKg,
 							exerciseType: we.exercise.type,
 							fatigueTier: we.exercise.fatigueTier,
 							trainingGoal: goal

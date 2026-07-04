@@ -19,6 +19,7 @@ export interface ExerciseSetFormProps {
 	setMode?: SetMode
 	trainingGoal?: TrainingGoal
 	workoutGoal?: TrainingGoal
+	bodyWeightKg?: number | null
 	onSetModeChange?: (mode: SetMode) => void
 	onTrainingGoalChange?: (goal: TrainingGoal | null) => void
 	onAddSet: (data: { exerciseId: Exercise['id']; weightKg: number; reps: number; setType: SetType }) => void
@@ -44,9 +45,11 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	onReplace,
 	readOnly,
 	active,
-	lastSession
+	lastSession,
+	bodyWeightKg
 }) => {
 	const [collapsed, setCollapsed] = useState(false)
+	const bwMultiplier = exercise.bwMultiplier
 	const [newWeight, setNewWeight] = useState('')
 	const [newReps, setNewReps] = useState('')
 	const [editableTargets, setEditableTargets] = useState<Map<number, { weight: number | null; reps: number }>>(
@@ -161,6 +164,9 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 									rpe={isUnchecked ? undefined : log.rpe}
 									failureFlag={isUnchecked ? undefined : log.failureFlag}
 									done={!isUnchecked}
+									bwMultiplier={bwMultiplier}
+									bodyWeightKg={bodyWeightKg}
+									weightInput="stored"
 									priorMaxE1rm={lastSession?.topE1rm ?? null}
 									onWeightChange={v => {
 										if (v != null) onUpdateSet(log.id, { weightKg: v })
@@ -196,6 +202,9 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 										reps={reps}
 										setType={planned.setType}
 										active={active && idx === 0}
+										bwMultiplier={bwMultiplier}
+										bodyWeightKg={bodyWeightKg}
+										weightInput="added"
 										onConfirm={() => {
 											onAddSet({
 												exerciseId: exercise.id,
@@ -255,7 +264,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 							<span className="text-ink-faint text-xs">×</span>
 							<NumberInput
 								className="w-24"
-								placeholder="kg"
+								placeholder={bwMultiplier > 0 ? '+kg' : 'kg'}
 								value={newWeight}
 								onChange={e => setNewWeight(e.target.value)}
 								onKeyDown={handleKeyDown}
