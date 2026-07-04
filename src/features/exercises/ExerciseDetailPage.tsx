@@ -248,7 +248,7 @@ const ViewEditMode = ({ exercise, isOwned, onDelete }: ViewEditModeProps) => {
 										{METRIC_UNIT.e1rm}
 										<span className="ml-2 text-ink-faint text-xs">
 											{bestEver.topSet.weightKg}
-											{METRIC_UNIT.e1rm} × {bestEver.topSet.reps} on{' '}
+											{METRIC_UNIT.weight} × {bestEver.topSet.reps} on{' '}
 											{formatDate(bestEver.startedAt)}
 										</span>
 									</dd>

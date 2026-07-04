@@ -28,7 +28,7 @@ export const E1rmTable: FC<E1rmTableProps> = ({ stats, priorMaxByExercise }) => 
 						<div className="flex shrink-0 items-baseline gap-2 font-mono text-[11px] tabular-nums">
 							<span className="text-ink-faint">
 								{s.weightKg}
-								{METRIC_UNIT.e1rm} × {s.reps}
+								{METRIC_UNIT.weight} × {s.reps}
 							</span>
 							<span className={cn('font-semibold', isPR ? 'text-success' : 'text-accent')}>
 								{isPR && '↑ '}
