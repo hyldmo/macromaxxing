@@ -96,3 +96,20 @@ export function formatTemplate(workout: Workout): string {
 
 	return lines.join('\n').trimEnd()
 }
+
+/** Format a workout program as LLM-friendly markdown */
+export function formatProgram(name: string, workouts: Workout[]): string {
+	const lines: string[] = []
+
+	lines.push(`# Workout Program: "${name}"`)
+	if (workouts.length > 0) {
+		const cycle = workouts.map((w, i) => `${i + 1}. ${w.name}`).join(' → ')
+		lines.push(`Cycle (${workouts.length} workouts): ${cycle}`)
+	}
+
+	for (let i = 0; i < workouts.length; i++) {
+		lines.push('', '---', '', formatTemplate(workouts[i]))
+	}
+
+	return lines.join('\n').trimEnd()
+}
