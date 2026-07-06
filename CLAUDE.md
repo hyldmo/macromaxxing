@@ -330,6 +330,8 @@ trpc.workout.lastSessionForExercise         # Single-exercise last-session looku
 trpc.workout.lastSessionsForExercises       # Batched variant — single query for N exercises (avoids N+1 on session entry)
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
+trpc.workout.exercisesByMuscleGroup         # Exercises (system + custom) targeting a muscle group, sorted by that muscle's intensity
+trpc.workout.sessionsByMuscleGroup          # Logged sessions that trained a muscle group (working sets), with contributing exercises + effective sets/volume
 trpc.workout.coverageStats                  # Template muscle coverage for body map
 trpc.workout.exerciseMuscleLoad             # Single-exercise muscle breakdown at a given sets/reps/weight dose
 trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown with MEV/MAV/MRV zones + balance ratios

@@ -8,20 +8,27 @@ export interface BodyMapProps {
 	muscleVolumes: Map<MuscleGroup, number>
 	sex: Sex
 	renderTooltip?: (muscleGroup: MuscleGroup) => ReactNode
+	/** When provided, muscles become clickable (e.g. to filter by muscle group). */
+	onMuscleClick?: (muscle: MuscleGroup) => void
+	/** Highlighted muscle (outline ring), e.g. the active filter selection. */
+	selectedMuscle?: MuscleGroup | null
 }
 
 const BodyFigure: FC<{
 	SvgComponent: FC<BodySvgProps>
 	muscleColors: Map<MuscleGroup, string>
 	onHover: (muscle: MuscleGroup | null) => void
+	onMuscleClick?: (muscle: MuscleGroup) => void
+	selectedMuscle?: MuscleGroup | null
 	label: string
-}> = ({ SvgComponent, muscleColors, onHover, label }) => {
+}> = ({ SvgComponent, muscleColors, onHover, onMuscleClick, selectedMuscle, label }) => {
 	const gp = (muscle: MuscleGroup): SVGAttributes<SVGGElement> => ({
-		className: `cursor-pointer transition-colors hover:opacity-70 ${
-			muscleColors.get(muscle) ?? 'text-ink-faint/20'
+		className: `transition-colors hover:opacity-70 ${onMuscleClick ? 'cursor-pointer' : 'cursor-default'} ${
+			selectedMuscle === muscle ? 'text-accent' : (muscleColors.get(muscle) ?? 'text-ink-faint/20')
 		}`,
 		onMouseEnter: () => onHover(muscle),
-		onMouseLeave: () => onHover(null)
+		onMouseLeave: () => onHover(null),
+		onClick: onMuscleClick ? () => onMuscleClick(muscle) : undefined
 	})
 
 	return (
@@ -34,7 +41,7 @@ const BodyFigure: FC<{
 	)
 }
 
-export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip }) => {
+export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip, onMuscleClick, selectedMuscle }) => {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [hoveredMuscle, setHoveredMuscle] = useState<MuscleGroup | null>(null)
 	const tooltipRef = useRef<HTMLDivElement>(null)
@@ -71,8 +78,22 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip })
 			onMouseMove={handleMouseMove}
 		>
 			<div className="flex justify-center gap-4">
-				<BodyFigure SvgComponent={Front} muscleColors={muscleColors} onHover={setHoveredMuscle} label="front" />
-				<BodyFigure SvgComponent={Back} muscleColors={muscleColors} onHover={setHoveredMuscle} label="back" />
+				<BodyFigure
+					SvgComponent={Front}
+					muscleColors={muscleColors}
+					onHover={setHoveredMuscle}
+					onMuscleClick={onMuscleClick}
+					selectedMuscle={selectedMuscle}
+					label="front"
+				/>
+				<BodyFigure
+					SvgComponent={Back}
+					muscleColors={muscleColors}
+					onHover={setHoveredMuscle}
+					onMuscleClick={onMuscleClick}
+					selectedMuscle={selectedMuscle}
+					label="back"
+				/>
 			</div>
 			{hoveredMuscle && (
 				<div

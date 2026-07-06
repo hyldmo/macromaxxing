@@ -1452,6 +1452,112 @@ export const workoutsRouter = router({
 			}))
 		}),
 
+	exercisesByMuscleGroup: protectedProcedure
+		.meta({
+			description:
+				'List exercises (system catalog + user-created) that train a given muscle group, sorted by that muscle’s intensity (highest first). Optionally filter by exercise type.'
+		})
+		.input(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), type: exerciseType.optional() }))
+		.query(async ({ ctx, input }) => {
+			const typeFilter = input.type ? { type: input.type } : {}
+			const all = await ctx.db.query.exercises.findMany({
+				where: {
+					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }],
+					...typeFilter
+				},
+				with: { muscles: true },
+				orderBy: { name: 'asc' }
+			})
+
+			return all
+				.flatMap(exercise => {
+					const match = exercise.muscles.find(m => m.muscleGroup === input.muscleGroup)
+					return match ? [{ ...exercise, intensity: match.intensity }] : []
+				})
+				.sort((a, b) => b.intensity - a.intensity || a.name.localeCompare(b.name))
+		}),
+
+	sessionsByMuscleGroup: protectedProcedure
+		.meta({
+			description:
+				'Logged sessions that trained a given muscle group (working sets only), most recent first. Each session lists the contributing exercises with their working-set count plus the muscle’s effective sets and kg·reps volume for that session.'
+		})
+		.input(
+			z.object({
+				muscleGroup: z.enum(MUSCLE_GROUPS),
+				days: z.number().int().min(1).optional(),
+				limit: z.number().int().min(1).max(100).default(50)
+			})
+		)
+		.query(async ({ ctx, input }) => {
+			const sessions = await ctx.db.query.workoutSessions.findMany({
+				where: {
+					userId: ctx.user.id,
+					...(input.days ? { startedAt: { gte: Date.now() - input.days * 24 * 60 * 60 * 1000 } } : {})
+				},
+				with: { workout: true, logs: { with: { exercise: { with: { muscles: true } } } } },
+				orderBy: { startedAt: 'desc' }
+			})
+
+			type ExerciseHit = {
+				exerciseId: (typeof sessions)[number]['logs'][number]['exerciseId']
+				name: string
+				type: ExerciseType
+				intensity: number
+				workingSets: number
+			}
+
+			const results = []
+			for (const session of sessions) {
+				const hits = new Map<string, ExerciseHit>()
+				const contributions: MuscleContribution[] = []
+				for (const log of session.logs) {
+					if (log.setType === 'warmup') continue
+					const m = log.exercise.muscles.find(mm => mm.muscleGroup === input.muscleGroup)
+					if (!m) continue
+					contributions.push({
+						muscleGroup: m.muscleGroup,
+						intensity: m.intensity,
+						sets: 1,
+						reps: log.reps,
+						weightKg: log.weightKg,
+						exerciseType: log.exercise.type,
+						fatigueTier: log.exercise.fatigueTier,
+						trainingGoal: 'hypertrophy'
+					})
+					const existing = hits.get(log.exerciseId)
+					if (existing) existing.workingSets += 1
+					else
+						hits.set(log.exerciseId, {
+							exerciseId: log.exerciseId,
+							name: log.exercise.name,
+							type: log.exercise.type,
+							intensity: m.intensity,
+							workingSets: 1
+						})
+				}
+				if (hits.size === 0) continue
+
+				const load = computeMuscleLoad(contributions).find(l => l.muscleGroup === input.muscleGroup)
+				results.push({
+					session: {
+						id: session.id,
+						name: session.name,
+						startedAt: session.startedAt,
+						completedAt: session.completedAt,
+						workoutId: session.workoutId,
+						workoutName: session.workout?.name ?? null
+					},
+					exercises: Array.from(hits.values()).sort((a, b) => b.workingSets - a.workingSets),
+					effectiveSets: load?.workingSets ?? 0,
+					volumeKg: load?.volumeKg ?? 0
+				})
+				if (results.length >= input.limit) break
+			}
+
+			return results
+		}),
+
 	/** Coverage stats: weekly sets per muscle assuming all templates are done once */
 	coverageStats: protectedProcedure
 		.meta({ description: 'Weekly-volume muscle coverage (sets per group assuming each template is done once)' })
