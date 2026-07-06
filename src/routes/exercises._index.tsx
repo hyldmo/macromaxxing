@@ -1,4 +1,4 @@
-import { type MuscleGroup, MUSCLE_GROUPS } from '@macromaxxing/db'
+import { MUSCLE_GROUPS, type MuscleGroup } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
