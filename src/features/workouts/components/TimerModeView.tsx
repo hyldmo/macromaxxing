@@ -235,8 +235,11 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 										</button>
 									</div>
 								</div>
-								<span className="font-mono text-ink text-lg tabular-nums">
-									{currentLoadKg}kg &times; {currentSet.reps} reps
+								<span className="font-mono text-3xl text-ink tabular-nums">
+									<span className="text-macro-fiber">{currentLoadKg}</span>
+									<span className="-ml-1 text-xl opacity-90"> kg</span> &times;{' '}
+									<span className="text-macro-carbs">{currentSet.reps}</span>
+									<span className="-ml-1 text-xl opacity-90"> reps</span>
 								</span>
 							</div>
 
