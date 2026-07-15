@@ -187,6 +187,12 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 								</button>
 							</div>
 
+							{currentSet.note && (
+								<p className="-mt-3 max-w-xs whitespace-pre-line text-balance text-center text-ink-muted text-sm">
+									{currentSet.note}
+								</p>
+							)}
+
 							{currentSet.superset && (
 								<ButtonGroup
 									options={currentSet.superset.exercises.map(ex => ({

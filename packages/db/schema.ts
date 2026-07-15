@@ -280,6 +280,7 @@ export const workoutExercises = sqliteTable(
 		setMode: text('set_mode').notNull().default('warmup').$type<SetMode>(),
 		trainingGoal: text('training_goal').$type<TrainingGoal>(), // null = use workout-level goal
 		supersetGroup: integer('superset_group'), // null = standalone, same int = grouped
+		note: text('note'), // per-template exercise note, shown in timer mode
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('workout_exercises_workout_id_idx').on(t.workoutId)]

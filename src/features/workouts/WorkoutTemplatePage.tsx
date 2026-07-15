@@ -23,6 +23,7 @@ export interface TemplateExercise {
 	setMode: SetMode
 	trainingGoal: TrainingGoal | null
 	supersetGroup: number | null
+	note: string | null
 	strengthRepsMin: number | null
 	strengthRepsMax: number | null
 	hypertrophyRepsMin: number | null
@@ -80,6 +81,7 @@ export function WorkoutTemplatePage() {
 					setMode: e.setMode ?? 'working',
 					trainingGoal: e.trainingGoal ?? null,
 					supersetGroup: e.supersetGroup,
+					note: e.note ?? null,
 					strengthRepsMin: e.exercise.strengthRepsMin,
 					strengthRepsMax: e.exercise.strengthRepsMax,
 					hypertrophyRepsMin: e.exercise.hypertrophyRepsMin,
@@ -105,7 +107,8 @@ export function WorkoutTemplatePage() {
 				e.targetWeight !== s.targetWeight ||
 				e.setMode !== (s.setMode ?? 'working') ||
 				e.trainingGoal !== (s.trainingGoal ?? null) ||
-				e.supersetGroup !== s.supersetGroup
+				e.supersetGroup !== s.supersetGroup ||
+				e.note !== (s.note ?? null)
 			)
 		})
 	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
@@ -157,7 +160,8 @@ export function WorkoutTemplatePage() {
 				targetWeight: e.targetWeight,
 				setMode: e.setMode,
 				trainingGoal: e.trainingGoal,
-				supersetGroup: e.supersetGroup
+				supersetGroup: e.supersetGroup,
+				note: e.note?.trim() ? e.note.trim() : null
 			}))
 		}
 		if (isEditing) {
@@ -421,6 +425,7 @@ export function WorkoutTemplatePage() {
 								setMode: exercise.type === 'compound' ? 'warmup' : 'working',
 								trainingGoal: null,
 								supersetGroup: null,
+								note: null,
 								strengthRepsMin: exercise.strengthRepsMin,
 								strengthRepsMax: exercise.strengthRepsMax,
 								hypertrophyRepsMin: exercise.hypertrophyRepsMin,
