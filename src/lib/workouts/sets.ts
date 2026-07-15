@@ -356,6 +356,8 @@ export interface FlatSet {
 	completed: boolean
 	bwMultiplier: number
 	superset: SupersetInfo | null
+	/** Per-template exercise note, shown below the exercise name in timer mode. */
+	note?: string | null
 }
 
 export type RenderItem =
@@ -365,6 +367,7 @@ export type RenderItem =
 			exercise: SessionExercise
 			logs: SessionLog[]
 			planned: PlannedSet[]
+			note?: string | null
 	  }
 	| {
 			type: 'superset'
@@ -374,6 +377,7 @@ export type RenderItem =
 				exercise: SessionExercise
 				logs: SessionLog[]
 				planned: PlannedSet[]
+				note?: string | null
 			}>
 	  }
 
@@ -398,7 +402,8 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 					itemIndex: itemIdx,
 					completed: i < item.logs.length,
 					bwMultiplier: item.exercise.bwMultiplier,
-					superset: null
+					superset: null,
+					note: item.note ?? null
 				})
 			}
 		} else {
@@ -438,7 +443,8 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 							group: item.group,
 							exerciseLetter: LETTERS[exerciseIndex],
 							exercises: supersetExercises
-						}
+						},
+						note: item.exercises[exerciseIndex]?.note ?? null
 					})
 				}
 			}

@@ -662,7 +662,8 @@ export const workoutsRouter = router({
 						targetWeight: z.number().min(0).nullable(),
 						setMode: setMode.default('working'),
 						trainingGoal: trainingGoal.nullable().default(null),
-						supersetGroup: z.number().int().nullable().default(null)
+						supersetGroup: z.number().int().nullable().default(null),
+						note: z.string().nullable().default(null)
 					})
 				)
 			})
@@ -690,10 +691,10 @@ export const workoutsRouter = router({
 				.returning()
 
 			if (input.exercises.length > 0) {
-				// D1 limits to 100 bound params per query (10 cols → max 10 rows per insert)
-				for (let i = 0; i < input.exercises.length; i += 10) {
+				// D1 limits to 100 bound params per query (11 cols → max 9 rows per insert)
+				for (let i = 0; i < input.exercises.length; i += 9) {
 					await ctx.db.insert(workoutExercises).values(
-						input.exercises.slice(i, i + 10).map((e, idx) => ({
+						input.exercises.slice(i, i + 9).map((e, idx) => ({
 							workoutId: workout.id,
 							exerciseId: e.exerciseId,
 							sortOrder: i + idx,
@@ -703,6 +704,7 @@ export const workoutsRouter = router({
 							setMode: e.setMode,
 							trainingGoal: e.trainingGoal,
 							supersetGroup: e.supersetGroup,
+							note: e.note,
 							createdAt: now
 						}))
 					)
@@ -732,7 +734,8 @@ export const workoutsRouter = router({
 							targetWeight: z.number().min(0).nullable(),
 							setMode: setMode.default('working'),
 							trainingGoal: trainingGoal.nullable().default(null),
-							supersetGroup: z.number().int().nullable().default(null)
+							supersetGroup: z.number().int().nullable().default(null),
+							note: z.string().nullable().default(null)
 						})
 					)
 					.optional()
@@ -756,9 +759,9 @@ export const workoutsRouter = router({
 				// Replace all exercises
 				await ctx.db.delete(workoutExercises).where(eq(workoutExercises.workoutId, input.id))
 				if (input.exercises.length > 0) {
-					for (let i = 0; i < input.exercises.length; i += 10) {
+					for (let i = 0; i < input.exercises.length; i += 9) {
 						await ctx.db.insert(workoutExercises).values(
-							input.exercises.slice(i, i + 10).map((e, idx) => ({
+							input.exercises.slice(i, i + 9).map((e, idx) => ({
 								workoutId: input.id,
 								exerciseId: e.exerciseId,
 								sortOrder: i + idx,
@@ -768,6 +771,7 @@ export const workoutsRouter = router({
 								setMode: e.setMode,
 								trainingGoal: e.trainingGoal,
 								supersetGroup: e.supersetGroup,
+								note: e.note,
 								createdAt: now
 							}))
 						)

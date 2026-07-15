@@ -1,10 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TrainingGoal } from '@macromaxxing/db'
-import { GripVertical, Trash2 } from 'lucide-react'
+import { GripVertical, NotebookPen, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
-import { Button, NumberInput } from '~/components/ui'
+import { Button, Input, NumberInput } from '~/components/ui'
 import {
 	cn,
 	effectiveSetWeightKg,
@@ -158,6 +158,15 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 					}}
 					min={0}
 					step={0.5}
+				/>
+			</div>
+			<div className="mt-1.5 flex items-center gap-1.5 pl-6">
+				<NotebookPen className="size-3 shrink-0 text-ink-faint" />
+				<Input
+					className="h-7 border-dashed text-xs"
+					value={exercise.note ?? ''}
+					placeholder="Note (shown in timer)"
+					onChange={e => onUpdate({ note: e.target.value })}
 				/>
 			</div>
 		</div>

@@ -244,7 +244,7 @@ strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
 
 workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOrder)
   → workoutExercises(id typeid:wke, workoutId, exerciseId, sortOrder, targetSets?, targetReps?, targetWeight?,
-                     setMode: working|warmup|backoff|full, supersetGroup?)
+                     setMode: working|warmup|backoff|full, supersetGroup?, note? — shown in timer mode)
 
 workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
   → sessionPlannedExercises(id typeid:spe, sessionId, exerciseId, sortOrder, targetSets?, targetReps?,

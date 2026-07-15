@@ -35,6 +35,7 @@ type RenderItem =
 			exercise: SessionExercise
 			logs: SessionLog[]
 			planned: PlannedSet[]
+			note: string | null
 	  }
 	| {
 			type: 'superset'
@@ -44,6 +45,7 @@ type RenderItem =
 				exercise: SessionExercise
 				logs: SessionLog[]
 				planned: PlannedSet[]
+				note: string | null
 			}>
 	  }
 
@@ -373,6 +375,7 @@ export function WorkoutSessionPage() {
 			logs: SessionLog[]
 			planned: PlannedSet[]
 			supersetGroup: number | null
+			note: string | null
 		}
 		const exerciseDataList: ExerciseData[] = []
 
@@ -428,7 +431,8 @@ export function WorkoutSessionPage() {
 					exercise: logged?.exercise ?? effectiveExercise,
 					logs: logged?.logs ?? [],
 					planned: sets,
-					supersetGroup: we.supersetGroup
+					supersetGroup: we.supersetGroup,
+					note: we.note ?? null
 				})
 			}
 		}
@@ -442,7 +446,8 @@ export function WorkoutSessionPage() {
 					exercise: data.exercise,
 					logs: data.logs,
 					planned: [],
-					supersetGroup: null
+					supersetGroup: null,
+					note: null
 				})
 				extras.push(data)
 			}
@@ -468,7 +473,8 @@ export function WorkoutSessionPage() {
 							exerciseId: e.exerciseId,
 							exercise: e.exercise,
 							logs: e.logs,
-							planned: e.planned
+							planned: e.planned,
+							note: e.note
 						}))
 					})
 					for (const m of groupMembers) processedIds.add(m.exerciseId)
@@ -483,7 +489,8 @@ export function WorkoutSessionPage() {
 				exerciseId: ed.exerciseId,
 				exercise: ed.exercise,
 				logs: ed.logs,
-				planned: ed.planned
+				planned: ed.planned,
+				note: ed.note
 			})
 		}
 
