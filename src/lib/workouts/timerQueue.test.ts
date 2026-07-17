@@ -1,14 +1,17 @@
 import type { Exercise } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
-import type { FlatSet } from './sets'
+import type { FlatSet, SessionLog } from './sets'
 import {
+	confirmOutcome,
 	cursorEquals,
 	cursorIndex,
 	cursorOf,
+	dismissOutcome,
 	nextExercisePendingIndex,
 	nextPendingIndex,
 	nextPendingWrapped,
-	resolveCursorIndex
+	resolveCursorIndex,
+	undoCursor
 } from './timerQueue'
 
 const exc = (id: string) => id as Exercise['id']
@@ -130,5 +133,86 @@ describe('nextExercisePendingIndex', () => {
 	it('-1 when no pending group in that direction or fromIndex invalid', () => {
 		expect(nextExercisePendingIndex(queue, 3, 1)).toBe(-1)
 		expect(nextExercisePendingIndex(queue, -1, 1)).toBe(-1)
+	})
+})
+
+describe('confirmOutcome', () => {
+	it('mid-superset transition → advance to the next pending set', () => {
+		const queue = [
+			makeSet({ exerciseId: exc('exc_a'), transition: true }),
+			makeSet({ exerciseId: exc('exc_b'), transition: false })
+		]
+		expect(confirmOutcome(queue, 0)).toEqual({
+			action: 'advance',
+			next: { exerciseId: 'exc_b', setNumber: 1 }
+		})
+	})
+
+	it('last-in-round (non-transition) → rest, cursor holds', () => {
+		const queue = [
+			makeSet({ exerciseId: exc('exc_a'), transition: true }),
+			makeSet({ exerciseId: exc('exc_b'), transition: false })
+		]
+		expect(confirmOutcome(queue, 1)).toEqual({ action: 'rest' })
+	})
+
+	it('transition with nothing else pending → advance to null, never back to the confirmed set', () => {
+		// The confirmed set still reads pending — its optimistic log may not have landed
+		const queue = [makeSet({ transition: true }), makeSet({ setNumber: 2, completed: true })]
+		expect(confirmOutcome(queue, 0)).toEqual({ action: 'advance', next: null })
+	})
+
+	it('out-of-range index → rest', () => {
+		expect(confirmOutcome([], 0)).toEqual({ action: 'rest' })
+	})
+})
+
+describe('dismissOutcome', () => {
+	it('completed set → advance to the next pending set', () => {
+		const queue = [makeSet({ completed: true }), makeSet({ setNumber: 2 })]
+		expect(dismissOutcome(queue, 0)).toEqual({
+			advance: true,
+			next: { exerciseId: 'exc_bench', setNumber: 2 }
+		})
+	})
+
+	it('wraps to an earlier pending set', () => {
+		const queue = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2, completed: true })]
+		expect(dismissOutcome(queue, 1)).toEqual({
+			advance: true,
+			next: { exerciseId: 'exc_bench', setNumber: 1 }
+		})
+	})
+
+	it('nothing pending anywhere → advance to null (workout done)', () => {
+		expect(dismissOutcome([makeSet({ completed: true })], 0)).toEqual({ advance: true, next: null })
+	})
+
+	it('parked on a pending set (checklist-started rest) → no advance, the set is not skipped', () => {
+		const queue = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
+		expect(dismissOutcome(queue, 0)).toEqual({ advance: false })
+	})
+
+	it('invalid index → no advance', () => {
+		expect(dismissOutcome([makeSet()], -1)).toEqual({ advance: false })
+	})
+})
+
+describe('undoCursor', () => {
+	const logged = (id: string) => ({ id }) as unknown as FlatSet['log']
+
+	it('lands on the slot the removed log frees up', () => {
+		const queue = [
+			makeSet({ setNumber: 1, completed: true, log: logged('wkl_1') }),
+			makeSet({ setNumber: 2, completed: true, log: logged('wkl_2') })
+		]
+		expect(undoCursor(queue, 'wkl_2' as SessionLog['id'])).toEqual({
+			exerciseId: 'exc_bench',
+			setNumber: 2
+		})
+	})
+
+	it('log outside the queue (ad-hoc extra) → null', () => {
+		expect(undoCursor([makeSet()], 'wkl_extra' as SessionLog['id'])).toBeNull()
 	})
 })

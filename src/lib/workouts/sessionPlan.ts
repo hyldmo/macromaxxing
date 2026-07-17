@@ -1,18 +1,23 @@
-import type { Exercise, SetMode, TrainingGoal } from '@macromaxxing/db'
+import type { Exercise, SessionPlannedExercise, SetMode, TrainingGoal } from '@macromaxxing/db'
+import type { RouterOutput } from '~/lib/trpc'
 import { generatePlannedSets, type PlannedSet, type RenderItem, type SessionLog, TRAINING_DEFAULTS } from './sets'
+
+type SessionData = RouterOutput['workout']['getSession']
 
 type SessionExercise = SessionLog['exercise']
 
 /** One row of a session's materialized plan (`sessionPlannedExercises`), with the exercise loaded. */
-export interface PlannedExerciseRow {
-	exerciseId: Exercise['id']
-	sortOrder: number
-	targetSets: number | null
-	targetReps: number | null
-	targetWeight: number | null
-	setMode: SetMode
-	trainingGoal: TrainingGoal | null
-	supersetGroup: number | null
+export type PlannedExerciseRow = Pick<
+	SessionPlannedExercise,
+	| 'exerciseId'
+	| 'sortOrder'
+	| 'targetSets'
+	| 'targetReps'
+	| 'targetWeight'
+	| 'setMode'
+	| 'trainingGoal'
+	| 'supersetGroup'
+> & {
 	exercise: SessionExercise
 }
 
@@ -159,4 +164,26 @@ export function buildSessionPlan({ plannedExercises, logs, workoutGoal, notes }:
 	}
 
 	return { exerciseGroups, extraExercises, modes, goals }
+}
+
+/**
+ * The session's own plan rows — the source of truth. Sessions created before
+ * plans were snapshotted fall back to the template read-only.
+ */
+export const sessionPlanRows = (session: SessionData): PlannedExerciseRow[] =>
+	session.plannedExercises.length > 0 ? session.plannedExercises : (session.workout?.exercises ?? [])
+
+/**
+ * Build the render plan straight from a getSession result: snapshot-vs-template
+ * fallback, live template notes, workout-goal default. Shared by the checklist
+ * page and timer mode so both surfaces always derive the same plan.
+ */
+export function buildSessionPlanFromSession(session: SessionData | undefined): SessionPlan {
+	if (!session) return buildSessionPlan({ plannedExercises: [], logs: [], workoutGoal: 'hypertrophy' })
+	return buildSessionPlan({
+		plannedExercises: sessionPlanRows(session),
+		logs: session.logs,
+		workoutGoal: session.workout?.trainingGoal ?? 'hypertrophy',
+		notes: new Map((session.workout?.exercises ?? []).map(we => [we.exerciseId, we.note ?? null]))
+	})
 }

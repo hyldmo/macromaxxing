@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import {
-	buildSessionPlan,
+	buildSessionPlanFromSession,
 	calculateRest,
 	estimateReplacementWeight,
 	formatSession,
 	type RenderItem,
+	sessionPlanRows,
 	TRAINING_DEFAULTS,
 	totalVolume,
 	useDocumentTitle
@@ -220,23 +221,13 @@ export function WorkoutSessionPage() {
 	const session = sessionQuery.data
 	const goal: TrainingGoal = session?.workout?.trainingGoal ?? 'hypertrophy'
 
-	// The session's own plan rows are the source of truth; sessions created before
-	// plans were snapshotted fall back to the template read-only.
-	const planRows = useMemo(() => {
-		if (!session) return []
-		return session.plannedExercises.length > 0 ? session.plannedExercises : (session.workout?.exercises ?? [])
-	}, [session])
-
-	const plan = useMemo(() => {
-		if (!session) return buildSessionPlan({ plannedExercises: [], logs: [], workoutGoal: 'hypertrophy' })
-		return buildSessionPlan({
-			plannedExercises: planRows,
-			logs: session.logs,
-			workoutGoal: goal,
-			notes: new Map((session.workout?.exercises ?? []).map(we => [we.exerciseId, we.note ?? null]))
-		})
-	}, [session, planRows, goal])
+	const planRows = useMemo(() => (session ? sessionPlanRows(session) : []), [session])
+	const plan = useMemo(() => buildSessionPlanFromSession(session), [session])
 	const { exerciseGroups, extraExercises, modes: exerciseModes, goals: exerciseGoals } = plan
+
+	// Mode/goal edits persist via updatePlannedExercise, which needs a snapshot
+	// row — pre-snapshot sessions and ad-hoc extras have none, so their controls hide
+	const planEditable = (session?.plannedExercises.length ?? 0) > 0
 
 	// Batched "last time" hints — one query per page covering every exercise in
 	// the plan plus any extras logged so far. `before: session.startedAt`
@@ -476,9 +467,17 @@ export function WorkoutSessionPage() {
 								onUpdateSet={(logId, updates) => updateSet.mutate({ id: logId, ...updates })}
 								onRemoveSet={logId => removeSet.mutate({ id: logId })}
 								onReplace={exerciseId => setReplaceExerciseId(exerciseId)}
-								onTrainingGoalChange={(exerciseId, g) => {
-									updatePlannedExercise.mutate({ sessionId: session.id, exerciseId, trainingGoal: g })
-								}}
+								onTrainingGoalChange={
+									planEditable
+										? (exerciseId, g) => {
+												updatePlannedExercise.mutate({
+													sessionId: session.id,
+													exerciseId,
+													trainingGoal: g
+												})
+											}
+										: undefined
+								}
 							/>
 						)
 					}
@@ -494,20 +493,28 @@ export function WorkoutSessionPage() {
 							workoutGoal={goal}
 							active={item === firstPendingItem}
 							lastSession={lastSessions?.[item.exerciseId] ?? null}
-							onSetModeChange={mode => {
-								updatePlannedExercise.mutate({
-									sessionId: session.id,
-									exerciseId: item.exerciseId,
-									setMode: mode
-								})
-							}}
-							onTrainingGoalChange={g => {
-								updatePlannedExercise.mutate({
-									sessionId: session.id,
-									exerciseId: item.exerciseId,
-									trainingGoal: g
-								})
-							}}
+							onSetModeChange={
+								planEditable && exerciseModes.has(item.exerciseId)
+									? mode => {
+											updatePlannedExercise.mutate({
+												sessionId: session.id,
+												exerciseId: item.exerciseId,
+												setMode: mode
+											})
+										}
+									: undefined
+							}
+							onTrainingGoalChange={
+								planEditable && exerciseModes.has(item.exerciseId)
+									? g => {
+											updatePlannedExercise.mutate({
+												sessionId: session.id,
+												exerciseId: item.exerciseId,
+												trainingGoal: g
+											})
+										}
+									: undefined
+							}
 							readOnly={isCompleted}
 							bodyWeightKg={bodyWeightKg}
 							onAddSet={handleChecklistAdd}
@@ -564,7 +571,8 @@ export function WorkoutSessionPage() {
 							sessionId: session.id,
 							oldExerciseId: oldId,
 							newExerciseId: selected.id,
-							targetWeight: estimated
+							// roundWeight can floor tiny estimates to 0, which the .positive() schema rejects
+							targetWeight: estimated || null
 						})
 						setReplaceExerciseId(null)
 					}}

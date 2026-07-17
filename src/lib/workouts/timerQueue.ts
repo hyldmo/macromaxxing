@@ -1,5 +1,5 @@
 import type { Exercise } from '@macromaxxing/db'
-import type { FlatSet } from './sets'
+import type { FlatSet, SessionLog } from './sets'
 
 /**
  * Stable identity of a planned set in the timer queue. Survives reorders and
@@ -69,4 +69,40 @@ export function nextExercisePendingIndex(queue: FlatSet[], fromIndex: number, di
 		}
 	}
 	return target
+}
+
+/**
+ * Outcome of confirming the set at `index`: a mid-superset transition advances to
+ * the next pending set (excluding the just-confirmed one, whose optimistic log
+ * may not have landed yet); a solo or round-ending set holds the cursor and
+ * starts rest.
+ */
+export type ConfirmOutcome = { action: 'advance'; next: SetCursor | null } | { action: 'rest' }
+
+export function confirmOutcome(queue: FlatSet[], index: number): ConfirmOutcome {
+	if (!queue[index]?.transition) return { action: 'rest' }
+	const next = nextPendingWrapped(queue, index, index)
+	return { action: 'advance', next: next >= 0 ? cursorOf(queue[next]) : null }
+}
+
+/**
+ * Cursor move after dismissing rest at `index`: advance off a completed set to
+ * the next pending one; stay parked on a pending set — dismissing a
+ * checklist-started rest must not skip a set that was never performed.
+ */
+export type DismissOutcome = { advance: true; next: SetCursor | null } | { advance: false }
+
+export function dismissOutcome(queue: FlatSet[], index: number): DismissOutcome {
+	if (index < 0 || !queue[index]?.completed) return { advance: false }
+	const next = nextPendingWrapped(queue, index)
+	return { advance: true, next: next >= 0 ? cursorOf(queue[next]) : null }
+}
+
+/**
+ * Cursor for undoing `logId`: the queue slot the removed log frees up, or null
+ * when the log lives outside the queue (ad-hoc extra exercise).
+ */
+export function undoCursor(queue: FlatSet[], logId: SessionLog['id']): SetCursor | null {
+	const idx = queue.findIndex(s => s.log?.id === logId)
+	return idx >= 0 ? cursorOf(queue[idx]) : null
 }

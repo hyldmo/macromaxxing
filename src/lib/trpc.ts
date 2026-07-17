@@ -1,12 +1,13 @@
 import { persistQueryClientRestore, persistQueryClientSubscribe } from '@tanstack/query-persist-client-core'
 import { QueryClient } from '@tanstack/react-query'
 import { createTRPCQueryUtils, createTRPCReact, httpBatchLink } from '@trpc/react-query'
-import type { inferRouterOutputs } from '@trpc/server'
+import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server'
 import type { AppRouter } from '../../workers/functions/lib/router'
 import { createIDBPersister } from './query-persist'
 
 export const trpc = createTRPCReact<AppRouter>()
 
+export type RouterInput = inferRouterInputs<AppRouter>
 export type RouterOutput = inferRouterOutputs<AppRouter>
 
 const ONE_DAY = 1000 * 60 * 60 * 24

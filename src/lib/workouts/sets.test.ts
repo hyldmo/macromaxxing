@@ -567,6 +567,24 @@ describe('flattenSets', () => {
 		expect(flat.every(s => s.superset === null)).toBe(true)
 	})
 
+	it('maps planned slots to logs by index and propagates goal', () => {
+		const flat = flattenSets([
+			{
+				type: 'standalone',
+				exerciseId: 'exc_solo' as Exercise['id'],
+				exercise: makeExercise('exc_solo', 'Squat'),
+				logs: [makeLog('wkl_1', 'exc_solo', 1, 'working'), makeLog('wkl_2', 'exc_solo', 2, 'working')],
+				planned: [planned('working', 1), planned('working', 2), planned('working', 3)],
+				goal: 'strength'
+			}
+		])
+
+		// Timer mode edits completed sets through FlatSet.log — an off-by-one here edits the wrong log
+		expect(flat.map(s => s.log?.id ?? null)).toEqual(['wkl_1', 'wkl_2', null])
+		expect(flat.map(s => s.completed)).toEqual([true, true, false])
+		expect(flat.every(s => s.goal === 'strength')).toBe(true)
+	})
+
 	it('equal-length superset: transition flips on last-in-round; per-exercise numbering', () => {
 		const flat = flattenSets([supersetRenderItem({ group: 1, a: { sets: 2 }, b: { sets: 2 } })])
 
