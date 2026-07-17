@@ -9,16 +9,18 @@ import { isOptimisticLogId, useSessionSets } from '~/features/workouts/hooks/use
 import { useWorkoutSessionStore } from '~/features/workouts/store'
 import { useWakeLock } from '~/features/workouts/useWakeLock'
 import {
-	buildSessionPlan,
+	buildSessionPlanFromSession,
 	calculateRest,
+	confirmOutcome,
 	cursorEquals,
 	cursorIndex,
 	cursorOf,
+	dismissOutcome,
 	flattenSets,
 	nextExercisePendingIndex,
 	nextPendingIndex,
-	nextPendingWrapped,
 	resolveCursorIndex,
+	undoCursor,
 	useScrollLock
 } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -52,16 +54,7 @@ const TimerMode: FC = () => {
 	// edits, replacements, and checklist-mode logging are always reflected. The
 	// store only holds the cursor (stable set identity), which resolveCursorIndex
 	// maps back into the current queue.
-	const { exerciseGroups } = useMemo(() => {
-		if (!session) return buildSessionPlan({ plannedExercises: [], logs: [], workoutGoal: 'hypertrophy' })
-		return buildSessionPlan({
-			plannedExercises:
-				session.plannedExercises.length > 0 ? session.plannedExercises : (session.workout?.exercises ?? []),
-			logs: session.logs,
-			workoutGoal: session.workout?.trainingGoal ?? 'hypertrophy',
-			notes: new Map((session.workout?.exercises ?? []).map(we => [we.exerciseId, we.note ?? null]))
-		})
-	}, [session])
+	const { exerciseGroups } = useMemo(() => buildSessionPlanFromSession(session), [session])
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
 	const currentIndex = resolveCursorIndex(flatSets, cursor)
 	const currentSet = currentIndex >= 0 ? flatSets[currentIndex] : null
@@ -81,7 +74,7 @@ const TimerMode: FC = () => {
 			const next = nextPendingIndex(flatSets, idx + 1)
 			actions().setCursor(next >= 0 ? cursorOf(flatSets[next]) : null)
 		}
-	})
+	}, [flatSets])
 
 	// Draft overlays the live planned values only while it belongs to the shown set
 	const draftApplies = currentSet !== null && cursorEquals(cursor, cursorOf(currentSet))
@@ -182,13 +175,11 @@ const TimerMode: FC = () => {
 			}
 		})
 
-		if (currentSet.transition) {
-			// Mid-superset: credit round time, jump to the next set, auto-start its
-			// stopwatch. Exclude the confirmed index — its optimistic log may not have
-			// landed yet.
+		const outcome = confirmOutcome(flatSets, currentIndex)
+		if (outcome.action === 'advance') {
+			// Mid-superset: credit round time, jump to the next set, auto-start its stopwatch
 			actions().recordTransition()
-			const next = nextPendingWrapped(flatSets, currentIndex, currentIndex)
-			if (next >= 0) actions().startSet(cursorOf(flatSets[next]))
+			if (outcome.next) actions().startSet(outcome.next)
 			else actions().setCursor(null)
 		} else {
 			// Solo or round end: hold the cursor on the confirmed set while resting
@@ -199,21 +190,17 @@ const TimerMode: FC = () => {
 
 	const handleDismissTimer = useCallback(() => {
 		actions().dismissRest()
-		// Only advance off a set that was actually done — dismissing a checklist-started
-		// rest while parked on a pending set must not skip it
-		if (currentSet?.completed) {
-			const next = nextPendingWrapped(flatSets, currentIndex)
-			actions().setCursor(next >= 0 ? cursorOf(flatSets[next]) : null)
-		}
-	}, [currentSet, flatSets, currentIndex])
+		const outcome = dismissOutcome(flatSets, currentIndex)
+		if (outcome.advance) actions().setCursor(outcome.next)
+	}, [flatSets, currentIndex])
 
 	const handleUndo = useCallback(() => {
 		const lastLog = session?.logs.at(-1)
 		if (!lastLog || isOptimisticLogId(lastLog.id)) return
 		actions().dismissRest()
 		// Land on the slot the removed log frees up (extra sets live outside the queue)
-		const idx = flatSets.findIndex(s => s.log?.id === lastLog.id)
-		if (idx >= 0) actions().setCursor(cursorOf(flatSets[idx]))
+		const freed = undoCursor(flatSets, lastLog.id)
+		if (freed) actions().setCursor(freed)
 		removeSet.mutate({ id: lastLog.id })
 	}, [session, flatSets, removeSet])
 

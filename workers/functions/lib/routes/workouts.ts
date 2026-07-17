@@ -1392,26 +1392,31 @@ export const workoutsRouter = router({
 				where: { id: input.sessionId }
 			})
 			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
-			await ctx.db
-				.update(workoutLogs)
-				.set({ exerciseId: input.newExerciseId })
-				.where(and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.oldExerciseId)))
-			// The old exercise's targets don't transfer to a different movement —
-			// reset them and seed the caller's estimated weight (goal defaults fill the rest)
-			await ctx.db
-				.update(sessionPlannedExercises)
-				.set({
-					exerciseId: input.newExerciseId,
-					targetSets: null,
-					targetReps: null,
-					targetWeight: input.targetWeight ?? null
-				})
-				.where(
-					and(
-						eq(sessionPlannedExercises.sessionId, input.sessionId),
-						eq(sessionPlannedExercises.exerciseId, input.oldExerciseId)
+			// D1 has no transactions — batch so the logs and plan row can't diverge on partial failure
+			await ctx.db.batch([
+				ctx.db
+					.update(workoutLogs)
+					.set({ exerciseId: input.newExerciseId })
+					.where(
+						and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.oldExerciseId))
+					),
+				// The old exercise's targets don't transfer to a different movement —
+				// reset them and seed the caller's estimated weight (goal defaults fill the rest)
+				ctx.db
+					.update(sessionPlannedExercises)
+					.set({
+						exerciseId: input.newExerciseId,
+						targetSets: null,
+						targetReps: null,
+						targetWeight: input.targetWeight ?? null
+					})
+					.where(
+						and(
+							eq(sessionPlannedExercises.sessionId, input.sessionId),
+							eq(sessionPlannedExercises.exerciseId, input.oldExerciseId)
+						)
 					)
-				)
+			])
 		}),
 
 	updatePlannedExercise: protectedProcedure
@@ -1432,6 +1437,8 @@ export const workoutsRouter = router({
 				where: { id: input.sessionId }
 			})
 			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
+			// Empty patch would make Drizzle throw "No values to set" (same guard as updateSet)
+			if (input.setMode === undefined && input.trainingGoal === undefined) return
 			await ctx.db
 				.update(sessionPlannedExercises)
 				.set({

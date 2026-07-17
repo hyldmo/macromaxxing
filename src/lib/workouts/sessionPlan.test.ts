@@ -9,8 +9,12 @@ const exc = (id: string) => id as Exercise['id']
 
 // Fixtures cast at the boundary — buildSessionPlan reads name/muscles/bwMultiplier
 // from the exercise; logs only need exerciseId/setType linkage.
-function makeExercise(id: string, name: string): SessionExercise {
-	return { id, name, muscles: [], bwMultiplier: 0, fatigueTier: 2 } as unknown as SessionExercise
+function makeExercise(
+	id: string,
+	name: string,
+	muscles: Array<{ muscleGroup: string; intensity: number }> = []
+): SessionExercise {
+	return { id, name, muscles, bwMultiplier: 0, fatigueTier: 2 } as unknown as SessionExercise
 }
 
 function makeRow(overrides: Partial<PlannedExerciseRow> & { exerciseId: Exercise['id'] }): PlannedExerciseRow {
@@ -123,6 +127,36 @@ describe('buildSessionPlan', () => {
 		if (extraItem.type !== 'standalone') throw new Error('expected standalone')
 		expect(extraItem.planned).toEqual([])
 		expect(plan.goals.get(exc('exc_extra'))).toBe('hypertrophy')
+	})
+
+	it('threads warmup dedup across exercises in sortOrder, not input order', () => {
+		const muscles = [{ muscleGroup: 'triceps', intensity: 1.0 }]
+		const plan = buildSessionPlan({
+			plannedExercises: [
+				makeRow({
+					exerciseId: exc('exc_b'),
+					sortOrder: 2,
+					setMode: 'full',
+					exercise: makeExercise('exc_b', 'B', muscles)
+				}),
+				makeRow({
+					exerciseId: exc('exc_a'),
+					sortOrder: 1,
+					setMode: 'full',
+					exercise: makeExercise('exc_a', 'A', muscles)
+				})
+			],
+			logs: [],
+			workoutGoal: 'hypertrophy'
+		})
+
+		const [first, second] = plan.exerciseGroups
+		if (first.type !== 'standalone' || second.type !== 'standalone') throw new Error('expected standalone')
+		// exc_a (lower sortOrder) runs first and gets the warmup ramp
+		expect(first.exerciseId).toBe('exc_a')
+		expect(first.planned.some(s => s.setType === 'warmup')).toBe(true)
+		// exc_a fully warmed triceps — exc_b's ramp is skipped
+		expect(second.planned.some(s => s.setType === 'warmup')).toBe(false)
 	})
 
 	it('applies template notes by exercise id', () => {
