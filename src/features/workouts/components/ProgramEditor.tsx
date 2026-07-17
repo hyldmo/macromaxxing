@@ -354,8 +354,16 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, onR
 					{item.name}
 				</Link>
 				{exerciseNames.length > 0 && (
-					<div className="truncate font-mono text-[11px] text-ink-faint" title={exerciseNames.join(' · ')}>
-						{exerciseNames.join(' · ')}
+					<div className="flex flex-wrap gap-x-3 overflow-hidden font-mono text-[11px] text-ink-faint">
+						{exerciseNames.map((name, i) => (
+							<span
+								// biome-ignore lint/suspicious/noArrayIndexKey: names can repeat; position is the stable identity here
+								key={`${name}-${i}`}
+								className="relative before:absolute before:-left-2 before:content-['·'] first:before:hidden"
+							>
+								{name}
+							</span>
+						))}
 					</div>
 				)}
 				{muscles.length > 0 && (
