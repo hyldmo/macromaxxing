@@ -1375,12 +1375,16 @@ export const workoutsRouter = router({
 		}),
 
 	replaceSessionExercise: protectedProcedure
-		.meta({ description: 'Swap one exercise for another in an active session (keeps logged sets intact)' })
+		.meta({
+			description:
+				'Swap one exercise for another in an active session (keeps logged sets intact). Old targets are reset; pass targetWeight to seed an estimated working weight for the replacement.'
+		})
 		.input(
 			z.object({
 				sessionId: zodTypeID('wks'),
 				oldExerciseId: zodTypeID('exc'),
-				newExerciseId: zodTypeID('exc')
+				newExerciseId: zodTypeID('exc'),
+				targetWeight: z.number().positive().nullish()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -1392,13 +1396,52 @@ export const workoutsRouter = router({
 				.update(workoutLogs)
 				.set({ exerciseId: input.newExerciseId })
 				.where(and(eq(workoutLogs.sessionId, input.sessionId), eq(workoutLogs.exerciseId, input.oldExerciseId)))
+			// The old exercise's targets don't transfer to a different movement —
+			// reset them and seed the caller's estimated weight (goal defaults fill the rest)
 			await ctx.db
 				.update(sessionPlannedExercises)
-				.set({ exerciseId: input.newExerciseId })
+				.set({
+					exerciseId: input.newExerciseId,
+					targetSets: null,
+					targetReps: null,
+					targetWeight: input.targetWeight ?? null
+				})
 				.where(
 					and(
 						eq(sessionPlannedExercises.sessionId, input.sessionId),
 						eq(sessionPlannedExercises.exerciseId, input.oldExerciseId)
+					)
+				)
+		}),
+
+	updatePlannedExercise: protectedProcedure
+		.meta({
+			description:
+				'Update a planned exercise in an active session (set mode, per-exercise training goal). Session-scoped: does not touch the workout template.'
+		})
+		.input(
+			z.object({
+				sessionId: zodTypeID('wks'),
+				exerciseId: zodTypeID('exc'),
+				setMode: setMode.optional(),
+				trainingGoal: trainingGoal.nullish()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: { id: input.sessionId }
+			})
+			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
+			await ctx.db
+				.update(sessionPlannedExercises)
+				.set({
+					...(input.setMode !== undefined && { setMode: input.setMode }),
+					...(input.trainingGoal !== undefined && { trainingGoal: input.trainingGoal })
+				})
+				.where(
+					and(
+						eq(sessionPlannedExercises.sessionId, input.sessionId),
+						eq(sessionPlannedExercises.exerciseId, input.exerciseId)
 					)
 				)
 		}),

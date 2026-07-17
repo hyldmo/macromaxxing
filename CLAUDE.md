@@ -127,8 +127,10 @@ src/
                                             #   /workouts/new and /workouts/:workoutId.
       WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets. Shared by
                                             #   /workouts/:workoutId/session and /workouts/sessions/:sessionId.
-      WorkoutMode.tsx                       # Workout execution mode
-      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, active, rest, setTimer) — canonical "is session in progress" signal; persists across routes
+      WorkoutMode.tsx                       # WorkoutModes: setMode ButtonGroup (working/warmup/backoff/full)
+      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, cursor, draft, rest, setTimer) — canonical "is session in progress" signal; persists across routes.
+                                            #   Holds NO set queue: timer mode derives it live via flattenSets(exerciseGroups) and resolves cursor
+                                            #   (stable {exerciseId, setNumber} identity) against it via src/lib/workouts/timerQueue.ts
       components/
         BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
         MuscleHeatGrid.tsx                  # Muscle group volume/frequency stats grid
@@ -326,6 +328,8 @@ trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/r
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
 trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
+trpc.workout.updatePlannedExercise          # Session-scoped plan edit (setMode, per-exercise trainingGoal) — does not touch the template
+trpc.workout.replaceSessionExercise         # Swap an exercise in an active session (moves logs + plan row, resets targets, seeds estimated weight)
 trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI hot-path: LastSessionHint)
 trpc.workout.lastSessionsForExercises       # Batched variant — single query for N exercises (avoids N+1 on session entry)
 trpc.workout.addSet/updateSet/removeSet
@@ -394,6 +398,15 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 **Workouts** — Template-based training with checklist-driven session logging:
 - **Templates** define exercises with target sets/reps/weight and set modes (working/warmup/backoff/full)
 - **Sessions** are instances of templates with pre-filled planned sets — tap to confirm each set
+- **Sessions own their plan**: `createSession` snapshots the template into `sessionPlannedExercises`, and the live
+  session UI reads ONLY that snapshot (`buildSessionPlan` in src/lib/workouts/sessionPlan.ts). Mid-session edits
+  (set mode, per-exercise goal via `updatePlannedExercise`; exercise swap via `replaceSessionExercise`) mutate the
+  snapshot, survive refresh, and never touch the template. Template edits do NOT affect running sessions — the
+  session→template direction is handled by SessionReview on completion. Exception: per-exercise `note` is read live
+  from the template (guidance text, not plan state). Sessions predating the snapshot fall back to the template read-only.
+- **Set mutations** (add/update/remove with optimistic getSession cache updates incl. optimistic→real id swap) live in
+  `useSessionSets` (src/features/workouts/hooks/useSessionSets.ts) — shared by the checklist page and timer mode; rest
+  timers are started by the caller, not the mutation
 - **Supersets** group exercises via `supersetGroup` integer — rendered as interleaved rounds with transition timers
 - **Fatigue tiers** (1-4) on exercises drive dynamic rest duration: `reps × 4 × goalMultiplier + tierModifier`
 - **Body map** shows muscle coverage per workout template using exercise-muscle intensity mappings

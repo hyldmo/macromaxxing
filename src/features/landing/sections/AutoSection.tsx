@@ -87,6 +87,9 @@ const CURRENT_SET: FlatSet = {
 	itemIndex: 1,
 	completed: false,
 	bwMultiplier: 0,
+	fatigueTier: 2,
+	goal: 'strength',
+	log: null,
 	superset: null
 }
 
@@ -102,6 +105,9 @@ const NEXT_SET: FlatSet = {
 	itemIndex: 1,
 	completed: false,
 	bwMultiplier: 0,
+	fatigueTier: 2,
+	goal: 'strength',
+	log: null,
 	superset: null
 }
 

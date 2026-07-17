@@ -1,68 +1,14 @@
 import type { Exercise } from '@macromaxxing/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FlatSet } from '~/lib'
+import type { SetCursor } from '~/lib'
 import { useWorkoutSessionStore } from './useWorkoutSessionStore'
 
-// --- Helpers ---
-
-function makeSet(overrides: Partial<FlatSet> = {}): FlatSet {
-	return {
-		exerciseId: 'exc_bench' as Exercise['id'],
-		exerciseName: 'Bench Press',
-		setType: 'working',
-		weightKg: 80,
-		reps: 8,
-		setNumber: 1,
-		totalSets: 3,
-		transition: false,
-		itemIndex: 0,
-		completed: false,
-		bwMultiplier: 0,
-		superset: null,
-		...overrides
-	}
-}
-
-function makeSupersetPair(opts: { group: number; itemIndex: number }): FlatSet[] {
-	const exercises = [
-		{ exerciseId: 'exc_a' as Exercise['id'], name: 'Exercise A', letter: 'A' },
-		{ exerciseId: 'exc_b' as Exercise['id'], name: 'Exercise B', letter: 'B' }
-	]
-	const ssInfo = {
-		group: opts.group,
-		exerciseLetter: 'A',
-		exercises: exercises.map(e => ({ exerciseId: e.exerciseId, name: e.name, letter: e.letter }))
-	}
-
-	return [
-		makeSet({
-			exerciseId: exercises[0].exerciseId,
-			exerciseName: exercises[0].name,
-			setType: 'working',
-			transition: true,
-			itemIndex: opts.itemIndex,
-			superset: ssInfo,
-			setNumber: 1,
-			totalSets: 1
-		}),
-		makeSet({
-			exerciseId: exercises[1].exerciseId,
-			exerciseName: exercises[1].name,
-			setType: 'working',
-			transition: false,
-			itemIndex: opts.itemIndex,
-			superset: ssInfo,
-			setNumber: 1,
-			totalSets: 1
-		})
-	]
-}
+const BENCH: SetCursor = { exerciseId: 'exc_bench' as Exercise['id'], setNumber: 1 }
+const BENCH_2: SetCursor = { exerciseId: 'exc_bench' as Exercise['id'], setNumber: 2 }
 
 function store() {
 	return useWorkoutSessionStore.getState()
 }
-
-// --- Setup ---
 
 beforeEach(() => {
 	vi.useFakeTimers()
@@ -79,171 +25,170 @@ afterEach(() => {
 	vi.restoreAllMocks()
 })
 
-// --- Tests ---
-
-describe('init()', () => {
-	it('T1: empty sets → active = null', () => {
-		store().init('wks_1', 1000, [])
-		expect(store().active).toBeNull()
-		expect(store().queue).toEqual([])
+describe('setSession()', () => {
+	it('sets id and startedAt', () => {
+		store().setSession({ id: 'wks_1', startedAt: 1000 })
+		expect(store().sessionId).toBe('wks_1')
+		expect(store().sessionStartedAt).toBe(1000)
 	})
 
-	it('T2: some completed → cursor skips to first pending', () => {
-		const sets = [
-			makeSet({ completed: true, setNumber: 1 }),
-			makeSet({ completed: true, setNumber: 2 }),
-			makeSet({ completed: false, setNumber: 3 })
-		]
-		store().init('wks_1', 1000, sets)
-		expect(store().active?.index).toBe(2)
+	it('same session: keeps cursor, draft, and timers', () => {
+		store().setSession({ id: 'wks_1', startedAt: 1000 })
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().startRest(60, 'working')
+
+		store().setSession({ id: 'wks_1' })
+		expect(store().cursor).toEqual(BENCH)
+		expect(store().draft).toEqual({ weight: 100 })
+		expect(store().rest).not.toBeNull()
 	})
 
-	it('T3: all pending → cursor = 0', () => {
-		const sets = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
-		store().init('wks_1', 1000, sets)
-		expect(store().active?.index).toBe(0)
-		expect(store().active?.weight).toBe(80)
-		expect(store().active?.reps).toBe(8)
-	})
-})
+	it('different session: resets position state and timers', () => {
+		store().setSession({ id: 'wks_1', startedAt: 1000 })
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().startRest(60, 'working')
 
-describe('confirmSet()', () => {
-	it('T4: active is null → returns null', () => {
-		store().init('wks_1', 1000, [])
-		const result = store().confirmSet()
-		expect(result).toBeNull()
-	})
-
-	it('T5: solo exercise → mark confirmed, keep cursor on confirmed set', () => {
-		const sets = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
-		store().init('wks_1', 1000, sets)
-
-		const data = store().confirmSet()
-
-		expect(data).toEqual({
-			exerciseId: 'exc_bench',
-			weightKg: 80,
-			reps: 8,
-			setType: 'working',
-			transition: false
-		})
-		// Cursor stays on confirmed set (not advanced — rest hasn't been dismissed)
-		expect(store().active?.index).toBe(0)
-		expect(store().confirmedIndices).toEqual([0])
-	})
-
-	it('T6: superset mid-round (transition) → set _roundStartedAt, advance cursor, no rest', () => {
-		const sets = makeSupersetPair({ group: 1, itemIndex: 0 })
-		store().init('wks_1', 1000, sets)
-
-		vi.setSystemTime(5000)
-		const data = store().confirmSet()
-
-		expect(data?.transition).toBe(true)
-		// Cursor advances to B1
-		expect(store().active?.index).toBe(1)
-		expect(store()._roundStartedAt).toBe(5000)
-		// Auto-starts next set timer
-		expect(store().active?.setTimer).not.toBeNull()
-		// No rest started
+		store().setSession({ id: 'wks_2', startedAt: 2000 })
+		expect(store().sessionId).toBe('wks_2')
+		expect(store().sessionStartedAt).toBe(2000)
+		expect(store().cursor).toBeNull()
+		expect(store().draft).toEqual({})
 		expect(store().rest).toBeNull()
 	})
 
-	it('T7: superset last-in-round → keeps cursor, no auto-advance', () => {
-		const sets = makeSupersetPair({ group: 1, itemIndex: 0 })
-		store().init('wks_1', 1000, sets)
+	it('null: full reset', () => {
+		store().setSession({ id: 'wks_1', startedAt: 1000 })
+		store().setSession(null)
+		expect(store().sessionId).toBeNull()
+		expect(store().sessionStartedAt).toBeNull()
+	})
+})
 
-		// Confirm A1 (transition)
+describe('setCursor()', () => {
+	it('moves the cursor and clears set-scoped state', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().startSet(BENCH)
+
+		store().setCursor(BENCH_2)
+		expect(store().cursor).toEqual(BENCH_2)
+		expect(store().draft).toEqual({})
+		expect(store().setTimer).toBeNull()
+	})
+
+	it('re-setting the same cursor resets the draft (fresh planned values)', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().setCursor(BENCH)
+		expect(store().draft).toEqual({})
+	})
+})
+
+describe('setDraft()', () => {
+	it('merges patches for the current cursor', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().setDraft(BENCH, { reps: 12 })
+		expect(store().draft).toEqual({ weight: 100, reps: 12 })
+	})
+
+	it('cursor mismatch: snaps to the edited set with a fresh draft, keeps the stopwatch', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().startSet(BENCH)
+
+		store().setDraft(BENCH_2, { reps: 5 })
+		expect(store().cursor).toEqual(BENCH_2)
+		expect(store().draft).toEqual({ reps: 5 })
+		expect(store().setTimer).not.toBeNull()
+	})
+
+	it('supports explicit null weight (cleared input)', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: null })
+		expect(store().draft).toEqual({ weight: null })
+	})
+})
+
+describe('set stopwatch', () => {
+	it('startSet on the current cursor starts the timer, keeps draft', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
 		vi.setSystemTime(5000)
-		store().confirmSet()
-
-		// Confirm B1 (last in round)
-		vi.setSystemTime(10000)
-		const data = store().confirmSet()
-
-		expect(data?.transition).toBe(false)
-		// Cursor stays on B1 (confirmed, waiting for rest to be dismissed)
-		expect(store().active?.index).toBe(1)
-		expect(store().confirmedIndices).toEqual([0, 1])
+		store().startSet(BENCH)
+		expect(store().setTimer).toEqual({ startedAt: 5000, pausedAt: null })
+		expect(store().draft).toEqual({ weight: 100 })
 	})
 
-	it('T8: returns correct mutation data', () => {
-		const sets = [makeSet({ weightKg: 100, reps: 5, setType: 'warmup' })]
-		store().init('wks_1', 1000, sets)
-		store().editWeight(105)
-		store().editReps(6)
-
-		const data = store().confirmSet()
-		expect(data).toEqual({
-			exerciseId: 'exc_bench',
-			weightKg: 105,
-			reps: 6,
-			setType: 'warmup',
-			transition: false
-		})
-	})
-})
-
-describe('dismissRest()', () => {
-	it('T9: rest is null → still advances cursor if possible', () => {
-		const sets = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
-		store().init('wks_1', 1000, sets)
-		store().confirmSet()
-		// No rest started, but dismissRest should still advance
-		store().dismissRest()
-		expect(store().active?.index).toBe(1)
+	it('startSet on another set snaps the cursor and clears its state', () => {
+		store().setCursor(BENCH)
+		store().setDraft(BENCH, { weight: 100 })
+		store().startSet(BENCH_2)
+		expect(store().cursor).toEqual(BENCH_2)
+		expect(store().draft).toEqual({})
+		expect(store().setTimer).not.toBeNull()
 	})
 
-	it('T10: has next pending → advance cursor, load planned values', () => {
-		const sets = [makeSet({ setNumber: 1, weightKg: 80 }), makeSet({ setNumber: 2, weightKg: 85 })]
-		store().init('wks_1', 1000, sets)
-		store().confirmSet()
-		store().dismissRest()
+	it('pause freezes elapsed; resume excludes the paused span', () => {
+		store().setCursor(BENCH)
+		vi.setSystemTime(1000)
+		store().startSet(BENCH)
+		vi.setSystemTime(4000) // 3s of work
+		store().pauseSet()
+		expect(store().setTimer).toEqual({ startedAt: 1000, pausedAt: 4000 })
 
-		expect(store().active?.index).toBe(1)
-		expect(store().active?.weight).toBe(85)
-		expect(store().rest).toBeNull()
+		vi.setSystemTime(10000) // 6s paused
+		store().resumeSet()
+		// startedAt shifted by the 6s pause → elapsed stays 3s
+		expect(store().setTimer).toEqual({ startedAt: 7000, pausedAt: null })
 	})
 
-	it('T11: no more pending → active = null', () => {
-		const sets = [makeSet({ setNumber: 1 })]
-		store().init('wks_1', 1000, sets)
-		store().confirmSet()
-		store().dismissRest()
+	it('pause/resume are no-ops without a matching timer state', () => {
+		store().pauseSet()
+		expect(store().setTimer).toBeNull()
+		store().resumeSet()
+		expect(store().setTimer).toBeNull()
 
-		expect(store().active).toBeNull()
+		store().startSet(BENCH)
+		const running = store().setTimer
+		store().resumeSet() // not paused
+		expect(store().setTimer).toBe(running)
+	})
+
+	it('stopSet clears the timer', () => {
+		store().startSet(BENCH)
+		store().stopSet()
+		expect(store().setTimer).toBeNull()
 	})
 })
 
-describe('startRest() [checklist mode]', () => {
-	it('T12: no _roundStartedAt → rest starts now', () => {
-		store().init('wks_1', 1000, [makeSet()])
+describe('startRest()', () => {
+	it('no roundStartedAt → rest starts now', () => {
 		vi.setSystemTime(5000)
 		store().startRest(60, 'working')
 
-		expect(store().rest).not.toBeNull()
-		expect(store().rest!.total).toBe(60)
-		expect(store().rest!.setType).toBe('working')
-		expect(store().rest!.endAt).toBe(5000 + 60 * 1000)
+		expect(store().rest).toEqual({
+			startedAt: 5000,
+			endAt: 5000 + 60 * 1000,
+			total: 60,
+			setType: 'working'
+		})
 	})
 
-	it('T12b: solo exercise — set time NOT subtracted from rest', () => {
-		const sets = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
-		store().init('wks_1', 1000, sets)
-
+	it('set time is NOT subtracted from rest', () => {
 		vi.setSystemTime(1000)
-		store().startSet() // start doing the set
+		store().startSet(BENCH)
 		vi.setSystemTime(31000) // 30 seconds doing the set
-		store().confirmSet()
 		vi.setSystemTime(32000)
 		store().startRest(60, 'working')
 
-		// Full 60 seconds of rest — time spent doing the set should not be subtracted
 		expect(store().rest!.total).toBe(60)
+		expect(store().rest!.endAt).toBe(32000 + 60 * 1000)
 	})
 
-	it('T13: has _roundStartedAt → subtracts elapsed time', () => {
-		store().init('wks_1', 1000, [makeSet()])
+	it('roundStartedAt set → subtracts elapsed transition time, backdates startedAt', () => {
 		vi.setSystemTime(1000)
 		store().recordTransition()
 		vi.setSystemTime(11000) // 10 seconds later
@@ -254,161 +199,46 @@ describe('startRest() [checklist mode]', () => {
 		expect(store().rest!.endAt).toBe(11000 + 50 * 1000)
 		// startedAt backdated to when the round began so (total - remaining) shows time already rested
 		expect(store().rest!.startedAt).toBe(1000)
-		expect(store()._roundStartedAt).toBeNull() // cleared after use
+		expect(store().roundStartedAt).toBeNull() // cleared after use
 	})
-})
 
-describe('superset rest timing', () => {
-	it('T13b: superset — transition time subtracted from rest, but NOT first set time', () => {
-		const sets = [...makeSupersetPair({ group: 1, itemIndex: 0 }), ...makeSupersetPair({ group: 1, itemIndex: 0 })]
-		store().init('wks_1', 1000, sets)
-
-		// Spend 30 seconds doing the first set (A1) — should NOT count
+	it('recordTransition keeps the earliest round start', () => {
 		vi.setSystemTime(1000)
-		store().startSet()
-		vi.setSystemTime(31000)
-
-		// Confirm A1 (transition=true) → _roundStartedAt set NOW (at 31000)
-		store().confirmSet()
-		expect(store()._roundStartedAt).toBe(31000)
-
-		// Spend 10 seconds transitioning + doing B1
-		vi.setSystemTime(41000)
-		store().confirmSet() // Confirm B1 (transition=false, last in round)
-
-		// Start rest — total stays 60; the 10s of transition time is reflected by backdated startedAt
-		store().startRest(60, 'working')
-		expect(store().rest!.total).toBe(60)
-		expect(store().rest!.endAt).toBe(41000 + 50 * 1000)
-		expect(store().rest!.startedAt).toBe(31000)
-	})
-})
-
-describe('undo()', () => {
-	it('T14: no confirmed sets → no-op', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		const before = store().active?.index
-		store().undo()
-		expect(store().active?.index).toBe(before)
-	})
-
-	it('T15: has confirmed → pop last, restore cursor, clear rest', () => {
-		const sets = [makeSet({ setNumber: 1 }), makeSet({ setNumber: 2 })]
-		store().init('wks_1', 1000, sets)
-		store().confirmSet()
-
-		store().undo()
-		expect(store().confirmedIndices).toEqual([])
-		expect(store().active?.index).toBe(0)
-		expect(store().rest).toBeNull()
-	})
-})
-
-describe('editWeight / editReps', () => {
-	it('T16: updates active.weight and active.reps', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		store().editWeight(100)
-		expect(store().active?.weight).toBe(100)
-
-		store().editReps(12)
-		expect(store().active?.reps).toBe(12)
-	})
-})
-
-describe('setLogId', () => {
-	it('T17: sets active.logId', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		store().setLogId('wkl_abc')
-		expect(store().active?.logId).toBe('wkl_abc')
-	})
-})
-
-describe('set timer control', () => {
-	it('T18: startSet → sets setTimer.startedAt, does NOT set _roundStartedAt', () => {
-		store().init('wks_1', 1000, [makeSet()])
+		store().recordTransition()
 		vi.setSystemTime(5000)
-		store().startSet()
-		expect(store().active?.setTimer?.startedAt).toBe(5000)
-		expect(store().active?.setTimer?.isPaused).toBe(false)
-		// Starting a set should not begin tracking round time — only superset transitions should
-		expect(store()._roundStartedAt).toBeNull()
-	})
-
-	it('T19: pauseSet → sets isPaused', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		store().startSet()
-		store().pauseSet()
-		expect(store().active?.setTimer?.isPaused).toBe(true)
-	})
-
-	it('T20: resumeSet → adjusts startedAt by elapsed', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		vi.setSystemTime(1000)
-		store().startSet()
-		vi.setSystemTime(4000) // 3 seconds elapsed
-		store().pauseSet()
-
-		vi.setSystemTime(10000)
-		store().resumeSet(3000)
-		// startedAt = now - elapsedMs = 10000 - 3000 = 7000
-		expect(store().active?.setTimer?.startedAt).toBe(7000)
-		expect(store().active?.setTimer?.isPaused).toBe(false)
-	})
-
-	it('T21: stopSet → clears setTimer', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		store().startSet()
-		store().stopSet()
-		expect(store().active?.setTimer).toBeNull()
+		store().recordTransition()
+		expect(store().roundStartedAt).toBe(1000)
 	})
 })
 
-describe('navigate', () => {
-	it('T22: direction=1 → next exercise group', () => {
-		const sets = [
-			makeSet({ exerciseId: 'exc_a' as Exercise['id'], itemIndex: 0, setNumber: 1 }),
-			makeSet({ exerciseId: 'exc_b' as Exercise['id'], itemIndex: 1, setNumber: 1 })
-		]
-		store().init('wks_1', 1000, sets)
-		expect(store().active?.index).toBe(0)
+describe('dismissRest()', () => {
+	it('clears rest and round tracking, leaves the cursor alone', () => {
+		store().setCursor(BENCH)
+		store().recordTransition()
+		store().startRest(60, 'working')
 
-		store().navigate(1)
-		expect(store().active?.index).toBe(1)
-	})
-
-	it('T23: direction=-1 → prev exercise group', () => {
-		const sets = [
-			makeSet({ exerciseId: 'exc_a' as Exercise['id'], itemIndex: 0, setNumber: 1 }),
-			makeSet({ exerciseId: 'exc_b' as Exercise['id'], itemIndex: 1, setNumber: 1 })
-		]
-		store().init('wks_1', 1000, sets)
-		store().navigate(1) // go to index 1
-		store().navigate(-1) // back to index 0
-		expect(store().active?.index).toBe(0)
-	})
-
-	it('T24: no target → no-op', () => {
-		const sets = [makeSet({ itemIndex: 0 })]
-		store().init('wks_1', 1000, sets)
-		store().navigate(1) // no next group
-		expect(store().active?.index).toBe(0)
+		store().dismissRest()
+		expect(store().rest).toBeNull()
+		expect(store().roundStartedAt).toBeNull()
+		expect(store().cursor).toEqual(BENCH)
 	})
 })
 
-describe('reset', () => {
-	it('T25: clears all state', () => {
-		store().init('wks_1', 1000, [makeSet()])
-		store().startSet()
-		store().confirmSet()
+describe('reset()', () => {
+	it('clears all state', () => {
+		store().setSession({ id: 'wks_1', startedAt: 1000 })
+		store().setCursor(BENCH)
+		store().startSet(BENCH)
+		store().startRest(60, 'working')
 
 		store().reset()
 
 		expect(store().sessionId).toBeNull()
 		expect(store().sessionStartedAt).toBeNull()
-		expect(store().queue).toEqual([])
-		expect(store().confirmedIndices).toEqual([])
-		expect(store().active).toBeNull()
+		expect(store().cursor).toBeNull()
+		expect(store().draft).toEqual({})
+		expect(store().setTimer).toBeNull()
 		expect(store().rest).toBeNull()
-		expect(store()._roundStartedAt).toBeNull()
+		expect(store().roundStartedAt).toBeNull()
 	})
 })

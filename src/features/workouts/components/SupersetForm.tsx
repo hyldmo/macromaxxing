@@ -80,10 +80,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	let firstPendingFound = false
 
 	return (
-		<div
-			className="rounded-sm border-2 border-edge border-l-accent bg-surface-1"
-			data-exercise-id={exercises.map(e => e.exercise.id).join(',')}
-		>
+		<div className="rounded-sm border-2 border-edge border-l-accent bg-surface-1">
 			<button
 				type="button"
 				className="flex w-full items-center gap-2 px-3 py-2 text-left"
