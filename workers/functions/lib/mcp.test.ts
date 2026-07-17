@@ -62,6 +62,7 @@ describe('MCP mutations', () => {
 			  "workout_replaceSessionExercise",
 			  "workout_setActiveProgram",
 			  "workout_updateExercise",
+			  "workout_updatePlannedExercise",
 			  "workout_updateProgram",
 			  "workout_updateSessionNotes",
 			  "workout_updateSet",

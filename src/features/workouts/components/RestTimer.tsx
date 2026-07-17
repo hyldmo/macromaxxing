@@ -9,11 +9,11 @@ export const RestTimer: FC = () => {
 	const sessionId = useWorkoutSessionStore(s => s.sessionId)
 	const sessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
 	const rest = useWorkoutSessionStore(s => s.rest)
-	const setTimer = useWorkoutSessionStore(s => s.active?.setTimer)
+	const setTimer = useWorkoutSessionStore(s => s.setTimer)
 	const dismissRest = useWorkoutSessionStore(s => s.dismissRest)
 	const navigate = useNavigate()
 	const isResting = rest !== null
-	const setTimerActive = setTimer && !setTimer.isPaused ? setTimer.startedAt : null
+	const setTimerActive = setTimer && setTimer.pausedAt === null ? setTimer.startedAt : null
 	const sessionElapsedTimestamp = isResting || setTimerActive ? null : sessionStartedAt
 	const elapsed = useElapsedTimer(sessionElapsedTimestamp)
 	const setElapsedMs = useElapsedTimer(isResting ? null : setTimerActive)

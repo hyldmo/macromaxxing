@@ -1,29 +1,27 @@
-import type { Exercise, SetType } from '@macromaxxing/db'
+import type { SetType } from '@macromaxxing/db'
 import { create } from 'zustand'
-import type { FlatSet } from '~/lib'
+import { cursorEquals, type SetCursor } from '~/lib'
 
-export interface MutationData {
-	exerciseId: Exercise['id']
-	weightKg: number
-	reps: number
-	setType: SetType
-	transition: boolean
-}
-
+/**
+ * Ephemeral workout-session state that cannot be derived from server data.
+ *
+ * The set queue itself is NEVER stored here — timer mode derives it from the live
+ * session query (`flattenSets(exerciseGroups)`) on every render, so template
+ * edits, reorders, and checklist-mode logging stay in sync. The store only keeps
+ * the user's position (`cursor`, stable set identity — not an index), uncommitted
+ * edits, and running timers.
+ */
 export interface WorkoutSessionStore {
 	sessionId: string | null
 	sessionStartedAt: number | null
 
-	queue: FlatSet[]
-	confirmedIndices: number[]
+	/** Position in the workout. Resolved against the live queue at render via `resolveCursorIndex`. */
+	cursor: SetCursor | null
+	/** Uncommitted weight/reps edits for the cursor set. Absent field = show the live planned value. */
+	draft: { weight?: number | null; reps?: number }
 
-	active: {
-		index: number
-		weight: number | null
-		reps: number
-		logId: string | null
-		setTimer: { startedAt: number; isPaused: boolean } | null
-	} | null
+	/** Stopwatch for the set being performed. `pausedAt` set = paused. */
+	setTimer: { startedAt: number; pausedAt: number | null } | null
 
 	rest: {
 		startedAt: number
@@ -32,60 +30,27 @@ export interface WorkoutSessionStore {
 		setType: SetType
 	} | null
 
-	_roundStartedAt: number | null
+	/** When the current superset round began (first transition confirm) — credits transition time against the next rest. */
+	roundStartedAt: number | null
 
 	// Session lifecycle
 	setSession: (session: { id: string; startedAt?: number } | null) => void
-	init: (sessionId: string, startedAt: number, sets: FlatSet[]) => void
 	reset: () => void
 
-	// Set confirmation (timer mode)
-	confirmSet: () => MutationData | null
-	setLogId: (id: string) => void
-	undo: () => void
+	// Cursor + per-set edit state
+	setCursor: (cursor: SetCursor | null) => void
+	setDraft: (cursor: SetCursor, patch: Partial<{ weight: number | null; reps: number }>) => void
 
-	// Active set editing
-	editWeight: (w: number | null) => void
-	editReps: (r: number) => void
-
-	// Set timer control
-	startSet: () => void
+	// Set stopwatch
+	startSet: (cursor: SetCursor) => void
 	pauseSet: () => void
-	resumeSet: (elapsedMs: number) => void
+	resumeSet: () => void
 	stopSet: () => void
 
 	// Rest timer
 	startRest: (durationSec: number, setType: SetType) => void
 	recordTransition: () => void
 	dismissRest: () => void
-
-	// Navigation
-	navigate: (direction: -1 | 1) => void
-	navigateSet: (direction: -1 | 1) => void
-}
-
-// --- Helpers ---
-
-function isDone(queue: FlatSet[], index: number, confirmedIndices: number[]): boolean {
-	return queue[index].completed || confirmedIndices.includes(index)
-}
-
-function findNextPending(queue: FlatSet[], from: number, confirmedIndices: number[]): number {
-	for (let i = from; i < queue.length; i++) {
-		if (!isDone(queue, i, confirmedIndices)) return i
-	}
-	return -1
-}
-
-function loadActive(queue: FlatSet[], index: number): WorkoutSessionStore['active'] {
-	if (index < 0 || index >= queue.length) return null
-	return {
-		index,
-		weight: queue[index].weightKg,
-		reps: queue[index].reps,
-		logId: null,
-		setTimer: null
-	}
 }
 
 // --- Notification ---
@@ -137,12 +102,19 @@ function scheduleNotification(endAt: number, sessionId: string | null) {
 const INITIAL_STATE = {
 	sessionId: null as string | null,
 	sessionStartedAt: null as number | null,
-	queue: [] as FlatSet[],
-	confirmedIndices: [] as number[],
-	active: null as WorkoutSessionStore['active'],
+	cursor: null as SetCursor | null,
+	draft: {} as WorkoutSessionStore['draft'],
+	setTimer: null as WorkoutSessionStore['setTimer'],
 	rest: null as WorkoutSessionStore['rest'],
-	_roundStartedAt: null as number | null
+	roundStartedAt: null as number | null
 }
+
+/** Everything scoped to the previous set is invalid once the cursor moves. */
+const movedCursor = (cursor: SetCursor | null) => ({
+	cursor,
+	draft: {},
+	setTimer: null as WorkoutSessionStore['setTimer']
+})
 
 // --- Store ---
 
@@ -153,27 +125,17 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 		if (session === null) {
 			clearNotificationTimeout()
 			set({ ...INITIAL_STATE })
-		} else {
-			set({
-				sessionId: session.id,
-				...(session.startedAt !== undefined && { sessionStartedAt: session.startedAt })
-			})
+			return
 		}
-	},
-
-	init: (sessionId, startedAt, sets) => {
-		const existing = get()
-		// Preserve rest timer if one is running (e.g., started in checklist mode)
-		if (!existing.rest) clearNotificationTimeout()
-		const cursor = findNextPending(sets, 0, [])
-		set({
-			...INITIAL_STATE,
-			sessionId,
-			sessionStartedAt: startedAt,
-			queue: sets,
-			active: loadActive(sets, cursor),
-			rest: existing.rest
-		})
+		const startedAt = session.startedAt !== undefined ? { sessionStartedAt: session.startedAt } : {}
+		const current = get().sessionId
+		if (current !== null && current !== session.id) {
+			// Different session: cursor, edits, and timers belong to the old one
+			clearNotificationTimeout()
+			set({ ...INITIAL_STATE, sessionId: session.id, ...startedAt })
+		} else {
+			set({ sessionId: session.id, ...startedAt })
+		}
 	},
 
 	reset: () => {
@@ -181,125 +143,49 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 		set({ ...INITIAL_STATE })
 	},
 
-	// --- Set confirmation (timer mode) ---
+	// --- Cursor + per-set edit state ---
 
-	confirmSet: () => {
-		const state = get()
-		if (!state.active) return null
-
-		const { index, weight, reps } = state.active
-		const flatSet = state.queue[index]
-		const confirmed = [...state.confirmedIndices, index]
-
-		const data: MutationData = {
-			exerciseId: flatSet.exerciseId,
-			weightKg: weight ?? 0,
-			reps,
-			setType: flatSet.setType,
-			transition: flatSet.transition
-		}
-
-		if (flatSet.transition) {
-			// Mid-superset: record round start, advance cursor immediately, auto-start next set timer
-			let next = findNextPending(state.queue, index + 1, confirmed)
-			if (next < 0) next = findNextPending(state.queue, 0, confirmed)
-			const nextActive = loadActive(state.queue, next)
-
-			set({
-				confirmedIndices: confirmed,
-				active: nextActive ? { ...nextActive, setTimer: { startedAt: Date.now(), isPaused: false } } : null,
-				_roundStartedAt: state._roundStartedAt ?? Date.now()
-			})
-		} else {
-			// Solo or last in superset round: keep cursor on confirmed set, start rest
-			set({
-				confirmedIndices: confirmed,
-				active: {
-					index,
-					weight,
-					reps,
-					logId: null,
-					setTimer: null
-				}
-			})
-		}
-
-		return data
+	setCursor: cursor => {
+		set(movedCursor(cursor))
 	},
 
-	setLogId: id => {
-		set(s => {
-			if (!s.active) return {}
-			return { active: { ...s.active, logId: id } }
-		})
+	setDraft: (cursor, patch) => {
+		set(s =>
+			cursorEquals(s.cursor, cursor)
+				? { draft: { ...s.draft, ...patch } }
+				: // Cursor drifted (e.g. the set was removed by a plan edit): snap to the
+					// set actually being edited, keeping the running stopwatch.
+					{ ...movedCursor(cursor), draft: { ...patch }, setTimer: s.setTimer }
+		)
 	},
 
-	undo: () => {
-		const state = get()
-		if (state.confirmedIndices.length === 0) return
-		clearNotificationTimeout()
+	// --- Set stopwatch ---
 
-		const confirmed = state.confirmedIndices.slice(0, -1)
-		const restored = state.confirmedIndices.at(-1)!
-
-		set({
-			confirmedIndices: confirmed,
-			active: loadActive(state.queue, restored),
-			rest: null
-		})
-	},
-
-	// --- Active set editing ---
-
-	editWeight: w => {
-		set(s => {
-			if (!s.active) return {}
-			return { active: { ...s.active, weight: w } }
-		})
-	},
-
-	editReps: r => {
-		set(s => {
-			if (!s.active) return {}
-			return { active: { ...s.active, reps: r } }
-		})
-	},
-
-	// --- Set timer control ---
-
-	startSet: () => {
-		set(s => {
-			if (!s.active) return {}
-			return {
-				active: { ...s.active, setTimer: { startedAt: Date.now(), isPaused: false } }
-			}
-		})
+	startSet: cursor => {
+		set(s => ({
+			...(cursorEquals(s.cursor, cursor) ? {} : { cursor, draft: {} }),
+			setTimer: { startedAt: Date.now(), pausedAt: null }
+		}))
 	},
 
 	pauseSet: () => {
-		set(s => {
-			if (!s.active?.setTimer) return {}
-			return { active: { ...s.active, setTimer: { ...s.active.setTimer, isPaused: true } } }
-		})
+		set(s =>
+			s.setTimer && s.setTimer.pausedAt === null ? { setTimer: { ...s.setTimer, pausedAt: Date.now() } } : {}
+		)
 	},
 
-	resumeSet: elapsedMs => {
+	resumeSet: () => {
 		set(s => {
-			if (!s.active?.setTimer) return {}
+			if (!s.setTimer || s.setTimer.pausedAt === null) return {}
+			// Shift the start forward by the paused span so elapsed excludes it
 			return {
-				active: {
-					...s.active,
-					setTimer: { startedAt: Date.now() - elapsedMs, isPaused: false }
-				}
+				setTimer: { startedAt: s.setTimer.startedAt + (Date.now() - s.setTimer.pausedAt), pausedAt: null }
 			}
 		})
 	},
 
 	stopSet: () => {
-		set(s => {
-			if (!s.active) return {}
-			return { active: { ...s.active, setTimer: null } }
-		})
+		set({ setTimer: null })
 	},
 
 	// --- Rest timer ---
@@ -317,7 +203,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 		// Subtract elapsed superset transition time from the countdown — but keep `total`
 		// equal to the full duration and backdate `startedAt` so the "rested" readout
 		// (total - remaining) reflects time already elapsed during the round.
-		const roundElapsedMs = state._roundStartedAt !== null ? Math.max(0, now - state._roundStartedAt) : 0
+		const roundElapsedMs = state.roundStartedAt !== null ? Math.max(0, now - state.roundStartedAt) : 0
 		const remainingMs = Math.max(0, durationSec * 1000 - roundElapsedMs)
 		const endAt = now + remainingMs
 
@@ -325,65 +211,18 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => 
 
 		set({
 			rest: { startedAt: now - roundElapsedMs, endAt, total: durationSec, setType },
-			_roundStartedAt: null
+			roundStartedAt: null
 		})
 	},
 
 	recordTransition: () => {
 		set(s => ({
-			_roundStartedAt: s._roundStartedAt ?? Date.now()
+			roundStartedAt: s.roundStartedAt ?? Date.now()
 		}))
 	},
 
 	dismissRest: () => {
-		const state = get()
 		clearNotificationTimeout()
-
-		// Advance cursor to next pending set
-		const confirmed = state.confirmedIndices
-		const fromIndex = state.active ? state.active.index + 1 : 0
-		let next = findNextPending(state.queue, fromIndex, confirmed)
-		if (next < 0) next = findNextPending(state.queue, 0, confirmed)
-
-		set({
-			rest: null,
-			_roundStartedAt: null,
-			active: loadActive(state.queue, next)
-		})
-	},
-
-	// --- Navigation ---
-
-	navigate: direction => {
-		const state = get()
-		if (!state.active) return
-		const currentItemIdx = state.queue[state.active.index].itemIndex
-		let target = -1
-
-		if (direction === 1) {
-			for (let i = 0; i < state.queue.length; i++) {
-				if (!isDone(state.queue, i, state.confirmedIndices) && state.queue[i].itemIndex > currentItemIdx) {
-					target = i
-					break
-				}
-			}
-		} else {
-			for (let i = 0; i < state.queue.length; i++) {
-				if (!isDone(state.queue, i, state.confirmedIndices) && state.queue[i].itemIndex < currentItemIdx) {
-					target = i
-				}
-			}
-		}
-
-		if (target < 0) return
-		set({ active: loadActive(state.queue, target) })
-	},
-
-	navigateSet: direction => {
-		const state = get()
-		if (!state.active) return
-		const target = state.active.index + direction
-		if (target < 0 || target >= state.queue.length) return
-		set({ active: loadActive(state.queue, target) })
+		set({ rest: null, roundStartedAt: null })
 	}
 }))

@@ -534,13 +534,15 @@ function supersetRenderItem(opts: {
 				exerciseId: 'exc_a' as Exercise['id'],
 				exercise: a,
 				logs: [],
-				planned: Array.from({ length: opts.a.sets }, (_, i) => planned(opts.a.mode ?? 'working', i + 1))
+				planned: Array.from({ length: opts.a.sets }, (_, i) => planned(opts.a.mode ?? 'working', i + 1)),
+				goal: 'hypertrophy'
 			},
 			{
 				exerciseId: 'exc_b' as Exercise['id'],
 				exercise: b,
 				logs: [],
-				planned: Array.from({ length: opts.b.sets }, (_, i) => planned(opts.b.mode ?? 'working', i + 1))
+				planned: Array.from({ length: opts.b.sets }, (_, i) => planned(opts.b.mode ?? 'working', i + 1)),
+				goal: 'hypertrophy'
 			}
 		]
 	}
@@ -554,7 +556,8 @@ describe('flattenSets', () => {
 				exerciseId: 'exc_solo' as Exercise['id'],
 				exercise: makeExercise('exc_solo', 'Squat'),
 				logs: [],
-				planned: [planned('working', 1), planned('working', 2), planned('working', 3)]
+				planned: [planned('working', 1), planned('working', 2), planned('working', 3)],
+				goal: 'hypertrophy'
 			}
 		])
 

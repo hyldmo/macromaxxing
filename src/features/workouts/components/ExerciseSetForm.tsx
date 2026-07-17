@@ -92,7 +92,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	}
 
 	return (
-		<div className="rounded-sm border border-edge bg-surface-1" data-exercise-id={exercise.id}>
+		<div className="rounded-sm border border-edge bg-surface-1">
 			<div className="flex items-center gap-2 px-3 py-2">
 				<button
 					type="button"

@@ -1,20 +1,18 @@
-import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
+import type { Exercise, SetType, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
 import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router'
 import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
 import {
+	buildSessionPlan,
 	calculateRest,
-	effectiveSetWeightKg,
 	estimateReplacementWeight,
 	formatSession,
-	generatePlannedSets,
-	type PlannedSet,
+	type RenderItem,
 	TRAINING_DEFAULTS,
 	totalVolume,
 	useDocumentTitle
 } from '~/lib'
-import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 import { ExerciseReplaceModal } from './components/ExerciseReplaceModal'
 import { ExerciseSearch } from './components/ExerciseSearch'
@@ -23,50 +21,21 @@ import { ImportDialog } from './components/ImportDialog'
 import { SessionReview } from './components/SessionReview'
 import { SessionSummary } from './components/SessionSummary'
 import { SupersetForm } from './components/SupersetForm'
+import { useSessionSets } from './hooks/useSessionSets'
 import { useWorkoutSessionStore } from './store'
-
-type SessionLog = RouterOutput['workout']['getSession']['logs'][number]
-type SessionExercise = SessionLog['exercise']
-
-type RenderItem =
-	| {
-			type: 'standalone'
-			exerciseId: Exercise['id']
-			exercise: SessionExercise
-			logs: SessionLog[]
-			planned: PlannedSet[]
-			note: string | null
-	  }
-	| {
-			type: 'superset'
-			group: number
-			exercises: Array<{
-				exerciseId: Exercise['id']
-				exercise: SessionExercise
-				logs: SessionLog[]
-				planned: PlannedSet[]
-				note: string | null
-			}>
-	  }
 
 export function WorkoutSessionPage() {
 	const { sessionId, workoutId } = useParams<{ sessionId?: WorkoutSession['id']; workoutId?: Workout['id'] }>()
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const [showReview, setShowReview] = useState(false)
-	const [modeOverrides, setModeOverrides] = useState<Map<Exercise['id'], SetMode>>(new Map())
-	const [goalOverrides, setGoalOverrides] = useState<Map<Exercise['id'], TrainingGoal | null>>(new Map())
 	const storeSetSession = useWorkoutSessionStore(s => s.setSession)
 	const storeReset = useWorkoutSessionStore(s => s.reset)
 	const storeRecordTransition = useWorkoutSessionStore(s => s.recordTransition)
 	const storeStartRest = useWorkoutSessionStore(s => s.startRest)
 	const storeSessionStartedAt = useWorkoutSessionStore(s => s.sessionStartedAt)
-	const transitionQueueRef = useRef<boolean[]>([])
-	const logIdCallbackRef = useRef<((id: SessionLog['id']) => void) | null>(null)
 	const sessionRef = useRef<{ id: string; hasLogs: boolean; completed: boolean; deleted: boolean } | null>(null)
-	const [activeExerciseId, setActiveExerciseId] = useState<Exercise['id'] | null>(null)
 	const [replaceExerciseId, setReplaceExerciseId] = useState<Exercise['id'] | null>(null)
-	const [templateReplacements, setTemplateReplacements] = useState<Map<Exercise['id'], SessionExercise>>(new Map())
 	const utils = trpc.useUtils()
 
 	// If coming from /workouts/:workoutId/session, create a new session
@@ -107,14 +76,16 @@ export function WorkoutSessionPage() {
 	)
 
 	// Keep cleanup ref in sync with latest session data
-	if (sessionQuery.data) {
-		sessionRef.current = {
-			id: sessionQuery.data.id,
-			hasLogs: sessionQuery.data.logs.length > 0,
-			completed: !!sessionQuery.data.completedAt,
-			deleted: sessionRef.current?.deleted ?? false
+	useEffect(() => {
+		if (sessionQuery.data) {
+			sessionRef.current = {
+				id: sessionQuery.data.id,
+				hasLogs: sessionQuery.data.logs.length > 0,
+				completed: !!sessionQuery.data.completedAt,
+				deleted: sessionRef.current?.deleted ?? false
+			}
 		}
-	}
+	}, [sessionQuery.data])
 
 	// Auto-delete empty sessions on unmount (navigating away without logging any sets)
 	// biome-ignore lint/suspicious/noEmptyBlockStatements: initialized on next line
@@ -148,7 +119,9 @@ export function WorkoutSessionPage() {
 	useEffect(() => {
 		if (sessionQuery.data && !isCompleteSession) {
 			storeSetSession({ id: sessionQuery.data.id, startedAt: sessionQuery.data.startedAt })
-		} else if (isCompleteSession) {
+		} else if (isCompleteSession && useWorkoutSessionStore.getState().sessionId === sessionQuery.data?.id) {
+			// Only reset when the completed session is the one the store tracks —
+			// viewing an old completed session must not kill another session's timers
 			storeReset()
 		}
 	}, [sessionQuery.data, isCompleteSession, storeSetSession, storeReset])
@@ -158,169 +131,79 @@ export function WorkoutSessionPage() {
 	const profileQuery = trpc.settings.getProfile.useQuery()
 	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 
-	// Batched "last time" hints — one query per page covering every exercise in
-	// the template plus any extras logged so far. `before: session.startedAt`
-	// excludes the in-progress session from the lookup.
-	const lastSessionExerciseIds = useMemo<Exercise['id'][]>(() => {
-		if (!sessionQuery.data) return []
-		const ids = new Set<Exercise['id']>()
-		for (const we of sessionQuery.data.workout?.exercises ?? []) {
-			const replacement = templateReplacements.get(we.exerciseId)
-			ids.add(replacement?.id ?? we.exerciseId)
-		}
-		for (const log of sessionQuery.data.logs) ids.add(log.exerciseId)
-		return [...ids]
-	}, [sessionQuery.data, templateReplacements])
+	const { addSet, updateSet, removeSet } = useSessionSets(effectiveSessionId)
 
-	const lastSessionsQuery = trpc.workout.lastSessionsForExercises.useQuery(
-		{
-			exerciseIds: lastSessionExerciseIds,
-			before: sessionQuery.data?.startedAt
-		},
-		{ enabled: lastSessionExerciseIds.length > 0 && !!sessionQuery.data }
-	)
-	const lastSessions = lastSessionsQuery.data
-
-	const goal = sessionQuery.data?.workout?.trainingGoal ?? 'hypertrophy'
-
-	const addSetMutation = trpc.workout.addSet.useMutation({
+	const updatePlannedExercise = trpc.workout.updatePlannedExercise.useMutation({
 		onMutate: async variables => {
-			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
-			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
+			await utils.workout.getSession.cancel({ id: variables.sessionId })
+			const previous = utils.workout.getSession.getData({ id: variables.sessionId })
 			if (previous) {
-				// Find exercise data from existing logs or template
-				const exerciseData =
-					previous.logs.find(l => l.exerciseId === variables.exerciseId)?.exercise ??
-					previous.workout?.exercises.find(e => e.exerciseId === variables.exerciseId)?.exercise
-				if (exerciseData) {
-					const existingCount = previous.logs.filter(l => l.exerciseId === variables.exerciseId).length
-					utils.workout.getSession.setData(
-						{ id: effectiveSessionId! },
-						{
-							...previous,
-							logs: [
-								...previous.logs,
-								{
-									id: `wkl_optimistic_${Date.now()}` as SessionLog['id'],
-									sessionId: variables.sessionId,
-									exerciseId: variables.exerciseId,
-									setNumber: existingCount + 1,
-									setType: variables.setType ?? 'working',
-									weightKg: effectiveSetWeightKg(
-										exerciseData.bwMultiplier,
-										bodyWeightKg,
-										variables.weightKg
-									),
-									reps: variables.reps,
-									rpe: null,
-									failureFlag: false,
-									createdAt: Date.now(),
-									exercise: exerciseData
-								}
-							]
-						}
-					)
-				}
-			}
-
-			// Start rest timer immediately (checklist mode only — timer mode handles its own)
-			const fromTimerMode = !!logIdCallbackRef.current
-			if (!(isCompleteSession || fromTimerMode)) {
-				const transition = transitionQueueRef.current.shift() ?? false
-				if (transition) {
-					storeRecordTransition()
-				} else {
-					const rest = getRestDuration(variables.exerciseId, variables.reps, variables.setType ?? 'working')
-					storeStartRest(rest, variables.setType ?? 'working')
-				}
-			}
-
-			return { previous }
-		},
-		onSuccess: (data, variables) => {
-			setActiveExerciseId(variables.exerciseId)
-			const onLogId = logIdCallbackRef.current
-			logIdCallbackRef.current = null
-			if (onLogId) onLogId(data.id)
-		},
-		onError: (_err, _variables, context) => {
-			if (context?.previous) {
-				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
-			}
-			// Clear optimistic rest timer on failure
-			useWorkoutSessionStore.getState().dismissRest()
-		},
-		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
-	})
-
-	const updateSetMutation = trpc.workout.updateSet.useMutation({
-		onMutate: async variables => {
-			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
-			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
-			if (previous) {
-				const targetLog = previous.logs.find(log => log.id === variables.id)
-				const bwMultiplier = targetLog?.exercise.bwMultiplier ?? 0
 				utils.workout.getSession.setData(
-					{ id: effectiveSessionId! },
+					{ id: variables.sessionId },
 					{
 						...previous,
-						logs: previous.logs.map(log =>
-							log.id === variables.id
+						plannedExercises: previous.plannedExercises.map(pe =>
+							pe.exerciseId === variables.exerciseId
 								? {
-										...log,
-										...(variables.weightKg !== undefined && {
-											weightKg: effectiveSetWeightKg(
-												bwMultiplier,
-												bodyWeightKg,
-												variables.weightKg
-											)
-										}),
-										...(variables.reps !== undefined && { reps: variables.reps }),
-										...(variables.setType !== undefined && { setType: variables.setType }),
-										...(variables.rpe !== undefined && { rpe: variables.rpe }),
-										...(variables.failureFlag !== undefined && {
-											failureFlag: variables.failureFlag
+										...pe,
+										...(variables.setMode !== undefined && { setMode: variables.setMode }),
+										...(variables.trainingGoal !== undefined && {
+											trainingGoal: variables.trainingGoal ?? null
 										})
 									}
-								: log
+								: pe
 						)
 					}
 				)
 			}
 			return { previous }
 		},
-		onError: (_err, _variables, context) => {
+		onError: (_err, variables, context) => {
 			if (context?.previous) {
-				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
+				utils.workout.getSession.setData({ id: variables.sessionId }, context.previous)
 			}
 		},
-		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
+		onSettled: (_data, _err, variables) => utils.workout.getSession.invalidate({ id: variables.sessionId })
 	})
 
-	const removeSetMutation = trpc.workout.removeSet.useMutation({
+	const replaceExerciseMutation = trpc.workout.replaceSessionExercise.useMutation({
 		onMutate: async variables => {
-			await utils.workout.getSession.cancel({ id: effectiveSessionId! })
-			const previous = utils.workout.getSession.getData({ id: effectiveSessionId! })
-			if (previous) {
+			await utils.workout.getSession.cancel({ id: variables.sessionId })
+			const previous = utils.workout.getSession.getData({ id: variables.sessionId })
+			const replacement = exercisesQuery.data?.find(e => e.id === variables.newExerciseId)
+			if (previous && replacement) {
 				utils.workout.getSession.setData(
-					{ id: effectiveSessionId! },
+					{ id: variables.sessionId },
 					{
 						...previous,
-						logs: previous.logs.filter(log => log.id !== variables.id)
+						logs: previous.logs.map(log =>
+							log.exerciseId === variables.oldExerciseId
+								? { ...log, exerciseId: variables.newExerciseId, exercise: replacement }
+								: log
+						),
+						plannedExercises: previous.plannedExercises.map(pe =>
+							pe.exerciseId === variables.oldExerciseId
+								? {
+										...pe,
+										exerciseId: variables.newExerciseId,
+										exercise: replacement,
+										targetSets: null,
+										targetReps: null,
+										targetWeight: variables.targetWeight ?? null
+									}
+								: pe
+						)
 					}
 				)
 			}
 			return { previous }
 		},
-		onError: (_err, _variables, context) => {
+		onError: (_err, variables, context) => {
 			if (context?.previous) {
-				utils.workout.getSession.setData({ id: effectiveSessionId! }, context.previous)
+				utils.workout.getSession.setData({ id: variables.sessionId }, context.previous)
 			}
 		},
-		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
-	})
-	const replaceExerciseMutation = trpc.workout.replaceSessionExercise.useMutation({
-		onSettled: () => utils.workout.getSession.invalidate({ id: effectiveSessionId! })
+		onSettled: (_data, _err, variables) => utils.workout.getSession.invalidate({ id: variables.sessionId })
 	})
 
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
@@ -334,191 +217,89 @@ export function WorkoutSessionPage() {
 		}
 	})
 
-	type ExerciseGroup = { exercise: SessionExercise; logs: SessionLog[] }
+	const session = sessionQuery.data
+	const goal: TrainingGoal = session?.workout?.trainingGoal ?? 'hypertrophy'
 
-	// Group logs by exercise, preserving template order + superset grouping
-	const { exerciseGroups, extraExercises, exerciseModes, exerciseGoals } = useMemo<{
-		exerciseGroups: RenderItem[]
-		extraExercises: ExerciseGroup[]
-		exerciseModes: Map<string, SetMode>
-		exerciseGoals: Map<string, TrainingGoal>
-	}>(() => {
-		if (!sessionQuery.data)
-			return { exerciseGroups: [], extraExercises: [], exerciseModes: new Map(), exerciseGoals: new Map() }
+	// The session's own plan rows are the source of truth; sessions created before
+	// plans were snapshotted fall back to the template read-only.
+	const planRows = useMemo(() => {
+		if (!session) return []
+		return session.plannedExercises.length > 0 ? session.plannedExercises : (session.workout?.exercises ?? [])
+	}, [session])
 
-		const standards = standardsQuery.data ?? []
-		const template = sessionQuery.data.workout
-		const logsByExercise = new Map<Exercise['id'], ExerciseGroup>()
+	const plan = useMemo(() => {
+		if (!session) return buildSessionPlan({ plannedExercises: [], logs: [], workoutGoal: 'hypertrophy' })
+		return buildSessionPlan({
+			plannedExercises: planRows,
+			logs: session.logs,
+			workoutGoal: goal,
+			notes: new Map((session.workout?.exercises ?? []).map(we => [we.exerciseId, we.note ?? null]))
+		})
+	}, [session, planRows, goal])
+	const { exerciseGroups, extraExercises, modes: exerciseModes, goals: exerciseGoals } = plan
 
-		for (const log of sessionQuery.data.logs) {
-			const existing = logsByExercise.get(log.exerciseId)
-			if (existing) {
-				existing.logs.push(log)
-			} else {
-				logsByExercise.set(log.exerciseId, { exercise: log.exercise, logs: [log] })
-			}
-		}
+	// Batched "last time" hints — one query per page covering every exercise in
+	// the plan plus any extras logged so far. `before: session.startedAt`
+	// excludes the in-progress session from the lookup.
+	const lastSessionExerciseIds = useMemo<Exercise['id'][]>(() => {
+		if (!session) return []
+		const ids = new Set<Exercise['id']>()
+		for (const pe of planRows) ids.add(pe.exerciseId)
+		for (const log of session.logs) ids.add(log.exerciseId)
+		return [...ids]
+	}, [session, planRows])
 
-		// Build planned sets from template with warmup/backoff auto-generation
-		const planned = new Map<string, PlannedSet[]>()
-		const templateExerciseIds = new Set<string>()
-		const modes = new Map<string, SetMode>()
-		const goals = new Map<string, TrainingGoal>()
+	const lastSessionsQuery = trpc.workout.lastSessionsForExercises.useQuery(
+		{
+			exerciseIds: lastSessionExerciseIds,
+			before: session?.startedAt
+		},
+		{ enabled: lastSessionExerciseIds.length > 0 && !!session }
+	)
+	const lastSessions = lastSessionsQuery.data
 
-		// Track which muscles have been warmed up by preceding exercises
-		const warmedUpMuscles = new Map<string, number>()
-
-		// Per-exercise data for grouping
-		type ExerciseData = {
-			exerciseId: Exercise['id']
-			exercise: SessionExercise
-			logs: SessionLog[]
-			planned: PlannedSet[]
-			supersetGroup: number | null
-			note: string | null
-		}
-		const exerciseDataList: ExerciseData[] = []
-
-		if (template) {
-			for (const we of template.exercises) {
-				const replacement = templateReplacements.get(we.exerciseId)
-				const effectiveExerciseId = replacement?.id ?? we.exerciseId
-				const effectiveExercise = replacement ?? we.exercise
-
-				templateExerciseIds.add(effectiveExerciseId)
-				const templateMode = we.setMode ?? 'working'
-				const effectiveMode = modeOverrides.get(effectiveExerciseId) ?? templateMode
-				modes.set(effectiveExerciseId, effectiveMode)
-
-				const goalOverride = goalOverrides.get(effectiveExerciseId)
-				const exerciseGoal = goalOverride !== undefined ? (goalOverride ?? goal) : (we.trainingGoal ?? goal)
-				goals.set(effectiveExerciseId, exerciseGoal)
-				const exerciseDefaults = TRAINING_DEFAULTS[exerciseGoal]
-
-				// When exercise is replaced, don't carry over the old exercise's targets —
-				// instead estimate weight from other template exercises via strength standards
-				const effectiveReps = (replacement ? null : we.targetReps) ?? exerciseDefaults.targetReps
-				const effectiveTargetWeight = replacement
-					? estimateReplacementWeight(
-							effectiveExerciseId,
-							effectiveReps,
-							template.exercises
-								.filter(e => e.exerciseId !== we.exerciseId)
-								.map(e => ({
-									exerciseId: templateReplacements.get(e.exerciseId)?.id ?? e.exerciseId,
-									targetWeight: e.targetWeight,
-									targetReps: e.targetReps
-								})),
-							standards
-						)
-					: we.targetWeight
-
-				const sets = generatePlannedSets({
-					setMode: effectiveMode,
-					sets: (replacement ? null : we.targetSets) ?? exerciseDefaults.targetSets,
-					reps: effectiveReps,
-					weightKg: effectiveTargetWeight,
-					muscles: effectiveExercise.muscles,
-					warmedUpMuscles,
-					bwMultiplier: effectiveExercise.bwMultiplier
-				})
-
-				planned.set(effectiveExerciseId, sets)
-
-				const logged = logsByExercise.get(effectiveExerciseId)
-				exerciseDataList.push({
-					exerciseId: effectiveExerciseId,
-					exercise: logged?.exercise ?? effectiveExercise,
-					logs: logged?.logs ?? [],
-					planned: sets,
-					supersetGroup: we.supersetGroup,
-					note: we.note ?? null
-				})
-			}
-		}
-
-		// Extra exercises not in template
-		const extras: ExerciseGroup[] = []
-		for (const [exerciseId, data] of logsByExercise) {
-			if (!templateExerciseIds.has(exerciseId)) {
-				exerciseDataList.push({
-					exerciseId,
-					exercise: data.exercise,
-					logs: data.logs,
-					planned: [],
-					supersetGroup: null,
-					note: null
-				})
-				extras.push(data)
-			}
-		}
-
-		// Group into RenderItems
-		const items: RenderItem[] = []
-		const processedIds = new Set<Exercise['id']>()
-
-		for (const ed of exerciseDataList) {
-			if (processedIds.has(ed.exerciseId)) continue
-
-			if (ed.supersetGroup !== null) {
-				// Collect all exercises in this superset group
-				const groupMembers = exerciseDataList.filter(
-					e => e.supersetGroup === ed.supersetGroup && !processedIds.has(e.exerciseId)
-				)
-				if (groupMembers.length >= 2) {
-					items.push({
-						type: 'superset',
-						group: ed.supersetGroup,
-						exercises: groupMembers.map(e => ({
-							exerciseId: e.exerciseId,
-							exercise: e.exercise,
-							logs: e.logs,
-							planned: e.planned,
-							note: e.note
-						}))
-					})
-					for (const m of groupMembers) processedIds.add(m.exerciseId)
-					continue
-				}
-			}
-
-			// Standalone
-			processedIds.add(ed.exerciseId)
-			items.push({
-				type: 'standalone',
-				exerciseId: ed.exerciseId,
-				exercise: ed.exercise,
-				logs: ed.logs,
-				planned: ed.planned,
-				note: ed.note
-			})
-		}
-
-		return { exerciseGroups: items, extraExercises: extras, exerciseModes: modes, exerciseGoals: goals }
-	}, [sessionQuery.data, modeOverrides, goalOverrides, goal, templateReplacements, standardsQuery.data])
-
-	// Compute rest duration for an exercise — used by both addSetMutation.onSuccess and TimerMode
-	const getRestDuration = useCallback(
+	// Rest duration for checklist-mode set confirms
+	const restFor = useCallback(
 		(exerciseId: Exercise['id'], reps: number, setType: SetType) => {
-			const exercise = exerciseGroups.find(g => {
-				if (g.type === 'standalone') return g.exerciseId === exerciseId
-				return g.exercises.some(e => e.exerciseId === exerciseId)
-			})
-			const tier: FatigueTier =
-				exercise?.type === 'standalone'
-					? exercise.exercise.fatigueTier
-					: (exercise?.exercises.find(e => e.exerciseId === exerciseId)?.exercise.fatigueTier ?? 2)
-			const exerciseGoal = exerciseGoals.get(exerciseId) ?? goal
-			return calculateRest(reps, tier, exerciseGoal, setType)
+			const item = exerciseGroups.find(g =>
+				g.type === 'standalone'
+					? g.exerciseId === exerciseId
+					: g.exercises.some(e => e.exerciseId === exerciseId)
+			)
+			const exercise =
+				item?.type === 'standalone'
+					? item.exercise
+					: item?.exercises.find(e => e.exerciseId === exerciseId)?.exercise
+			return calculateRest(reps, exercise?.fatigueTier ?? 2, exerciseGoals.get(exerciseId) ?? goal, setType)
 		},
 		[exerciseGroups, exerciseGoals, goal]
 	)
 
-	// Helper: check if a render item contains a given exerciseId
-	const itemContainsExercise = useCallback(
-		(item: RenderItem, id: string) =>
-			item.type === 'standalone' ? item.exerciseId === id : item.exercises.some(e => e.exerciseId === id),
-		[]
+	// Checklist set confirm: log it and start the rest timer (superset transitions
+	// credit round time instead — full rest starts when the round closes)
+	const handleChecklistAdd = useCallback(
+		(data: {
+			exerciseId: Exercise['id']
+			weightKg: number
+			reps: number
+			setType: SetType
+			transition?: boolean
+		}) => {
+			if (!session) return
+			addSet.mutate({
+				sessionId: session.id,
+				exerciseId: data.exerciseId,
+				weightKg: data.weightKg,
+				reps: data.reps,
+				setType: data.setType
+			})
+			if (data.transition) {
+				storeRecordTransition()
+			} else {
+				storeStartRest(restFor(data.exerciseId, data.reps, data.setType), data.setType)
+			}
+		},
+		[session, addSet, restFor, storeRecordTransition, storeStartRest]
 	)
 
 	// Helper: check if a render item has pending (unlogged) planned sets
@@ -529,20 +310,15 @@ export function WorkoutSessionPage() {
 		return item.exercises.some(e => e.planned.length > e.logs.length)
 	}, [])
 
-	// Auto-advance: if active exercise has no pending sets, move to next
-	useEffect(() => {
-		if (!activeExerciseId || exerciseGroups.length === 0) return
-		const current = exerciseGroups.find(g => itemContainsExercise(g, activeExerciseId))
-		if (current && !itemHasPending(current)) {
-			const currentIdx = exerciseGroups.indexOf(current)
-			const next = exerciseGroups.slice(currentIdx + 1).find(itemHasPending)
-			setActiveExerciseId(
-				next ? (next.type === 'standalone' ? next.exerciseId : next.exercises[0].exerciseId) : null
-			)
-		}
-	}, [activeExerciseId, exerciseGroups, itemContainsExercise, itemHasPending])
+	// Checklist highlight: the earliest exercise group with unlogged planned sets
+	const firstPendingItem = useMemo(
+		() => exerciseGroups.find(itemHasPending) ?? null,
+		[exerciseGroups, itemHasPending]
+	)
 
-	// Page-level keyboard handler: Enter/Space confirms the active pending set
+	// Page-level keyboard handler: Enter/Space confirms the active pending set.
+	// The pending SetRow exposes its confirm via [data-confirm-pending] because the
+	// row owns its uncommitted weight/reps inputs — clicking it submits those.
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if (e.key !== 'Enter' && e.key !== ' ') return
@@ -566,7 +342,6 @@ export function WorkoutSessionPage() {
 		return () => document.removeEventListener('keydown', handler)
 	}, [])
 
-	const session = sessionQuery.data
 	useDocumentTitle(session?.name ?? 'Workout Session')
 	const vol = session ? totalVolume(session.logs) : 0
 	const isCompleted = !!session?.completedAt
@@ -666,7 +441,8 @@ export function WorkoutSessionPage() {
 				<ExerciseSearch
 					exercises={exercisesQuery.data}
 					onSelect={exercise => {
-						addSetMutation.mutate({
+						// Adds a 0×0 placeholder set — no rest timer for that
+						addSet.mutate({
 							sessionId: session.id,
 							exerciseId: exercise.id,
 							weightKg: 0,
@@ -694,27 +470,14 @@ export function WorkoutSessionPage() {
 								}))}
 								goal={goal}
 								readOnly={isCompleted}
-								active={item.exercises.some(e => e.exerciseId === activeExerciseId)}
+								active={item === firstPendingItem}
 								bodyWeightKg={bodyWeightKg}
-								onAddSet={data => {
-									transitionQueueRef.current.push(data.transition ?? false)
-									addSetMutation.mutate({
-										sessionId: session.id,
-										exerciseId: data.exerciseId,
-										weightKg: data.weightKg,
-										reps: data.reps,
-										setType: data.setType
-									})
-								}}
-								onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
-								onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
+								onAddSet={handleChecklistAdd}
+								onUpdateSet={(logId, updates) => updateSet.mutate({ id: logId, ...updates })}
+								onRemoveSet={logId => removeSet.mutate({ id: logId })}
 								onReplace={exerciseId => setReplaceExerciseId(exerciseId)}
 								onTrainingGoalChange={(exerciseId, g) => {
-									setGoalOverrides(prev => {
-										const next = new Map(prev)
-										next.set(exerciseId, g)
-										return next
-									})
+									updatePlannedExercise.mutate({ sessionId: session.id, exerciseId, trainingGoal: g })
 								}}
 							/>
 						)
@@ -729,35 +492,27 @@ export function WorkoutSessionPage() {
 							setMode={exerciseModes.get(item.exerciseId)}
 							trainingGoal={exerciseGoals.get(item.exerciseId)}
 							workoutGoal={goal}
-							active={activeExerciseId === item.exerciseId}
+							active={item === firstPendingItem}
 							lastSession={lastSessions?.[item.exerciseId] ?? null}
 							onSetModeChange={mode => {
-								setModeOverrides(prev => {
-									const next = new Map(prev)
-									next.set(item.exerciseId, mode)
-									return next
+								updatePlannedExercise.mutate({
+									sessionId: session.id,
+									exerciseId: item.exerciseId,
+									setMode: mode
 								})
 							}}
 							onTrainingGoalChange={g => {
-								setGoalOverrides(prev => {
-									const next = new Map(prev)
-									next.set(item.exerciseId, g)
-									return next
+								updatePlannedExercise.mutate({
+									sessionId: session.id,
+									exerciseId: item.exerciseId,
+									trainingGoal: g
 								})
 							}}
 							readOnly={isCompleted}
 							bodyWeightKg={bodyWeightKg}
-							onAddSet={data =>
-								addSetMutation.mutate({
-									sessionId: session.id,
-									exerciseId: data.exerciseId,
-									weightKg: data.weightKg,
-									reps: data.reps,
-									setType: data.setType
-								})
-							}
-							onUpdateSet={(logId, updates) => updateSetMutation.mutate({ id: logId, ...updates })}
-							onRemoveSet={logId => removeSetMutation.mutate({ id: logId })}
+							onAddSet={handleChecklistAdd}
+							onUpdateSet={(logId, updates) => updateSet.mutate({ id: logId, ...updates })}
+							onRemoveSet={logId => removeSet.mutate({ id: logId })}
 							onReplace={exerciseId => setReplaceExerciseId(exerciseId)}
 						/>
 					)
@@ -770,47 +525,7 @@ export function WorkoutSessionPage() {
 				</Card>
 			)}
 
-			<Outlet
-				context={{
-					exerciseGroups,
-					session: {
-						id: session.id,
-						startedAt: session.startedAt,
-						name: session.name ?? null,
-						notes: session.notes ?? null
-					},
-					setActiveExerciseId,
-					onConfirmSet: (
-						data: {
-							exerciseId: import('@macromaxxing/db').Exercise['id']
-							weightKg: number
-							reps: number
-							setType: import('@macromaxxing/db').SetType
-							transition?: boolean
-						},
-						onLogId?: (id: string) => void
-					) => {
-						if (onLogId) logIdCallbackRef.current = onLogId
-						transitionQueueRef.current.push(data.transition ?? false)
-						addSetMutation.mutate({
-							sessionId: session.id,
-							exerciseId: data.exerciseId,
-							weightKg: data.weightKg,
-							reps: data.reps,
-							setType: data.setType
-						})
-					},
-					onUpdateSet: (id: string, updates: { weightKg?: number; reps?: number }) => {
-						updateSetMutation.mutate({ id: id as SessionLog['id'], ...updates })
-					},
-					onUndoSet: () => {
-						const lastLog = session.logs.at(-1)
-						if (lastLog) removeSetMutation.mutate({ id: lastLog.id })
-					},
-					getRestDuration,
-					bodyWeightKg
-				}}
-			/>
+			<Outlet />
 
 			{replaceExerciseId && exercisesQuery.data && (
 				<ExerciseReplaceModal
@@ -830,18 +545,26 @@ export function WorkoutSessionPage() {
 					}
 					onReplace={selected => {
 						const oldId = replaceExerciseId
-						const hasLogs = session.logs.some(l => l.exerciseId === oldId)
-						if (hasLogs) {
-							replaceExerciseMutation.mutate({
-								sessionId: session.id,
-								oldExerciseId: oldId,
-								newExerciseId: selected.id
-							})
-						}
-						setTemplateReplacements(prev => {
-							const next = new Map(prev)
-							next.set(oldId, selected)
-							return next
+						// Seed the replacement with a weight estimated from the plan's
+						// other lifts via strength standards
+						const reps = TRAINING_DEFAULTS[exerciseGoals.get(oldId) ?? goal].targetReps
+						const estimated = estimateReplacementWeight(
+							selected.id,
+							reps,
+							planRows
+								.filter(pe => pe.exerciseId !== oldId)
+								.map(pe => ({
+									exerciseId: pe.exerciseId,
+									targetWeight: pe.targetWeight,
+									targetReps: pe.targetReps
+								})),
+							standardsQuery.data ?? []
+						)
+						replaceExerciseMutation.mutate({
+							sessionId: session.id,
+							oldExerciseId: oldId,
+							newExerciseId: selected.id,
+							targetWeight: estimated
 						})
 						setReplaceExerciseId(null)
 					}}
@@ -862,7 +585,7 @@ export function WorkoutSessionPage() {
 				<SessionReview
 					session={session}
 					template={session.workout}
-					extraExercises={extraExercises.map((eg: ExerciseGroup) => ({
+					extraExercises={extraExercises.map(eg => ({
 						exerciseId: eg.exercise.id,
 						exerciseName: eg.exercise.name,
 						logs: eg.logs

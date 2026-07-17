@@ -355,6 +355,11 @@ export interface FlatSet {
 	itemIndex: number
 	completed: boolean
 	bwMultiplier: number
+	fatigueTier: FatigueTier
+	/** Effective training goal for this exercise (per-exercise override or workout goal) — drives rest duration. */
+	goal: TrainingGoal
+	/** The log filling this planned slot, if any. Optimistic entries carry a placeholder id until the server responds. */
+	log: SessionLog | null
 	superset: SupersetInfo | null
 	/** Per-template exercise note, shown below the exercise name in timer mode. */
 	note?: string | null
@@ -367,6 +372,7 @@ export type RenderItem =
 			exercise: SessionExercise
 			logs: SessionLog[]
 			planned: PlannedSet[]
+			goal: TrainingGoal
 			note?: string | null
 	  }
 	| {
@@ -377,6 +383,7 @@ export type RenderItem =
 				exercise: SessionExercise
 				logs: SessionLog[]
 				planned: PlannedSet[]
+				goal: TrainingGoal
 				note?: string | null
 			}>
 	  }
@@ -402,6 +409,9 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 					itemIndex: itemIdx,
 					completed: i < item.logs.length,
 					bwMultiplier: item.exercise.bwMultiplier,
+					fatigueTier: item.exercise.fatigueTier,
+					goal: item.goal,
+					log: item.logs[i] ?? null,
 					superset: null,
 					note: item.note ?? null
 				})
@@ -439,6 +449,9 @@ export function flattenSets(exerciseGroups: RenderItem[]): FlatSet[] {
 						itemIndex: itemIdx,
 						completed: entry.log !== null,
 						bwMultiplier: entry.exercise.bwMultiplier,
+						fatigueTier: entry.exercise.fatigueTier,
+						goal: item.exercises[exerciseIndex]?.goal ?? 'hypertrophy',
+						log: entry.log,
 						superset: {
 							group: item.group,
 							exerciseLetter: LETTERS[exerciseIndex],
