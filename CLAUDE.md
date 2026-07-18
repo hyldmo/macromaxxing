@@ -144,7 +144,9 @@ src/
         SessionReview.tsx                   # Post-workout divergence review (update template targets)
         SessionSummary.tsx                  # Completed session summary (1RM stats, volume, plan comparison)
         TimerModeView.tsx                   # Presentational timer overlay (consumed by routes/workouts.sessions.$sessionId.timer.tsx and landing AutoSection)
-        SessionNotesModal.tsx               # In-session notes scratchpad (debounced autosave to workoutSessions.notes)
+        SessionNotesModal.tsx               # In-session notepad: one section per template exercise (edits workoutExercises.note
+                                            #   via updateExerciseNote) + a "Session notes" section (workoutSessions.notes). Debounced
+                                            #   per-field autosave; opening from timer mode focuses the active exercise's section.
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
@@ -328,6 +330,7 @@ trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/r
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
 trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
+trpc.workout.updateExerciseNote             # Set a template exercise's per-exercise note (workoutExercises.note, shown in timer mode)
 trpc.workout.updatePlannedExercise          # Session-scoped plan edit (setMode, per-exercise trainingGoal) — does not touch the template
 trpc.workout.replaceSessionExercise         # Swap an exercise in an active session (moves logs + plan row, resets targets, seeds estimated weight)
 trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI hot-path: LastSessionHint)
@@ -403,7 +406,9 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   (set mode, per-exercise goal via `updatePlannedExercise`; exercise swap via `replaceSessionExercise`) mutate the
   snapshot, survive refresh, and never touch the template. Template edits do NOT affect running sessions — the
   session→template direction is handled by SessionReview on completion. Exception: per-exercise `note` is read live
-  from the template (guidance text, not plan state). Sessions predating the snapshot fall back to the template read-only.
+  from the template (guidance text, not plan state) and is deliberately editable mid-session from the timer notepad
+  (`updateExerciseNote` writes `workoutExercises.note`, so it DOES update the template). Sessions predating the snapshot
+  fall back to the template read-only.
 - **Set mutations** (add/update/remove with optimistic getSession cache updates incl. optimistic→real id swap) live in
   `useSessionSets` (src/features/workouts/hooks/useSessionSets.ts) — shared by the checklist page and timer mode; rest
   timers are started by the caller, not the mutation
