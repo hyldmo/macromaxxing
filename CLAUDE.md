@@ -76,7 +76,8 @@ src/
     cn.ts                                   # cn() utility (clsx + twMerge)
     images.ts                               # getImageUrl, isExternalImage, getImageAttribution (R2/external URL)
     chart/                                  # scale.ts: shared SVG chart scale helpers (linear/log, ticks, padding)
-    workouts/                               # Pure helpers: programCycle (pickNextWorkout), programLoad (computeProgramLoad), sets, etc.
+    workouts/                               # Pure helpers: programCycle (pickNextWorkout), programLoad (computeProgramLoad), sets,
+                                            #   sessionNotes (serialize/parse per-exercise + general session notes), etc.
                                             #   formulas.ts re-exports from @macromaxxing/db (shared with workers/)
   components/
     ui/                                     # Button, Input, NumberInput, Select, Switch, Card, Spinner, ReloadPrompt, etc.
@@ -144,7 +145,9 @@ src/
         SessionReview.tsx                   # Post-workout divergence review (update template targets)
         SessionSummary.tsx                  # Completed session summary (1RM stats, volume, plan comparison)
         TimerModeView.tsx                   # Presentational timer overlay (consumed by routes/workouts.sessions.$sessionId.timer.tsx and landing AutoSection)
-        SessionNotesModal.tsx               # In-session notes scratchpad (debounced autosave to workoutSessions.notes)
+        SessionNotesModal.tsx               # In-session notes scratchpad: one note section per exercise + a general note, all
+                                            #   serialized into the single workoutSessions.notes column via src/lib/workouts/sessionNotes.ts
+                                            #   (debounced autosave; opening from timer mode focuses the active exercise)
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
