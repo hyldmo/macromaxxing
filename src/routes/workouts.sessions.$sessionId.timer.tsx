@@ -17,6 +17,7 @@ import {
 	cursorOf,
 	dismissOutcome,
 	flattenSets,
+	type NotesExercise,
 	nextExercisePendingIndex,
 	nextPendingIndex,
 	resolveCursorIndex,
@@ -56,6 +57,16 @@ const TimerMode: FC = () => {
 	// maps back into the current queue.
 	const { exerciseGroups } = useMemo(() => buildSessionPlanFromSession(session), [session])
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
+	// Ordered, deduped exercise list for the per-exercise notes sections.
+	const notesExercises = useMemo<NotesExercise[]>(
+		() =>
+			exerciseGroups.flatMap(g =>
+				g.type === 'superset'
+					? g.exercises.map(e => ({ id: e.exerciseId, name: e.exercise.name }))
+					: [{ id: g.exerciseId, name: g.exercise.name }]
+			),
+		[exerciseGroups]
+	)
 	const currentIndex = resolveCursorIndex(flatSets, cursor)
 	const currentSet = currentIndex >= 0 ? flatSets[currentIndex] : null
 	const isResting = rest !== null
@@ -316,6 +327,8 @@ const TimerMode: FC = () => {
 				<SessionNotesModal
 					sessionId={session.id}
 					initialNotes={session.notes}
+					exercises={notesExercises}
+					focusExerciseId={currentSet?.exerciseId}
 					onClose={() => setNotesOpen(false)}
 				/>
 			)}
