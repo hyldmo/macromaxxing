@@ -133,8 +133,11 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 	useEffect(() => () => flushAll(), [flushAll])
 
 	const titleId = 'session-notes-title'
-	const textareaClass =
-		'w-full resize-none rounded-sm border border-edge bg-surface-1 px-3 py-2 text-ink text-sm leading-relaxed [field-sizing:content] min-h-14 placeholder:text-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50'
+	const baseTextareaClass =
+		'w-full resize-none rounded-sm border border-edge bg-surface-1 px-3 py-2 text-ink text-sm leading-relaxed placeholder:text-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50'
+	// Exercise notes auto-size from a single line; session notes flex to fill the remaining height.
+	const exerciseTextareaClass = `${baseTextareaClass} [field-sizing:content]`
+	const sessionTextareaClass = `${baseTextareaClass} h-full min-h-24`
 
 	return createPortal(
 		<div
@@ -170,12 +173,13 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 								value={notes[ex.exerciseId] ?? ''}
 								onChange={e => handleExerciseChange(ex, e.target.value)}
 								placeholder="Notes for this exercise…"
-								className={textareaClass}
+								rows={1}
+								className={exerciseTextareaClass}
 							/>
 						</label>
 					))}
 
-					<label className="flex flex-col gap-1.5 border-edge border-t pt-4">
+					<label className="flex min-h-0 flex-1 flex-col gap-1.5">
 						<span className="font-mono text-ink-faint text-xs uppercase tracking-wide">Session notes</span>
 						<textarea
 							ref={el => {
@@ -185,7 +189,7 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 							value={sessionNotes}
 							onChange={e => handleSessionChange(e.target.value)}
 							placeholder="Anything about the whole session…"
-							className={textareaClass}
+							className={sessionTextareaClass}
 						/>
 					</label>
 				</div>
