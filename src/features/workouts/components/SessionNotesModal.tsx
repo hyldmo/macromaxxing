@@ -1,21 +1,32 @@
-import type { Exercise, WorkoutSession } from '@macromaxxing/db'
+import type { Exercise, WorkoutExercise, WorkoutSession } from '@macromaxxing/db'
 import { X } from 'lucide-react'
-import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { type NotesExercise, parseSessionNotes, serializeSessionNotes, useScrollLock } from '~/lib'
+import { useScrollLock } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
 const DEBOUNCE_MS = 800
 
+/** A template exercise whose per-exercise note (workoutExercises.note) is editable in the notepad. */
+export interface NotesExercise {
+	exerciseId: Exercise['id']
+	workoutExerciseId: WorkoutExercise['id']
+	name: string
+	note: string
+}
+
 export interface SessionNotesModalProps {
 	sessionId: WorkoutSession['id']
+	/** The whole-session note (workoutSessions.notes). */
 	initialNotes: string | null
-	/** Session exercises in plan order — one note section each. */
+	/** Session template exercises in plan order — one note section each. */
 	exercises: NotesExercise[]
 	/** Exercise whose section should be focused on open (the one active in timer mode). */
 	focusExerciseId?: Exercise['id']
 	onClose: () => void
 }
+
+const SESSION_KEY = 'session'
 
 export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 	sessionId,
@@ -24,78 +35,87 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 	focusExerciseId,
 	onClose
 }) => {
-	const parsed = useMemo(
-		() =>
-			parseSessionNotes(
-				initialNotes,
-				exercises.map(e => e.name)
-			),
-		[initialNotes, exercises]
-	)
-
 	const [notes, setNotes] = useState<Record<Exercise['id'], string>>(() => {
 		const record: Record<Exercise['id'], string> = {}
-		for (const ex of exercises) record[ex.id] = parsed.byExerciseName.get(ex.name) ?? ''
+		for (const ex of exercises) record[ex.exerciseId] = ex.note
 		return record
 	})
-	const [general, setGeneral] = useState(parsed.general)
+	const [sessionNotes, setSessionNotes] = useState(initialNotes ?? '')
 
-	const notesRef = useRef(notes)
-	const generalRef = useRef(general)
-	const savedRef = useRef(initialNotes ?? '')
-	const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-	const textareas = useRef(new Map<Exercise['id'] | 'general', HTMLTextAreaElement>())
-	const { mutate } = trpc.workout.updateSessionNotes.useMutation()
+	// Latest values + last-saved snapshot per field, so per-field debounced flushes
+	// only fire when that field actually changed.
+	const valuesRef = useRef<Record<string, string>>({
+		[SESSION_KEY]: initialNotes ?? '',
+		...Object.fromEntries(exercises.map(ex => [ex.workoutExerciseId, ex.note]))
+	})
+	const savedRef = useRef<Record<string, string>>({ ...valuesRef.current })
+	const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+	const textareas = useRef(new Map<Exercise['id'] | typeof SESSION_KEY, HTMLTextAreaElement>())
+
+	const utils = trpc.useUtils()
+	const updateExerciseNote = trpc.workout.updateExerciseNote.useMutation({
+		onSuccess: () => utils.workout.getSession.invalidate({ id: sessionId })
+	})
+	const updateSessionNotes = trpc.workout.updateSessionNotes.useMutation()
 	useScrollLock()
 
-	const flush = useCallback(() => {
-		if (timeoutRef.current) {
-			clearTimeout(timeoutRef.current)
-			timeoutRef.current = null
-		}
-		const serialized = serializeSessionNotes(
-			exercises,
-			new Map(exercises.map(ex => [ex.id, notesRef.current[ex.id] ?? ''])),
-			generalRef.current
-		)
-		if (serialized === savedRef.current) return
-		savedRef.current = serialized
-		mutate({ id: sessionId, notes: serialized })
-	}, [exercises, mutate, sessionId])
+	const flush = useCallback(
+		(key: string) => {
+			const timer = timers.current.get(key)
+			if (timer) {
+				clearTimeout(timer)
+				timers.current.delete(key)
+			}
+			const value = valuesRef.current[key] ?? ''
+			if (savedRef.current[key] === value) return
+			savedRef.current[key] = value
+			if (key === SESSION_KEY) updateSessionNotes.mutate({ id: sessionId, notes: value })
+			else updateExerciseNote.mutate({ id: key as WorkoutExercise['id'], note: value })
+		},
+		[sessionId, updateExerciseNote, updateSessionNotes]
+	)
 
-	const scheduleSave = useCallback(() => {
-		if (timeoutRef.current) clearTimeout(timeoutRef.current)
-		timeoutRef.current = setTimeout(flush, DEBOUNCE_MS)
+	const scheduleSave = useCallback(
+		(key: string) => {
+			const existing = timers.current.get(key)
+			if (existing) clearTimeout(existing)
+			timers.current.set(
+				key,
+				setTimeout(() => flush(key), DEBOUNCE_MS)
+			)
+		},
+		[flush]
+	)
+
+	const flushAll = useCallback(() => {
+		for (const key of [...timers.current.keys()]) flush(key)
 	}, [flush])
 
 	const handleClose = useCallback(() => {
-		flush()
+		flushAll()
 		onClose()
-	}, [flush, onClose])
+	}, [flushAll, onClose])
 
 	const handleExerciseChange = useCallback(
-		(id: Exercise['id'], value: string) => {
-			setNotes(prev => {
-				const next = { ...prev, [id]: value }
-				notesRef.current = next
-				return next
-			})
-			scheduleSave()
+		(ex: NotesExercise, value: string) => {
+			setNotes(prev => ({ ...prev, [ex.exerciseId]: value }))
+			valuesRef.current[ex.workoutExerciseId] = value
+			scheduleSave(ex.workoutExerciseId)
 		},
 		[scheduleSave]
 	)
 
-	const handleGeneralChange = useCallback(
+	const handleSessionChange = useCallback(
 		(value: string) => {
-			setGeneral(value)
-			generalRef.current = value
-			scheduleSave()
+			setSessionNotes(value)
+			valuesRef.current[SESSION_KEY] = value
+			scheduleSave(SESSION_KEY)
 		},
 		[scheduleSave]
 	)
 
 	useEffect(() => {
-		const target = (focusExerciseId && textareas.current.get(focusExerciseId)) ?? textareas.current.get('general')
+		const target = (focusExerciseId && textareas.current.get(focusExerciseId)) ?? textareas.current.get(SESSION_KEY)
 		target?.focus()
 		target?.scrollIntoView({ block: 'center' })
 		const handler = (e: KeyboardEvent) => {
@@ -109,9 +129,8 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 		return () => document.removeEventListener('keydown', handler, true)
 	}, [focusExerciseId, handleClose])
 
-	useEffect(() => {
-		return () => flush()
-	}, [flush])
+	// Flush any pending edits on unmount (e.g. closing via the timer overlay).
+	useEffect(() => () => flushAll(), [flushAll])
 
 	const titleId = 'session-notes-title'
 	const textareaClass =
@@ -141,15 +160,15 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 
 				<div className="flex flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4">
 					{exercises.map(ex => (
-						<label key={ex.id} className="flex flex-col gap-1.5">
+						<label key={ex.exerciseId} className="flex flex-col gap-1.5">
 							<span className="font-mono text-ink-faint text-xs uppercase tracking-wide">{ex.name}</span>
 							<textarea
 								ref={el => {
-									if (el) textareas.current.set(ex.id, el)
-									else textareas.current.delete(ex.id)
+									if (el) textareas.current.set(ex.exerciseId, el)
+									else textareas.current.delete(ex.exerciseId)
 								}}
-								value={notes[ex.id] ?? ''}
-								onChange={e => handleExerciseChange(ex.id, e.target.value)}
+								value={notes[ex.exerciseId] ?? ''}
+								onChange={e => handleExerciseChange(ex, e.target.value)}
 								placeholder="Notes for this exercise…"
 								className={textareaClass}
 							/>
@@ -157,14 +176,14 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 					))}
 
 					<label className="flex flex-col gap-1.5 border-edge border-t pt-4">
-						<span className="font-mono text-ink-faint text-xs uppercase tracking-wide">General</span>
+						<span className="font-mono text-ink-faint text-xs uppercase tracking-wide">Session notes</span>
 						<textarea
 							ref={el => {
-								if (el) textareas.current.set('general', el)
-								else textareas.current.delete('general')
+								if (el) textareas.current.set(SESSION_KEY, el)
+								else textareas.current.delete(SESSION_KEY)
 							}}
-							value={general}
-							onChange={e => handleGeneralChange(e.target.value)}
+							value={sessionNotes}
+							onChange={e => handleSessionChange(e.target.value)}
 							placeholder="Anything about the whole session…"
 							className={textareaClass}
 						/>

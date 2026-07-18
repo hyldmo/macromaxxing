@@ -2,7 +2,7 @@ import type { Exercise, WorkoutSession } from '@macromaxxing/db'
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { ExerciseGuideModal } from '~/features/workouts/components/ExerciseGuideModal'
-import { SessionNotesModal } from '~/features/workouts/components/SessionNotesModal'
+import { type NotesExercise, SessionNotesModal } from '~/features/workouts/components/SessionNotesModal'
 import { TimerModeView } from '~/features/workouts/components/TimerModeView'
 import { useElapsedTimer } from '~/features/workouts/hooks/useElapsedTimer'
 import { isOptimisticLogId, useSessionSets } from '~/features/workouts/hooks/useSessionSets'
@@ -17,7 +17,6 @@ import {
 	cursorOf,
 	dismissOutcome,
 	flattenSets,
-	type NotesExercise,
 	nextExercisePendingIndex,
 	nextPendingIndex,
 	resolveCursorIndex,
@@ -57,15 +56,17 @@ const TimerMode: FC = () => {
 	// maps back into the current queue.
 	const { exerciseGroups } = useMemo(() => buildSessionPlanFromSession(session), [session])
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
-	// Ordered, deduped exercise list for the per-exercise notes sections.
+	// Per-exercise notes edit the template row's note (workoutExercises.note), so the
+	// notepad lists the session's template exercises in plan order.
 	const notesExercises = useMemo<NotesExercise[]>(
 		() =>
-			exerciseGroups.flatMap(g =>
-				g.type === 'superset'
-					? g.exercises.map(e => ({ id: e.exerciseId, name: e.exercise.name }))
-					: [{ id: g.exerciseId, name: g.exercise.name }]
-			),
-		[exerciseGroups]
+			(session?.workout?.exercises ?? []).map(we => ({
+				exerciseId: we.exerciseId,
+				workoutExerciseId: we.id,
+				name: we.exercise.name,
+				note: we.note ?? ''
+			})),
+		[session]
 	)
 	const currentIndex = resolveCursorIndex(flatSets, cursor)
 	const currentSet = currentIndex >= 0 ? flatSets[currentIndex] : null
@@ -277,7 +278,7 @@ const TimerMode: FC = () => {
 
 	const isDoingSet = setTimer !== null && setTimer.pausedAt === null && !isResting
 	const isSetPaused = setTimer !== null && setTimer.pausedAt !== null && !isResting
-	const hasNotes = (session.notes ?? '').trim().length > 0
+	const hasNotes = (session.notes ?? '').trim().length > 0 || notesExercises.some(ex => ex.note.trim().length > 0)
 
 	return (
 		<>

@@ -1016,6 +1016,23 @@ export const workoutsRouter = router({
 			await ctx.db.update(workoutSessions).set({ notes: input.notes }).where(eq(workoutSessions.id, input.id))
 		}),
 
+	updateExerciseNote: protectedProcedure
+		.meta({ description: "Update a template exercise's note (the per-exercise note shown in timer mode)" })
+		.input(z.object({ id: zodTypeID('wke'), note: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const row = await ctx.db.query.workoutExercises.findFirst({
+				where: { id: input.id },
+				with: { workout: { columns: { userId: true } } }
+			})
+			if (!row || row.workout.userId !== ctx.user.id) throw new Error('Workout exercise not found')
+
+			const note = input.note.trim()
+			await ctx.db
+				.update(workoutExercises)
+				.set({ note: note.length > 0 ? note : null })
+				.where(eq(workoutExercises.id, input.id))
+		}),
+
 	deleteSession: protectedProcedure
 		.meta({ description: 'Delete a workout session' })
 		.input(z.object({ id: zodTypeID('wks') }))
