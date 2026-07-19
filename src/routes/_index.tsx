@@ -15,11 +15,14 @@ import {
 	getEffectiveCookedWeight,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
+import { MuscleReadinessChip } from '~/features/workouts/components/MuscleChip'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
 import {
 	cn,
+	computeMuscleReadiness,
 	DAYS_LONG,
 	type ProgramCycleResult,
+	pendingRecovery,
 	pickNextWorkout,
 	prefetchRoute,
 	totalVolume,
@@ -323,6 +326,13 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	const nextWorkoutId = nextTemplate?.id ?? null
 	const programLabel = cycleResult?.kind === 'program' ? cycleResult.programName : null
 
+	// Muscles the up-next workout trains that are still inside their recovery window
+	// from recently logged sessions. Advisory only — chips, never a blocker.
+	const pendingMuscles = useMemo(
+		() => (nextTemplate ? pendingRecovery(nextTemplate, computeMuscleReadiness(sessions), Date.now()) : []),
+		[nextTemplate, sessions]
+	)
+
 	// Rotate templates so the "up next" workout is first
 	const orderedTemplates = useMemo(() => {
 		if (!nextWorkoutId || templates.length === 0) return templates
@@ -380,6 +390,18 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 										{template.exercises.length} exercises
 										{lastDone && ` · ${formatRelativeDate(lastDone)}`}
 									</div>
+									{isUpNext && pendingMuscles.length > 0 && (
+										<div className="mt-1 flex flex-wrap gap-1">
+											{pendingMuscles.map(m => (
+												<MuscleReadinessChip
+													key={m.muscleGroup}
+													muscleGroup={m.muscleGroup}
+													remainingHours={m.remainingHours}
+													readyAt={m.readyAt}
+												/>
+											))}
+										</div>
+									)}
 								</div>
 								<Button size="sm" onClick={() => onStartSession(template.id)} disabled={isPending}>
 									<Play className="size-3.5" />

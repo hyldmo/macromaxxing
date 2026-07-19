@@ -2,7 +2,7 @@ import { FATIGUE_TIER_WEIGHTS, type FatigueTier, type MuscleGroup, type Training
 
 /** Minimum exercise→muscle intensity to count as "hitting" that muscle.
  * Below 0.3 = incidental (per classifyIntensity bucket in @macromaxxing/db). */
-const REST_INTENSITY_THRESHOLD = 0.3
+export const REST_INTENSITY_THRESHOLD = 0.3
 
 const RECOVERY_BASE_HOURS = 24
 const RECOVERY_MAX_HOURS = 96
