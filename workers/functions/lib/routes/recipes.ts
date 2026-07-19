@@ -152,8 +152,8 @@ export const recipesRouter = router({
 			})
 			if (!recipe) throw new TRPCError({ code: 'NOT_FOUND' })
 
-			// Clean up R2 image if it was an upload (not external URL)
-			if (recipe.image && !recipe.image.startsWith('http')) {
+			// Clean up R2 image if it was an upload — only keys this recipe owns
+			if (recipe.image?.startsWith(recipe.id)) {
 				await ctx.env.IMAGES.delete(`recipes/${recipe.image}`)
 			}
 

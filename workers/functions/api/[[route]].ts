@@ -41,19 +41,24 @@ app.post('/api/recipes/:id/image', async c => {
 	if (file.size > 5 * 1024 * 1024) return c.json({ error: 'File too large (max 5MB)' }, 400)
 	if (!file.type.startsWith('image/')) return c.json({ error: 'Invalid file type' }, 400)
 
-	// Delete old R2 object if previous image was an upload (not external URL)
-	if (recipe.image && !recipe.image.startsWith('http')) {
+	// Only delete keys this recipe owns (prefixed by its own id) — recipe.update
+	// accepts any rcp_* string as image, so a crafted value must not be able to
+	// delete another recipe's object
+	if (recipe.image?.startsWith(recipeId)) {
 		await c.env.IMAGES.delete(`recipes/${recipe.image}`)
 	}
 
-	const key = `recipes/${recipeId}`
-	await c.env.IMAGES.put(key, file.stream(), {
+	// Timestamped key: replacing an image must change its URL — R2 serves
+	// Last-Modified without Cache-Control, so browsers heuristically cache a
+	// stable URL for ~10% of the object's age with no revalidation
+	const image: TypeIDString<'rcp'> = `${recipeId}-${Date.now()}`
+	await c.env.IMAGES.put(`recipes/${image}`, file.stream(), {
 		httpMetadata: { contentType: file.type }
 	})
 
-	await db.update(recipes).set({ image: recipeId, updatedAt: Date.now() }).where(eq(recipes.id, recipeId))
+	await db.update(recipes).set({ image, updatedAt: Date.now() }).where(eq(recipes.id, recipeId))
 
-	return c.json({ image: recipeId })
+	return c.json({ image })
 })
 
 app.delete('/api/recipes/:id/image', async c => {
@@ -68,8 +73,8 @@ app.delete('/api/recipes/:id/image', async c => {
 	})
 	if (!recipe) return c.json({ error: 'Not found' }, 404)
 
-	// Delete R2 object if image was an upload
-	if (recipe.image && !recipe.image.startsWith('http')) {
+	// Delete R2 object if image was an upload — only keys this recipe owns
+	if (recipe.image?.startsWith(recipeId)) {
 		await c.env.IMAGES.delete(`recipes/${recipe.image}`)
 	}
 

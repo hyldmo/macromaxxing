@@ -42,6 +42,11 @@ export const idbReady: Promise<void> = import.meta.env.SSR
 	? Promise.resolve()
 	: (async () => {
 			const persister = createIDBPersister()
-			await persistQueryClientRestore({ queryClient, persister, maxAge: ONE_DAY })
-			persistQueryClientSubscribe({ queryClient, persister })
+			// Tag-granular buster: discard the persisted cache when the release
+			// changes so old-shaped procedure outputs never rehydrate. Deliberately
+			// not per-build — a per-build id baked into a chunk would change hashes
+			// on no-op builds and re-fire the SW update prompt on every deploy.
+			const buster = import.meta.env.VITE_APP_VERSION
+			await persistQueryClientRestore({ queryClient, persister, maxAge: ONE_DAY, buster })
+			persistQueryClientSubscribe({ queryClient, persister, buster })
 		})()
