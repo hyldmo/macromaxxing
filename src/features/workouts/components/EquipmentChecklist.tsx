@@ -1,4 +1,4 @@
-import { EQUIPMENT_CATEGORIES, EQUIPMENT_LABELS, type Equipment } from '@macromaxxing/db'
+import { EQUIPMENT_CATEGORIES, type Equipment, formatEquipment } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { cn } from '~/lib'
 
@@ -32,7 +32,7 @@ export const EquipmentChecklist: FC<EquipmentChecklistProps> = ({ selected, onCh
 								disabled && 'cursor-not-allowed opacity-50'
 							)}
 						>
-							{EQUIPMENT_LABELS[eq]}
+							{formatEquipment(eq)}
 						</button>
 					))}
 				</div>

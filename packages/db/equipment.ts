@@ -1,44 +1,8 @@
+import { startCase } from 'es-toolkit'
 import type { Equipment } from './custom-types'
 
-/** Human labels for equipment enum values (snake_case → display). */
-export const EQUIPMENT_LABELS: Record<Equipment, string> = {
-	barbell: 'Barbell',
-	ez_bar: 'EZ bar',
-	trap_bar: 'Trap bar',
-	dumbbell: 'Dumbbells',
-	kettlebell: 'Kettlebell',
-	squat_rack: 'Squat rack',
-	bench_flat: 'Flat bench',
-	bench_adjustable: 'Adjustable bench',
-	preacher_bench: 'Preacher bench',
-	smith_machine: 'Smith machine',
-	cable_station: 'Cable station',
-	lat_pulldown: 'Lat pulldown',
-	pec_deck: 'Pec deck',
-	chest_press_machine: 'Chest press machine',
-	shoulder_press_machine: 'Shoulder press machine',
-	chest_supported_row: 'Chest-supported row',
-	leg_press: 'Leg press',
-	hack_squat: 'Hack squat',
-	leg_curl_machine: 'Leg curl machine',
-	leg_extension_machine: 'Leg extension machine',
-	calf_machine: 'Calf machine',
-	hip_thrust_machine: 'Hip thrust machine',
-	back_extension: 'Back extension',
-	pullup_bar: 'Pull-up bar',
-	dip_station: 'Dip station',
-	suspension_trainer: 'Suspension trainer',
-	resistance_band: 'Resistance bands',
-	sled: 'Sled',
-	battle_ropes: 'Battle ropes',
-	boxing_bag: 'Boxing bag',
-	rowing_machine: 'Rowing machine',
-	ski_erg: 'Ski erg',
-	air_bike: 'Air bike',
-	spin_bike: 'Spin bike',
-	treadmill: 'Treadmill',
-	stair_climber: 'Stair climber'
-}
+/** Display label for an equipment value — plain title case of the enum value. */
+export const formatEquipment = (equipment: Equipment): string => startCase(equipment)
 
 export interface EquipmentCategory {
 	label: string
@@ -97,5 +61,5 @@ export function missingEquipment(
 }
 
 export function formatEquipmentList(items: readonly Equipment[]): string {
-	return items.map(e => EQUIPMENT_LABELS[e]).join(', ')
+	return items.map(formatEquipment).join(', ')
 }

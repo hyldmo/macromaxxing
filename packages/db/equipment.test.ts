@@ -35,8 +35,8 @@ describe('equipmentSet', () => {
 })
 
 describe('formatEquipmentList', () => {
-	it('joins human labels', () => {
-		expect(formatEquipmentList(['ez_bar', 'pullup_bar'])).toBe('EZ bar, Pull-up bar')
+	it('joins title-cased values', () => {
+		expect(formatEquipmentList(['ez_bar', 'pullup_bar'])).toBe('Ez Bar, Pullup Bar')
 	})
 })
 

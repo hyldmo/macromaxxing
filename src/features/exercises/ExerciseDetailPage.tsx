@@ -1,4 +1,4 @@
-import { EQUIPMENT_LABELS, type Exercise } from '@macromaxxing/db'
+import { type Exercise, formatEquipment } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -334,7 +334,7 @@ const SystemSummary = ({ exercise }: SystemSummaryProps) => {
 									key={e.equipment}
 									className="rounded-full bg-surface-2 px-2 py-0.5 text-ink text-xs"
 								>
-									{EQUIPMENT_LABELS[e.equipment]}
+									{formatEquipment(e.equipment)}
 								</li>
 							))}
 						</ul>

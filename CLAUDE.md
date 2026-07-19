@@ -173,7 +173,7 @@ packages/db/                                # Shared package @macromaxxing/db
   formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isE1rmPR, isStalledExercise)
                                             #   shared between src/ and workers/ (workers/ can't import from src/)
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios)
-  equipment.ts                              # EQUIPMENT_LABELS + missingEquipment/equipmentSet (location availability)
+  equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
 workers/functions/
   [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
