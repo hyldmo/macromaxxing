@@ -1,4 +1,5 @@
 export * from './custom-types'
+export * from './equipment'
 export * from './formulas'
 export * from './ingredient-source'
 export * from './muscle-load'

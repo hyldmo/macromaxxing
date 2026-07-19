@@ -1,4 +1,5 @@
 import {
+	type Equipment,
 	type ExerciseType,
 	exerciseType,
 	fatigueTier as fatigueTierType,
@@ -13,6 +14,7 @@ import { Check, Plus, Trash2 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Button, Input, NumberInput, Select, Textarea, TRPCError } from '~/components/ui'
 import { Label } from '~/components/ui/Label'
+import { EquipmentChecklist } from '~/features/workouts/components/EquipmentChecklist'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { getRepRange } from '~/lib/workouts'
 
@@ -42,6 +44,7 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 	const [muscles, setMuscles] = useState<MuscleRow[]>(
 		editExercise?.muscles.map(m => ({ muscleGroup: m.muscleGroup, intensity: m.intensity.toString() })) ?? []
 	)
+	const [equipment, setEquipment] = useState<Equipment[]>(editExercise?.equipment.map(e => e.equipment) ?? [])
 	const utils = trpc.useUtils()
 
 	const createMutation = trpc.workout.createExercise.useMutation({
@@ -76,7 +79,8 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 				strengthRepsMax: ranges.strength.max ?? null,
 				hypertrophyRepsMin: ranges.hypertrophy.min ?? null,
 				hypertrophyRepsMax: ranges.hypertrophy.max ?? null,
-				muscles: muscleData
+				muscles: muscleData,
+				equipment
 			})
 		} else {
 			createMutation.mutate({
@@ -88,7 +92,8 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 				strengthRepsMax: ranges.strength.max ?? null,
 				hypertrophyRepsMin: ranges.hypertrophy.min ?? null,
 				hypertrophyRepsMax: ranges.hypertrophy.max ?? null,
-				muscles: muscleData
+				muscles: muscleData,
+				equipment
 			})
 		}
 	}
@@ -228,6 +233,14 @@ export const ExerciseForm: FC<ExerciseFormProps> = ({ editExercise, onClose }) =
 				{muscles.length === 0 && (
 					<p className="text-ink-faint text-xs italic">No muscles defined. Add muscles above.</p>
 				)}
+			</div>
+
+			<div className="space-y-2">
+				<span className="text-ink-muted text-xs">Required equipment</span>
+				<EquipmentChecklist selected={equipment} onChange={setEquipment} />
+				<p className="text-ink-faint text-xs">
+					Used for location availability warnings. Leave everything unselected for bodyweight-only exercises.
+				</p>
 			</div>
 
 			{editExercise?.userId && <GuideEditor exercise={editExercise} />}

@@ -1,8 +1,10 @@
+import type { Equipment } from '@macromaxxing/db'
 import { Search, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Input, Modal } from '~/components/ui'
 import { rankBySimilarity, type ScoredExercise } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { EquipmentWarning } from './EquipmentWarning'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
 
@@ -16,6 +18,8 @@ export interface ExerciseReplaceModalProps {
 	exerciseName: string
 	allExercises: Exercise[]
 	excludeIds: Set<string>
+	/** Per-exercise missing equipment at the session's location — unavailable suggestions sink and get a badge. */
+	unavailable?: ReadonlyMap<Exercise['id'], Equipment[]>
 	onReplace: (exercise: Exercise) => void
 	onClose: () => void
 }
@@ -25,6 +29,7 @@ export const ExerciseReplaceModal: FC<ExerciseReplaceModalProps> = ({
 	exerciseName,
 	allExercises,
 	excludeIds,
+	unavailable,
 	onReplace,
 	onClose
 }) => {
@@ -32,10 +37,14 @@ export const ExerciseReplaceModal: FC<ExerciseReplaceModalProps> = ({
 
 	const sourceExercise = useMemo(() => allExercises.find(e => e.id === exerciseId), [allExercises, exerciseId])
 
-	const ranked = useMemo(
-		() => (sourceExercise ? rankBySimilarity(sourceExercise, allExercises, excludeIds) : []),
-		[sourceExercise, allExercises, excludeIds]
-	)
+	const ranked = useMemo(() => {
+		if (!sourceExercise) return []
+		const scored = rankBySimilarity(sourceExercise, allExercises, excludeIds)
+		if (!unavailable || unavailable.size === 0) return scored
+		return scored.toSorted(
+			(a, b) => Number(unavailable.has(a.exercise.id)) - Number(unavailable.has(b.exercise.id))
+		)
+	}, [sourceExercise, allExercises, excludeIds, unavailable])
 
 	const isSearching = search.length > 0
 	const query = search.toLowerCase()
@@ -82,6 +91,7 @@ export const ExerciseReplaceModal: FC<ExerciseReplaceModalProps> = ({
 							className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors hover:bg-surface-2"
 						>
 							<span className="min-w-0 flex-1 truncate text-ink">{ex.name}</span>
+							<EquipmentWarning missing={unavailable?.get(ex.id) ?? []} className="shrink-0" />
 							<span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${TYPE_BADGE[ex.type]}`}>
 								{ex.type}
 							</span>

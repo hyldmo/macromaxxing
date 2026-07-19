@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { TrainingGoal } from '@macromaxxing/db'
+import type { Equipment, TrainingGoal } from '@macromaxxing/db'
 import { GripVertical, NotebookPen, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
@@ -17,6 +17,7 @@ import {
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
 import type { TemplateExercise } from '../WorkoutTemplatePage'
+import { EquipmentWarning } from './EquipmentWarning'
 import { LastSessionHint, type LastSessionHintProps } from './LastSessionHint'
 
 export interface TemplateExerciseRowProps {
@@ -29,6 +30,8 @@ export interface TemplateExerciseRowProps {
 	isFirstInGroup: boolean
 	isLastInGroup: boolean
 	lastSession?: LastSessionHintProps['lastSession']
+	/** Equipment the workout's location lacks for this exercise. Empty = available (or no location set). */
+	missingEquipment?: readonly Equipment[]
 	onUpdate: (updates: Partial<TemplateExercise>) => void
 	onRemove: () => void
 }
@@ -43,6 +46,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 	isFirstInGroup,
 	isLastInGroup,
 	lastSession,
+	missingEquipment = [],
 	onUpdate,
 	onRemove
 }) => {
@@ -98,6 +102,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 					<Link to={`/exercises/${exercise.exerciseId}`} className="hover:underline">
 						{exercise.exerciseName}
 					</Link>
+					<EquipmentWarning missing={missingEquipment} className="ml-2 align-middle" />
 				</span>
 				{effectiveWeight != null && effectiveWeight > 0 && exercise.targetReps && (
 					<span className="text-ink-muted text-xs max-lg:hidden">

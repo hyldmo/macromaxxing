@@ -21,14 +21,16 @@ export const dashboardRouter = router({
 					limit: 5
 				}),
 
-				// Workout templates (3 levels — acceptable)
+				// Workout templates (3 levels — acceptable). Shape must stay identical to
+				// workout.listWorkouts — ProgramCard consumes templates from either query.
 				ctx.db.query.workouts.findMany({
 					where: { userId: ctx.user.id },
 					with: {
 						exercises: {
-							with: { exercise: { with: { muscles: true } } },
+							with: { exercise: { with: { muscles: true, equipment: true } } },
 							orderBy: { sortOrder: 'asc' }
-						}
+						},
+						location: { with: { equipment: true } }
 					},
 					orderBy: { sortOrder: 'asc' }
 				}),

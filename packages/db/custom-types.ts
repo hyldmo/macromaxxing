@@ -48,6 +48,30 @@ export type ExerciseType = z.infer<typeof exerciseType>
 export const fatigueTier = z.literal([1, 2, 3, 4])
 export type FatigueTier = z.infer<typeof fatigueTier>
 
+export const EQUIPMENT = [
+	'barbell',
+	'ez_bar',
+	'trap_bar',
+	'dumbbell',
+	'kettlebell',
+	'squat_rack',
+	'bench_flat',
+	'bench_adjustable',
+	'smith_machine',
+	'cable_station',
+	'lat_pulldown',
+	'leg_press',
+	'leg_curl_machine',
+	'leg_extension_machine',
+	'calf_machine',
+	'preacher_bench',
+	'pullup_bar',
+	'dip_station',
+	'resistance_band'
+] as const
+
+export type Equipment = (typeof EQUIPMENT)[number]
+
 export const MUSCLE_GROUPS = [
 	'chest',
 	'upper_back',

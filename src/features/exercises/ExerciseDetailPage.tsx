@@ -1,4 +1,4 @@
-import type { Exercise } from '@macromaxxing/db'
+import { EQUIPMENT_LABELS, type Exercise } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -321,6 +321,24 @@ const SystemSummary = ({ exercise }: SystemSummaryProps) => {
 							{formatRange(exercise.hypertrophyRepsMin, exercise.hypertrophyRepsMax)}
 						</dd>
 					</div>
+				</div>
+
+				<div>
+					<div className="text-[10px] text-ink-faint uppercase tracking-wide">Equipment</div>
+					{exercise.equipment.length === 0 ? (
+						<p className="mt-1 text-ink-faint text-xs italic">None — bodyweight only.</p>
+					) : (
+						<ul className="mt-1 flex flex-wrap gap-1.5">
+							{exercise.equipment.map(e => (
+								<li
+									key={e.equipment}
+									className="rounded-full bg-surface-2 px-2 py-0.5 text-ink text-xs"
+								>
+									{EQUIPMENT_LABELS[e.equipment]}
+								</li>
+							))}
+						</ul>
+					)}
 				</div>
 
 				<div>

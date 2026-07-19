@@ -158,6 +158,9 @@ src/
         ProgramMuscleSidebar.tsx            # Stats + BodyMap + balance bars; exports BelowMevWarning
         LastSessionHint.tsx                 # Inline "last time: 80kg × 8" hint above set rows
         ExerciseGuideContent.tsx            # Renders technique guide (description + cues + pitfalls)
+        EquipmentChecklist.tsx              # Toggle-chip checklist over the fixed EQUIPMENT vocabulary
+        EquipmentWarning.tsx                # Amber "missing: X" chip (template rows, search results, replace modal)
+        LocationsSection.tsx                # Settings card: locations CRUD + per-location equipment checklist
       utils/
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
@@ -170,6 +173,7 @@ packages/db/                                # Shared package @macromaxxing/db
   formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isE1rmPR, isStalledExercise)
                                             #   shared between src/ and workers/ (workers/ can't import from src/)
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios)
+  equipment.ts                              # EQUIPMENT_LABELS + missingEquipment/equipmentSet (location availability)
 workers/functions/
   [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
@@ -240,17 +244,21 @@ mealPlans(id typeid:mpl, userId, name)
   → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
     → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
 
+locations(id typeid:loc, userId, name, UNIQUE(userId, name))
+  → locationEquipment(id typeid:leq, locationId ON DELETE CASCADE, equipment, UNIQUE(locationId, equipment))
+
 exercises(id typeid:exc, userId?, name, type: compound|isolation, fatigueTier: 1-4, bwMultiplier default 0 — 0=absolute load, >0=bodyweight fraction)
   → exerciseMuscles(id typeid:exm, exerciseId, muscleGroup, intensity 0.0-1.0)
+  → exerciseEquipment(id typeid:exq, exerciseId ON DELETE CASCADE, equipment, UNIQUE(exerciseId, equipment))
   → exerciseGuides(id typeid:egd, exerciseId unique, description, cues JSON string[], pitfalls JSON string[]?, updatedAt)
 
 strengthStandards(id typeid:ssr, compoundId FK, isolationId FK, maxRatio)
 
-workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, sortOrder)
+workouts(id typeid:wkt, userId, name, trainingGoal: hypertrophy|strength, locationId? — ON DELETE SET NULL, sortOrder)
   → workoutExercises(id typeid:wke, workoutId, exerciseId, sortOrder, targetSets?, targetReps?, targetWeight?,
                      setMode: working|warmup|backoff|full, supersetGroup?, note? — shown in timer mode)
 
-workoutSessions(id typeid:wks, userId, workoutId?, name?, startedAt, completedAt?, notes?)
+workoutSessions(id typeid:wks, userId, workoutId?, locationId? — snapshotted from template, ON DELETE SET NULL, name?, startedAt, completedAt?, notes?)
   → sessionPlannedExercises(id typeid:spe, sessionId, exerciseId, sortOrder, targetSets?, targetReps?,
                             targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
@@ -268,6 +276,7 @@ apiTokens(id typeid:atok, userId FK, name, tokenHash unique, lastUsedAt?, create
 
 All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
 Muscle groups (fixed set): chest, upper_back, lats, front_delts, side_delts, rear_delts, biceps, triceps, forearms, quads, hamstrings, glutes, calves, core.
+Equipment (fixed set, shared by exercises + locations): barbell, ez_bar, trap_bar, dumbbell, kettlebell, squat_rack, bench_flat, bench_adjustable, smith_machine, cable_station, lat_pulldown, leg_press, leg_curl_machine, leg_extension_machine, calf_machine, preacher_bench, pullup_bar, dip_station, resistance_band.
 
 ## Design Tokens
 
@@ -323,15 +332,17 @@ trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.workout.guide                                                        # No-arg orientation doc (MCP tool workout_guide) — training/program-design conventions reference incl. bwMultiplier bodyweight logging
-trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings
+trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings + equipment requirements
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
-trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout
+trpc.workout.listLocations/createLocation/updateLocation/deleteLocation   # Training locations with equipment checklists (replace-all array on update)
+trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout   # Templates carry optional locationId
 trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
 trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
 trpc.workout.updateExerciseNote             # Set a template exercise's per-exercise note (workoutExercises.note, shown in timer mode)
 trpc.workout.updatePlannedExercise          # Session-scoped plan edit (setMode, per-exercise trainingGoal) — does not touch the template
+trpc.workout.updateSessionLocation          # Session-scoped location change (traveling) — does not touch the template's locationId
 trpc.workout.replaceSessionExercise         # Swap an exercise in an active session (moves logs + plan row, resets targets, seeds estimated weight)
 trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI hot-path: LastSessionHint)
 trpc.workout.lastSessionsForExercises       # Batched variant — single query for N exercises (avoids N+1 on session entry)
@@ -419,6 +430,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - **Rest timer** persists globally (nav widget) — shows countdown, overshot time, or session elapsed
 - **Timer route** (`/workouts/sessions/:id/timer`) renders as full-screen child route via `<Outlet>`
 - Body profile (height/weight/sex) stored in `userSettings`, used for workout validation
+- **Locations & equipment**: user-defined locations (Settings > Training Locations) hold an equipment checklist;
+  exercises declare required equipment (AND semantics — variants are separate exercises; no equipment rows = bodyweight
+  = available everywhere). Templates carry an optional `locationId`; `createSession` snapshots it and
+  `updateSessionLocation` changes it per-session without touching the template. Availability warnings
+  (`missingEquipment` from `@macromaxxing/db`) render in the template editor rows, exercise search, session banner,
+  and replace modal (unavailable suggestions sink + badge). No location selected = no warnings.
 
 **Workout Programs** — Named ordered groupings of workout templates (e.g. PPL):
 - One program can be marked active via `userSettings.activeProgramId` (FK ON DELETE SET NULL)

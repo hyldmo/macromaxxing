@@ -1,14 +1,18 @@
 import {
 	computeBalances,
 	computeMuscleLoad,
+	EQUIPMENT,
 	type ExerciseType,
 	effectiveSetWeightKg,
 	estimated1RM,
+	exerciseEquipment,
 	exerciseGuides,
 	exerciseMuscles,
 	exercises,
 	exerciseType,
 	type FatigueTier,
+	locationEquipment,
+	locations,
 	MUSCLE_GROUPS,
 	type MuscleContribution,
 	type MuscleGroup,
@@ -343,12 +347,22 @@ async function getProgramOrThrow(db: Database, userId: string, id: TypeIDString<
 	}
 }
 
+/** Ownership guard for attaching a location to a workout/session. */
+async function assertLocationOwned(db: Database, userId: string, locationId: TypeIDString<'loc'>): Promise<void> {
+	const location = await db.query.locations.findFirst({
+		where: { id: locationId, userId },
+		columns: { id: true }
+	})
+	if (!location) throw new Error('Location not found')
+}
+
 /** Shared `with` for workout template queries */
 const workoutExercisesWith = {
 	exercises: {
-		with: { exercise: { with: { muscles: true } } },
+		with: { exercise: { with: { muscles: true, equipment: true } } },
 		orderBy: { sortOrder: 'asc' as const }
-	}
+	},
+	location: { with: { equipment: true } }
 } as const
 
 export const workoutsRouter = router({
@@ -376,7 +390,7 @@ export const workoutsRouter = router({
 					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }],
 					...typeFilter
 				},
-				with: { muscles: true },
+				with: { muscles: true, equipment: true },
 				orderBy: { name: 'asc' }
 			})
 		}),
@@ -398,13 +412,14 @@ export const workoutsRouter = router({
 				hypertrophyRepsMin: z.number().int().min(1).nullable(),
 				hypertrophyRepsMax: z.number().int().min(1).nullable(),
 				bwMultiplier: z.number().min(0).max(2).optional(),
+				equipment: z.array(z.enum(EQUIPMENT)).optional(),
 				guide: zGuideInput.optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
 			const tier = (input.fatigueTier ?? (input.type === 'compound' ? 2 : 4)) as FatigueTier
-			const { muscles, guide, ...exerciseFields } = input
+			const { muscles, guide, equipment, ...exerciseFields } = input
 			const [exercise] = await ctx.db
 				.insert(exercises)
 				.values({ ...exerciseFields, userId: ctx.user.id, fatigueTier: tier, createdAt: now })
@@ -420,6 +435,12 @@ export const workoutsRouter = router({
 				)
 			}
 
+			if (equipment?.length) {
+				await ctx.db
+					.insert(exerciseEquipment)
+					.values(equipment.map(e => ({ exerciseId: exercise.id, equipment: e })))
+			}
+
 			if (guide) {
 				await ctx.db.insert(exerciseGuides).values({
 					id: newId('egd'),
@@ -433,7 +454,7 @@ export const workoutsRouter = router({
 
 			return ctx.db.query.exercises.findFirst({
 				where: { id: exercise.id },
-				with: { muscles: true, guide: true }
+				with: { muscles: true, equipment: true, guide: true }
 			})
 		}),
 
@@ -452,7 +473,8 @@ export const workoutsRouter = router({
 				bwMultiplier: z.number().min(0).max(2).optional(),
 				muscles: z
 					.array(z.object({ muscleGroup: z.enum(MUSCLE_GROUPS), intensity: z.number().min(0).max(1) }))
-					.optional()
+					.optional(),
+				equipment: z.array(z.enum(EQUIPMENT)).optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -463,7 +485,7 @@ export const workoutsRouter = router({
 				throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
 			}
 
-			const { id, muscles, ...fields } = input
+			const { id, muscles, equipment, ...fields } = input
 			const set: Record<string, unknown> = {}
 			if (fields.name !== undefined) set.name = fields.name
 			if (fields.type !== undefined) set.type = fields.type
@@ -491,9 +513,18 @@ export const workoutsRouter = router({
 				}
 			}
 
+			if (equipment !== undefined) {
+				await ctx.db.delete(exerciseEquipment).where(eq(exerciseEquipment.exerciseId, id))
+				if (equipment.length > 0) {
+					await ctx.db
+						.insert(exerciseEquipment)
+						.values(equipment.map(e => ({ exerciseId: id, equipment: e })))
+				}
+			}
+
 			return ctx.db.query.exercises.findFirst({
 				where: { id },
-				with: { muscles: true }
+				with: { muscles: true, equipment: true }
 			})
 		}),
 
@@ -654,6 +685,7 @@ export const workoutsRouter = router({
 			z.object({
 				name: z.string().min(1),
 				trainingGoal: trainingGoal.default('hypertrophy'),
+				locationId: zodTypeID('loc').nullable().default(null),
 				exercises: z.array(
 					z.object({
 						exerciseId: zodTypeID('exc'),
@@ -670,6 +702,7 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
+			if (input.locationId) await assertLocationOwned(ctx.db, ctx.user.id, input.locationId)
 
 			// Get next sort order
 			const existing = await ctx.db
@@ -684,6 +717,7 @@ export const workoutsRouter = router({
 					userId: ctx.user.id,
 					name: input.name,
 					trainingGoal: input.trainingGoal,
+					locationId: input.locationId,
 					sortOrder,
 					createdAt: now,
 					updatedAt: now
@@ -724,6 +758,7 @@ export const workoutsRouter = router({
 				id: zodTypeID('wkt'),
 				name: z.string().min(1).optional(),
 				trainingGoal: trainingGoal.optional(),
+				locationId: zodTypeID('loc').nullable().optional(),
 				sortOrder: z.number().int().min(0).optional(),
 				exercises: z
 					.array(
@@ -751,6 +786,10 @@ export const workoutsRouter = router({
 			const set: Record<string, unknown> = { updatedAt: now }
 			if (input.name !== undefined) set.name = input.name
 			if (input.trainingGoal !== undefined) set.trainingGoal = input.trainingGoal
+			if (input.locationId !== undefined) {
+				if (input.locationId) await assertLocationOwned(ctx.db, ctx.user.id, input.locationId)
+				set.locationId = input.locationId
+			}
 			if (input.sortOrder !== undefined) set.sortOrder = input.sortOrder
 
 			await ctx.db.update(workouts).set(set).where(eq(workouts.id, input.id))
@@ -805,6 +844,80 @@ export const workoutsRouter = router({
 			await ctx.db.delete(workouts).where(and(eq(workouts.id, input.id), eq(workouts.userId, ctx.user.id)))
 		}),
 
+	// ─── Locations ────────────────────────────────────────────────
+
+	listLocations: protectedProcedure
+		.meta({ description: 'List training locations with their available equipment' })
+		.query(async ({ ctx }) =>
+			ctx.db.query.locations.findMany({
+				where: { userId: ctx.user.id },
+				with: { equipment: true },
+				orderBy: { name: 'asc' }
+			})
+		),
+
+	createLocation: protectedProcedure
+		.meta({
+			description: `Create a training location (gym, home, hotel) with its available equipment. Valid equipment values: ${EQUIPMENT.join(', ')}`
+		})
+		.input(z.object({ name: z.string().min(1), equipment: z.array(z.enum(EQUIPMENT)).default([]) }))
+		.mutation(async ({ ctx, input }) => {
+			const [location] = await ctx.db
+				.insert(locations)
+				.values({ userId: ctx.user.id, name: input.name, createdAt: Date.now() })
+				.returning()
+
+			if (input.equipment.length > 0) {
+				await ctx.db
+					.insert(locationEquipment)
+					.values(input.equipment.map(e => ({ locationId: location.id, equipment: e })))
+			}
+
+			return ctx.db.query.locations.findFirst({
+				where: { id: location.id },
+				with: { equipment: true }
+			})
+		}),
+
+	updateLocation: protectedProcedure
+		.meta({ description: "Update a training location's name and/or replace its equipment list" })
+		.input(
+			z.object({
+				id: zodTypeID('loc'),
+				name: z.string().min(1).optional(),
+				equipment: z.array(z.enum(EQUIPMENT)).optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			await assertLocationOwned(ctx.db, ctx.user.id, input.id)
+
+			if (input.name !== undefined) {
+				await ctx.db.update(locations).set({ name: input.name }).where(eq(locations.id, input.id))
+			}
+
+			if (input.equipment !== undefined) {
+				await ctx.db.delete(locationEquipment).where(eq(locationEquipment.locationId, input.id))
+				if (input.equipment.length > 0) {
+					await ctx.db
+						.insert(locationEquipment)
+						.values(input.equipment.map(e => ({ locationId: input.id, equipment: e })))
+				}
+			}
+
+			return ctx.db.query.locations.findFirst({
+				where: { id: input.id },
+				with: { equipment: true }
+			})
+		}),
+
+	deleteLocation: protectedProcedure
+		.meta({ description: 'Delete a training location (workouts and sessions referencing it are detached)' })
+		.input(z.object({ id: zodTypeID('loc') }))
+		.mutation(async ({ ctx, input }) => {
+			await assertLocationOwned(ctx.db, ctx.user.id, input.id)
+			await ctx.db.delete(locations).where(eq(locations.id, input.id))
+		}),
+
 	// ─── Sessions ─────────────────────────────────────────────────
 
 	listSessions: protectedProcedure
@@ -835,12 +948,13 @@ export const workoutsRouter = router({
 					workout: {
 						with: workoutExercisesWith
 					},
+					location: { with: { equipment: true } },
 					logs: {
 						with: { exercise: { with: { muscles: true } } },
 						orderBy: { createdAt: 'asc' }
 					},
 					plannedExercises: {
-						with: { exercise: { with: { muscles: true } } },
+						with: { exercise: { with: { muscles: true, equipment: true } } },
 						orderBy: { sortOrder: 'asc' }
 					}
 				}
@@ -866,6 +980,7 @@ export const workoutsRouter = router({
 				.values({
 					userId: ctx.user.id,
 					workoutId: input.workoutId,
+					locationId: workout.locationId,
 					name: input.name ?? workout.name,
 					startedAt: now,
 					createdAt: now
@@ -1014,6 +1129,26 @@ export const workoutsRouter = router({
 			if (!session) throw new Error('Session not found')
 
 			await ctx.db.update(workoutSessions).set({ notes: input.notes }).where(eq(workoutSessions.id, input.id))
+		}),
+
+	updateSessionLocation: protectedProcedure
+		.meta({
+			description:
+				"Change where a session is being trained (session-scoped, does not touch the template's location)"
+		})
+		.input(z.object({ id: zodTypeID('wks'), locationId: zodTypeID('loc').nullable() }))
+		.mutation(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({
+				where: { id: input.id, userId: ctx.user.id },
+				columns: { id: true }
+			})
+			if (!session) throw new Error('Session not found')
+			if (input.locationId) await assertLocationOwned(ctx.db, ctx.user.id, input.locationId)
+
+			await ctx.db
+				.update(workoutSessions)
+				.set({ locationId: input.locationId })
+				.where(eq(workoutSessions.id, input.id))
 		}),
 
 	updateExerciseNote: protectedProcedure

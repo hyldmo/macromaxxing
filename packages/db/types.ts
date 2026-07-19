@@ -1,11 +1,14 @@
 import type { InferSelectModel } from 'drizzle-orm'
 import type {
 	apiTokens,
+	exerciseEquipment,
 	exerciseGuides,
 	exerciseMuscles,
 	exercises,
 	ingredients,
 	ingredientUnits,
+	locationEquipment,
+	locations,
 	mealPlanInventory,
 	mealPlanSlots,
 	mealPlans,
@@ -37,6 +40,9 @@ export type MealPlanInventory = InferSelectModel<typeof mealPlanInventory>
 export type MealPlanSlot = InferSelectModel<typeof mealPlanSlots>
 export type Exercise = InferSelectModel<typeof exercises>
 export type ExerciseMuscle = InferSelectModel<typeof exerciseMuscles>
+export type ExerciseEquipment = InferSelectModel<typeof exerciseEquipment>
+export type Location = InferSelectModel<typeof locations>
+export type LocationEquipment = InferSelectModel<typeof locationEquipment>
 export type ExerciseGuideRow = InferSelectModel<typeof exerciseGuides>
 export type StrengthStandard = InferSelectModel<typeof strengthStandards>
 export type Workout = InferSelectModel<typeof workouts>

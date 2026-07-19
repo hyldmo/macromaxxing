@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
 	type AiProvider,
+	type Equipment,
 	type ExerciseType,
 	type FatigueTier,
 	type ImageSource,
@@ -191,6 +192,38 @@ export const mealPlanSlots = sqliteTable(
 
 // ─── Workout Tracking ────────────────────────────────────────────────
 
+export const locations = sqliteTable(
+	'locations',
+	{
+		id: typeidCol('loc')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('loc')),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		name: text('name').notNull(),
+		createdAt: integer('created_at').notNull()
+	},
+	t => [index('locations_user_id_idx').on(t.userId), uniqueIndex('locations_user_name_idx').on(t.userId, t.name)]
+)
+
+export const locationEquipment = sqliteTable(
+	'location_equipment',
+	{
+		id: typeidCol('leq')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('leq')),
+		locationId: typeidCol('loc')('location_id')
+			.notNull()
+			.references(() => locations.id, { onDelete: 'cascade' }),
+		equipment: text('equipment').notNull().$type<Equipment>()
+	},
+	t => [
+		index('location_equipment_location_id_idx').on(t.locationId),
+		uniqueIndex('location_equipment_unique_idx').on(t.locationId, t.equipment)
+	]
+)
+
 export const exercises = sqliteTable(
 	'exercises',
 	{
@@ -226,6 +259,23 @@ export const exerciseMuscles = sqliteTable('exercise_muscles', {
 	intensity: real('intensity').notNull() // 0.0-1.0
 })
 
+export const exerciseEquipment = sqliteTable(
+	'exercise_equipment',
+	{
+		id: typeidCol('exq')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('exq')),
+		exerciseId: typeidCol('exc')('exercise_id')
+			.notNull()
+			.references(() => exercises.id, { onDelete: 'cascade' }),
+		equipment: text('equipment').notNull().$type<Equipment>()
+	},
+	t => [
+		index('exercise_equipment_exercise_id_idx').on(t.exerciseId),
+		uniqueIndex('exercise_equipment_unique_idx').on(t.exerciseId, t.equipment)
+	]
+)
+
 export const exerciseGuides = sqliteTable(
 	'exercise_guides',
 	{
@@ -254,6 +304,7 @@ export const workouts = sqliteTable(
 			.references(() => users.id),
 		name: text('name').notNull(),
 		trainingGoal: text('training_goal').notNull().default('hypertrophy').$type<TrainingGoal>(),
+		locationId: typeidCol('loc')('location_id').references(() => locations.id, { onDelete: 'set null' }),
 		sortOrder: integer('sort_order').notNull().default(0),
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull()
@@ -310,6 +361,7 @@ export const workoutSessions = sqliteTable(
 			.notNull()
 			.references(() => users.id),
 		workoutId: typeidCol('wkt')('workout_id').references(() => workouts.id), // null = legacy session
+		locationId: typeidCol('loc')('location_id').references(() => locations.id, { onDelete: 'set null' }),
 		name: text('name'),
 		startedAt: integer('started_at').notNull(),
 		completedAt: integer('completed_at'),

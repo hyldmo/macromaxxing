@@ -34,7 +34,7 @@ Stable conventions for designing exercises, templates, and programs. Live traini
 
 ## Conventions
 
-- Templates may be tagged \`@ <location>\` in their name (e.g. "Bench @ MyGym") to indicate the gym; untagged templates are location-flexible.
+- Templates carry an optional \`locationId\` (first-class training location — see Locations & equipment below). Legacy templates may instead be tagged \`@ <location>\` in their name (e.g. "Bench @ MyGym"); prefer the structured field. Templates without a location are location-flexible.
 - Preserve a user's existing naming style when creating related exercises — names often encode bench angles (e.g. "Incline DB Press 30°", "Shoulder Press 80°").
 - Warmup / working / backoff sets are logged separately during a session; rep targets are meaningful and should be respected.
 - Source of truth for exercise patterns is the seed catalog (\`seed-exercises.ts\`). Match its conventions when creating new custom exercises.
@@ -63,6 +63,17 @@ Stable conventions for designing exercises, templates, and programs. Live traini
 - Template \`targetWeight\` follows the same rule: \`0\` = unweighted, \`20\` = +20 kg belt. Warmup/backoff auto-generation and template volume previews expand bodyweight from the user's \`weightKg\` in settings.
 - When reading history (\`workout_exerciseHistory\`, \`workout_lastSessionForExercise\`, session logs): \`weightKg\` is effective. Do **not** pass historical \`weightKg\` back into \`workout_addSet\` for a BW exercise — that would double-count bodyweight.
 - \`workout_importSets\` treats imported weights as added kg and expands to effective load for bodyweight exercises (user must have \`weightKg\` set in settings).
+
+## Locations & equipment
+
+Users can define training locations (gym, home, hotel) with an equipment checklist, and exercises can declare required equipment. Both sides use the same fixed vocabulary: barbell, ez_bar, trap_bar, dumbbell, kettlebell, squat_rack, bench_flat, bench_adjustable, smith_machine, cable_station, lat_pulldown, leg_press, leg_curl_machine, leg_extension_machine, calf_machine, preacher_bench, pullup_bar, dip_station, resistance_band.
+
+- Requirements are AND semantics: an exercise is available at a location iff every required item is present. Barbell-vs-dumbbell variants are separate exercises, not alternatives on one exercise.
+- No equipment rows = bodyweight = available everywhere. A location with an empty checklist only satisfies bodyweight exercises.
+- Tools: workout_listLocations / createLocation / updateLocation / deleteLocation (equipment passed as a replace-all array). Set a template's location via workout_createWorkout / updateWorkout \`locationId\`.
+- Sessions snapshot the template's \`locationId\` at workout_createSession; workout_updateSessionLocation changes where a session is trained without touching the template (e.g. traveling).
+- When creating custom exercises, fill \`equipment\` alongside muscles — missing equipment rows silently exempt the exercise from availability warnings.
+- When programming for a specific location, check each exercise's required equipment against the location's list and substitute unavailable movements (see Home training gaps below for common substitutions).
 
 ## Set modes
 
@@ -111,7 +122,7 @@ Well-covered at home: chest, triceps, front/side/rear delts, biceps, forearms, c
 
 ## Working with the tools
 
-- Fill ALL fields when creating exercises. Half-populated exercises (null rep ranges, missing muscle intensities) degrade downstream muscle-load math. On isolations, pass explicit null for the strength rep range — never omit the field. Set \`bwMultiplier\` explicitly (0 for loaded lifts; >0 for bodyweight — see above). Pass the technique guide (description, cues, pitfalls) inline in the same workout_createExercise call.
+- Fill ALL fields when creating exercises. Half-populated exercises (null rep ranges, missing muscle intensities) degrade downstream muscle-load math. On isolations, pass explicit null for the strength rep range — never omit the field. Set \`bwMultiplier\` explicitly (0 for loaded lifts; >0 for bodyweight — see above). Fill \`equipment\` (see Locations & equipment). Pass the technique guide (description, cues, pitfalls) inline in the same workout_createExercise call.
 - workout_workoutMuscleLoad (one template's weekly load) vs workout_programMuscleLoad (the whole program cycle + balance ratios) vs workout_sessionMuscleLoad (a logged session, working sets only) are distinct — don't substitute one for another. workout_sessionMuscleLoad counts working sets only, so old-vs-new comparisons stay apples-to-apples.
 - workout_programMuscleLoad is the only reliable source for balance ratios (push/pull, biceps/triceps, anterior/posterior). Never hand-aggregate per-session loads to estimate them. If it fails, fall back to per-template workout_workoutMuscleLoad and aggregate manually, but flag that ratio calculations may be missing.
 - A 4-week window is sufficient for workout_exerciseHistory.
