@@ -1,5 +1,5 @@
 import type { TypeIDString } from '@macromaxxing/db'
-import { Pencil, Play } from 'lucide-react'
+import { MapPin, Pencil, Play } from 'lucide-react'
 import { forwardRef, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button, Card } from '~/components/ui'
@@ -76,6 +76,12 @@ export const WorkoutCard = forwardRef<HTMLDivElement, WorkoutCardProps>(
 				<div className={cn('min-w-0 flex-1 gap-2', isCompact ? 'py-1.5' : 'py-2')}>
 					<div className="flex items-center gap-2">
 						<h3 className="min-w-0 truncate font-medium text-ink">{label ?? workout.name}</h3>
+						{workout.location && (
+							<span className="flex shrink-0 items-center gap-0.5 text-ink-faint text-xs">
+								<MapPin className="size-3 shrink-0" />
+								<span className="max-w-28 truncate">{workout.location.name}</span>
+							</span>
+						)}
 						{highlighted && (
 							<span className="shrink-0 font-mono text-[10px] text-accent uppercase tracking-wide">
 								up next

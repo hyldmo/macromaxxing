@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import type { AbsoluteMacros } from '@macromaxxing/db'
-import { CalendarDays, ChevronRight, Dumbbell, Play, SkipForward, UtensilsCrossed } from 'lucide-react'
+import { CalendarDays, ChevronRight, Dumbbell, MapPin, Play, SkipForward, UtensilsCrossed } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
@@ -281,6 +281,7 @@ const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
 							</div>
 							<div className="font-mono text-ink-muted text-xs tabular-nums">
 								{session.logs.length} sets · {(vol / 1000).toFixed(1)}k vol
+								{session.location && ` · ${session.location.name}`}
 							</div>
 						</div>
 						<ChevronRight className="size-4 shrink-0 text-ink-faint" />
@@ -380,11 +381,17 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 									<div className="flex items-center gap-2">
 										<Link
 											to={`/workouts/${template.id}`}
-											className="font-medium text-ink text-sm hover:underline"
+											className="min-w-0 truncate font-medium text-ink text-sm hover:underline"
 										>
 											{template.name}
 										</Link>
-										{isUpNext && <span className="text-accent text-xs">Up next</span>}
+										{template.location && (
+											<span className="flex shrink-0 items-center gap-0.5 text-ink-faint text-xs">
+												<MapPin className="size-3 shrink-0" />
+												<span className="max-w-24 truncate">{template.location.name}</span>
+											</span>
+										)}
+										{isUpNext && <span className="shrink-0 text-accent text-xs">Up next</span>}
 									</div>
 									<div className="font-mono text-ink-faint text-xs tabular-nums">
 										{template.exercises.length} exercises

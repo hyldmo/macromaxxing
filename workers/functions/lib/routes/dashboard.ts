@@ -12,6 +12,7 @@ export const dashboardRouter = router({
 					where: { userId: ctx.user.id },
 					with: {
 						workout: true,
+						location: true,
 						logs: {
 							with: { exercise: { with: { muscles: true } } },
 							orderBy: { createdAt: 'asc' }
