@@ -1,27 +1,42 @@
+import { startCase } from 'es-toolkit'
 import type { Equipment } from './custom-types'
 
-/** Human labels for equipment enum values (snake_case → display). */
-export const EQUIPMENT_LABELS: Record<Equipment, string> = {
-	barbell: 'Barbell',
-	ez_bar: 'EZ bar',
-	trap_bar: 'Trap bar',
-	dumbbell: 'Dumbbells',
-	kettlebell: 'Kettlebell',
-	squat_rack: 'Squat rack',
-	bench_flat: 'Flat bench',
-	bench_adjustable: 'Adjustable bench',
-	smith_machine: 'Smith machine',
-	cable_station: 'Cable station',
-	lat_pulldown: 'Lat pulldown',
-	leg_press: 'Leg press',
-	leg_curl_machine: 'Leg curl machine',
-	leg_extension_machine: 'Leg extension machine',
-	calf_machine: 'Calf machine',
-	preacher_bench: 'Preacher bench',
-	pullup_bar: 'Pull-up bar',
-	dip_station: 'Dip station',
-	resistance_band: 'Resistance bands'
+/** Display label for an equipment value — plain title case of the enum value. */
+export const formatEquipment = (equipment: Equipment): string => startCase(equipment)
+
+export interface EquipmentCategory {
+	label: string
+	items: readonly Equipment[]
 }
+
+/** Display grouping for checklist UIs. Covers EQUIPMENT exactly — enforced by test. */
+export const EQUIPMENT_CATEGORIES: readonly EquipmentCategory[] = [
+	{ label: 'Free weights', items: ['barbell', 'ez_bar', 'trap_bar', 'dumbbell', 'kettlebell'] },
+	{
+		label: 'Racks & benches',
+		items: ['squat_rack', 'bench_flat', 'bench_adjustable', 'preacher_bench', 'smith_machine']
+	},
+	{ label: 'Cables', items: ['cable_station', 'lat_pulldown'] },
+	{
+		label: 'Machines',
+		items: [
+			'pec_deck',
+			'chest_press_machine',
+			'shoulder_press_machine',
+			'chest_supported_row',
+			'leg_press',
+			'hack_squat',
+			'leg_curl_machine',
+			'leg_extension_machine',
+			'calf_machine',
+			'hip_thrust_machine',
+			'back_extension'
+		]
+	},
+	{ label: 'Rig & bodyweight', items: ['pullup_bar', 'dip_station', 'suspension_trainer', 'resistance_band'] },
+	{ label: 'Conditioning', items: ['sled', 'battle_ropes', 'boxing_bag'] },
+	{ label: 'Cardio', items: ['rowing_machine', 'ski_erg', 'air_bike', 'spin_bike', 'treadmill', 'stair_climber'] }
+]
 
 export interface EquipmentRequirement {
 	equipment: Equipment
@@ -46,5 +61,5 @@ export function missingEquipment(
 }
 
 export function formatEquipmentList(items: readonly Equipment[]): string {
-	return items.map(e => EQUIPMENT_LABELS[e]).join(', ')
+	return items.map(formatEquipment).join(', ')
 }

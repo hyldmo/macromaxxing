@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { equipmentSet, formatEquipmentList, missingEquipment } from './equipment'
+import { EQUIPMENT } from './custom-types'
+import { EQUIPMENT_CATEGORIES, equipmentSet, formatEquipmentList, missingEquipment } from './equipment'
 
 const rows = (...equipment: Parameters<typeof formatEquipmentList>[0]) => equipment.map(e => ({ equipment: e }))
 
@@ -34,7 +35,15 @@ describe('equipmentSet', () => {
 })
 
 describe('formatEquipmentList', () => {
-	it('joins human labels', () => {
-		expect(formatEquipmentList(['ez_bar', 'pullup_bar'])).toBe('EZ bar, Pull-up bar')
+	it('joins title-cased values', () => {
+		expect(formatEquipmentList(['ez_bar', 'pullup_bar'])).toBe('Ez Bar, Pullup Bar')
+	})
+})
+
+describe('EQUIPMENT_CATEGORIES', () => {
+	it('covers the EQUIPMENT vocabulary exactly, with no duplicates', () => {
+		const categorized = EQUIPMENT_CATEGORIES.flatMap(c => c.items)
+		expect(new Set(categorized).size).toBe(categorized.length)
+		expect([...categorized].sort()).toEqual([...EQUIPMENT].sort())
 	})
 })
