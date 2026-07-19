@@ -1,8 +1,19 @@
-import type { Exercise, SetType, TrainingGoal, Workout, WorkoutSession } from '@macromaxxing/db'
-import { ArrowLeft, Check, Timer, Trash2, Upload } from 'lucide-react'
+import {
+	type Equipment,
+	type Exercise,
+	equipmentSet,
+	formatEquipmentList,
+	type Location,
+	missingEquipment,
+	type SetType,
+	type TrainingGoal,
+	type Workout,
+	type WorkoutSession
+} from '@macromaxxing/db'
+import { AlertTriangle, ArrowLeft, Check, MapPin, Timer, Trash2, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useNavigate, useParams } from 'react-router'
-import { Button, Card, CopyButton, LinkButton, Spinner, TRPCError } from '~/components/ui'
+import { Button, Card, CopyButton, LinkButton, Select, Spinner, TRPCError } from '~/components/ui'
 import {
 	buildSessionPlanFromSession,
 	calculateRest,
@@ -130,6 +141,7 @@ export function WorkoutSessionPage() {
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const standardsQuery = trpc.workout.listStandards.useQuery()
 	const profileQuery = trpc.settings.getProfile.useQuery()
+	const locationsQuery = trpc.workout.listLocations.useQuery()
 	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 
 	const { addSet, updateSet, removeSet } = useSessionSets(effectiveSessionId)
@@ -205,6 +217,31 @@ export function WorkoutSessionPage() {
 			}
 		},
 		onSettled: (_data, _err, variables) => utils.workout.getSession.invalidate({ id: variables.sessionId })
+	})
+
+	// Session-scoped location change (traveling, template assumes another gym) —
+	// optimistic so the availability warnings recompute instantly
+	const updateSessionLocation = trpc.workout.updateSessionLocation.useMutation({
+		onMutate: async variables => {
+			await utils.workout.getSession.cancel({ id: variables.id })
+			const previous = utils.workout.getSession.getData({ id: variables.id })
+			if (previous) {
+				const location = variables.locationId
+					? (locationsQuery.data?.find(l => l.id === variables.locationId) ?? null)
+					: null
+				utils.workout.getSession.setData(
+					{ id: variables.id },
+					{ ...previous, locationId: variables.locationId, location }
+				)
+			}
+			return { previous }
+		},
+		onError: (_err, variables, context) => {
+			if (context?.previous) {
+				utils.workout.getSession.setData({ id: variables.id }, context.previous)
+			}
+		},
+		onSettled: (_data, _err, variables) => utils.workout.getSession.invalidate({ id: variables.id })
 	})
 
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
@@ -293,6 +330,39 @@ export function WorkoutSessionPage() {
 		[session, addSet, restFor, storeRecordTransition, storeStartRest]
 	)
 
+	// Equipment availability at the session's location. Null = no location = no warnings.
+	const availableEquipment = useMemo(
+		() => (session?.location ? equipmentSet(session.location.equipment) : null),
+		[session?.location]
+	)
+
+	const missingByExerciseId = useMemo(() => {
+		const map = new Map<Exercise['id'], Equipment[]>()
+		if (!(availableEquipment && exercisesQuery.data)) return map
+		for (const e of exercisesQuery.data) {
+			const missing = missingEquipment(e.equipment, availableEquipment)
+			if (missing.length > 0) map.set(e.id, missing)
+		}
+		return map
+	}, [availableEquipment, exercisesQuery.data])
+
+	// Planned exercises that can't be performed at the session's location
+	const unavailableExercises = useMemo(() => {
+		if (missingByExerciseId.size === 0) return []
+		const result: { id: Exercise['id']; name: string; missing: Equipment[] }[] = []
+		for (const g of exerciseGroups) {
+			const entries =
+				g.type === 'superset'
+					? g.exercises.map(e => ({ id: e.exerciseId, name: e.exercise.name }))
+					: [{ id: g.exerciseId, name: g.exercise.name }]
+			for (const e of entries) {
+				const missing = missingByExerciseId.get(e.id)
+				if (missing && !result.some(r => r.id === e.id)) result.push({ ...e, missing })
+			}
+		}
+		return result
+	}, [exerciseGroups, missingByExerciseId])
+
 	// Helper: check if a render item has pending (unlogged) planned sets
 	const itemHasPending = useCallback((item: RenderItem) => {
 		if (item.type === 'standalone') {
@@ -373,6 +443,7 @@ export function WorkoutSessionPage() {
 								</Link>
 							</>
 						)}
+						{isCompleted && session.location && <> · at {session.location.name}</>}
 						{isCompleted && (
 							<span className="ml-2 rounded-full bg-success/20 px-1.5 py-0.5 text-[10px] text-success">
 								completed
@@ -428,9 +499,49 @@ export function WorkoutSessionPage() {
 				/>
 			)}
 
+			{!isCompleted && locationsQuery.data && locationsQuery.data.length > 0 && (
+				<div className="flex items-center gap-1.5">
+					<MapPin className="size-3.5 shrink-0 text-ink-faint" />
+					<Select<Location['id'] | ''>
+						className="h-7 max-w-48 text-xs"
+						value={session.locationId ?? ''}
+						options={[
+							{ label: 'No location', value: '' },
+							...locationsQuery.data.map(l => ({ label: l.name, value: l.id }))
+						]}
+						onChange={v =>
+							updateSessionLocation.mutate({ id: session.id, locationId: v === '' ? null : v })
+						}
+					/>
+					{updateSessionLocation.error && <TRPCError error={updateSessionLocation.error} />}
+				</div>
+			)}
+
+			{!isCompleted && session.location && unavailableExercises.length > 0 && (
+				<Card className="space-y-1 border-amber-500/40 bg-amber-500/5 p-3">
+					<div className="flex items-center gap-1.5 text-amber-500 text-sm">
+						<AlertTriangle className="size-4 shrink-0" />
+						<span>
+							{unavailableExercises.length}{' '}
+							{unavailableExercises.length === 1 ? 'exercise needs' : 'exercises need'} equipment{' '}
+							{session.location.name} doesn't have
+						</span>
+					</div>
+					<ul className="pl-6 text-ink-muted text-xs">
+						{unavailableExercises.map(e => (
+							<li key={e.id}>
+								{e.name} — missing {formatEquipmentList(e.missing)}
+							</li>
+						))}
+					</ul>
+					<p className="pl-6 text-ink-faint text-xs">Use each exercise's replace action to swap them.</p>
+				</Card>
+			)}
+
 			{!isCompleted && exercisesQuery.data && (
 				<ExerciseSearch
 					exercises={exercisesQuery.data}
+					unavailable={missingByExerciseId}
 					onSelect={exercise => {
 						// Adds a 0×0 placeholder set — no rest timer for that
 						addSet.mutate({
@@ -543,6 +654,7 @@ export function WorkoutSessionPage() {
 							.find(e => e.id === replaceExerciseId)?.name ?? ''
 					}
 					allExercises={exercisesQuery.data}
+					unavailable={missingByExerciseId}
 					excludeIds={
 						new Set(
 							exerciseGroups.flatMap(g =>

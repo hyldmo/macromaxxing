@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/suspicious/noConsole: <console is fine for scripts> */
 import { execSync } from 'node:child_process'
-import type { ExerciseType, FatigueTier, MuscleGroup } from '@macromaxxing/db'
+import type { Equipment, ExerciseType, FatigueTier, MuscleGroup } from '@macromaxxing/db'
 import { EXERCISE_GUIDES } from './exercise-guides-seed.ts'
 
 const WRANGLER = 'yarn workspace @macromaxxing/workers wrangler'
@@ -19,6 +19,7 @@ interface ExerciseDef {
 	type: ExerciseType
 	fatigueTier: FatigueTier
 	bwMultiplier?: number
+	equipment: Equipment[]
 	muscles: Array<{ group: MuscleGroup; intensity: number }>
 	strengthRepsMin?: number
 	strengthRepsMax?: number
@@ -29,6 +30,7 @@ interface ExerciseDef {
 const EXERCISES: ExerciseDef[] = [
 	{
 		name: 'Bench Press',
+		equipment: ['barbell', 'bench_flat', 'squat_rack'],
 		type: 'compound',
 		fatigueTier: 1,
 		strengthRepsMin: 3,
@@ -43,6 +45,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Incline Bench Press',
+		equipment: ['barbell', 'bench_adjustable', 'squat_rack'],
 		type: 'compound',
 		fatigueTier: 2,
 		strengthRepsMin: 3,
@@ -57,6 +60,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Overhead Press',
+		equipment: ['barbell', 'squat_rack'],
 		type: 'compound',
 		fatigueTier: 2,
 		strengthRepsMin: 3,
@@ -71,6 +75,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Barbell Row',
+		equipment: ['barbell'],
 		type: 'compound',
 		fatigueTier: 2,
 		strengthRepsMin: 5,
@@ -86,6 +91,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Pull-Up',
+		equipment: ['pullup_bar'],
 		type: 'compound',
 		fatigueTier: 2,
 		bwMultiplier: 1,
@@ -101,6 +107,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Squat',
+		equipment: ['barbell', 'squat_rack'],
 		type: 'compound',
 		fatigueTier: 1,
 		strengthRepsMin: 3,
@@ -116,6 +123,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Deadlift',
+		equipment: ['barbell'],
 		type: 'compound',
 		fatigueTier: 1,
 		strengthRepsMin: 1,
@@ -132,6 +140,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Romanian Deadlift',
+		equipment: ['barbell'],
 		type: 'compound',
 		fatigueTier: 2,
 		strengthRepsMin: 6,
@@ -146,6 +155,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Lateral Raise',
+		equipment: ['dumbbell'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 12,
@@ -154,6 +164,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Bicep Curl',
+		equipment: ['dumbbell'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 10,
@@ -162,6 +173,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Tricep Extension',
+		equipment: ['cable_station'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 10,
@@ -170,6 +182,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Leg Curl',
+		equipment: ['leg_curl_machine'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 10,
@@ -178,6 +191,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Leg Extension',
+		equipment: ['leg_extension_machine'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 10,
@@ -186,6 +200,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Calf Raise',
+		equipment: ['calf_machine'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 12,
@@ -194,6 +209,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Rear Delt Fly',
+		equipment: ['dumbbell'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 12,
@@ -202,6 +218,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Face Pull',
+		equipment: ['cable_station'],
 		type: 'isolation',
 		fatigueTier: 3,
 		hypertrophyRepsMin: 15,
@@ -213,6 +230,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Cable Fly',
+		equipment: ['cable_station'],
 		type: 'isolation',
 		fatigueTier: 3,
 		hypertrophyRepsMin: 10,
@@ -221,6 +239,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Preacher Curl',
+		equipment: ['ez_bar', 'preacher_bench'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 10,
@@ -229,6 +248,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Hammer Curl',
+		equipment: ['dumbbell'],
 		type: 'isolation',
 		fatigueTier: 3,
 		hypertrophyRepsMin: 10,
@@ -240,6 +260,7 @@ const EXERCISES: ExerciseDef[] = [
 	},
 	{
 		name: 'Wrist Curl',
+		equipment: ['dumbbell'],
 		type: 'isolation',
 		fatigueTier: 4,
 		hypertrophyRepsMin: 15,
@@ -284,6 +305,12 @@ for (const ex of EXERCISES) {
 		const mid = `exm_${id.slice(4)}_${m.group}`
 		exec(
 			`INSERT OR IGNORE INTO exercise_muscles (id, exercise_id, muscle_group, intensity) VALUES ('${mid}', '${id}', '${m.group}', ${m.intensity})`
+		)
+	}
+	for (const eq of ex.equipment) {
+		const eqId = `exq_${id.slice(4)}_${eq}`
+		exec(
+			`INSERT OR IGNORE INTO exercise_equipment (id, exercise_id, equipment) VALUES ('${eqId}', '${id}', '${eq}')`
 		)
 	}
 }

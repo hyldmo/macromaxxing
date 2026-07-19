@@ -1,8 +1,10 @@
+import type { Equipment } from '@macromaxxing/db'
 import { Plus, Search } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Card, Input } from '~/components/ui'
 import { fuzzyMatch } from '~/lib/fuzzy'
 import type { RouterOutput } from '~/lib/trpc'
+import { EquipmentWarning } from './EquipmentWarning'
 
 type Exercise = RouterOutput['workout']['listExercises'][number]
 
@@ -13,6 +15,8 @@ function exerciseSearchText(e: Exercise): string {
 
 export interface ExerciseSearchProps {
 	exercises: Exercise[]
+	/** Per-exercise missing equipment at the active location. Unavailable exercises stay listed but get a warning badge. */
+	unavailable?: ReadonlyMap<Exercise['id'], Equipment[]>
 	onSelect: (exercise: Exercise) => void
 }
 
@@ -23,7 +27,7 @@ const TYPE_BADGE = {
 
 const RESULT_CAP = 12
 
-export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect }) => {
+export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, unavailable, onSelect }) => {
 	const [search, setSearch] = useState('')
 	const [showDropdown, setShowDropdown] = useState(false)
 
@@ -49,6 +53,7 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, onSelect })
 		>
 			<Plus className="size-3.5 shrink-0 text-ink-faint" />
 			<span className="text-ink">{exercise.name}</span>
+			<EquipmentWarning missing={unavailable?.get(exercise.id) ?? []} />
 			<span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] ${TYPE_BADGE[exercise.type]}`}>
 				{exercise.type}
 			</span>

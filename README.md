@@ -13,6 +13,7 @@ A recipe nutrition tracker and workout logger for fitness enthusiasts who meal p
 - **AI-Powered Ingredient Lookup** — USDA FoodData Central API priority, AI fallback (Gemini/OpenAI/Anthropic BYOK). Batch lookups and model fallback configurable per user
 - **Weekly Meal Planning** — Template-based weekly planner with per-plan recipe inventory and portion tracking
 - **Workout Tracking** — Template-based training with checklist-driven session logging, supersets, auto-generated warmup/backoff sets, fatigue-tier-based rest timers, and interactive body map
+- **Training Locations** — Define the places you train (gym, home, hotel) with equipment checklists; templates and sessions warn when an exercise needs equipment the location doesn't have
 - **Auth** — Google/GitHub OAuth via Clerk
 - **Responsive Design** — Two-column editor on desktop, mobile-first with bottom tab navigation
 

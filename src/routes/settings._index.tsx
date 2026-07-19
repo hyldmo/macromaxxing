@@ -11,6 +11,7 @@ import {
 	Switch,
 	TRPCError
 } from '~/components/ui'
+import { LocationsSection } from '~/features/workouts/components/LocationsSection'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { prefetchRoute, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -19,7 +20,8 @@ export const clientLoader = () =>
 	prefetchRoute(utils => [
 		utils.settings.get.ensureData(),
 		utils.settings.listTokens.ensureData(),
-		utils.settings.getProfile.ensureData()
+		utils.settings.getProfile.ensureData(),
+		utils.workout.listLocations.ensureData()
 	])
 
 export default function SettingsPage() {
@@ -207,6 +209,8 @@ export default function SettingsPage() {
 					</form>
 				</CardContent>
 			</Card>
+
+			<LocationsSection />
 
 			<ApiTokensSection />
 		</div>

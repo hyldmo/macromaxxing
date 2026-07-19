@@ -1,10 +1,21 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { ExerciseType, MuscleGroup, SetMode, TrainingGoal, TypeIDString, Workout } from '@macromaxxing/db'
+import {
+	type Equipment,
+	type ExerciseType,
+	equipmentSet,
+	type Location,
+	type MuscleGroup,
+	missingEquipment,
+	type SetMode,
+	type TrainingGoal,
+	type TypeIDString,
+	type Workout
+} from '@macromaxxing/db'
 import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { Button, ButtonGroup, CopyButton, Input, SaveButton, Spinner, TRPCError } from '~/components/ui'
+import { Button, ButtonGroup, CopyButton, Input, SaveButton, Select, Spinner, TRPCError } from '~/components/ui'
 import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { BodyMap } from './components/BodyMap'
@@ -42,10 +53,12 @@ export function WorkoutTemplatePage() {
 	)
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const profileQuery = trpc.settings.getProfile.useQuery()
+	const locationsQuery = trpc.workout.listLocations.useQuery()
 
 	const [name, setName] = useState('')
 	useDocumentTitle(name || (isEditing ? 'Edit Workout' : 'New Workout'))
 	const [trainingGoal, setTrainingGoal] = useState<TrainingGoal>('hypertrophy')
+	const [locationId, setLocationId] = useState<Location['id'] | null>(null)
 	const [exercises, setExercises] = useState<TemplateExercise[]>([])
 	const sex = profileQuery.data?.sex ?? 'male'
 	const bodyWeightKg = profileQuery.data?.weightKg ?? null
@@ -68,6 +81,7 @@ export function WorkoutTemplatePage() {
 		if (workoutQuery.data) {
 			setName(workoutQuery.data.name)
 			setTrainingGoal(workoutQuery.data.trainingGoal)
+			setLocationId(workoutQuery.data.locationId)
 			setExercises(
 				workoutQuery.data.exercises.map(e => ({
 					uid: crypto.randomUUID(),
@@ -97,6 +111,7 @@ export function WorkoutTemplatePage() {
 		if (!data) return false
 		if (name !== data.name) return true
 		if (trainingGoal !== data.trainingGoal) return true
+		if (locationId !== data.locationId) return true
 		if (exercises.length !== data.exercises.length) return true
 		return exercises.some((e, i) => {
 			const s = data.exercises[i]
@@ -111,7 +126,7 @@ export function WorkoutTemplatePage() {
 				e.note !== (s.note ?? null)
 			)
 		})
-	}, [isEditing, name, trainingGoal, exercises, workoutQuery.data])
+	}, [isEditing, name, trainingGoal, locationId, exercises, workoutQuery.data])
 
 	const muscleVolumes = useMemo(() => {
 		const allExercises = exercisesQuery.data
@@ -128,6 +143,22 @@ export function WorkoutTemplatePage() {
 		}
 		return volumes
 	}, [exercises, exercisesQuery.data, trainingGoal])
+
+	// Equipment availability at the selected location. Null = no location selected = no warnings.
+	const availableEquipment = useMemo(() => {
+		const location = locationsQuery.data?.find(l => l.id === locationId)
+		return location ? equipmentSet(location.equipment) : null
+	}, [locationsQuery.data, locationId])
+
+	const missingByExerciseId = useMemo(() => {
+		const map = new Map<TypeIDString<'exc'>, Equipment[]>()
+		if (!(availableEquipment && exercisesQuery.data)) return map
+		for (const e of exercisesQuery.data) {
+			const missing = missingEquipment(e.equipment, availableEquipment)
+			if (missing.length > 0) map.set(e.id, missing)
+		}
+		return map
+	}, [availableEquipment, exercisesQuery.data])
 
 	useUnsavedChanges(dirty)
 
@@ -153,6 +184,7 @@ export function WorkoutTemplatePage() {
 		const payload = {
 			name,
 			trainingGoal,
+			locationId,
 			exercises: exercises.map(e => ({
 				exerciseId: e.exerciseId,
 				targetSets: e.targetSets,
@@ -311,6 +343,26 @@ export function WorkoutTemplatePage() {
 								: 'Default 5×5, dynamic rest (1.5×)'}
 						</p>
 					</div>
+					{locationsQuery.data && locationsQuery.data.length > 0 && (
+						<div className="space-y-1">
+							<label className="text-ink-muted text-sm" htmlFor="workout-location">
+								Location
+							</label>
+							<Select<Location['id'] | ''>
+								id="workout-location"
+								className="max-w-64"
+								value={locationId ?? ''}
+								options={[
+									{ label: 'No location', value: '' },
+									...locationsQuery.data.map(l => ({ label: l.name, value: l.id }))
+								]}
+								onChange={v => setLocationId(v === '' ? null : v)}
+							/>
+							<p className="text-ink-faint text-xs">
+								Exercises needing equipment this location lacks get a warning.
+							</p>
+						</div>
+					)}
 				</div>
 				{exercises.length > 0 && (
 					<BodyMap
@@ -367,6 +419,7 @@ export function WorkoutTemplatePage() {
 										isFirstInGroup={!isLinkedAbove && ex.supersetGroup !== null}
 										isLastInGroup={!isLinkedBelow && ex.supersetGroup !== null}
 										lastSession={lastSessions?.[ex.exerciseId] ?? null}
+										missingEquipment={missingByExerciseId.get(ex.exerciseId) ?? []}
 										onUpdate={updates => updateExercise(idx, updates)}
 										onRemove={() => removeExercise(idx)}
 									/>
@@ -410,6 +463,7 @@ export function WorkoutTemplatePage() {
 			{exercisesQuery.data && (
 				<ExerciseSearch
 					exercises={exercisesQuery.data}
+					unavailable={missingByExerciseId}
 					onSelect={exercise => {
 						setExercises(prev => [
 							...prev,

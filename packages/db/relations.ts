@@ -14,6 +14,7 @@ export const relations = defineRelations(schema, r => ({
 		workouts: r.many.workouts(),
 		workoutSessions: r.many.workoutSessions(),
 		workoutPrograms: r.many.workoutPrograms(),
+		locations: r.many.locations(),
 		apiTokens: r.many.apiTokens()
 	},
 
@@ -117,6 +118,25 @@ export const relations = defineRelations(schema, r => ({
 
 	// ─── Workout Tracking ────────────────────────────────────────────────
 
+	locations: {
+		user: r.one.users({
+			from: r.locations.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		equipment: r.many.locationEquipment(),
+		workouts: r.many.workouts(),
+		sessions: r.many.workoutSessions()
+	},
+
+	locationEquipment: {
+		location: r.one.locations({
+			from: r.locationEquipment.locationId,
+			to: r.locations.id,
+			optional: false
+		})
+	},
+
 	exercises: {
 		// userId is nullable (null = system exercise)
 		user: r.one.users({
@@ -124,6 +144,7 @@ export const relations = defineRelations(schema, r => ({
 			to: r.users.id
 		}),
 		muscles: r.many.exerciseMuscles(),
+		equipment: r.many.exerciseEquipment(),
 		guide: r.one.exerciseGuides({
 			from: r.exercises.id,
 			to: r.exerciseGuides.exerciseId
@@ -135,6 +156,14 @@ export const relations = defineRelations(schema, r => ({
 	exerciseMuscles: {
 		exercise: r.one.exercises({
 			from: r.exerciseMuscles.exerciseId,
+			to: r.exercises.id,
+			optional: false
+		})
+	},
+
+	exerciseEquipment: {
+		exercise: r.one.exercises({
+			from: r.exerciseEquipment.exerciseId,
 			to: r.exercises.id,
 			optional: false
 		})
@@ -156,7 +185,12 @@ export const relations = defineRelations(schema, r => ({
 		}),
 		exercises: r.many.workoutExercises(),
 		sessions: r.many.workoutSessions(),
-		programItems: r.many.workoutProgramItems()
+		programItems: r.many.workoutProgramItems(),
+		// locationId is nullable (null = no location set)
+		location: r.one.locations({
+			from: r.workouts.locationId,
+			to: r.locations.id
+		})
 	},
 
 	workoutPrograms: {
@@ -219,6 +253,11 @@ export const relations = defineRelations(schema, r => ({
 		workout: r.one.workouts({
 			from: r.workoutSessions.workoutId,
 			to: r.workouts.id
+		}),
+		// locationId is nullable (null = no location set)
+		location: r.one.locations({
+			from: r.workoutSessions.locationId,
+			to: r.locations.id
 		}),
 		logs: r.many.workoutLogs(),
 		plannedExercises: r.many.sessionPlannedExercises()
