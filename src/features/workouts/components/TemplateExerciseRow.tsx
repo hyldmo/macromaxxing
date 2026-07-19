@@ -165,7 +165,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 				<Input
 					className="h-7 border-dashed text-xs"
 					value={exercise.note ?? ''}
-					placeholder="Note (shown in timer)"
+					placeholder="Note"
 					onChange={e => onUpdate({ note: e.target.value })}
 				/>
 			</div>
