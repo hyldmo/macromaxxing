@@ -49,6 +49,37 @@ export const MuscleRestChip: FC<MuscleRestChipProps> = ({ muscleGroup, hours }) 
 	)
 }
 
+export interface MuscleReadinessChipProps {
+	muscleGroup: MuscleGroup
+	/** Hours until the muscle is recovered. Always > 0 — recovered muscles render no chip. */
+	remainingHours: number
+	/** Epoch ms when the muscle is recovered. */
+	readyAt: number
+}
+
+/** Advisory chip: this muscle is still inside its recovery window from a recent session. */
+export const MuscleReadinessChip: FC<MuscleReadinessChipProps> = ({ muscleGroup, remainingHours, readyAt }) => {
+	const tone = remainingHours > 24 ? RECOVERY_TONES.heavy : RECOVERY_TONES.moderate
+	const label = muscleGroup.replace('_', ' ')
+	const readyLabel = new Date(readyAt).toLocaleString(undefined, {
+		weekday: 'short',
+		hour: '2-digit',
+		minute: '2-digit'
+	})
+	return (
+		<span
+			className={cn(
+				'inline-flex items-baseline gap-1 border px-1 py-px font-mono text-[10px] tabular-nums',
+				tone
+			)}
+			title={`${label}: recovered ~${readyLabel}`}
+		>
+			<span>{MUSCLE_LABELS[muscleGroup]}</span>
+			<span className="text-[9px] opacity-70">~{Math.ceil(remainingHours)}h</span>
+		</span>
+	)
+}
+
 export interface MuscleVolumeChipProps {
 	muscleGroup: MuscleGroup
 	/** Effective sets — drives opacity. */

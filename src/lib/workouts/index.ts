@@ -1,6 +1,7 @@
 export * from './constants'
 export * from './export'
 export * from './formulas'
+export * from './muscleReadiness'
 export * from './muscles'
 export * from './programCycle'
 export * from './programLoad'
