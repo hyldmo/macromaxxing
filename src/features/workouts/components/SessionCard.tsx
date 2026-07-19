@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, MapPin } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import { formatAgo, formatDate, formatDuration, totalVolume } from '~/lib'
@@ -30,6 +30,12 @@ export const SessionCard: FC<SessionCardProps> = ({ session }) => {
 						</span>
 					) : (
 						<span className="rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">active</span>
+					)}
+					{session.location && (
+						<span className="flex min-w-0 items-center gap-0.5 text-ink-faint text-xs">
+							<MapPin className="size-3 shrink-0" />
+							<span className="truncate">{session.location.name}</span>
+						</span>
 					)}
 				</div>
 				<div className="mt-0.5 font-mono text-ink-muted text-xs tabular-nums">
