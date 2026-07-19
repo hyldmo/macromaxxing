@@ -467,6 +467,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 
 **CF Pages routing**
 - Pages Functions route by filesystem path. `functions/api/[[route]].ts` only receives `/api/*` — Hono routes for paths outside that prefix silently fall through to SPA. New top-level paths need a new file at the literal path (e.g. `functions/.well-known/oauth-authorization-server.ts`). Dotted directory names work.
+- Pages Function responses without a `Cache-Control` header get Cloudflare's default browser TTL injected (`max-age=14400`). Synthetic error responses must set `Cache-Control: no-store` explicitly — a cacheable 404 from the `[[catchall]]` during a deploy window poisons the client's HTTP cache for 4h and blocks every SW precache retry (browser stuck on old version, no update banner).
 
 **React Router framework mode (SPA)**
 - `ssr: false` in `react-router.config.ts` — RR still pre-renders the root route at build time to generate `workers/dist/client/index.html`. Anything in `root.tsx` that touches browser-only APIs (e.g. `indexedDB` via `persistQueryClient`) must be gated behind `if (!import.meta.env.SSR) { ... }` or moved to `useEffect`, otherwise the prerender phase throws.

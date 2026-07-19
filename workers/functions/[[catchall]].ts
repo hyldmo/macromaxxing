@@ -13,9 +13,12 @@ export const onRequest: PagesFunction<Env> = async ctx => {
 	const looksLikeAsset = hasExt && !isHtmlDoc
 
 	if (looksLikeAsset && res.status === 200 && ct.includes('text/html')) {
+		// no-store is load-bearing: without a Cache-Control header CF injects its
+		// default browser TTL (max-age=14400), so a 404 hit during a deploy window
+		// gets cached client-side for 4h and blocks every SW precache retry.
 		return new Response('Not Found', {
 			status: 404,
-			headers: { 'content-type': 'text/plain; charset=utf-8' }
+			headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }
 		})
 	}
 
