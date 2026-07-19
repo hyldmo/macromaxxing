@@ -66,7 +66,7 @@ Stable conventions for designing exercises, templates, and programs. Live traini
 
 ## Locations & equipment
 
-Users can define training locations (gym, home, hotel) with an equipment checklist, and exercises can declare required equipment. Both sides use the same fixed vocabulary: barbell, ez_bar, trap_bar, dumbbell, kettlebell, squat_rack, bench_flat, bench_adjustable, smith_machine, cable_station, lat_pulldown, leg_press, leg_curl_machine, leg_extension_machine, calf_machine, preacher_bench, pullup_bar, dip_station, resistance_band.
+Users can define training locations (gym, home, hotel) with an equipment checklist, and exercises can declare required equipment. Both sides use the same fixed vocabulary: barbell, ez_bar, trap_bar, dumbbell, kettlebell (free weights); squat_rack, bench_flat, bench_adjustable, preacher_bench, smith_machine (racks/benches); cable_station, lat_pulldown (cables); pec_deck, chest_press_machine, shoulder_press_machine, chest_supported_row, leg_press, hack_squat, leg_curl_machine, leg_extension_machine, calf_machine, hip_thrust_machine, back_extension (machines); pullup_bar, dip_station, suspension_trainer, resistance_band (rig/bodyweight); sled, battle_ropes, boxing_bag (conditioning); rowing_machine, ski_erg, air_bike, spin_bike, treadmill, stair_climber (cardio).
 
 - Requirements are AND semantics: an exercise is available at a location iff every required item is present. Barbell-vs-dumbbell variants are separate exercises, not alternatives on one exercise.
 - No equipment rows = bodyweight = available everywhere. A location with an empty checklist only satisfies bodyweight exercises.

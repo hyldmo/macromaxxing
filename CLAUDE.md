@@ -276,7 +276,7 @@ apiTokens(id typeid:atok, userId FK, name, tokenHash unique, lastUsedAt?, create
 
 All IDs use TypeID prefixes (e.g. `ing_abc123`). All timestamps are unix epoch integers.
 Muscle groups (fixed set): chest, upper_back, lats, front_delts, side_delts, rear_delts, biceps, triceps, forearms, quads, hamstrings, glutes, calves, core.
-Equipment (fixed set, shared by exercises + locations): barbell, ez_bar, trap_bar, dumbbell, kettlebell, squat_rack, bench_flat, bench_adjustable, smith_machine, cable_station, lat_pulldown, leg_press, leg_curl_machine, leg_extension_machine, calf_machine, preacher_bench, pullup_bar, dip_station, resistance_band.
+Equipment (fixed set, shared by exercises + locations — see `EQUIPMENT` in packages/db/custom-types.ts): free weights (barbell, ez_bar, trap_bar, dumbbell, kettlebell), racks/benches (squat_rack, bench_flat, bench_adjustable, preacher_bench, smith_machine), cables (cable_station, lat_pulldown), machines (pec_deck, chest_press_machine, shoulder_press_machine, chest_supported_row, leg_press, hack_squat, leg_curl_machine, leg_extension_machine, calf_machine, hip_thrust_machine, back_extension), rig/bodyweight (pullup_bar, dip_station, suspension_trainer, resistance_band), conditioning (sled, battle_ropes, boxing_bag), cardio (rowing_machine, ski_erg, air_bike, spin_bike, treadmill, stair_climber).
 
 ## Design Tokens
 
