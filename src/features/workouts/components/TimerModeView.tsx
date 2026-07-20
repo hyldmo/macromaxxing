@@ -367,7 +367,19 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 												'NEXT UP'
 											)}
 										</div>
-										<div className="font-medium text-ink text-sm">{nextSet.exerciseName}</div>
+										<div className="flex items-center gap-1">
+											<span className="truncate font-medium text-ink text-sm">
+												{nextSet.exerciseName}
+											</span>
+											<button
+												type="button"
+												onClick={() => onOpenGuide?.(nextSet.exerciseId, nextSet.exerciseName)}
+												aria-label={`Open guide for ${nextSet.exerciseName}`}
+												className="shrink-0 rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+											>
+												<HelpCircle className="size-3.5" />
+											</button>
+										</div>
 									</div>
 									<span
 										className={cn(
