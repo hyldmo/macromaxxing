@@ -1,5 +1,6 @@
 import type { SetType } from '@macromaxxing/db'
 import { create } from 'zustand'
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { cursorEquals, type SetCursor } from '~/lib'
 
 /**
@@ -116,113 +117,172 @@ const movedCursor = (cursor: SetCursor | null) => ({
 	setTimer: null as WorkoutSessionStore['setTimer']
 })
 
+// --- Persistence ---
+// The store survives page reloads and PWA cold starts (mobile OSes kill backgrounded
+// PWAs mid-rest). All timers hold absolute timestamps, so rehydrated countdowns
+// resume correctly.
+
+/** Rehydrated timers older than this belong to an abandoned session, not a live one. */
+const STALE_TIMER_MS = 30 * 60 * 1000
+
+type PersistedSessionState = Pick<
+	WorkoutSessionStore,
+	'sessionId' | 'sessionStartedAt' | 'cursor' | 'draft' | 'setTimer' | 'rest' | 'roundStartedAt'
+>
+
+// The root route is prerendered at build time where localStorage doesn't exist
+const noopStorage: StateStorage = {
+	getItem: () => null,
+	setItem: () => undefined,
+	removeItem: () => undefined
+}
+
 // --- Store ---
 
-export const useWorkoutSessionStore = create<WorkoutSessionStore>((set, get) => ({
-	...INITIAL_STATE,
+export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
+	persist(
+		(set, get) => ({
+			...INITIAL_STATE,
 
-	setSession: session => {
-		if (session === null) {
-			clearNotificationTimeout()
-			set({ ...INITIAL_STATE })
-			return
-		}
-		const startedAt = session.startedAt !== undefined ? { sessionStartedAt: session.startedAt } : {}
-		const current = get().sessionId
-		if (current !== null && current !== session.id) {
-			// Different session: cursor, edits, and timers belong to the old one
-			clearNotificationTimeout()
-			set({ ...INITIAL_STATE, sessionId: session.id, ...startedAt })
-		} else {
-			set({ sessionId: session.id, ...startedAt })
-		}
-	},
+			setSession: session => {
+				if (session === null) {
+					clearNotificationTimeout()
+					set({ ...INITIAL_STATE })
+					return
+				}
+				const startedAt = session.startedAt !== undefined ? { sessionStartedAt: session.startedAt } : {}
+				const current = get().sessionId
+				if (current !== null && current !== session.id) {
+					// Different session: cursor, edits, and timers belong to the old one
+					clearNotificationTimeout()
+					set({ ...INITIAL_STATE, sessionId: session.id, ...startedAt })
+				} else {
+					set({ sessionId: session.id, ...startedAt })
+				}
+			},
 
-	reset: () => {
-		clearNotificationTimeout()
-		set({ ...INITIAL_STATE })
-	},
+			reset: () => {
+				clearNotificationTimeout()
+				set({ ...INITIAL_STATE })
+			},
 
-	// --- Cursor + per-set edit state ---
+			// --- Cursor + per-set edit state ---
 
-	setCursor: cursor => {
-		set(movedCursor(cursor))
-	},
+			setCursor: cursor => {
+				set(movedCursor(cursor))
+			},
 
-	setDraft: (cursor, patch) => {
-		set(s =>
-			cursorEquals(s.cursor, cursor)
-				? { draft: { ...s.draft, ...patch } }
-				: // Cursor drifted (e.g. the set was removed by a plan edit): snap to the
-					// set actually being edited, keeping the running stopwatch.
-					{ ...movedCursor(cursor), draft: { ...patch }, setTimer: s.setTimer }
-		)
-	},
+			setDraft: (cursor, patch) => {
+				set(s =>
+					cursorEquals(s.cursor, cursor)
+						? { draft: { ...s.draft, ...patch } }
+						: // Cursor drifted (e.g. the set was removed by a plan edit): snap to the
+							// set actually being edited, keeping the running stopwatch.
+							{ ...movedCursor(cursor), draft: { ...patch }, setTimer: s.setTimer }
+				)
+			},
 
-	// --- Set stopwatch ---
+			// --- Set stopwatch ---
 
-	startSet: cursor => {
-		set(s => ({
-			...(cursorEquals(s.cursor, cursor) ? {} : { cursor, draft: {} }),
-			setTimer: { startedAt: Date.now(), pausedAt: null }
-		}))
-	},
+			startSet: cursor => {
+				set(s => ({
+					...(cursorEquals(s.cursor, cursor) ? {} : { cursor, draft: {} }),
+					setTimer: { startedAt: Date.now(), pausedAt: null }
+				}))
+			},
 
-	pauseSet: () => {
-		set(s =>
-			s.setTimer && s.setTimer.pausedAt === null ? { setTimer: { ...s.setTimer, pausedAt: Date.now() } } : {}
-		)
-	},
+			pauseSet: () => {
+				set(s =>
+					s.setTimer && s.setTimer.pausedAt === null
+						? { setTimer: { ...s.setTimer, pausedAt: Date.now() } }
+						: {}
+				)
+			},
 
-	resumeSet: () => {
-		set(s => {
-			if (!s.setTimer || s.setTimer.pausedAt === null) return {}
-			// Shift the start forward by the paused span so elapsed excludes it
-			return {
-				setTimer: { startedAt: s.setTimer.startedAt + (Date.now() - s.setTimer.pausedAt), pausedAt: null }
+			resumeSet: () => {
+				set(s => {
+					if (!s.setTimer || s.setTimer.pausedAt === null) return {}
+					// Shift the start forward by the paused span so elapsed excludes it
+					return {
+						setTimer: {
+							startedAt: s.setTimer.startedAt + (Date.now() - s.setTimer.pausedAt),
+							pausedAt: null
+						}
+					}
+				})
+			},
+
+			stopSet: () => {
+				set({ setTimer: null })
+			},
+
+			// --- Rest timer ---
+
+			startRest: (durationSec, setType) => {
+				clearNotificationTimeout()
+
+				if ('Notification' in window && Notification.permission === 'default') {
+					Notification.requestPermission()
+				}
+
+				const state = get()
+				const now = Date.now()
+
+				// Subtract elapsed superset transition time from the countdown — but keep `total`
+				// equal to the full duration and backdate `startedAt` so the "rested" readout
+				// (total - remaining) reflects time already elapsed during the round.
+				const roundElapsedMs = state.roundStartedAt !== null ? Math.max(0, now - state.roundStartedAt) : 0
+				const remainingMs = Math.max(0, durationSec * 1000 - roundElapsedMs)
+				const endAt = now + remainingMs
+
+				scheduleNotification(endAt, state.sessionId)
+
+				set({
+					rest: { startedAt: now - roundElapsedMs, endAt, total: durationSec, setType },
+					roundStartedAt: null
+				})
+			},
+
+			recordTransition: () => {
+				set(s => ({
+					roundStartedAt: s.roundStartedAt ?? Date.now()
+				}))
+			},
+
+			dismissRest: () => {
+				clearNotificationTimeout()
+				set({ rest: null, roundStartedAt: null })
 			}
-		})
-	},
-
-	stopSet: () => {
-		set({ setTimer: null })
-	},
-
-	// --- Rest timer ---
-
-	startRest: (durationSec, setType) => {
-		clearNotificationTimeout()
-
-		if ('Notification' in window && Notification.permission === 'default') {
-			Notification.requestPermission()
+		}),
+		{
+			name: 'workout-session',
+			storage: createJSONStorage(() => (import.meta.env.SSR ? noopStorage : localStorage)),
+			partialize: (s): PersistedSessionState => ({
+				sessionId: s.sessionId,
+				sessionStartedAt: s.sessionStartedAt,
+				cursor: s.cursor,
+				draft: s.draft,
+				setTimer: s.setTimer,
+				rest: s.rest,
+				roundStartedAt: s.roundStartedAt
+			}),
+			merge: (persisted, current) => {
+				// JSON boundary: zustand hands back `unknown`; partialize wrote PersistedSessionState
+				const restored: WorkoutSessionStore = { ...current, ...(persisted as Partial<PersistedSessionState>) }
+				const now = Date.now()
+				if (restored.rest && now - restored.rest.endAt > STALE_TIMER_MS) restored.rest = null
+				if (restored.setTimer && now - restored.setTimer.startedAt > STALE_TIMER_MS) restored.setTimer = null
+				if (restored.roundStartedAt !== null && now - restored.roundStartedAt > STALE_TIMER_MS) {
+					restored.roundStartedAt = null
+				}
+				return restored
+			},
+			onRehydrateStorage: () => state => {
+				// Re-arm the end-of-rest notification lost with the previous JS context
+				if (state?.rest && state.rest.endAt > Date.now()) {
+					scheduleNotification(state.rest.endAt, state.sessionId)
+				}
+			}
 		}
-
-		const state = get()
-		const now = Date.now()
-
-		// Subtract elapsed superset transition time from the countdown — but keep `total`
-		// equal to the full duration and backdate `startedAt` so the "rested" readout
-		// (total - remaining) reflects time already elapsed during the round.
-		const roundElapsedMs = state.roundStartedAt !== null ? Math.max(0, now - state.roundStartedAt) : 0
-		const remainingMs = Math.max(0, durationSec * 1000 - roundElapsedMs)
-		const endAt = now + remainingMs
-
-		scheduleNotification(endAt, state.sessionId)
-
-		set({
-			rest: { startedAt: now - roundElapsedMs, endAt, total: durationSec, setType },
-			roundStartedAt: null
-		})
-	},
-
-	recordTransition: () => {
-		set(s => ({
-			roundStartedAt: s.roundStartedAt ?? Date.now()
-		}))
-	},
-
-	dismissRest: () => {
-		clearNotificationTimeout()
-		set({ rest: null, roundStartedAt: null })
-	}
-}))
+	)
+)

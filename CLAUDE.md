@@ -128,7 +128,9 @@ src/
       WorkoutSessionPage.tsx                # Active session: checklist model with pre-filled planned sets. Shared by
                                             #   /workouts/:workoutId/session and /workouts/sessions/:sessionId.
       WorkoutMode.tsx                       # WorkoutModes: setMode ButtonGroup (working/warmup/backoff/full)
-      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, cursor, draft, rest, setTimer) — canonical "is session in progress" signal; persists across routes.
+      store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, cursor, draft, rest, setTimer) — canonical "is session in progress" signal; persists across routes
+                                            #   AND reloads/PWA cold starts (localStorage via zustand persist; timers are absolute timestamps, stale ones dropped on rehydrate).
+                                            #   SW notification clicks route client-side via postMessage (public/sw-custom.js → RootLayout listener) — never client.navigate(), which reloads and wipes state.
                                             #   Holds NO set queue: timer mode derives it live via flattenSets(exerciseGroups) and resolves cursor
                                             #   (stable {exerciseId, setNumber} identity) against it via src/lib/workouts/timerQueue.ts
       components/

@@ -9,7 +9,9 @@ self.addEventListener('notificationclick', event => {
 		clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
 			for (const client of windowClients) {
 				if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-					client.navigate(absoluteUrl)
+					// Route client-side via the app's SW message listener — client.navigate()
+					// is a full page load and wipes the in-memory session state
+					client.postMessage({ type: 'navigate', url: targetUrl })
 					return client.focus()
 				}
 			}
