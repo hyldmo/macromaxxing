@@ -38,52 +38,48 @@ export const MacroRing: FC<MacroRingProps> = ({ className, macros, ratio: ratioT
 	let accumulatedOffset = 0
 
 	return (
-		<svg
-			width={px}
-			height={px}
-			className={cn('shrink-0 -rotate-90', className)}
-			role="img"
-			aria-label="Macro caloric ratio"
-		>
-			{ratio.total === 0 ? (
-				<circle
-					cx={center}
-					cy={center}
-					r={radius}
-					fill="none"
-					stroke="var(--color-surface-2)"
-					strokeWidth={stroke}
-				/>
-			) : (
-				segments.map((seg, _i) => {
-					if (seg.ratio === 0) return null
-					const dashLength = seg.ratio * circumference
-					const gap = circumference - dashLength
-					const offset = -accumulatedOffset
-					accumulatedOffset += dashLength
-					return (
-						<circle
-							key={seg.key}
-							cx={center}
-							cy={center}
-							r={radius}
-							fill="none"
-							stroke={seg.color}
-							strokeWidth={stroke}
-							strokeDasharray={`${dashLength} ${gap}`}
-							strokeDashoffset={offset}
-							strokeLinecap="butt"
-							className="transition-all duration-500"
-						/>
-					)
-				})
-			)}
+		<svg width={px} height={px} className={cn('shrink-0', className)} role="img" aria-label="Macro caloric ratio">
+			<g transform={`rotate(-90 ${center} ${center})`}>
+				{ratio.total === 0 ? (
+					<circle
+						cx={center}
+						cy={center}
+						r={radius}
+						fill="none"
+						stroke="var(--color-surface-2)"
+						strokeWidth={stroke}
+					/>
+				) : (
+					segments.map((seg, _i) => {
+						if (seg.ratio === 0) return null
+						const dashLength = seg.ratio * circumference
+						const gap = circumference - dashLength
+						const offset = -accumulatedOffset
+						accumulatedOffset += dashLength
+						return (
+							<circle
+								key={seg.key}
+								cx={center}
+								cy={center}
+								r={radius}
+								fill="none"
+								stroke={seg.color}
+								strokeWidth={stroke}
+								strokeDasharray={`${dashLength} ${gap}`}
+								strokeDashoffset={offset}
+								strokeLinecap="butt"
+								className="transition-all duration-500"
+							/>
+						)
+					})
+				)}
+			</g>
 			<text
 				x={center}
 				y={center}
 				textAnchor="middle"
 				dominantBaseline="central"
-				className={`${fontSize} origin-center rotate-90 fill-ink font-bold font-mono`}
+				className={`${fontSize} fill-ink font-bold font-mono`}
 			>
 				{macros.kcal.toFixed(0)}
 			</text>
