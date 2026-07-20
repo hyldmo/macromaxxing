@@ -30,6 +30,7 @@ describe('MCP mutations', () => {
 			  "ai_parseRecipe",
 			  "ingredient_create",
 			  "ingredient_findOrCreate",
+			  "ingredient_update",
 			  "mealPlan_addToInventory",
 			  "mealPlan_allocate",
 			  "mealPlan_create",
