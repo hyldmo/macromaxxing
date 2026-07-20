@@ -112,6 +112,9 @@ async function insertIngredientWithUnits(
 	}))!
 }
 
+// A measurement unit (e.g. tbsp, scoop, pcs) with its gram equivalent per 1 unit
+const unitInputSchema = z.object({ name: z.string().min(1), grams: z.number().positive() })
+
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
 const createIngredientSchema = z.object({
@@ -125,7 +128,7 @@ const createIngredientSchema = z.object({
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
 	source: ingredientSource,
-	units: z.array(z.object({ name: z.string().min(1), grams: z.number().positive() })).optional()
+	units: z.array(unitInputSchema).optional()
 })
 
 const updateIngredientSchema = z.object({
@@ -138,7 +141,9 @@ const updateIngredientSchema = z.object({
 	fiber: z.number().nonnegative().optional(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	source: ingredientSource.optional()
+	source: ingredientSource.optional(),
+	// Add or update measurement units; matched by name (case-insensitive), so re-sending a name updates its grams
+	units: z.array(unitInputSchema).optional()
 })
 
 const createUnitSchema = z.object({
@@ -269,17 +274,49 @@ export const ingredientsRouter = router({
 		}),
 
 	update: protectedProcedure
-		.meta({ description: 'Update an ingredient you created (macros per 100g, name, density)' })
+		.meta({
+			description:
+				'Update an ingredient you created (macros per 100g, name, density) and optionally add measurement units (tbsp, scoop, pcs, …)'
+		})
 		.input(updateIngredientSchema)
 		.mutation(async ({ ctx, input }) => {
-			const { id, ...updates } = input
+			const { id, units, ...updates } = input
 			// Only the creator may edit — a shared ingredient's macros feed every recipe/log that references it.
 			const existing = await ctx.db.query.ingredients.findFirst({ where: { id } })
 			if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
 			if (existing.userId !== ctx.user.id)
 				throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only edit ingredients you created' })
-			await ctx.db.update(ingredients).set(updates).where(eq(ingredients.id, id))
-			return ctx.db.query.ingredients.findFirst({ where: { id } })
+
+			if (Object.keys(updates).length > 0) {
+				await ctx.db.update(ingredients).set(updates).where(eq(ingredients.id, id))
+			}
+
+			if (units?.length) {
+				// Upsert by name (case-insensitive): re-sending a name updates its grams instead of duplicating.
+				const existingUnits = await ctx.db.query.ingredientUnits.findMany({ where: { ingredientId: id } })
+				const byName = new Map(existingUnits.map(u => [u.name.toLowerCase(), u]))
+				const now = Date.now()
+				for (const unit of units) {
+					const match = byName.get(unit.name.toLowerCase())
+					if (match) {
+						await ctx.db
+							.update(ingredientUnits)
+							.set({ grams: unit.grams })
+							.where(eq(ingredientUnits.id, match.id))
+					} else {
+						await ctx.db.insert(ingredientUnits).values({
+							ingredientId: id,
+							name: unit.name,
+							grams: unit.grams,
+							isDefault: false,
+							source: 'manual',
+							createdAt: now
+						})
+					}
+				}
+			}
+
+			return ctx.db.query.ingredients.findFirst({ where: { id }, with: { units: true } })
 		}),
 
 	delete: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
