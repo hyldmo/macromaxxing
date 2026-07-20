@@ -268,14 +268,19 @@ export const ingredientsRouter = router({
 			return ingredient
 		}),
 
-	update: protectedProcedure.input(updateIngredientSchema).mutation(async ({ ctx, input }) => {
-		const { id, ...updates } = input
-		await ctx.db
-			.update(ingredients)
-			.set(updates)
-			.where(and(eq(ingredients.id, id), eq(ingredients.userId, ctx.user.id)))
-		return ctx.db.query.ingredients.findFirst({ where: { id } })
-	}),
+	update: protectedProcedure
+		.meta({ description: 'Update an ingredient you created (macros per 100g, name, density)' })
+		.input(updateIngredientSchema)
+		.mutation(async ({ ctx, input }) => {
+			const { id, ...updates } = input
+			// Only the creator may edit — a shared ingredient's macros feed every recipe/log that references it.
+			const existing = await ctx.db.query.ingredients.findFirst({ where: { id } })
+			if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Ingredient not found' })
+			if (existing.userId !== ctx.user.id)
+				throw new TRPCError({ code: 'FORBIDDEN', message: 'You can only edit ingredients you created' })
+			await ctx.db.update(ingredients).set(updates).where(eq(ingredients.id, id))
+			return ctx.db.query.ingredients.findFirst({ where: { id } })
+		}),
 
 	delete: protectedProcedure.input(zodTypeID('ing')).mutation(async ({ ctx, input }) => {
 		await ctx.db.delete(ingredients).where(and(eq(ingredients.id, input), eq(ingredients.userId, ctx.user.id)))
