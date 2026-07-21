@@ -635,10 +635,9 @@ describe('estimateWorkoutDurationSec', () => {
 		expect(estimateWorkoutDurationSec({ trainingGoal: 'hypertrophy', exercises: [] })).toBe(0)
 	})
 
-	it('computes setup + N work intervals + (N-1) rests for a single exercise', () => {
-		// Hypertrophy, tier 2, 3 sets × 10 reps:
-		//   rest = 80 × 1.0 + 10 × 3 = 110s, work = 10 × 6 = 60s, setup = 120s
-		//   total = 120 + 3×60 + 2×110 = 520s
+	it('uses 1 min per set + calculated inter-set rest for a single exercise (no switch)', () => {
+		// Hypertrophy, tier 2, 3×10: rest = 80×1.0 + 10×3 = 110s
+		// total = 3×60 + 2×110 = 400s
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'hypertrophy',
 			exercises: [
@@ -650,13 +649,12 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(520)
+		expect(sec).toBe(400)
 	})
 
 	it('falls back to TRAINING_DEFAULTS when targetSets/targetReps are null', () => {
-		// Strength defaults: 5 sets × 5 reps. Tier 1:
-		//   rest = 120 × 2.0 + 5 × 3 = 255s, work = 5 × 6 = 30s, setup = 120s
-		//   total = 120 + 5×30 + 4×255 = 1290s
+		// Strength defaults 5×5, tier 1: rest = 120×2.0 + 5×3 = 255s
+		// total = 5×60 + 4×255 = 1320s
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'strength',
 			exercises: [
@@ -668,11 +666,11 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(1290)
+		expect(sec).toBe(1320)
 	})
 
 	it('respects per-exercise trainingGoal override', () => {
-		// Workout hypertrophy, exercise tagged strength → uses strength defaults (5×5).
+		// Workout hypertrophy, exercise tagged strength → strength defaults (5×5)
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'hypertrophy',
 			exercises: [
@@ -684,21 +682,39 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(1290)
+		expect(sec).toBe(1320)
 	})
 
-	it('sums across multiple exercises', () => {
+	it('adds 3 min switching between exercises on top of per-exercise rest', () => {
 		const one = estimateWorkoutDurationSec({
 			trainingGoal: 'hypertrophy',
-			exercises: [{ targetSets: 3, targetReps: 10, trainingGoal: null, exercise: { fatigueTier: 2 } }]
+			exercises: [
+				{
+					targetSets: 3,
+					targetReps: 10,
+					trainingGoal: null,
+					exercise: { fatigueTier: 2 }
+				}
+			]
 		})
 		const two = estimateWorkoutDurationSec({
 			trainingGoal: 'hypertrophy',
 			exercises: [
-				{ targetSets: 3, targetReps: 10, trainingGoal: null, exercise: { fatigueTier: 2 } },
-				{ targetSets: 3, targetReps: 10, trainingGoal: null, exercise: { fatigueTier: 2 } }
+				{
+					targetSets: 3,
+					targetReps: 10,
+					trainingGoal: null,
+					exercise: { fatigueTier: 2 }
+				},
+				{
+					targetSets: 3,
+					targetReps: 10,
+					trainingGoal: null,
+					exercise: { fatigueTier: 2 }
+				}
 			]
 		})
-		expect(two).toBe(one * 2)
+		expect(one).toBe(400)
+		expect(two).toBe(one * 2 + 180)
 	})
 })

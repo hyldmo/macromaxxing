@@ -282,7 +282,11 @@ const ViewEditMode = ({ exercise, isOwned, onDelete }: ViewEditModeProps) => {
 						<h2 className="font-semibold text-ink text-sm">Technique guide</h2>
 					</CardHeader>
 					<CardContent>
-						<ExerciseGuideContent exerciseId={exercise.id} exerciseName={exercise.name} />
+						<ExerciseGuideContent
+							exerciseId={exercise.id}
+							exerciseName={exercise.name}
+							showEquipment={false}
+						/>
 					</CardContent>
 				</Card>
 			)}
