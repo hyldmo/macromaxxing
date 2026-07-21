@@ -40,10 +40,10 @@ export function calculateRest(
 	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 
-/** Typical concentric+eccentric rep duration */
-const SECONDS_PER_REP = 6
-/** Setup/transition between exercises: load weights, walk to rack, take seat. */
-const SECONDS_PER_EXERCISE_SETUP = 120
+/** Rough time to complete a set (concentric + eccentric), excluding rest. */
+const SECONDS_PER_SET = 60
+/** Transition between exercises: rack change, walk, set up — on top of inter-set rest. */
+const SECONDS_BETWEEN_EXERCISES = 180
 
 interface DurationExercise {
 	targetSets: number | null
@@ -58,23 +58,24 @@ interface DurationWorkout {
 }
 
 /**
- * Estimate a workout template's duration in seconds. Uses target sets/reps with
- * goal-based fallbacks, the existing `calculateRest` formula for inter-set rest,
- * 4s/rep tempo, and a 60s setup per exercise. Ignores warmup sets (variable in
- * practice) and supersets (would compress time — refine if it matters).
+ * Estimate a workout template's duration in seconds.
+ * Per exercise: 1 min per set + `calculateRest` between sets (N−1 rests).
+ * Between exercises: +3 min switching. Ignores warmup/backoff extras and
+ * supersets (variable in practice).
  */
 export function estimateWorkoutDurationSec(workout: DurationWorkout): number {
+	if (workout.exercises.length === 0) return 0
 	let total = 0
 	for (const we of workout.exercises) {
 		const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
 		const sets = we.targetSets ?? TRAINING_DEFAULTS[goal].targetSets
 		const reps = we.targetReps ?? TRAINING_DEFAULTS[goal].targetReps
 		const restSec = calculateRest(reps, we.exercise.fatigueTier, goal, 'working')
-		const workSec = reps * SECONDS_PER_REP
-		// N work intervals, N-1 inter-set rests (no rest after the final set;
-		// the move to the next exercise is the next exercise's setup).
-		total += SECONDS_PER_EXERCISE_SETUP + sets * workSec + Math.max(0, sets - 1) * restSec
+		// N work intervals, N−1 inter-set rests (no rest after the final set;
+		// the move to the next exercise is the between-exercise switch).
+		total += sets * SECONDS_PER_SET + Math.max(0, sets - 1) * restSec
 	}
+	total += Math.max(0, workout.exercises.length - 1) * SECONDS_BETWEEN_EXERCISES
 	return total
 }
 

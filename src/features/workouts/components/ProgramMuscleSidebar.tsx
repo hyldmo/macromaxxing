@@ -74,7 +74,7 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 					<div className="text-ink-faint">Avg session</div>
 					<div
 						className="text-right text-ink"
-						title="Estimated time per workout: planned sets × (4s/rep + inter-set rest) + 60s setup per exercise"
+						title="Estimated time per workout: 1 min per set + calculated inter-set rest + 3 min between exercises"
 					>
 						{avgSessionMin} min
 					</div>

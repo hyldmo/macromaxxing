@@ -21,6 +21,7 @@ import {
 	cn,
 	computeMuscleReadiness,
 	DAYS_LONG,
+	estimateWorkoutDurationSec,
 	type ProgramCycleResult,
 	pendingRecovery,
 	pickNextWorkout,
@@ -368,6 +369,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 					orderedTemplates.map(template => {
 						const isUpNext = template.id === nextWorkoutId
 						const lastDone = lastSessionByTemplate.get(template.id)
+						const durationMin = Math.round(estimateWorkoutDurationSec(template) / 60)
 						return (
 							<div
 								key={template.id}
@@ -395,6 +397,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 									</div>
 									<div className="font-mono text-ink-faint text-xs tabular-nums">
 										{template.exercises.length} exercises
+										{durationMin > 0 && ` · ~${durationMin} min`}
 										{lastDone && ` · ${formatRelativeDate(lastDone)}`}
 									</div>
 									{isUpNext && pendingMuscles.length > 0 && (

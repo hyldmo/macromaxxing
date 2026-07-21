@@ -1,4 +1,4 @@
-import type { Exercise } from '@macromaxxing/db'
+import type { Equipment, Exercise } from '@macromaxxing/db'
 import { type FC, useMemo, useState } from 'react'
 import { ExerciseGuideModal } from '~/features/workouts/components/ExerciseGuideModal'
 import { TimerModeView } from '~/features/workouts/components/TimerModeView'
@@ -72,6 +72,8 @@ export const AutoSection: FC = () => (
 // Real production system-exercise ID for Bench Press. Lets the demo's help modal
 // fetch the actual seeded guide via the public getGuide endpoint.
 const DEMO_BENCH_ID: Exercise['id'] = 'exc_01kh1qkzdbesmataj8pf85bgkf'
+
+const DEMO_BENCH_EQUIPMENT: Equipment[] = ['barbell', 'bench_flat', 'squat_rack']
 
 // 4 working sets + 2 backoff sets queued. Visitor catches the moment between
 // the final working set and the first auto-suggested backoff drop.
@@ -154,6 +156,7 @@ const DemoTimerScreen: FC = () => {
 				<ExerciseGuideModal
 					exerciseId={CURRENT_SET.exerciseId}
 					exerciseName={CURRENT_SET.exerciseName}
+					equipment={DEMO_BENCH_EQUIPMENT}
 					onClose={() => setGuideOpen(false)}
 				/>
 			)}
