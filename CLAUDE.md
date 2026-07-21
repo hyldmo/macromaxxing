@@ -337,13 +337,15 @@ trpc.workout.guide                                                        # No-a
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings + equipment requirements
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listLocations/createLocation/updateLocation/deleteLocation   # Training locations with equipment checklists (replace-all array on update)
-trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout   # Templates carry optional locationId
+trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout   # Templates carry optional locationId; updateWorkout.exercises merges by wke_ id (undefined=leave, null=clear; no id=insert; orphans deleted); get/list accept verbose:false to omit nested muscle/equipment lists
 trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
-trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession
+trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession  # get/list accept verbose:false (omit nested muscle/equipment)
 trpc.workout.updateExerciseNote             # Set a template exercise's per-exercise note (workoutExercises.note, shown in timer mode)
-trpc.workout.updatePlannedExercise          # Session-scoped plan edit (setMode, per-exercise trainingGoal) — does not touch the template
+trpc.workout.updateTemplateExercise         # Patch a single template row by wke_ (targets/mode/note/etc.; undefined=leave, null=clear)
+trpc.workout.replaceTemplateExercise        # Swap exercise on a template row by wke_ (preserves note/mode/superset; resets sets/reps)
+trpc.workout.updatePlannedExercise          # Session-scoped plan edit (setMode, trainingGoal, targets) — does not touch the template
 trpc.workout.updateSessionLocation          # Session-scoped location change (traveling) — does not touch the template's locationId
 trpc.workout.replaceSessionExercise         # Swap an exercise in an active session (moves logs + plan row, resets targets, seeds estimated weight)
 trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI hot-path: LastSessionHint)

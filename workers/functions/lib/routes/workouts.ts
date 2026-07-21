@@ -43,6 +43,14 @@ import type { Database } from '../db'
 import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
+import { stripVerboseSession, stripVerboseSessionListItem, stripVerboseWorkout } from '../workout-response'
+import {
+	buildTemplateExercisePatch,
+	type ExistingWorkoutExerciseRow,
+	planWorkoutExerciseMerge
+} from '../workout-template-merge'
+
+const verboseInput = z.boolean().default(true)
 
 const CUE_MAX = 300
 const DESCRIPTION_MAX = 500
@@ -657,23 +665,38 @@ export const workoutsRouter = router({
 
 	// ─── Workout Templates ────────────────────────────────────────
 
-	listWorkouts: protectedProcedure.meta({ description: 'List workout templates' }).query(async ({ ctx }) =>
-		ctx.db.query.workouts.findMany({
-			where: { userId: ctx.user.id },
-			with: workoutExercisesWith,
-			orderBy: { sortOrder: 'asc' }
+	listWorkouts: protectedProcedure
+		.meta({
+			description:
+				'List workout templates. Pass verbose:false to omit nested muscle/equipment lists (much smaller).'
 		})
-	),
+		.input(z.object({ verbose: verboseInput }).optional())
+		.query(async ({ ctx, input }) => {
+			const verbose = input?.verbose ?? true
+			const rows = await ctx.db.query.workouts.findMany({
+				where: { userId: ctx.user.id },
+				with: workoutExercisesWith,
+				orderBy: { sortOrder: 'asc' }
+			})
+			if (!verbose) {
+				for (const w of rows) stripVerboseWorkout(w)
+			}
+			return rows
+		}),
 
 	getWorkout: protectedProcedure
-		.meta({ description: 'Get workout template with exercises and targets' })
-		.input(z.object({ id: zodTypeID('wkt') }))
+		.meta({
+			description:
+				'Get workout template with exercises and targets. Pass verbose:false to omit nested muscle/equipment lists.'
+		})
+		.input(z.object({ id: zodTypeID('wkt'), verbose: verboseInput }))
 		.query(async ({ ctx, input }) => {
 			const workout = await ctx.db.query.workouts.findFirst({
 				where: { id: input.id, userId: ctx.user.id },
 				with: workoutExercisesWith
 			})
 			if (!workout) throw new Error('Workout not found')
+			if (!input.verbose) stripVerboseWorkout(workout)
 			return workout
 		}),
 
@@ -752,7 +775,10 @@ export const workoutsRouter = router({
 		}),
 
 	updateWorkout: protectedProcedure
-		.meta({ description: 'Update a workout template (name, goal, exercises, targets, supersets)' })
+		.meta({
+			description:
+				'Update a workout template (name, goal, exercises, targets, supersets). When exercises is provided it is the full desired list: include id (wke_) on surviving rows to merge (undefined field = unchanged, null = clear); omit id to insert; omitted existing ids are deleted. Prefer updateTemplateExercise / replaceTemplateExercise for single-row edits.'
+		})
 		.input(
 			z.object({
 				id: zodTypeID('wkt'),
@@ -763,14 +789,15 @@ export const workoutsRouter = router({
 				exercises: z
 					.array(
 						z.object({
+							id: zodTypeID('wke').optional(),
 							exerciseId: zodTypeID('exc'),
-							targetSets: z.number().int().min(1).nullable(),
-							targetReps: z.number().int().min(1).nullable(),
-							targetWeight: z.number().min(0).nullable(),
-							setMode: setMode.default('working'),
-							trainingGoal: trainingGoal.nullable().default(null),
-							supersetGroup: z.number().int().nullable().default(null),
-							note: z.string().nullable().default(null)
+							targetSets: z.number().int().min(1).nullish(),
+							targetReps: z.number().int().min(1).nullish(),
+							targetWeight: z.number().min(0).nullish(),
+							setMode: setMode.optional(),
+							trainingGoal: trainingGoal.nullish(),
+							supersetGroup: z.number().int().nullish(),
+							note: z.string().nullish()
 						})
 					)
 					.optional()
@@ -778,7 +805,8 @@ export const workoutsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.workouts.findFirst({
-				where: { id: input.id, userId: ctx.user.id }
+				where: { id: input.id, userId: ctx.user.id },
+				with: { exercises: true }
 			})
 			if (!existing) throw new Error('Workout not found')
 
@@ -795,15 +823,34 @@ export const workoutsRouter = router({
 			await ctx.db.update(workouts).set(set).where(eq(workouts.id, input.id))
 
 			if (input.exercises !== undefined) {
-				// Replace all exercises
-				await ctx.db.delete(workoutExercises).where(eq(workoutExercises.workoutId, input.id))
-				if (input.exercises.length > 0) {
-					for (let i = 0; i < input.exercises.length; i += 9) {
+				const existingRows: ExistingWorkoutExerciseRow[] = existing.exercises.map(e => ({
+					id: e.id,
+					exerciseId: e.exerciseId,
+					targetSets: e.targetSets,
+					targetReps: e.targetReps,
+					targetWeight: e.targetWeight,
+					setMode: e.setMode,
+					trainingGoal: e.trainingGoal,
+					supersetGroup: e.supersetGroup,
+					note: e.note
+				}))
+				const plan = planWorkoutExerciseMerge(existingRows, input.exercises)
+
+				if (plan.deleteIds.length > 0) {
+					await ctx.db.delete(workoutExercises).where(inArray(workoutExercises.id, plan.deleteIds))
+				}
+
+				for (const u of plan.updates) {
+					await ctx.db.update(workoutExercises).set(u.values).where(eq(workoutExercises.id, u.id))
+				}
+
+				if (plan.inserts.length > 0) {
+					for (let i = 0; i < plan.inserts.length; i += 9) {
 						await ctx.db.insert(workoutExercises).values(
-							input.exercises.slice(i, i + 9).map((e, idx) => ({
+							plan.inserts.slice(i, i + 9).map(e => ({
 								workoutId: input.id,
 								exerciseId: e.exerciseId,
-								sortOrder: i + idx,
+								sortOrder: e.sortOrder,
 								targetSets: e.targetSets,
 								targetReps: e.targetReps,
 								targetWeight: e.targetWeight,
@@ -921,10 +968,13 @@ export const workoutsRouter = router({
 	// ─── Sessions ─────────────────────────────────────────────────
 
 	listSessions: protectedProcedure
-		.meta({ description: 'List workout sessions with dates' })
-		.input(z.object({ limit: z.number().min(1).max(100).default(20) }).optional())
-		.query(async ({ ctx, input }) =>
-			ctx.db.query.workoutSessions.findMany({
+		.meta({
+			description: 'List workout sessions with dates. Pass verbose:false to omit nested muscle/equipment lists.'
+		})
+		.input(z.object({ limit: z.number().min(1).max(100).default(20), verbose: verboseInput }).optional())
+		.query(async ({ ctx, input }) => {
+			const verbose = input?.verbose ?? true
+			const rows = await ctx.db.query.workoutSessions.findMany({
 				where: { userId: ctx.user.id },
 				with: {
 					workout: true,
@@ -937,11 +987,18 @@ export const workoutsRouter = router({
 				orderBy: { startedAt: 'desc' },
 				limit: input?.limit ?? 20
 			})
-		),
+			if (!verbose) {
+				for (const s of rows) stripVerboseSessionListItem(s)
+			}
+			return rows
+		}),
 
 	getSession: protectedProcedure
-		.meta({ description: 'Get workout session with logged sets per exercise' })
-		.input(z.object({ id: zodTypeID('wks') }))
+		.meta({
+			description:
+				'Get workout session with logged sets per exercise. Pass verbose:false to omit nested muscle/equipment lists.'
+		})
+		.input(z.object({ id: zodTypeID('wks'), verbose: verboseInput }))
 		.query(async ({ ctx, input }) => {
 			const session = await ctx.db.query.workoutSessions.findFirst({
 				where: { id: input.id, userId: ctx.user.id },
@@ -961,6 +1018,7 @@ export const workoutsRouter = router({
 				}
 			})
 			if (!session) throw new Error('Session not found')
+			if (!input.verbose) stripVerboseSession(session)
 			return session
 		}),
 
@@ -1162,11 +1220,89 @@ export const workoutsRouter = router({
 			})
 			if (!row || row.workout.userId !== ctx.user.id) throw new Error('Workout exercise not found')
 
-			const note = input.note.trim()
+			const patch = buildTemplateExercisePatch({ note: input.note })
+			if (!patch) return
+			await ctx.db.update(workoutExercises).set(patch).where(eq(workoutExercises.id, input.id))
+		}),
+
+	updateTemplateExercise: protectedProcedure
+		.meta({
+			description:
+				'Patch a single template exercise row by wke_ id. Omitted/undefined fields are unchanged; null clears nullable fields. Prefer this over updateWorkout for single-row edits.'
+		})
+		.input(
+			z.object({
+				id: zodTypeID('wke'),
+				targetSets: z.number().int().min(1).nullish(),
+				targetReps: z.number().int().min(1).nullish(),
+				targetWeight: z.number().min(0).nullish(),
+				setMode: setMode.optional(),
+				trainingGoal: trainingGoal.nullish(),
+				supersetGroup: z.number().int().nullish(),
+				note: z.string().nullish(),
+				sortOrder: z.number().int().min(0).optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const row = await ctx.db.query.workoutExercises.findFirst({
+				where: { id: input.id },
+				with: { workout: { columns: { userId: true } } }
+			})
+			if (!row || row.workout.userId !== ctx.user.id) throw new Error('Workout exercise not found')
+
+			const { id: _id, ...patchInput } = input
+			const patch = buildTemplateExercisePatch(patchInput)
+			if (patch) {
+				await ctx.db.update(workoutExercises).set(patch).where(eq(workoutExercises.id, input.id))
+			}
+			return ctx.db.query.workoutExercises.findFirst({
+				where: { id: input.id },
+				with: { exercise: { with: { muscles: true, equipment: true } } }
+			})
+		}),
+
+	replaceTemplateExercise: protectedProcedure
+		.meta({
+			description:
+				'Swap the exercise on a template row (wke_). Resets target sets/reps; seeds targetWeight if provided. Preserves note, setMode, trainingGoal, supersetGroup, and sortOrder.'
+		})
+		.input(
+			z.object({
+				id: zodTypeID('wke'),
+				newExerciseId: zodTypeID('exc'),
+				targetWeight: z.number().min(0).nullish()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const row = await ctx.db.query.workoutExercises.findFirst({
+				where: { id: input.id },
+				with: { workout: { columns: { userId: true } } }
+			})
+			if (!row || row.workout.userId !== ctx.user.id) throw new Error('Workout exercise not found')
+
+			const replacement = await ctx.db.query.exercises.findFirst({
+				where: {
+					id: input.newExerciseId,
+					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }]
+				},
+				columns: { id: true }
+			})
+			if (!replacement) throw new Error('Exercise not found')
+
 			await ctx.db
 				.update(workoutExercises)
-				.set({ note: note.length > 0 ? note : null })
+				.set({
+					exerciseId: input.newExerciseId,
+					targetSets: null,
+					targetReps: null,
+					targetWeight: input.targetWeight !== undefined ? input.targetWeight : null
+				})
 				.where(eq(workoutExercises.id, input.id))
+
+			return ctx.db.query.workoutExercises.findFirst({
+				where: { id: input.id },
+				with: { exercise: { with: { muscles: true, equipment: true } } }
+			})
 		}),
 
 	deleteSession: protectedProcedure
@@ -1575,14 +1711,17 @@ export const workoutsRouter = router({
 	updatePlannedExercise: protectedProcedure
 		.meta({
 			description:
-				'Update a planned exercise in an active session (set mode, per-exercise training goal). Session-scoped: does not touch the workout template.'
+				'Update a planned exercise in an active session (set mode, per-exercise training goal, targets). Session-scoped: does not touch the workout template. Omitted/undefined = unchanged; null clears nullable fields.'
 		})
 		.input(
 			z.object({
 				sessionId: zodTypeID('wks'),
 				exerciseId: zodTypeID('exc'),
 				setMode: setMode.optional(),
-				trainingGoal: trainingGoal.nullish()
+				trainingGoal: trainingGoal.nullish(),
+				targetSets: z.number().int().min(1).nullish(),
+				targetReps: z.number().int().min(1).nullish(),
+				targetWeight: z.number().min(0).nullish()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -1591,12 +1730,23 @@ export const workoutsRouter = router({
 			})
 			if (!session || session.userId !== ctx.user.id) throw new Error('Session not found')
 			// Empty patch would make Drizzle throw "No values to set" (same guard as updateSet)
-			if (input.setMode === undefined && input.trainingGoal === undefined) return
+			if (
+				input.setMode === undefined &&
+				input.trainingGoal === undefined &&
+				input.targetSets === undefined &&
+				input.targetReps === undefined &&
+				input.targetWeight === undefined
+			) {
+				return
+			}
 			await ctx.db
 				.update(sessionPlannedExercises)
 				.set({
 					...(input.setMode !== undefined && { setMode: input.setMode }),
-					...(input.trainingGoal !== undefined && { trainingGoal: input.trainingGoal })
+					...(input.trainingGoal !== undefined && { trainingGoal: input.trainingGoal }),
+					...(input.targetSets !== undefined && { targetSets: input.targetSets }),
+					...(input.targetReps !== undefined && { targetReps: input.targetReps }),
+					...(input.targetWeight !== undefined && { targetWeight: input.targetWeight })
 				})
 				.where(
 					and(

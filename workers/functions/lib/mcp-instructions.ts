@@ -21,10 +21,11 @@ When designing or modifying TRAINING programs, these are non-negotiable:
 
 1. Use muscle-load data, not intuition. Check each muscle against its MEV/MAV/MRV zone before adding or cutting volume — below MEV, add volume in any productive form; at or above MAV, justify the marginal set.
 2. The three muscle-load tools are distinct and not interchangeable: workout_workoutMuscleLoad (one template's weekly load), workout_programMuscleLoad (the whole program cycle, and the ONLY reliable source for balance ratios — push/pull, biceps/triceps, anterior/posterior), workout_sessionMuscleLoad (a single logged session, working sets only). Never hand-aggregate per-session loads to estimate ratios.
-3. workout_createExercise: fill every field. On isolations, pass explicit null for the strength rep range — never omit it. Pass the technique guide (description, cues, pitfalls) inline in the same call, not as a separate workout_upsertGuide follow-up.
+3. workout_createExercise: fill every field. On isolations, pass explicit null for the strength rep range — never omit it. Pass the technique guide (description, cues, pitfalls) inline in the same call, not as a separate workout_upsertGuide follow-up. Host "No approval received" flakes are client-side — retry is OK, but check for a duplicate name before re-creating.
 4. One row per exercise per template. Warmup ramps are logged ad hoc during a session, never as separate template rows. setMode "full" means the row covers the warmup ramp plus working sets; its target sets/reps/weight describe the working sets only.
 5. Verify after building: a template with workout_workoutMuscleLoad, a program with workout_programMuscleLoad.
 6. Bodyweight exercises (bwMultiplier > 0): workout_addSet / workout_updateSet take added kg only (belt/vest); the server stores effective load (bodyWeight × multiplier + added). Template targetWeight is also added kg. Logged weightKg in history is the collapsed effective total — never pass it back as added kg. User must have weightKg in settings.
+7. Template row edits: prefer workout_updateTemplateExercise / workout_replaceTemplateExercise. workout_updateWorkout.exercises is a full desired list — include wke_ id on every surviving row (undefined field = unchanged, null = clear); omit id only for inserts. Pass verbose:false on get/list workout & session reads to omit nested muscle/equipment lists.
 
 Call workout_guide (no arguments) for the full conventions reference: fatigue tiers, rep ranges, muscle-intensity scale, the volume-landmark table, movement-family classification, home/gym programming, bodyweight exercise semantics, and tool gotchas.`
 
@@ -123,8 +124,12 @@ Well-covered at home: chest, triceps, front/side/rear delts, biceps, forearms, c
 ## Working with the tools
 
 - Fill ALL fields when creating exercises. Half-populated exercises (null rep ranges, missing muscle intensities) degrade downstream muscle-load math. On isolations, pass explicit null for the strength rep range — never omit the field. Set \`bwMultiplier\` explicitly (0 for loaded lifts; >0 for bodyweight — see above). Fill \`equipment\` (see Locations & equipment). Pass the technique guide (description, cues, pitfalls) inline in the same workout_createExercise call.
+- workout_createExercise "No approval received" (or similar host approval timeout) is a client-side flake — retry with the same payload usually works, but first check workout_listExercises for a duplicate you may have already created.
+- Prefer workout_updateTemplateExercise (patch by wke_ id; undefined = leave, null = clear) and workout_replaceTemplateExercise (swap exerciseId, preserve note/mode/superset) for single-row template edits. Use workout_updateWorkout.exercises only for structural rewrite/reorder/add/remove — it is the full desired list: include \`id\` on every surviving row or that row is treated as an insert (targets/notes reset to insert defaults).
+- Pass \`verbose: false\` on workout_getWorkout / listWorkouts / getSession / listSessions to omit nested muscle/equipment lists (~80% smaller).
+- workout_updatePlannedExercise can also patch session-scoped targetSets/targetReps/targetWeight (does not touch the template).
 - workout_workoutMuscleLoad (one template's weekly load) vs workout_programMuscleLoad (the whole program cycle + balance ratios) vs workout_sessionMuscleLoad (a logged session, working sets only) are distinct — don't substitute one for another. workout_sessionMuscleLoad counts working sets only, so old-vs-new comparisons stay apples-to-apples.
 - workout_programMuscleLoad is the only reliable source for balance ratios (push/pull, biceps/triceps, anterior/posterior). Never hand-aggregate per-session loads to estimate them. If it fails, fall back to per-template workout_workoutMuscleLoad and aggregate manually, but flag that ratio calculations may be missing.
 - A 4-week window is sufficient for workout_exerciseHistory.
-- workout_listSessions returns a large payload ordered most-recent-first.
+- workout_listSessions returns a large payload ordered most-recent-first (use verbose:false when scanning).
 - workout_updateWorkout can fail silently when a session derived from that template is currently active. If an update does not take, present the intended final state and retry after the session ends.`
