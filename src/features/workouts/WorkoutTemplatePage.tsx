@@ -24,6 +24,8 @@ import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 
 export interface TemplateExercise {
 	uid: string
+	/** Server row id when loaded/saved; omitted for unsaved rows. */
+	id?: TypeIDString<'wke'>
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	exerciseType: ExerciseType
@@ -85,6 +87,7 @@ export function WorkoutTemplatePage() {
 			setExercises(
 				workoutQuery.data.exercises.map(e => ({
 					uid: crypto.randomUUID(),
+					id: e.id,
 					exerciseId: e.exerciseId,
 					exerciseName: e.exercise.name,
 					exerciseType: e.exercise.type,
@@ -186,6 +189,7 @@ export function WorkoutTemplatePage() {
 			trainingGoal,
 			locationId,
 			exercises: exercises.map(e => ({
+				...(e.id ? { id: e.id } : {}),
 				exerciseId: e.exerciseId,
 				targetSets: e.targetSets,
 				targetReps: e.targetReps,
