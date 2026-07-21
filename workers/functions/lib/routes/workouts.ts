@@ -26,6 +26,7 @@ import {
 	trainingGoal,
 	userSettings,
 	WINDOW_CUTOFF_MS,
+	windowSinceMs,
 	withZones,
 	workoutExercises,
 	workoutLogs,
@@ -40,6 +41,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchItem } from 'drizzle-orm/batch'
 import { z } from 'zod'
 import type { Database } from '../db'
+import { applyOffsetLimit, matchesExerciseFilters } from '../list-filters'
+import { analyticsWindow, escapeLikePattern, paginationFields, searchField } from '../list-inputs'
 import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
@@ -388,19 +391,42 @@ export const workoutsRouter = router({
 	listExercises: protectedProcedure
 		.meta({
 			description:
-				'List available exercises (system catalog + user-created) with muscle mappings and bwMultiplier (0 = absolute load, >0 = bodyweight fraction)'
+				'List available exercises (system catalog + user-created) with muscle mappings and bwMultiplier (0 = absolute load, >0 = bodyweight fraction). Optional filters: type, search (name substring), muscleGroup, equipment (AND — must require every listed item), limit/offset.'
 		})
-		.input(z.object({ type: exerciseType.optional() }).optional())
+		.input(
+			z
+				.object({
+					type: exerciseType.optional(),
+					search: searchField,
+					muscleGroup: z.enum(MUSCLE_GROUPS).optional(),
+					equipment: z.array(z.enum(EQUIPMENT)).min(1).optional(),
+					...paginationFields
+				})
+				.optional()
+		)
 		.query(async ({ ctx, input }) => {
-			const typeFilter = input?.type ? { type: input.type } : {}
-			return ctx.db.query.exercises.findMany({
+			const search = input?.search
+			const rows = await ctx.db.query.exercises.findMany({
 				where: {
 					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }],
-					...typeFilter
+					...(input?.type ? { type: input.type } : {}),
+					...(search
+						? {
+								RAW: t =>
+									sql`lower(${t.name}) like ${`%${escapeLikePattern(search.toLowerCase())}%`} escape '\\'`
+							}
+						: {})
 				},
 				with: { muscles: true, equipment: true },
 				orderBy: { name: 'asc' }
 			})
+			const filtered = rows.filter(ex =>
+				matchesExerciseFilters(ex, {
+					muscleGroup: input?.muscleGroup,
+					equipment: input?.equipment
+				})
+			)
+			return applyOffsetLimit(filtered, input?.offset ?? 0, input?.limit)
 		}),
 
 	createExercise: protectedProcedure
@@ -668,13 +694,33 @@ export const workoutsRouter = router({
 	listWorkouts: protectedProcedure
 		.meta({
 			description:
-				'List workout templates. Pass verbose:false to omit nested muscle/equipment lists (much smaller).'
+				'List workout templates. Optional filters: search (name substring), trainingGoal, locationId. Pass verbose:false to omit nested muscle/equipment lists (much smaller).'
 		})
-		.input(z.object({ verbose: verboseInput }).optional())
+		.input(
+			z
+				.object({
+					verbose: verboseInput,
+					search: searchField,
+					trainingGoal: trainingGoal.optional(),
+					locationId: zodTypeID('loc').optional()
+				})
+				.optional()
+		)
 		.query(async ({ ctx, input }) => {
 			const verbose = input?.verbose ?? true
+			const search = input?.search
 			const rows = await ctx.db.query.workouts.findMany({
-				where: { userId: ctx.user.id },
+				where: {
+					userId: ctx.user.id,
+					...(input?.trainingGoal ? { trainingGoal: input.trainingGoal } : {}),
+					...(input?.locationId ? { locationId: input.locationId } : {}),
+					...(search
+						? {
+								RAW: t =>
+									sql`lower(${t.name}) like ${`%${escapeLikePattern(search.toLowerCase())}%`} escape '\\'`
+							}
+						: {})
+				},
 				with: workoutExercisesWith,
 				orderBy: { sortOrder: 'asc' }
 			})
@@ -969,13 +1015,53 @@ export const workoutsRouter = router({
 
 	listSessions: protectedProcedure
 		.meta({
-			description: 'List workout sessions with dates. Pass verbose:false to omit nested muscle/equipment lists.'
+			description:
+				'List workout sessions with dates (most recent first). Optional filters: window (4w|12w|1y|all), completed, workoutId, exerciseId (sessions with a working set for that exercise). Pass verbose:false to omit nested muscle/equipment lists.'
 		})
-		.input(z.object({ limit: z.number().min(1).max(100).default(20), verbose: verboseInput }).optional())
+		.input(
+			z
+				.object({
+					limit: z.number().min(1).max(100).default(20),
+					verbose: verboseInput,
+					window: analyticsWindow.optional(),
+					completed: z.boolean().optional(),
+					workoutId: zodTypeID('wkt').optional(),
+					exerciseId: zodTypeID('exc').optional()
+				})
+				.optional()
+		)
 		.query(async ({ ctx, input }) => {
 			const verbose = input?.verbose ?? true
+			const since = input?.window !== undefined ? windowSinceMs(input.window) : undefined
+			const exerciseId = input?.exerciseId
 			const rows = await ctx.db.query.workoutSessions.findMany({
-				where: { userId: ctx.user.id },
+				where: {
+					userId: ctx.user.id,
+					...(since !== undefined ? { startedAt: { gte: since } } : {}),
+					...(input?.completed === true
+						? { completedAt: { isNotNull: true } }
+						: input?.completed === false
+							? { completedAt: { isNull: true } }
+							: {}),
+					...(input?.workoutId ? { workoutId: input.workoutId } : {}),
+					...(exerciseId
+						? {
+								RAW: t =>
+									inArray(
+										t.id,
+										ctx.db
+											.select({ id: workoutLogs.sessionId })
+											.from(workoutLogs)
+											.where(
+												and(
+													eq(workoutLogs.exerciseId, exerciseId),
+													eq(workoutLogs.setType, 'working')
+												)
+											)
+									)
+							}
+						: {})
+				},
 				with: {
 					workout: true,
 					location: true,
@@ -1314,11 +1400,10 @@ export const workoutsRouter = router({
 				.where(and(eq(workoutSessions.id, input.id), eq(workoutSessions.userId, ctx.user.id)))
 		}),
 
-	// ─── "Last time" lookups (UI hot path) ───────────────────────
+	// ─── "Last time" lookups ─────────────────────────────────────
 	//
-	// These endpoints power the "last time you did X: 80×6, 80×6, 75×8" hint
-	// on each exercise row in a session. They are intentionally NOT exposed as
-	// MCP tools (no `.meta`) — they are pure UI primitives.
+	// Power the "last time you did X" hint on session rows. lastSessionForExercise
+	// is MCP-exposed; lastSessionsForExercises stays UI-only (batched hot-path).
 	//
 	// Note on `replaceSessionExercise`: that mutation rewrites historical
 	// `workout_logs.exerciseId` in place, so these lookups automatically reflect
@@ -1330,6 +1415,10 @@ export const workoutsRouter = router({
 
 	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
 	lastSessionForExercise: protectedProcedure
+		.meta({
+			description:
+				'Last session that logged working sets for an exercise (optional before timestamp). Returns sessionId, startedAt, workingSets, and topE1rm — preferred over scanning listSessions for a single lift.'
+		})
 		.input(
 			z.object({
 				exerciseId: zodTypeID('exc'),

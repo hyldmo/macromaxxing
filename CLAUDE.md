@@ -334,22 +334,22 @@ trpc.mealPlan.list/get/create/update/delete/duplicate
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
 trpc.workout.guide                                                        # No-arg orientation doc (MCP tool workout_guide) — training/program-design conventions reference incl. bwMultiplier bodyweight logging
-trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings + equipment requirements
+trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings + equipment; listExercises filters: type?, search?, muscleGroup?, equipment[]? (AND), limit?/offset?
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
 trpc.workout.listLocations/createLocation/updateLocation/deleteLocation   # Training locations with equipment checklists (replace-all array on update)
-trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout   # Templates carry optional locationId; updateWorkout.exercises merges by wke_ id (undefined=leave, null=clear; no id=insert; orphans deleted); get/list accept verbose:false to omit nested muscle/equipment lists
+trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout   # Templates carry optional locationId; updateWorkout.exercises merges by wke_ id (undefined=leave, null=clear; no id=insert; orphans deleted); get/list accept verbose:false to omit nested muscle/equipment lists; listWorkouts also: search?, trainingGoal?, locationId?
 trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
-trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession  # get/list accept verbose:false (omit nested muscle/equipment)
+trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession  # get/list accept verbose:false (omit nested muscle/equipment); listSessions also: window?, completed?, workoutId?, exerciseId?, limit
 trpc.workout.updateExerciseNote             # Set a template exercise's per-exercise note (workoutExercises.note, shown in timer mode)
 trpc.workout.updateTemplateExercise         # Patch a single template row by wke_ (targets/mode/note/etc.; undefined=leave, null=clear)
 trpc.workout.replaceTemplateExercise        # Swap exercise on a template row by wke_ (preserves note/mode/superset; resets sets/reps)
 trpc.workout.updatePlannedExercise          # Session-scoped plan edit (setMode, trainingGoal, targets) — does not touch the template
 trpc.workout.updateSessionLocation          # Session-scoped location change (traveling) — does not touch the template's locationId
 trpc.workout.replaceSessionExercise         # Swap an exercise in an active session (moves logs + plan row, resets targets, seeds estimated weight)
-trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI hot-path: LastSessionHint)
-trpc.workout.lastSessionsForExercises       # Batched variant — single query for N exercises (avoids N+1 on session entry)
+trpc.workout.lastSessionForExercise         # Single-exercise last-session lookup (UI + MCP: LastSessionHint / agents)
+trpc.workout.lastSessionsForExercises       # Batched variant — single query for N exercises (UI-only; avoids N+1 on session entry)
 trpc.workout.addSet/updateSet/removeSet
 trpc.workout.muscleGroupStats               # Volume per muscle group (weighted by intensity) over N days
 trpc.workout.exercisesByMuscleGroup         # Exercises (system + custom) targeting a muscle group, sorted by that muscle's intensity
@@ -510,6 +510,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - Migration folder is one directory per migration (`tag/migration.sql` + `tag/snapshot.json`), no `meta/_journal.json`
 - `drizzle-kit` drops `ON DELETE` from `ALTER TABLE ... ADD ... REFERENCES`. New tables in `CREATE TABLE` are fine, but additive `ALTER TABLE` columns need a manual edit to re-add `ON DELETE SET NULL` (or whichever) after `REFERENCES x(id)`.
 - `drizzle-kit` emits `snapshot.json` with 2-space indent; biome formats with tabs. Run `yarn fix` after `yarn db:generate` or expect a lint failure on the snapshot.
+- **drizzle-zod blocked on Workers** — hand-written mutation Zod schemas (`insertRecipeSchema`, `createIngredientSchema`, exercise create input, etc.) have TODOs to collapse to `createInsertSchema` once [drizzle-orm#5192](https://github.com/drizzle-team/drizzle-orm/pull/5192) lands (Buffer type detection for Cloudflare Workers). That unlocks mutation codegen only. **It does not unlock auto-gen list filters** — agents need joins (`muscleGroup`, equipment), tenant rules (`OR` public/owned), computed fields, and D1 param limits that do not fall out of `createSelectSchema`. Prefer shared Zod helpers (`windowInput`, search, pagination) wired per list endpoint — not a generic column-filter DSL.
 
 **Backend / tRPC**
 - Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD

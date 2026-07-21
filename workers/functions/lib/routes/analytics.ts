@@ -18,9 +18,8 @@ import {
 	windowSinceMs
 } from '@macromaxxing/db'
 import { z } from 'zod'
+import { windowInput } from '../list-inputs'
 import { protectedProcedure, router } from '../trpc'
-
-const windowInput = z.object({ window: z.enum(['4w', '12w', '1y', 'all']).default('12w') })
 
 const RECENT_PRS_CAP = 30
 

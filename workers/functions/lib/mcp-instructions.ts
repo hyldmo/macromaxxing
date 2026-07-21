@@ -127,9 +127,11 @@ Well-covered at home: chest, triceps, front/side/rear delts, biceps, forearms, c
 - workout_createExercise "No approval received" (or similar host approval timeout) is a client-side flake — retry with the same payload usually works, but first check workout_listExercises for a duplicate you may have already created.
 - Prefer workout_updateTemplateExercise (patch by wke_ id; undefined = leave, null = clear) and workout_replaceTemplateExercise (swap exerciseId, preserve note/mode/superset) for single-row template edits. Use workout_updateWorkout.exercises only for structural rewrite/reorder/add/remove — it is the full desired list: include \`id\` on every surviving row or that row is treated as an insert (targets/notes reset to insert defaults).
 - Pass \`verbose: false\` on workout_getWorkout / listWorkouts / getSession / listSessions to omit nested muscle/equipment lists (~80% smaller).
+- Prefer filtered lists over full dumps: workout_listExercises (\`search\`, \`muscleGroup\`, \`equipment\`, \`limit\`), workout_listWorkouts (\`search\`, \`trainingGoal\`, \`locationId\`), workout_listSessions (\`window\`, \`completed\`, \`workoutId\`, \`exerciseId\`).
+- For "last working sets for exercise X", call workout_lastSessionForExercise — do not scan listSessions.
 - workout_updatePlannedExercise can also patch session-scoped targetSets/targetReps/targetWeight (does not touch the template).
 - workout_workoutMuscleLoad (one template's weekly load) vs workout_programMuscleLoad (the whole program cycle + balance ratios) vs workout_sessionMuscleLoad (a logged session, working sets only) are distinct — don't substitute one for another. workout_sessionMuscleLoad counts working sets only, so old-vs-new comparisons stay apples-to-apples.
 - workout_programMuscleLoad is the only reliable source for balance ratios (push/pull, biceps/triceps, anterior/posterior). Never hand-aggregate per-session loads to estimate them. If it fails, fall back to per-template workout_workoutMuscleLoad and aggregate manually, but flag that ratio calculations may be missing.
 - A 4-week window is sufficient for workout_exerciseHistory.
-- workout_listSessions returns a large payload ordered most-recent-first (use verbose:false when scanning).
+- workout_listSessions returns a large payload ordered most-recent-first (use verbose:false + window/filters when scanning).
 - workout_updateWorkout can fail silently when a session derived from that template is currently active. If an update does not take, present the intended final state and retry after the session ends.`
