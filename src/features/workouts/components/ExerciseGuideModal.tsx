@@ -1,4 +1,4 @@
-import type { Exercise } from '@macromaxxing/db'
+import type { Equipment, Exercise } from '@macromaxxing/db'
 import { X } from 'lucide-react'
 import { type FC, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -8,10 +8,12 @@ import { ExerciseGuideContent } from './ExerciseGuideContent'
 export interface ExerciseGuideModalProps {
 	exerciseId: Exercise['id']
 	exerciseName: string
+	/** Optional override; otherwise looked up from listExercises when signed in. */
+	equipment?: Equipment[]
 	onClose: () => void
 }
 
-export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, exerciseName, onClose }) => {
+export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, exerciseName, equipment, onClose }) => {
 	const closeBtnRef = useRef<HTMLButtonElement>(null)
 	useScrollLock()
 
@@ -54,7 +56,7 @@ export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, ex
 				</header>
 
 				<div className="flex-1 overflow-y-auto px-4 py-5">
-					<ExerciseGuideContent exerciseId={exerciseId} exerciseName={exerciseName} />
+					<ExerciseGuideContent exerciseId={exerciseId} exerciseName={exerciseName} equipment={equipment} />
 				</div>
 			</div>
 		</div>,

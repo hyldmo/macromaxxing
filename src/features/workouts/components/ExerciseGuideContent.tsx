@@ -1,7 +1,8 @@
-import type { Exercise } from '@macromaxxing/db'
+import { type Equipment, type Exercise, formatEquipment } from '@macromaxxing/db'
 import { ExternalLink } from 'lucide-react'
 import type { FC } from 'react'
 import { Spinner } from '~/components/ui'
+import { useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
 const youtubeSearchUrl = (exerciseName: string): string =>
@@ -10,6 +11,10 @@ const youtubeSearchUrl = (exerciseName: string): string =>
 export interface ExerciseGuideContentProps {
 	exerciseId: Exercise['id']
 	exerciseName: string
+	/** When set, shown as tags. When omitted, looked up from listExercises (signed-in only). */
+	equipment?: Equipment[]
+	/** Hide equipment tags when the parent already surfaces them (e.g. exercise detail). Default true. */
+	showEquipment?: boolean
 }
 
 /**
@@ -18,21 +23,48 @@ export interface ExerciseGuideContentProps {
  *
  * Renders no chrome of its own — the parent supplies headings, padding, etc.
  */
-export const ExerciseGuideContent: FC<ExerciseGuideContentProps> = ({ exerciseId, exerciseName }) => {
+export const ExerciseGuideContent: FC<ExerciseGuideContentProps> = ({
+	exerciseId,
+	exerciseName,
+	equipment: equipmentProp,
+	showEquipment = true
+}) => {
+	const { isSignedIn } = useUser()
 	const guideQuery = trpc.workout.getGuide.useQuery({ exerciseId })
+	const exercisesQuery = trpc.workout.listExercises.useQuery(undefined, {
+		enabled: showEquipment && equipmentProp === undefined && isSignedIn
+	})
+	const equipment: Equipment[] =
+		equipmentProp ?? exercisesQuery.data?.find(e => e.id === exerciseId)?.equipment.map(e => e.equipment) ?? []
 	const guide = guideQuery.data
 	const searchUrl = youtubeSearchUrl(exerciseName)
 
+	const equipmentTags =
+		showEquipment && equipment.length > 0 ? (
+			<ul aria-label="Equipment" className="flex flex-wrap gap-1.5">
+				{equipment.map(eq => (
+					<li key={eq} className="rounded-full bg-surface-2 px-2 py-0.5 text-ink text-xs">
+						{formatEquipment(eq)}
+					</li>
+				))}
+			</ul>
+		) : null
+
 	if (guideQuery.isLoading) {
 		return (
-			<div className="flex justify-center py-8">
-				<Spinner />
+			<div className="space-y-4">
+				{equipmentTags}
+				<div className="flex justify-center py-8">
+					<Spinner />
+				</div>
 			</div>
 		)
 	}
 
 	return (
 		<div className="space-y-4">
+			{equipmentTags}
+
 			{guide && (
 				<>
 					<section className="rounded-md border border-edge bg-surface-1 px-3.5 py-3">
