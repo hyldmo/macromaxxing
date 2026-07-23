@@ -67,6 +67,7 @@ describe('pickNextWorkout', () => {
 				kind: 'program',
 				template: tpl('a'),
 				programName: 'PPL',
+				programId: wpr('p'),
 				day: 1,
 				total: 3
 			})
