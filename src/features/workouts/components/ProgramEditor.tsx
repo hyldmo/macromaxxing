@@ -2,7 +2,7 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TypeIDString } from '@macromaxxing/db'
-import { GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { GripVertical, MapPin, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { type FC, Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button, Card, CopyButton, Input, Select, Spinner, TRPCError } from '~/components/ui'
@@ -347,12 +347,20 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, onR
 			</button>
 			<span className="flex items-center font-mono text-ink-faint text-xs tabular-nums">{index + 1}.</span>
 			<div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-				<Link
-					to={`/workouts/${item.workoutId}`}
-					className="truncate font-medium text-ink text-sm hover:text-accent"
-				>
-					{item.name}
-				</Link>
+				<div className="flex min-w-0 items-center gap-2">
+					<Link
+						to={`/workouts/${item.workoutId}`}
+						className="min-w-0 truncate font-medium text-ink text-sm hover:text-accent"
+					>
+						{item.name}
+					</Link>
+					{workout?.location && (
+						<span className="flex shrink-0 items-center gap-0.5 text-ink-faint text-xs">
+							<MapPin className="size-3 shrink-0" />
+							<span className="max-w-28 truncate">{workout.location.name}</span>
+						</span>
+					)}
+				</div>
 				{exerciseNames.length > 0 && (
 					<div className="flex flex-wrap gap-x-3 overflow-hidden font-mono text-[11px] text-ink-faint">
 						{exerciseNames.map((name, i) => (
