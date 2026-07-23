@@ -1,0 +1,22 @@
+/* Reuse the app's exact Tailwind build + design tokens (--color-surface-*, --color-ink, etc.) so
+   the in-Claude widget matches the app. Macromaxxing is dark-only, so paint the app's dark surface
+   on the root — the card stays readable whether Claude renders it on a light or dark chat surface. */
+@import "../index.css";
+
+/* Tailwind v4 auto-detection roots at this build's Vite root (src/mcp-widgets), so it misses the
+   app components the widget mounts (BodyMap, MuscleLoadPanel, Card, body SVGs). Register their trees
+   explicitly, else utilities used only there (h-52, h-2, bg-surface-2, …) are absent and the layout
+   collapses. Widget-build only — the app build (index.css) is unaffected. */
+@source "../features";
+@source "../components";
+
+html,
+body {
+	margin: 0;
+	background: var(--color-surface-0);
+}
+
+#root {
+	padding: 12px;
+	font-family: system-ui, -apple-system, sans-serif;
+}

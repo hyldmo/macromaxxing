@@ -1,8 +1,8 @@
 import type { MuscleGroup, Sex } from '@macromaxxing/db'
 import { clamp, startCase } from 'es-toolkit'
 import { type FC, type ReactNode, type SVGAttributes, useMemo, useRef, useState } from 'react'
-import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui'
-import { intensityClass } from '~/lib'
+import { BodyBackFemale, BodyBackMale, BodyFrontFemale, BodyFrontMale, type BodySvgProps } from '~/components/ui/body'
+import { intensityClass } from '~/lib/workouts/muscles'
 
 export interface BodyMapProps {
 	muscleVolumes: Map<MuscleGroup, number>

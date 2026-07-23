@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { deriveAnnotations, extractMcpTools, procedurePathToToolName, serializeToolResult } from './mcp'
+import { deriveAnnotations, extractMcpTools, procedurePathToToolName, serializeToolResult } from './mcp-tools'
 import { appRouter } from './router'
 
 describe('serializeToolResult', () => {

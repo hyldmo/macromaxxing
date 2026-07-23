@@ -2108,7 +2108,7 @@ export const workoutsRouter = router({
 
 			const settings = await ctx.db.query.userSettings.findFirst({
 				where: { userId: ctx.user.id },
-				columns: { weightKg: true }
+				columns: { weightKg: true, sex: true }
 			})
 			const bodyWeightKg = settings?.weightKg ?? null
 
@@ -2144,6 +2144,8 @@ export const workoutsRouter = router({
 					trainingGoal: workout.trainingGoal,
 					exerciseCount: workout.exercises.length
 				},
+				// Snapshotted for the MCP Apps body-map widget (figure sex); also handy context for agents.
+				sex: settings?.sex ?? 'male',
 				muscles,
 				totals: sumTotals(loads),
 				balances: computeBalances(loads)
@@ -3013,7 +3015,7 @@ export const workoutsRouter = router({
 
 			const settings = await ctx.db.query.userSettings.findFirst({
 				where: { userId: ctx.user.id },
-				columns: { weightKg: true }
+				columns: { weightKg: true, sex: true }
 			})
 			const bodyWeightKg = settings?.weightKg ?? null
 
@@ -3054,6 +3056,8 @@ export const workoutsRouter = router({
 					workoutCount: program.items.length,
 					exerciseCount
 				},
+				// Snapshotted for the MCP Apps body-map widget (figure sex); also handy context for agents.
+				sex: settings?.sex ?? 'male',
 				muscles,
 				totals: sumTotals(loads),
 				balances: computeBalances(loads),

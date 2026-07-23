@@ -1,97 +1,80 @@
+import { RESOURCE_MIME_TYPE, registerAppResource, registerAppTool } from '@modelcontextprotocol/ext-apps/server'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
-import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/cfworker'
-import type { AnyRouter } from '@trpc/server'
+import type { inferRouterOutputs } from '@trpc/server'
+import { WIDGET_HTML } from '../widgets/widgets.generated'
 import type { AuthUser } from './auth'
 import type { Database } from './db'
 import { MCP_INSTRUCTIONS } from './mcp-instructions'
+import { getTools, serializeToolResult } from './mcp-tools'
 import { appRouter } from './router'
 
-export function procedurePathToToolName(path: string): string {
-	return path.replaceAll('.', '_')
-}
+type RouterOutput = inferRouterOutputs<typeof appRouter>
+type WorkoutMuscleLoadResult = RouterOutput['workout']['workoutMuscleLoad']
+type ProgramMuscleLoadResult = RouterOutput['workout']['programMuscleLoad']
+type ExerciseHistoryResult = RouterOutput['workout']['exerciseHistory']
 
 /**
- * Derive MCP tool annotations from a tRPC procedure's path + type, allowing per-procedure
- * `.meta()` overrides. Clients (Claude.ai, Cursor, etc.) use these to badge/group tools as
- * read-only, destructive, etc.
+ * MCP Apps (ext-apps) interactive UI: a UI tool renders inline in claude.ai via ONE shared HTML
+ * resource — the widget shell `ui://macromaxxing/widgets.html` (built from src/mcp-widgets/ by
+ * scripts/build-widgets.ts, imported below as `WIDGET_HTML`). The server ships
+ * `structuredContent { widget, data }`; the shell mounts the matching React view fed by that data —
+ * the SAME MuscleLoadPanel/BodyMap the app renders, so the in-Claude preview can't drift.
  *
- * Defaults:
- *   - `readOnlyHint`     ← procedure type (`query` → true, `mutation` → false)
- *   - `destructiveHint`  ← method name starts with `delete` or `remove` (mutations only)
- *   - `idempotentHint`   ← queries + `delete*`/`remove*`/`update*`/`set*`/`upsert*`/`save*`/`reorder*`
- *                          mutations. `create*`/`add*` are explicitly non-idempotent. Other
- *                          mutations stay unset.
- *   - `openWorldHint`    ← false (every procedure touches our own DB only)
+ * A UI tool gets `_meta.ui.resourceUri` (via `registerAppTool`) and returns `structuredContent`;
+ * every other tool stays text-only — the model-facing `content[]` is the spec-required fallback, so
+ * a host that can't render UI is unaffected. Adding a widget = one `UI_TOOLS` entry (widget id +
+ * result→data mapper) + one variant in src/mcp-widgets/widget.tsx.
  */
-export function deriveAnnotations(
-	procedurePath: string,
-	type: 'query' | 'mutation' | 'subscription',
-	meta: { readOnly?: boolean; destructive?: boolean; idempotent?: boolean; openWorld?: boolean }
-): ToolAnnotations {
-	const isQuery = type === 'query'
-	const method = procedurePath.split('.').at(-1) ?? ''
-	const looksDestructive = !isQuery && /^(delete|remove)/.test(method)
-	const looksIdempotent = !isQuery && /^(delete|remove|update|set|upsert|save|reorder)/.test(method)
-	const looksNonIdempotent = !isQuery && /^(create|add)/.test(method)
-	const idempotentDefault = isQuery || looksIdempotent ? true : looksNonIdempotent ? false : undefined
+const WIDGETS_UI = 'ui://macromaxxing/widgets.html'
 
+/** workoutMuscleLoad result → MuscleLoadWidgetView data (src/mcp-widgets/MuscleLoadWidgetView.tsx). */
+function mapWorkoutMuscleLoad(result: WorkoutMuscleLoadResult) {
+	const { workout, totals } = result
 	return {
-		readOnlyHint: meta.readOnly ?? isQuery,
-		destructiveHint: meta.destructive ?? (isQuery ? false : looksDestructive),
-		idempotentHint: meta.idempotent ?? idempotentDefault,
-		openWorldHint: meta.openWorld ?? false
+		title: workout.name,
+		subtitle: `${workout.trainingGoal} · ${workout.exerciseCount} exercises · ${totals.workingSets.toFixed(0)} sets/wk`,
+		sex: result.sex,
+		muscles: result.muscles,
+		balances: result.balances,
+		unitLabel: 'sets/wk'
 	}
 }
 
-interface McpToolDef {
-	name: string
-	description: string
-	/** The raw Zod schema from tRPC's .input(), or undefined for no-input procedures */
-	zodSchema: unknown
-	procedurePath: string
-	annotations: ToolAnnotations
-}
-
-/** Walk the tRPC router and extract procedures that have .meta({ description }) set */
-export function extractMcpTools(router: AnyRouter): McpToolDef[] {
-	const procedures = (router as any)._def.procedures as Record<string, any>
-	const tools: McpToolDef[] = []
-
-	for (const [path, procedure] of Object.entries(procedures)) {
-		const meta = procedure._def?.meta
-		if (!meta?.description) continue
-
-		const inputs = procedure._def?.inputs as unknown[] | undefined
-		const zodSchema = inputs?.[0]
-		const type = procedure._def?.type as 'query' | 'mutation' | 'subscription'
-
-		tools.push({
-			name: procedurePathToToolName(path),
-			description: meta.description,
-			zodSchema,
-			procedurePath: path,
-			annotations: deriveAnnotations(path, type, meta)
-		})
+/** programMuscleLoad result → the same MuscleLoadWidgetView, aggregated across the program cycle. */
+function mapProgramMuscleLoad(result: ProgramMuscleLoadResult) {
+	const { program, totals } = result
+	return {
+		title: program.name,
+		subtitle: `${program.workoutCount} workouts · ${program.exerciseCount} exercises · ${totals.workingSets.toFixed(0)} sets/cycle`,
+		sex: result.sex,
+		muscles: result.muscles,
+		balances: result.balances,
+		unitLabel: 'sets/cycle'
 	}
-
-	return tools
 }
 
-// Cache tool definitions at module scope
-let cachedTools: McpToolDef[] | null = null
-
-function getTools(): McpToolDef[] {
-	if (!cachedTools) {
-		cachedTools = extractMcpTools(appRouter)
+/** exerciseHistory result (bare per-session series) → ExerciseHistoryWidgetView data. */
+function mapExerciseHistory(result: ExerciseHistoryResult) {
+	return {
+		title: 'Exercise progression',
+		metric: 'e1rm',
+		data: result.map(s => ({
+			sessionId: s.sessionId,
+			startedAt: s.startedAt,
+			e1rm: s.e1rm,
+			topSet: s.topSet,
+			volume: s.volume
+		}))
 	}
-	return cachedTools
 }
 
-/** JSON.stringify(undefined) is itself undefined — MCP requires content[].text to be a string. */
-export function serializeToolResult(result: unknown): string {
-	return result === undefined ? 'OK' : JSON.stringify(result, null, 2)
+/** tool name → { widget id the shell renders, mapper from tool result → that widget's data }. */
+const UI_TOOLS: Record<string, { widget: string; map: (result: any) => unknown }> = {
+	workout_workoutMuscleLoad: { widget: 'muscleLoad', map: mapWorkoutMuscleLoad },
+	workout_programMuscleLoad: { widget: 'muscleLoad', map: mapProgramMuscleLoad },
+	workout_exerciseHistory: { widget: 'exerciseHistory', map: mapExerciseHistory }
 }
 
 /** Traverse a nested caller object by dot-separated path to get the procedure function */
@@ -118,45 +101,48 @@ export async function handleMcpRequest(
 
 	const caller = appRouter.createCaller({ db, user, env })
 
+	// One resource serves every UI tool; the host fetches it via `resources/read` when it renders a
+	// UI tool. Registered per-request (cheap) on the stateless server.
+	registerAppResource(server, 'Macromaxxing widgets', WIDGETS_UI, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
+		contents: [{ uri: WIDGETS_UI, mimeType: RESOURCE_MIME_TYPE, text: WIDGET_HTML }]
+	}))
+
 	const tools = getTools()
 	for (const tool of tools) {
+		const ui = UI_TOOLS[tool.name]
+		// UI tools also ship `structuredContent { widget, data }` — the widget renders from it (never content[]).
+		const toResult = (result: unknown) => {
+			const base = { content: [{ type: 'text' as const, text: serializeToolResult(result) }] }
+			return ui ? { ...base, structuredContent: { widget: ui.widget, data: ui.map(result) } } : base
+		}
 		const baseConfig = { description: tool.description, annotations: tool.annotations }
+
 		if (tool.zodSchema) {
 			// Pass the raw Zod schema — the MCP SDK converts to JSON Schema internally
-			server.registerTool(
-				tool.name,
-				{ ...baseConfig, inputSchema: tool.zodSchema as any },
-				async (args: Record<string, unknown>) => {
-					try {
-						const fn = traverseCaller(caller, tool.procedurePath)
-						const result = await fn(args)
-						return {
-							content: [{ type: 'text' as const, text: serializeToolResult(result) }]
-						}
-					} catch (err: unknown) {
-						const message = err instanceof Error ? err.message : 'Unknown error'
-						return {
-							content: [{ type: 'text' as const, text: message }],
-							isError: true
-						}
-					}
+			const config = { ...baseConfig, inputSchema: tool.zodSchema as any }
+			const handler = async (args: Record<string, unknown>) => {
+				try {
+					const fn = traverseCaller(caller, tool.procedurePath)
+					return toResult(await fn(args))
+				} catch (err: unknown) {
+					const message = err instanceof Error ? err.message : 'Unknown error'
+					return { content: [{ type: 'text' as const, text: message }], isError: true }
 				}
-			)
+			}
+			if (ui) {
+				registerAppTool(server, tool.name, { ...config, _meta: { ui: { resourceUri: WIDGETS_UI } } }, handler)
+			} else {
+				server.registerTool(tool.name, config, handler)
+			}
 		} else {
 			// No input schema — register as zero-argument tool
 			server.registerTool(tool.name, baseConfig, async () => {
 				try {
 					const fn = traverseCaller(caller, tool.procedurePath)
-					const result = await fn()
-					return {
-						content: [{ type: 'text' as const, text: serializeToolResult(result) }]
-					}
+					return toResult(await fn())
 				} catch (err: unknown) {
 					const message = err instanceof Error ? err.message : 'Unknown error'
-					return {
-						content: [{ type: 'text' as const, text: message }],
-						isError: true
-					}
+					return { content: [{ type: 'text' as const, text: message }], isError: true }
 				}
 			})
 		}

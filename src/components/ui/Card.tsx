@@ -1,5 +1,5 @@
 import { type FC, forwardRef } from 'react'
-import { cn } from '~/lib'
+import { cn } from '~/lib/cn'
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {}
 
