@@ -36,7 +36,42 @@ const TimerMode: FC = () => {
 	const session = sessionQuery.data
 	const profileQuery = trpc.settings.getProfile.useQuery()
 	const bodyWeightKg = profileQuery.data?.weightKg ?? null
+	const utils = trpc.useUtils()
 	const { addSet, updateSet, removeSet } = useSessionSets(sessionId)
+
+	// Edits to the upcoming set's planned numbers persist to its session plan row
+	// (session-scoped — never touches the template). Optimistic patch so the "next up"
+	// readout updates instantly; buildSessionPlanFromSession re-derives from these rows.
+	const updatePlannedExercise = trpc.workout.updatePlannedExercise.useMutation({
+		onMutate: async variables => {
+			await utils.workout.getSession.cancel({ id: variables.sessionId })
+			const previous = utils.workout.getSession.getData({ id: variables.sessionId })
+			if (previous) {
+				utils.workout.getSession.setData(
+					{ id: variables.sessionId },
+					{
+						...previous,
+						plannedExercises: previous.plannedExercises.map(pe =>
+							pe.exerciseId === variables.exerciseId
+								? {
+										...pe,
+										...(variables.targetReps !== undefined && { targetReps: variables.targetReps }),
+										...(variables.targetWeight !== undefined && {
+											targetWeight: variables.targetWeight
+										})
+									}
+								: pe
+						)
+					}
+				)
+			}
+			return { previous }
+		},
+		onError: (_err, variables, context) => {
+			if (context?.previous) utils.workout.getSession.setData({ id: variables.sessionId }, context.previous)
+		},
+		onSettled: (_data, _err, variables) => utils.workout.getSession.invalidate({ id: variables.sessionId })
+	})
 
 	const cursor = useWorkoutSessionStore(s => s.cursor)
 	const draft = useWorkoutSessionStore(s => s.draft)
@@ -152,6 +187,24 @@ const TimerMode: FC = () => {
 			}
 		},
 		[currentSet, updateSet]
+	)
+
+	// Edits to the "next up" set write straight to its plan row's target (working
+	// sets only — their planned numbers equal the target 1:1).
+	const handleEditNextWeight = useCallback(
+		(w: number | null) => {
+			if (!(nextSet && sessionId)) return
+			updatePlannedExercise.mutate({ sessionId, exerciseId: nextSet.exerciseId, targetWeight: w ?? 0 })
+		},
+		[nextSet, sessionId, updatePlannedExercise]
+	)
+
+	const handleEditNextReps = useCallback(
+		(r: number) => {
+			if (!(nextSet && sessionId) || r < 1) return
+			updatePlannedExercise.mutate({ sessionId, exerciseId: nextSet.exerciseId, targetReps: r })
+		},
+		[nextSet, sessionId, updatePlannedExercise]
 	)
 
 	const handleConfirm = useCallback(() => {
@@ -279,6 +332,9 @@ const TimerMode: FC = () => {
 	const isDoingSet = setTimer !== null && setTimer.pausedAt === null && !isResting
 	const isSetPaused = setTimer !== null && setTimer.pausedAt !== null && !isResting
 	const hasNotes = (session.notes ?? '').trim().length > 0 || notesExercises.some(ex => ex.note.trim().length > 0)
+	// Editing the next set patches its plan row; pre-snapshot sessions (template
+	// fallback, read-only) have no rows to patch, so offer the affordance only when a plan exists.
+	const hasPlan = session.plannedExercises.length > 0
 
 	return (
 		<>
@@ -316,6 +372,8 @@ const TimerMode: FC = () => {
 				onDismissTimer={handleDismissTimer}
 				onEditWeight={handleEditWeight}
 				onEditReps={handleEditReps}
+				onEditNextWeight={hasPlan ? handleEditNextWeight : undefined}
+				onEditNextReps={hasPlan ? handleEditNextReps : undefined}
 			/>
 			{guideOpen && activeGuideExercise && (
 				<ExerciseGuideModal
