@@ -8,10 +8,11 @@ import {
 	Minimize2,
 	NotebookPen,
 	Pause,
+	Pencil,
 	Square,
 	Undo2
 } from 'lucide-react'
-import type { FC } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
 import { cn, effectiveSetWeightKg, type FlatSet, formatTimer, SET_TYPE_STYLES } from '~/lib'
 import { SecondaryTimer } from './SecondaryTimer'
@@ -66,6 +67,9 @@ export interface TimerModeViewProps {
 	onDismissTimer?: () => void
 	onEditWeight?: (kg: number | null) => void
 	onEditReps?: (reps: number) => void
+	/** Persist edits to the upcoming working set's planned target (session-scoped). Absent → no edit affordance. */
+	onEditNextWeight?: (kg: number | null) => void
+	onEditNextReps?: (reps: number) => void
 }
 
 export const TimerModeView: FC<TimerModeViewProps> = ({
@@ -101,8 +105,20 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	onUndo,
 	onDismissTimer,
 	onEditWeight,
-	onEditReps
+	onEditReps,
+	onEditNextWeight,
+	onEditNextReps
 }) => {
+	// Inline edit of the upcoming set's numbers. Only working sets round-trip
+	// cleanly (their planned weight/reps ARE the exercise target); warmup/backoff
+	// numbers are derived, so the toggle is offered for working sets only.
+	const [editingNext, setEditingNext] = useState(false)
+	const canEditNext = nextSet?.setType === 'working' && (!!onEditNextWeight || !!onEditNextReps)
+	const nextKey = nextSet ? `${nextSet.exerciseId}:${nextSet.setNumber}` : null
+	// Close the editor when the upcoming set changes (queue advanced / navigated away)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the set identity, not the setter
+	useEffect(() => setEditingNext(false), [nextKey])
+
 	const displayWeight = (set: FlatSet | null, addedKg: number | null): number => {
 		if (!set) return 0
 		if (set.bwMultiplier <= 0) return addedKg ?? set.weightKg ?? 0
@@ -371,27 +387,77 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 											<span className="truncate font-medium text-ink text-sm">
 												{nextSet.exerciseName}
 											</span>
-											<button
-												type="button"
-												onClick={() => onOpenGuide?.(nextSet.exerciseId, nextSet.exerciseName)}
-												aria-label={`Open guide for ${nextSet.exerciseName}`}
-												className="shrink-0 rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-											>
-												<HelpCircle className="size-3.5" />
-											</button>
+											{/* Guide is redundant when the next set is the exercise already on screen */}
+											{nextSet.exerciseId !== currentSet.exerciseId && (
+												<button
+													type="button"
+													onClick={() =>
+														onOpenGuide?.(nextSet.exerciseId, nextSet.exerciseName)
+													}
+													aria-label={`Open guide for ${nextSet.exerciseName}`}
+													className="shrink-0 rounded-full p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+												>
+													<HelpCircle className="size-3.5" />
+												</button>
+											)}
 										</div>
 									</div>
-									<span
-										className={cn(
-											'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
-											SET_TYPE_STYLES[nextSet.setType]
-										)}
-									>
-										{nextSet.setType}
-									</span>
-									<span className="font-mono text-ink text-sm tabular-nums">
-										{displayWeight(nextSet, nextSet.weightKg)}kg &times; {nextSet.reps}
-									</span>
+									{!editingNext && (
+										<span
+											className={cn(
+												'rounded-full px-1.5 py-0.5 font-mono text-[10px]',
+												SET_TYPE_STYLES[nextSet.setType]
+											)}
+										>
+											{nextSet.setType}
+										</span>
+									)}
+									{editingNext && canEditNext ? (
+										<div className="flex items-center gap-1">
+											<NumberInput
+												className="w-16 text-center text-sm"
+												value={nextSet.weightKg ?? ''}
+												placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
+												unit="kg"
+												onChange={e => {
+													const v = Number.parseFloat(e.target.value)
+													onEditNextWeight?.(Number.isNaN(v) ? null : v)
+												}}
+												step={2.5}
+												min={0}
+											/>
+											<span className="text-ink-faint text-xs">&times;</span>
+											<NumberInput
+												className="w-12 text-center text-sm"
+												value={nextSet.reps}
+												unit="r"
+												onChange={e => {
+													const v = Number.parseInt(e.target.value, 10)
+													if (!Number.isNaN(v) && v >= 0) onEditNextReps?.(v)
+												}}
+												step={1}
+												min={0}
+											/>
+										</div>
+									) : (
+										<span className="font-mono text-ink text-sm tabular-nums">
+											{displayWeight(nextSet, nextSet.weightKg)}kg &times; {nextSet.reps}
+										</span>
+									)}
+									{canEditNext && (
+										<button
+											type="button"
+											onClick={() => setEditingNext(v => !v)}
+											aria-label={editingNext ? 'Done editing next set' : 'Edit next set'}
+											aria-pressed={editingNext}
+											className={cn(
+												'shrink-0 rounded-full p-1 hover:bg-surface-2',
+												editingNext ? 'text-accent' : 'text-ink-faint hover:text-ink'
+											)}
+										>
+											<Pencil className="size-3.5" />
+										</button>
+									)}
 								</div>
 							)}
 						</>
