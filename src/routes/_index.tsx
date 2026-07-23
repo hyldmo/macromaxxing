@@ -1,5 +1,5 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
-import type { AbsoluteMacros } from '@macromaxxing/db'
+import type { AbsoluteMacros, TypeIDString } from '@macromaxxing/db'
 import { CalendarDays, ChevronRight, Dumbbell, MapPin, Play, SkipForward, UtensilsCrossed } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router'
@@ -176,7 +176,10 @@ const DashboardContent: FC = () => {
 				<div className="space-y-3">
 					{activeSession && <ActiveSessionBanner session={activeSession} />}
 					{cycleForDisplay?.kind === 'emptyActiveProgram' && (
-						<EmptyProgramBanner programName={cycleForDisplay.programName} />
+						<EmptyProgramBanner
+							programName={cycleForDisplay.programName}
+							programId={cycleForDisplay.programId}
+						/>
 					)}
 					<WorkoutTemplatesSection
 						templates={visibleTemplates}
@@ -326,7 +329,8 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 
 	const nextTemplate = cycleResult && cycleResult.kind !== 'emptyActiveProgram' ? cycleResult.template : null
 	const nextWorkoutId = nextTemplate?.id ?? null
-	const programLabel = cycleResult?.kind === 'program' ? cycleResult.programName : null
+	const programLink =
+		cycleResult?.kind === 'program' ? { name: cycleResult.programName, id: cycleResult.programId } : null
 
 	// Muscles the up-next workout trains that are still inside their recovery window
 	// from recently logged sessions. Advisory only — chips, never a blocker.
@@ -349,8 +353,13 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 				<div className="flex items-center gap-2">
 					<Dumbbell className="size-4 text-ink-muted" />
 					<h2 className="font-medium text-ink text-sm">Workouts</h2>
-					{programLabel && (
-						<span className="font-mono text-ink-faint text-xs tabular-nums">{programLabel}</span>
+					{programLink && (
+						<Link
+							to={`/plans/programs/${programLink.id}`}
+							className="font-mono text-ink-faint text-xs tabular-nums hover:text-ink hover:underline"
+						>
+							{programLink.name}
+						</Link>
 					)}
 					<Link to="/workouts" className="ml-auto text-ink-faint text-xs hover:text-ink">
 						View all
@@ -428,8 +437,11 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 
 // ─── Empty Program Banner ────────────────────────────────────────────
 
-const EmptyProgramBanner: FC<{ programName: string }> = ({ programName }) => (
-	<Link to="/plans">
+const EmptyProgramBanner: FC<{ programName: string; programId: TypeIDString<'wpr'> }> = ({
+	programName,
+	programId
+}) => (
+	<Link to={`/plans/programs/${programId}`}>
 		<Card className="border-amber-500/40 bg-amber-500/5 transition-colors hover:bg-amber-500/10">
 			<CardContent>
 				<div className="flex items-center gap-3">

@@ -17,7 +17,7 @@ export interface ActiveProgramRef {
 
 export type ProgramCycleResult<T extends ProgramCycleTemplate> =
 	| { kind: 'legacy'; template: T | null }
-	| { kind: 'program'; template: T; programName: string; day: number; total: number }
+	| { kind: 'program'; template: T; programName: string; programId: TypeIDString<'wpr'>; day: number; total: number }
 	| { kind: 'emptyActiveProgram'; programName: string; programId: TypeIDString<'wpr'> }
 
 /** Legacy cycling: most-recently-completed template advances by one, wrapping. */
@@ -73,19 +73,34 @@ export function pickNextWorkout<T extends ProgramCycleTemplate>(
 
 	const total = programTemplates.length
 	if (inProgram.length === 0) {
-		return { kind: 'program', template: programTemplates[0], programName: activeProgram.name, day: 1, total }
+		return {
+			kind: 'program',
+			template: programTemplates[0],
+			programName: activeProgram.name,
+			programId: activeProgram.id,
+			day: 1,
+			total
+		}
 	}
 
 	const lastWorkoutId = inProgram[0].workoutId
 	const lastIdx = programTemplates.findIndex(t => t.id === lastWorkoutId)
 	if (lastIdx === -1) {
-		return { kind: 'program', template: programTemplates[0], programName: activeProgram.name, day: 1, total }
+		return {
+			kind: 'program',
+			template: programTemplates[0],
+			programName: activeProgram.name,
+			programId: activeProgram.id,
+			day: 1,
+			total
+		}
 	}
 	const nextIdx = (lastIdx + 1) % total
 	return {
 		kind: 'program',
 		template: programTemplates[nextIdx],
 		programName: activeProgram.name,
+		programId: activeProgram.id,
 		day: nextIdx + 1,
 		total
 	}
