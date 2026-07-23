@@ -19,7 +19,7 @@ export const dashboardRouter = router({
 						}
 					},
 					orderBy: { startedAt: 'desc' },
-					limit: 5
+					limit: 30
 				}),
 
 				// Workout templates (3 levels — acceptable). Shape must stay identical to

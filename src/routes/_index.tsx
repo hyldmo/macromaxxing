@@ -19,11 +19,10 @@ import { MuscleReadinessChip } from '~/features/workouts/components/MuscleChip'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
 import {
 	cn,
-	computeMuscleReadiness,
 	DAYS_LONG,
 	estimateWorkoutDurationSec,
 	type ProgramCycleResult,
-	pendingRecovery,
+	pendingRecoveryFromPriorSession,
 	pickNextWorkout,
 	prefetchRoute,
 	totalVolume,
@@ -31,10 +30,39 @@ import {
 } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
+import type { ReadinessSessionInput } from '~/lib/workouts/muscleReadiness'
 
 export const clientLoader = () => prefetchRoute(utils => [utils.dashboard.summary.ensureData()])
 
 type Template = RouterOutput['dashboard']['summary']['templates'][number]
+type DashboardSession = RouterOutput['dashboard']['summary']['sessions'][number]
+
+function findLastSessionForWorkout(
+	sessions: readonly DashboardSession[],
+	workoutId: Template['id']
+): ReadinessSessionInput | null {
+	for (const session of sessions) {
+		if (session.workoutId === workoutId && session.completedAt !== null) return session
+	}
+	return null
+}
+
+function resolvePriorSessionForRest(
+	templates: readonly Template[],
+	sessions: readonly DashboardSession[],
+	cycleResult: ProgramCycleResult<Template> | null,
+	nextTemplate: Template
+): ReadinessSessionInput | null {
+	if (cycleResult?.kind === 'program') {
+		if (templates.length < 2) return null
+		const nextIdx = templates.findIndex(t => t.id === nextTemplate.id)
+		if (nextIdx === -1) return null
+		const priorWorkoutId = templates[(nextIdx - 1 + templates.length) % templates.length].id
+		return findLastSessionForWorkout(sessions, priorWorkoutId)
+	}
+
+	return sessions.find(s => s.completedAt !== null) ?? null
+}
 
 function todayDayIndex(): number {
 	const d = new Date().getDay() // 0=Sun, 6=Sat
@@ -332,11 +360,15 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	const programLink =
 		cycleResult?.kind === 'program' ? { name: cycleResult.programName, id: cycleResult.programId } : null
 
-	// Muscles the up-next workout trains that are still inside their recovery window
-	// from recently logged sessions. Advisory only — chips, never a blocker.
+	// Muscles the up-next workout shares with the prior session that are still inside
+	// their recovery window. Uses logged working sets from that prior session only.
+	const priorSession = useMemo(
+		() => (nextTemplate ? resolvePriorSessionForRest(templates, sessions, cycleResult, nextTemplate) : null),
+		[nextTemplate, templates, sessions, cycleResult]
+	)
 	const pendingMuscles = useMemo(
-		() => (nextTemplate ? pendingRecovery(nextTemplate, computeMuscleReadiness(sessions), Date.now()) : []),
-		[nextTemplate, sessions]
+		() => (nextTemplate ? pendingRecoveryFromPriorSession(priorSession, nextTemplate, Date.now()) : []),
+		[nextTemplate, priorSession]
 	)
 
 	// Rotate templates so the "up next" workout is first

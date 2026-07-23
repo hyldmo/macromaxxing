@@ -29,6 +29,20 @@ export interface MuscleReadiness {
 	readyAt: number
 }
 
+/** Σ(intensity × tierWeight) per muscle from one session's working sets. */
+export function collectSessionMuscleFatigue(session: ReadinessSessionInput): Map<MuscleGroup, number> {
+	const units = new Map<MuscleGroup, number>()
+	for (const log of session.logs) {
+		if (log.setType !== 'working') continue
+		const tierWeight = FATIGUE_TIER_WEIGHTS[log.exercise.fatigueTier]
+		for (const m of log.exercise.muscles) {
+			if (m.intensity < REST_INTENSITY_THRESHOLD) continue
+			units.set(m.muscleGroup, (units.get(m.muscleGroup) ?? 0) + m.intensity * tierWeight)
+		}
+	}
+	return units
+}
+
 /**
  * Per-muscle recovery state from recent logged sessions. For each muscle, only the most
  * recent session with ≥1 working set hitting it (intensity ≥ threshold) counts — the same
@@ -41,16 +55,7 @@ export function computeMuscleReadiness(sessions: readonly ReadinessSessionInput[
 	const ordered = [...sessions].sort((a, b) => (b.completedAt ?? b.startedAt) - (a.completedAt ?? a.startedAt))
 	for (const session of ordered) {
 		const trainedAt = session.completedAt ?? session.startedAt
-		const units = new Map<MuscleGroup, number>()
-		for (const log of session.logs) {
-			if (log.setType !== 'working') continue
-			const tierWeight = FATIGUE_TIER_WEIGHTS[log.exercise.fatigueTier]
-			for (const m of log.exercise.muscles) {
-				if (m.intensity < REST_INTENSITY_THRESHOLD) continue
-				units.set(m.muscleGroup, (units.get(m.muscleGroup) ?? 0) + m.intensity * tierWeight)
-			}
-		}
-		for (const [muscleGroup, fatigueUnits] of units) {
+		for (const [muscleGroup, fatigueUnits] of collectSessionMuscleFatigue(session)) {
 			if (byMuscle.has(muscleGroup)) continue
 			const requiredHours = recoveryHoursFromFatigue(fatigueUnits)
 			byMuscle.set(muscleGroup, {
@@ -77,6 +82,13 @@ export interface PendingMuscleRecovery extends MuscleReadiness {
 	remainingHours: number
 }
 
+function templateMuscleGroups(template: ReadinessTemplateInput): Set<MuscleGroup> {
+	const hit = new Set<MuscleGroup>()
+	for (const we of template.exercises)
+		for (const m of we.exercise.muscles) if (m.intensity >= REST_INTENSITY_THRESHOLD) hit.add(m.muscleGroup)
+	return hit
+}
+
 /**
  * Muscles the upcoming workout trains (intensity ≥ threshold) that are still inside their
  * recovery window at `now`, most-binding first. Empty when everything is recovered.
@@ -86,13 +98,45 @@ export function pendingRecovery(
 	readiness: ReadonlyMap<MuscleGroup, MuscleReadiness>,
 	now: number
 ): PendingMuscleRecovery[] {
-	const hit = new Set<MuscleGroup>()
-	for (const we of template.exercises)
-		for (const m of we.exercise.muscles) if (m.intensity >= REST_INTENSITY_THRESHOLD) hit.add(m.muscleGroup)
 	const pending: PendingMuscleRecovery[] = []
-	for (const mg of hit) {
+	for (const mg of templateMuscleGroups(template)) {
 		const r = readiness.get(mg)
 		if (r && r.readyAt > now) pending.push({ ...r, remainingHours: (r.readyAt - now) / HOUR_MS })
 	}
+	return pending.sort((a, b) => b.readyAt - a.readyAt)
+}
+
+/**
+ * Rest before the next workout from the prior session's logged working sets only — same
+ * overlap model as computeProgramRest (muscles hit in both prior session and next template),
+ * so skipped exercises in the prior session don't inflate recovery demand.
+ */
+export function pendingRecoveryFromPriorSession(
+	priorSession: ReadinessSessionInput | null,
+	nextTemplate: ReadinessTemplateInput,
+	now: number
+): PendingMuscleRecovery[] {
+	if (!priorSession) return []
+
+	const trainedAt = priorSession.completedAt ?? priorSession.startedAt
+	const priorFatigue = collectSessionMuscleFatigue(priorSession)
+	const pending: PendingMuscleRecovery[] = []
+
+	for (const mg of templateMuscleGroups(nextTemplate)) {
+		const fatigueUnits = priorFatigue.get(mg)
+		if (fatigueUnits === undefined) continue
+		const requiredHours = recoveryHoursFromFatigue(fatigueUnits)
+		const readyAt = trainedAt + requiredHours * HOUR_MS
+		if (readyAt <= now) continue
+		pending.push({
+			muscleGroup: mg,
+			trainedAt,
+			fatigueUnits,
+			requiredHours,
+			readyAt,
+			remainingHours: (readyAt - now) / HOUR_MS
+		})
+	}
+
 	return pending.sort((a, b) => b.readyAt - a.readyAt)
 }
