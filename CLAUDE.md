@@ -29,6 +29,7 @@ yarn build        # Build
 yarn preview      # Preview build with local D1
 yarn check        # Run ALL checks in parallel (lint + typecheck + test) — use this to verify changes
 yarn fix          # Lint + format (Biome)
+yarn generate:widget # Rebuild the MCP Apps widget bundle (runs automatically as part of `yarn generate`)
 yarn db:generate  # Generate migration from schema
 yarn db:migrate   # Apply migrations to local D1
 yarn db:seed:usda # Import USDA Foundation + SR Legacy foods into local D1
@@ -201,6 +202,10 @@ workers/functions/
 scripts/
   seed-exercises.ts                         # System exercises with muscle group mappings + strength standards
   seed-usda.ts                              # Import USDA Foundation + SR Legacy foods into D1
+  build-widgets.ts                          # Bundle src/mcp-widgets/ → workers/functions/widgets/widgets.generated.ts (WIDGET_HTML) for MCP Apps
+  verify-widget.ts                          # Headless render check for the MCP Apps widget (Vite fixture → inlined HTML → screenshot)
+src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx boots ext-apps App) + presentational views
+                                            #   (MuscleLoadWidgetView) that mount app components (MuscleLoadPanel/BodyMap). See MCP Server below.
 ```
 
 ## Routes
@@ -465,6 +470,11 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 
 Stateless mode (new server per request). Only procedures with `.meta({ description })` are exposed. Tool names follow the pattern `namespace_method` (e.g., `recipe_list`). Requires `nodejs_compat` flag in `wrangler.toml` (for `Buffer` used by `@clerk/mcp-tools`).
 
+**MCP Apps interactive widgets** — UI-enabled tools render inline in Claude (Desktop / claude.ai custom connector) via the MCP Apps extension (`@modelcontextprotocol/ext-apps`). ONE shared HTML resource `ui://macromaxxing/widgets.html` serves every widget; the server ships `structuredContent { widget, data }` and the shell mounts the matching React view. **Maximum reuse:** the widget mounts the SAME app components (e.g. `MuscleLoadPanel`/`BodyMap`) — the in-Claude preview can't drift from the app. Non-writing/read-only by design (hover interactivity is free; no back-channel tool calls).
+- **Registry:** `UI_TOOLS` in `workers/functions/lib/mcp.ts` maps `toolName → { widget, map }` (result→data mapper). UI tools get `_meta.ui.resourceUri` via `registerAppTool`; every other tool stays text-only (`content[]` fallback preserved — hosts that can't render UI are unaffected). Pure derivation helpers live in `mcp-tools.ts` (split out so `mcp.test.ts` doesn't import the generated `WIDGET_HTML`).
+- **Source** in `src/mcp-widgets/` (app React code — `~`-aliased, typechecked by `typecheck:app`). `widget.tsx` boots the ext-apps `App`; presentational views (`MuscleLoadWidgetView`) are separate so the render fixture mounts them without the bootstrap.
+- **Build:** `yarn generate:widget` (`scripts/build-widgets.ts` → `vite.widget.config.ts`) bundles React+Tailwind, inlines it into `workers/functions/widgets/widgets.generated.ts` (`export const WIDGET_HTML`). Gitignored codegen artifact wired into `generate:*`, so `yarn generate` (setup action + conductor-setup + typecheck) builds it — no CI/deploy edits needed. Current widget: `workout_workoutMuscleLoad → muscleLoad`. Add one = one `UI_TOOLS` entry + one `WidgetPayload` variant + one branch in `widget.tsx`. Verify a render with `scripts/verify-widget.ts` (Vite fixture → inlined HTML → headless screenshot).
+
 Two model-orientation channels, both in `workers/functions/lib/mcp-instructions.ts`:
 - **`MCP_INSTRUCTIONS`** — passed to the `McpServer` constructor (`instructions` option), returned in the `initialize` handshake and surfaced by clients automatically (no tool call). GLOBAL (identical for every user, re-sent each handshake) so it holds only the irreducible frame + the few tool caveats agents get wrong. Keep it tight — it is paid on every connection. Strictly user-agnostic: never put one user's body metrics, program, or preferences here (it broadcasts to all clients).
 - **`WORKOUT_GUIDE`** — long-form conventions reference returned on demand by the no-arg `workout.guide` query (tool `workout_guide`). Depth the always-on instructions shouldn't carry. Per-user state (active program, sessions, body metrics) is pulled live from data tools, not encoded here.
@@ -485,6 +495,12 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
 - D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
 - D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
+
+**MCP Apps widgets**
+- The Pages Functions bundler is **wrangler/esbuild, not Vite** — so Vite's `?raw` import (how the upstream MCP Apps pattern loads widget HTML) does **not** work here. `scripts/build-widgets.ts` emits a `.ts` module (`export const WIDGET_HTML = "…"`) that the Function imports as a plain string. Don't switch it to `?raw`.
+- The widget Vite build roots at `src/mcp-widgets/`, so Tailwind v4 auto-detection misses the app components the widget mounts (`BodyMap`, `MuscleLoadPanel`, …). `src/mcp-widgets/widget.css` declares `@source "../features"` + `@source "../components"` explicitly — without them, utilities used only in those trees (`h-52`, `h-2`, `bg-surface-2`) are absent and the layout silently collapses (`yarn check` won't catch it; only a render will).
+- The app is **dark-only** (no `.dark` variant / light palette in `index.css`), so the widget needs no theme toggle — widget.css paints `--color-surface-0` so the card is readable on any host chat surface.
+- The generated `widgets.generated.ts` is imported by `mcp.ts` but NOT by any test — the pure tRPC→MCP helpers live in `mcp-tools.ts`. Keep it that way: if a test imports the generated module, `yarn check`'s parallel `test` races the `generate` that builds it.
 
 **CF Pages routing**
 - Pages Functions route by filesystem path. `functions/api/[[route]].ts` only receives `/api/*` — Hono routes for paths outside that prefix silently fall through to SPA. New top-level paths need a new file at the literal path (e.g. `functions/.well-known/oauth-authorization-server.ts`). Dotted directory names work.
