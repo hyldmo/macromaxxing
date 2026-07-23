@@ -16,7 +16,7 @@ import { ArrowLeft, Link2, Link2Off, SaveIcon, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button, ButtonGroup, CopyButton, Input, SaveButton, Select, Spinner, TRPCError } from '~/components/ui'
-import { cn, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
+import { cn, formatAdjustTargetsPrompt, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
@@ -305,6 +305,15 @@ export function WorkoutTemplatePage() {
 				<h1 className="font-semibold text-ink">{isEditing ? 'Edit Workout' : 'New Workout'}</h1>
 				{isEditing && workoutQuery.data && (
 					<div className="ml-auto flex items-center gap-1">
+						<CopyButton
+							getText={() => formatAdjustTargetsPrompt(workoutQuery.data)}
+							variant="outline"
+							size="sm"
+							className="gap-1.5"
+							title="Copy an AI prompt to review & adjust targets from history"
+						>
+							AI adjust
+						</CopyButton>
 						<CopyButton getText={() => formatTemplate(workoutQuery.data)} />
 						<Button
 							variant="ghost"

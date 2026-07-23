@@ -97,6 +97,48 @@ export function formatTemplate(workout: Workout): string {
 	return lines.join('\n').trimEnd()
 }
 
+/**
+ * Build a copy-paste prompt that asks an MCP-connected AI to review a template's
+ * targets against each exercise's training history and adjust them if warranted.
+ */
+export function formatAdjustTargetsPrompt(workout: Workout): string {
+	const lines: string[] = []
+
+	lines.push(
+		`Review my "${workout.name}" workout template and tell me whether its target sets/reps/weight should be updated based on my recent training history. Use the Macromaxxing MCP tools — don't guess from intuition.`
+	)
+	lines.push('')
+	lines.push(`Template id: ${workout.id}`)
+	lines.push(`Training goal: ${workout.trainingGoal}`)
+	lines.push('')
+	lines.push('Current exercises and targets:')
+	for (let i = 0; i < workout.exercises.length; i++) {
+		const we = workout.exercises[i]
+		const sets = we.targetSets ?? '?'
+		const reps = we.targetReps ?? '?'
+		const weight = we.targetWeight != null ? ` @ ${we.targetWeight}kg` : ''
+		lines.push(
+			`${i + 1}. ${we.exercise.name} — ${sets}×${reps}${weight}  (exerciseId: ${we.exercise.id}, rowId: ${we.id})`
+		)
+	}
+	lines.push('')
+	lines.push('Please:')
+	lines.push('1. Call workout_exerciseHistory for each exercise to review my weight / e1RM / volume trend over time.')
+	lines.push(
+		'2. Call workout_workoutMuscleLoad on this template and check each muscle against its MEV/MAV/MRV zone before changing any set counts.'
+	)
+	lines.push(
+		'3. For every exercise that warrants a change, propose the new sets×reps@weight and explain why (progressing, stalled, or over/under target volume).'
+	)
+	lines.push(
+		'4. After I confirm, apply each change with workout_updateTemplateExercise — patch by rowId, sending only the fields that change.'
+	)
+	lines.push('')
+	lines.push('Do not change anything until I confirm the proposed adjustments.')
+
+	return lines.join('\n')
+}
+
 /** Format a workout program as LLM-friendly markdown */
 export function formatProgram(name: string, workouts: Workout[]): string {
 	const lines: string[] = []
