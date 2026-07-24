@@ -1,8 +1,10 @@
 import type { FatigueTier, MuscleGroup, SetType } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
 import {
+	collectSessionMuscleFatigue,
 	computeMuscleReadiness,
 	pendingRecovery,
+	pendingRecoveryFromPriorSession,
 	type ReadinessSessionInput,
 	type ReadinessTemplateInput
 } from './muscleReadiness'
@@ -95,6 +97,56 @@ describe('computeMuscleReadiness', () => {
 		const map = computeMuscleReadiness([arms, legs])
 		expect(map.get('biceps')?.trainedAt).toBe(T0)
 		expect(map.get('quads')?.trainedAt).toBe(T0 - 24 * HOUR_MS)
+	})
+})
+
+describe('collectSessionMuscleFatigue', () => {
+	it('matches computeMuscleReadiness for a single session', () => {
+		const s = session([{ muscles: [['biceps', 1]] }, { muscles: [['biceps', 1]] }], T0)
+		expect(collectSessionMuscleFatigue(s).get('biceps')).toBeCloseTo(0.5)
+		expect(computeMuscleReadiness([s]).get('biceps')?.fatigueUnits).toBeCloseTo(0.5)
+	})
+})
+
+describe('pendingRecoveryFromPriorSession', () => {
+	it('only constrains muscles hit in both the prior session and next template', () => {
+		const prior = session(
+			[{ muscles: [['biceps', 1]] }, { muscles: [['biceps', 1]] }, { muscles: [['rear_delts', 1]] }],
+			T0
+		)
+		const pull = template([
+			[['lats', 1]],
+			[
+				['biceps', 0.6],
+				['rear_delts', 1]
+			]
+		])
+		const pending = pendingRecoveryFromPriorSession(prior, pull, T0 + 23 * HOUR_MS)
+		expect(pending.map(p => p.muscleGroup).sort()).toEqual(['biceps', 'rear_delts'])
+		expect(pending.find(p => p.muscleGroup === 'lats')).toBeUndefined()
+	})
+
+	it('does not inherit fatigue for muscles skipped in the prior session', () => {
+		const heavyOld = session(
+			Array.from({ length: 8 }, (): LogFixture => ({ muscles: [['biceps', 1]], fatigueTier: 1 })),
+			T0 - 24 * HOUR_MS
+		)
+		const partialPush = session([{ muscles: [['chest', 1]], fatigueTier: 1 }], T0)
+		const readiness = computeMuscleReadiness([heavyOld, partialPush])
+		const pull = template([[['biceps', 1]]])
+
+		expect(pendingRecovery(pull, readiness, T0 + 2 * HOUR_MS)).toHaveLength(1)
+		expect(pendingRecoveryFromPriorSession(partialPush, pull, T0 + 2 * HOUR_MS)).toEqual([])
+	})
+
+	it('returns empty when the prior session skipped overlapping muscles', () => {
+		const partialPush = session([{ muscles: [['chest', 1]], fatigueTier: 1 }], T0)
+		const pull = template([[['biceps', 1]]])
+		expect(pendingRecoveryFromPriorSession(partialPush, pull, T0 + HOUR_MS)).toEqual([])
+	})
+
+	it('returns empty when there is no prior session', () => {
+		expect(pendingRecoveryFromPriorSession(null, template([[['biceps', 1]]]), T0)).toEqual([])
 	})
 })
 
