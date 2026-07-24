@@ -1,14 +1,15 @@
 import type { TypeIDString } from '@macromaxxing/db'
 import { ArrowRight, Check, Pencil, X } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
-import { Button, Modal, NumberInput, Spinner, Switch } from '~/components/ui'
+import { Button, CopyButton, Modal, NumberInput, Spinner, Switch } from '~/components/ui'
 import {
 	addedWeightKg,
 	cn,
 	computeDivergences,
 	computeMatchedExercises,
 	type Divergence,
-	exerciseE1rmStats
+	exerciseE1rmStats,
+	formatAdjustTargetsPrompt
 } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
@@ -156,6 +157,18 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 					<E1rmTable stats={exerciseStats} />
 				</div>
 			)}
+
+			<div className="mb-4 flex items-center justify-between gap-2 rounded-sm border border-edge bg-surface-0 px-3 py-2">
+				<p className="text-ink-muted text-xs">Let AI adjust targets from each exercise's full history</p>
+				<CopyButton
+					getText={() => formatAdjustTargetsPrompt(template)}
+					variant="outline"
+					size="sm"
+					className="shrink-0 gap-1.5"
+				>
+					AI adjust
+				</CopyButton>
+			</div>
 
 			{!hasDivergences ? (
 				<p className="mb-4 text-ink-muted text-sm">All sets matched the plan. Complete the session?</p>

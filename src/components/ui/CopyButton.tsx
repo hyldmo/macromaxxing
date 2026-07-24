@@ -6,7 +6,14 @@ export interface CopyButtonProps extends Omit<ButtonProps, 'onClick'> {
 	getText: () => string
 }
 
-export const CopyButton: FC<CopyButtonProps> = ({ getText, variant = 'ghost', size = 'icon', className, ...props }) => {
+export const CopyButton: FC<CopyButtonProps> = ({
+	getText,
+	variant = 'ghost',
+	size = 'icon',
+	className,
+	children,
+	...props
+}) => {
 	const [copied, setCopied] = useState(false)
 
 	const handleCopy = useCallback(() => {
@@ -18,6 +25,7 @@ export const CopyButton: FC<CopyButtonProps> = ({ getText, variant = 'ghost', si
 	return (
 		<Button variant={variant} size={size} className={className} onClick={handleCopy} {...props}>
 			{copied ? <Check className="size-4 text-success" /> : <ClipboardCopy className="size-4" />}
+			{children != null && (copied ? 'Copied' : children)}
 		</Button>
 	)
 }

@@ -1,7 +1,15 @@
 import type { Exercise } from '@macromaxxing/db'
 import { ArrowRight, Clock, Dumbbell } from 'lucide-react'
 import { type FC, useMemo } from 'react'
-import { cn, computeDivergences, type Divergence, exerciseE1rmStats, totalVolume } from '~/lib'
+import { CopyButton } from '~/components/ui'
+import {
+	cn,
+	computeDivergences,
+	type Divergence,
+	exerciseE1rmStats,
+	formatAdjustTargetsPrompt,
+	totalVolume
+} from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
 import { E1rmTable } from './E1rmTable'
@@ -73,8 +81,25 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 		return out
 	}, [lastSessionsQuery.data])
 
+	const template = session.workout
+
 	return (
 		<div className="space-y-3">
+			{/* AI adjust targets from history */}
+			{template && (
+				<div className="flex items-center justify-between gap-2 rounded-sm border border-edge bg-surface-1 px-3 py-2">
+					<p className="text-ink-muted text-xs">Let AI adjust targets from each exercise's full history</p>
+					<CopyButton
+						getText={() => formatAdjustTargetsPrompt(template)}
+						variant="outline"
+						size="sm"
+						className="shrink-0 gap-1.5"
+					>
+						AI adjust
+					</CopyButton>
+				</div>
+			)}
+
 			{/* Duration + Volume */}
 			<div className="flex gap-3">
 				{session.completedAt && (
