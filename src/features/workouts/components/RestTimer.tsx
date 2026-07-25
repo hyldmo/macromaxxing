@@ -1,5 +1,5 @@
 import { Dumbbell } from 'lucide-react'
-import type { FC } from 'react'
+import type { FC, MouseEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { cn, formatTimer, SET_TYPE_STYLES } from '~/lib'
 import { useElapsedTimer } from '../hooks/useElapsedTimer'
@@ -11,6 +11,7 @@ export const RestTimer: FC = () => {
 	const rest = useWorkoutSessionStore(s => s.rest)
 	const setTimer = useWorkoutSessionStore(s => s.setTimer)
 	const dismissRest = useWorkoutSessionStore(s => s.dismissRest)
+	const reset = useWorkoutSessionStore(s => s.reset)
 	const navigate = useNavigate()
 	const isResting = rest !== null
 	const setTimerActive = setTimer && setTimer.pausedAt === null ? setTimer.startedAt : null
@@ -21,6 +22,11 @@ export const RestTimer: FC = () => {
 
 	const goToTimer = () => {
 		if (sessionId) navigate(`/workouts/sessions/${sessionId}/timer`)
+	}
+
+	const dismissSession = (e: MouseEvent) => {
+		e.stopPropagation()
+		reset()
 	}
 
 	// Active timer (counting down or overshot)
@@ -59,41 +65,71 @@ export const RestTimer: FC = () => {
 	// Active set timer — show set elapsed (matches timer mode)
 	if (sessionId && setTimerActive) {
 		return (
-			<button
-				type="button"
-				className="flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1 text-ink-faint hover:text-accent"
-				onClick={goToTimer}
-			>
-				<Dumbbell className="size-3.5" />
-				<span className="font-mono text-sm tabular-nums">{formatTimer(setElapsedMs / 1000)}</span>
-			</button>
+			<div className="flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1">
+				<button
+					type="button"
+					className="flex items-center gap-1.5 text-ink-faint hover:text-accent"
+					onClick={goToTimer}
+				>
+					<Dumbbell className="size-3.5" />
+					<span className="font-mono text-sm tabular-nums">{formatTimer(setElapsedMs / 1000)}</span>
+				</button>
+				<button
+					type="button"
+					className="text-ink-faint text-xs hover:text-ink"
+					aria-label="Dismiss session timer"
+					onClick={dismissSession}
+				>
+					×
+				</button>
+			</div>
 		)
 	}
 
 	// Session active with timer activated — show elapsed time
 	if (sessionId && sessionStartedAt) {
 		return (
-			<button
-				type="button"
-				className="flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1 text-ink-faint hover:text-accent"
-				onClick={goToTimer}
-			>
-				<Dumbbell className="size-3.5" />
-				<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000)}</span>
-			</button>
+			<div className="flex items-center gap-1.5 rounded-sm border border-edge px-2 py-1">
+				<button
+					type="button"
+					className="flex items-center gap-1.5 text-ink-faint hover:text-accent"
+					onClick={goToTimer}
+				>
+					<Dumbbell className="size-3.5" />
+					<span className="font-mono text-sm tabular-nums">{formatTimer(elapsed / 1000)}</span>
+				</button>
+				<button
+					type="button"
+					className="text-ink-faint text-xs hover:text-ink"
+					aria-label="Dismiss session timer"
+					onClick={dismissSession}
+				>
+					×
+				</button>
+			</div>
 		)
 	}
 
 	// Session active but timer not yet activated — dumbbell only
 	if (sessionId) {
 		return (
-			<button
-				type="button"
-				className="rounded-sm border border-edge p-1.5 text-ink-faint hover:text-accent"
-				onClick={() => navigate(`/workouts/sessions/${sessionId}`)}
-			>
-				<Dumbbell className="size-4" />
-			</button>
+			<div className="flex items-center gap-1.5 rounded-sm border border-edge">
+				<button
+					type="button"
+					className="p-1.5 text-ink-faint hover:text-accent"
+					onClick={() => navigate(`/workouts/sessions/${sessionId}`)}
+				>
+					<Dumbbell className="size-4" />
+				</button>
+				<button
+					type="button"
+					className="pr-1.5 text-ink-faint text-xs hover:text-ink"
+					aria-label="Dismiss session timer"
+					onClick={dismissSession}
+				>
+					×
+				</button>
+			</div>
 		)
 	}
 
