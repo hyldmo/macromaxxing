@@ -129,6 +129,8 @@ export function WorkoutSessionPage() {
 	// Signal rest timer that a session is active
 	const isCompleteSession = !!sessionQuery.data?.completedAt
 	useEffect(() => {
+		// Don't resurrect store state after an in-flight / completed delete
+		if (sessionRef.current?.deleted) return
 		if (sessionQuery.data && !isCompleteSession) {
 			storeSetSession({ id: sessionQuery.data.id, startedAt: sessionQuery.data.startedAt })
 		} else if (isCompleteSession && useWorkoutSessionStore.getState().sessionId === sessionQuery.data?.id) {
@@ -137,6 +139,18 @@ export function WorkoutSessionPage() {
 			storeReset()
 		}
 	}, [sessionQuery.data, isCompleteSession, storeSetSession, storeReset])
+
+	// Session gone from the server (deleted elsewhere, stale persist, etc.) — drop nav timer
+	useEffect(() => {
+		if (
+			effectiveSessionId &&
+			sessionQuery.isError &&
+			sessionQuery.error.data?.code === 'NOT_FOUND' &&
+			useWorkoutSessionStore.getState().sessionId === effectiveSessionId
+		) {
+			storeReset()
+		}
+	}, [effectiveSessionId, sessionQuery.isError, sessionQuery.error, storeReset])
 
 	const exercisesQuery = trpc.workout.listExercises.useQuery()
 	const standardsQuery = trpc.workout.listStandards.useQuery()
@@ -245,13 +259,20 @@ export function WorkoutSessionPage() {
 	})
 
 	const deleteSessionMutation = trpc.workout.deleteSession.useMutation({
-		onMutate: () => {
+		onMutate: ({ id }) => {
 			if (sessionRef.current) sessionRef.current.deleted = true
+			// Clear immediately so the nav timer can't outlive a deleted session
+			// (onSuccess may race with cached getSession re-setting the store).
+			if (useWorkoutSessionStore.getState().sessionId === id) storeReset()
 		},
-		onSuccess: () => {
-			storeReset()
+		onSuccess: (_data, { id }) => {
+			utils.workout.getSession.invalidate({ id })
 			utils.workout.listSessions.invalidate()
 			navigate('/workouts')
+		},
+		onError: (_err, { id }) => {
+			if (sessionRef.current?.id === id) sessionRef.current.deleted = false
+			utils.workout.getSession.invalidate({ id })
 		}
 	})
 
