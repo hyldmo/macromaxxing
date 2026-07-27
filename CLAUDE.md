@@ -422,6 +422,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - Add recipes to plan's inventory with portion count → allocate portions to day slots (Mon-Sun)
 - Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
 - Over-allocation allowed with visual warning
+- `slotIndex` is a **position within a day, not an identity**. Clients send the index of the slot they saw as
+  empty, which goes stale the moment another allocation lands there, so `allocate`/`copySlot` resolve a taken
+  index server-side by appending after the day's last one. `DayColumn` buckets slots by index (rather than
+  writing into a sparse array) so a duplicate can never hide a meal, and day totals sum the slots themselves —
+  when they disagreed, the column footer showed less than the inventory and weekly averages counted.
+- A plan's slots belong to the week the plan was created in — see `isPlanForWeek` (features/mealPlans/utils)
 
 **Nutrition lookup priority:** Local USDA D1 (FTS5 search, ~14k foods) → USDA FoodData Central API → AI (user's configured provider)
 
