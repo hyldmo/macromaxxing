@@ -124,10 +124,13 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the set identity, not the setter
 	useEffect(() => setEditingNext(false), [nextKey])
 
+	// `addedKg` is the already-resolved load for the set (draft edit for the current
+	// set, plan value for the next one) — a null must read as 0, not silently fall
+	// back to the plan, or a cleared input shows the old number while confirm logs 0.
 	const displayWeight = (set: FlatSet | null, addedKg: number | null): number => {
 		if (!set) return 0
-		if (set.bwMultiplier <= 0) return addedKg ?? set.weightKg ?? 0
-		return effectiveSetWeightKg(set.bwMultiplier, bodyWeightKg ?? null, addedKg ?? set.weightKg ?? 0)
+		if (set.bwMultiplier <= 0) return addedKg ?? 0
+		return effectiveSetWeightKg(set.bwMultiplier, bodyWeightKg ?? null, addedKg ?? 0)
 	}
 
 	const currentLoadKg = displayWeight(currentSet, weight)
@@ -262,10 +265,12 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 										</button>
 									</div>
 								</div>
+								{/* Mirrors the editable inputs below — both read the same weight/reps
+								    props so edits made before starting move this readout too. */}
 								<span className="font-mono text-3xl text-ink tabular-nums">
 									<span className="text-macro-fiber">{currentLoadKg}</span>
 									<span className="-ml-1 text-xl opacity-90"> kg</span> &times;{' '}
-									<span className="text-macro-carbs">{currentSet.reps}</span>
+									<span className="text-macro-carbs">{reps}</span>
 									<span className="-ml-1 text-xl opacity-90"> reps</span>
 								</span>
 							</div>
