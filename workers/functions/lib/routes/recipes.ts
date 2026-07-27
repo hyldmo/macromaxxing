@@ -308,6 +308,10 @@ export const recipesRouter = router({
 		}),
 
 	addPremade: protectedProcedure
+		.meta({
+			description:
+				"Create a premade/packaged meal from its nutrition label: a type:'premade' recipe backed by a source:'label' ingredient. Macros are PER SERVING (not per 100g); servingSize is that serving's weight in grams and servings is how many servings the package holds. Use this instead of recipe_create for store-bought products — recipe_create always yields type:'recipe'."
+		})
 		.input(
 			z.object({
 				name: z.string().min(1),
