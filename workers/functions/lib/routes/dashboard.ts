@@ -1,4 +1,4 @@
-import { mealPlanInventory, mealPlans, type TypeIDString } from '@macromaxxing/db'
+import { mealPlanInventory, mealPlans, summarizeSessionLogs, type TypeIDString } from '@macromaxxing/db'
 import { eq, inArray } from 'drizzle-orm'
 import { protectedProcedure, router } from '../trpc'
 
@@ -97,6 +97,13 @@ export const dashboardRouter = router({
 						}
 					: null
 
-			return { plans, sessions, templates, activeProgram }
+			return {
+				plans,
+				// Same per-exercise rollup workout.listSessions ships, so SessionCard renders from
+				// either query without re-deriving totals from the raw set rows.
+				sessions: sessions.map(s => ({ ...s, summary: summarizeSessionLogs(s.logs) })),
+				templates,
+				activeProgram
+			}
 		})
 })

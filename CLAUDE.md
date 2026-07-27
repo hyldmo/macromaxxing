@@ -173,7 +173,8 @@ packages/db/                                # Shared package @macromaxxing/db
   types.ts                                  # Inferred types (Recipe, Ingredient, Exercise, Workout, etc.)
   custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
   preparation.ts                            # Preparation descriptor extraction (extractPreparation)
-  formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isE1rmPR, isStalledExercise, roundWeight)
+  formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isHardSet, summarizeSessionLogs,
+                                            #   isE1rmPR, isStalledExercise, roundWeight)
                                             #   shared between src/ and workers/ (workers/ can't import from src/)
   sets.ts                                   # Set-scheme math: generateBackoffSets + splitTargetSets (how targetSets
                                             #   splits into working sets + the folded backoff) — one source of truth for
@@ -350,7 +351,7 @@ trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts
 trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
-trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession  # get/list accept verbose:false (omit nested muscle/equipment); listSessions also: window?, completed?, workoutId?, exerciseId?, limit
+trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession  # get/list accept verbose:false (omit nested muscle/equipment; on listSessions also drops logs[] in favour of its summary rollup); listSessions also: window?, completed?, workoutId?, exerciseId?, limit
 trpc.workout.updateExerciseNote             # Set a template exercise's per-exercise note (workoutExercises.note, shown in timer mode)
 trpc.workout.updateTemplateExercise         # Patch a single template row by wke_ (targets/mode/note/etc.; undefined=leave, null=clear)
 trpc.workout.replaceTemplateExercise        # Swap exercise on a template row by wke_ (preserves note/mode/superset; resets sets/reps)
@@ -447,6 +448,14 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   endpoints) filters `setType !== 'warmup'`. Only progression detection (`analytics.recentPRs`,
   `analytics.stalledExercises`, `lastSessionForExercise`, `exerciseHistory`) restricts to `setType === 'working'`, so a
   sub-maximal backoff can't masquerade as a top-set trend. Don't mix the two definitions in one comparison.
+  `isHardSet` in `packages/db/formulas.ts` is the named predicate — use it instead of re-spelling
+  `setType !== 'warmup'` inline, so the rule can't drift again. UI volume readouts count hard sets too: a session's
+  header total must equal the sum of its per-exercise cards.
+- **Session rollups**: `summarizeSessionLogs` (`packages/db/formulas.ts`) turns per-set logs into
+  `{ setCount, hardSetCount, volumeKg, exercises[{ sets, hardSets, volumeKg, topSet }] }`. Both `listSessions` and
+  `dashboard.summary` attach it as `summary`, so `SessionCard` renders from either query without re-deriving totals.
+  `listSessions` with `verbose:false` returns `logs: []` and leans on the summary — that's an 85% payload cut on real
+  data, since every set row otherwise nests a duplicate exercise record. Per-set detail comes from `getSession`.
 - **Fatigue tiers** (1-4) on exercises drive dynamic rest duration: `reps × 4 × goalMultiplier + tierModifier`
 - **Body map** shows muscle coverage per workout template using exercise-muscle intensity mappings
 - **Session review** on completion compares actual vs. planned, offers to update template targets

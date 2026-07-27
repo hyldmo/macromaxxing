@@ -19,6 +19,7 @@ import {
 	calculateRest,
 	estimateReplacementWeight,
 	formatSession,
+	isHardSet,
 	type RenderItem,
 	sessionPlanRows,
 	TRAINING_DEFAULTS,
@@ -425,7 +426,8 @@ export function WorkoutSessionPage() {
 	}, [])
 
 	useDocumentTitle(session?.name ?? 'Workout Session')
-	const vol = session ? totalVolume(session.logs) : 0
+	// Hard sets only — otherwise the header total wouldn't match the sum of the per-exercise cards.
+	const vol = session ? totalVolume(session.logs.filter(isHardSet)) : 0
 	const isCompleted = !!session?.completedAt
 
 	if (isCreating || sessionQuery.isLoading) {

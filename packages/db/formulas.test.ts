@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { addedWeightKg, effectiveSetWeightKg, utcDateKey, WINDOW_CUTOFF_MS, windowSinceMs } from './formulas'
+import {
+	addedWeightKg,
+	effectiveSetWeightKg,
+	isHardSet,
+	summarizeSessionLogs,
+	utcDateKey,
+	WINDOW_CUTOFF_MS,
+	windowSinceMs
+} from './formulas'
 
 describe('effectiveSetWeightKg', () => {
 	it('returns added kg unchanged when bwMultiplier is 0', () => {
@@ -112,5 +120,83 @@ describe('utcDateKey', () => {
 
 	it('handles unix epoch zero', () => {
 		expect(utcDateKey(0)).toBe('1970-01-01')
+	})
+})
+
+describe('isHardSet', () => {
+	it('counts working and backoff, excludes warmup', () => {
+		expect(isHardSet({ setType: 'working' })).toBe(true)
+		expect(isHardSet({ setType: 'backoff' })).toBe(true)
+		expect(isHardSet({ setType: 'warmup' })).toBe(false)
+	})
+})
+
+describe('summarizeSessionLogs', () => {
+	const log = (
+		exerciseId: string,
+		name: string,
+		setType: 'warmup' | 'working' | 'backoff',
+		weightKg: number,
+		reps: number
+	) => ({ exerciseId, setType, weightKg, reps, exercise: { name } })
+
+	it('rolls sets up per exercise, splitting total sets from hard sets', () => {
+		const summary = summarizeSessionLogs([
+			log('exc_1', 'Bench Press', 'warmup', 40, 10),
+			log('exc_1', 'Bench Press', 'working', 100, 5),
+			log('exc_1', 'Bench Press', 'working', 100, 4),
+			log('exc_1', 'Bench Press', 'backoff', 80, 7),
+			log('exc_2', 'Lateral Raises', 'working', 10, 15)
+		])
+
+		expect(summary.exercises).toHaveLength(2)
+		expect(summary.setCount).toBe(5)
+		expect(summary.hardSetCount).toBe(4)
+
+		const [bench, raises] = summary.exercises
+		expect(bench).toMatchObject({ exerciseId: 'exc_1', name: 'Bench Press', sets: 4, hardSets: 3 })
+		expect(raises).toMatchObject({ exerciseId: 'exc_2', sets: 1, hardSets: 1 })
+	})
+
+	it('excludes warmup tonnage from volumeKg', () => {
+		const summary = summarizeSessionLogs([
+			log('exc_1', 'Bench Press', 'warmup', 40, 10), // 400 — must not count
+			log('exc_1', 'Bench Press', 'working', 100, 5), // 500
+			log('exc_1', 'Bench Press', 'backoff', 80, 7) // 560
+		])
+		expect(summary.volumeKg).toBe(1060)
+		expect(summary.exercises[0].volumeKg).toBe(1060)
+	})
+
+	it('picks the top set by e1RM, never a warmup', () => {
+		const summary = summarizeSessionLogs([
+			// Heaviest absolute load is the 105x1, but 100x5 is the higher e1RM.
+			log('exc_1', 'Bench Press', 'working', 105, 1),
+			log('exc_1', 'Bench Press', 'working', 100, 5)
+		])
+		expect(summary.exercises[0].topSet).toEqual({ weightKg: 100, reps: 5 })
+	})
+
+	it('leaves topSet null when an exercise logged only warmups', () => {
+		const summary = summarizeSessionLogs([log('exc_1', 'Bench Press', 'warmup', 40, 10)])
+		expect(summary.exercises[0]).toMatchObject({ sets: 1, hardSets: 0, volumeKg: 0, topSet: null })
+	})
+
+	it('leaves topSet null for unloaded hard sets but still counts the set', () => {
+		const summary = summarizeSessionLogs([log('exc_1', 'Push-up', 'working', 0, 20)])
+		expect(summary.exercises[0]).toMatchObject({ sets: 1, hardSets: 1, volumeKg: 0, topSet: null })
+	})
+
+	it('preserves the order exercises were first logged', () => {
+		const summary = summarizeSessionLogs([
+			log('exc_2', 'Second', 'working', 10, 10),
+			log('exc_1', 'First', 'working', 10, 10),
+			log('exc_2', 'Second', 'working', 10, 10)
+		])
+		expect(summary.exercises.map(e => e.exerciseId)).toEqual(['exc_2', 'exc_1'])
+	})
+
+	it('returns zeroed totals for a session with no logs', () => {
+		expect(summarizeSessionLogs([])).toEqual({ setCount: 0, hardSetCount: 0, volumeKg: 0, exercises: [] })
 	})
 })

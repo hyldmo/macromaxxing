@@ -15,10 +15,13 @@ import { pickNextWorkout, prefetchRoute, useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import { formatTemplate } from '~/lib/workouts/export'
 
+/** This page only reads each session's rollup (SessionCard) — the per-set logs are dead weight. */
+const SESSION_LIST_INPUT = { verbose: false } as const
+
 export const clientLoader = () =>
 	prefetchRoute(utils => [
 		utils.workout.listWorkouts.ensureData(),
-		utils.workout.listSessions.ensureData(),
+		utils.workout.listSessions.ensureData(SESSION_LIST_INPUT),
 		utils.workout.listPrograms.ensureData(),
 		utils.dashboard.summary.ensureData()
 	])
@@ -28,7 +31,7 @@ export default function WorkoutListPage() {
 	const navigate = useNavigate()
 	const [showImport, setShowImport] = useState(false)
 	const workoutsQuery = trpc.workout.listWorkouts.useQuery()
-	const sessionsQuery = trpc.workout.listSessions.useQuery()
+	const sessionsQuery = trpc.workout.listSessions.useQuery(SESSION_LIST_INPUT)
 	const programsQuery = trpc.workout.listPrograms.useQuery()
 	const summaryQuery = trpc.dashboard.summary.useQuery()
 	const utils = trpc.useUtils()
