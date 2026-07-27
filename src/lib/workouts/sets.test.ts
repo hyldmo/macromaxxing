@@ -11,7 +11,8 @@ import {
 	type RenderItem,
 	type SessionLog,
 	type SupersetExerciseInput,
-	shouldSkipWarmup
+	shouldSkipWarmup,
+	workingTargetsFromBackoff
 } from './sets'
 
 describe('calculateRest', () => {
@@ -306,6 +307,25 @@ describe('generateBackoffSets', () => {
 			{ weightKg: 0, reps: 10, setType: 'backoff' },
 			{ weightKg: 0, reps: 12, setType: 'backoff' }
 		])
+	})
+})
+
+describe('workingTargetsFromBackoff', () => {
+	it('round-trips so regenerate matches the edited backoff numbers', () => {
+		for (const working of [20, 60, 100, 120, 140]) {
+			const [{ weightKg, reps }] = generateBackoffSets(working, 8, 1)
+			const inverted = workingTargetsFromBackoff(weightKg, reps)
+			expect(generateBackoffSets(inverted.weightKg!, inverted.reps, 1)[0]).toEqual({
+				weightKg,
+				reps,
+				setType: 'backoff'
+			})
+		}
+	})
+
+	it('bodyweight: reps − 2, weight passes through', () => {
+		expect(workingTargetsFromBackoff(0, 10, 1)).toEqual({ weightKg: 0, reps: 8 })
+		expect(workingTargetsFromBackoff(5, 12, 1)).toEqual({ weightKg: 5, reps: 10 })
 	})
 })
 

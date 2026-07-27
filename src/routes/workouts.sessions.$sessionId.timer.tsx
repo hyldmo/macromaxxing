@@ -21,7 +21,8 @@ import {
 	nextPendingIndex,
 	resolveCursorIndex,
 	undoCursor,
-	useScrollLock
+	useScrollLock,
+	workingTargetsFromBackoff
 } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
@@ -189,12 +190,20 @@ const TimerMode: FC = () => {
 		[currentSet, updateSet]
 	)
 
-	// Edits to the "next up" set write straight to its plan row's target (working
-	// sets only — their planned numbers equal the target 1:1).
+	// Edits to the "next up" set write to its plan row's working target. Working
+	// sets are 1:1; backoff numbers are inverted so regenerate keeps what was typed.
 	const handleEditNextWeight = useCallback(
 		(w: number | null) => {
 			if (!(nextSet && sessionId)) return
-			updatePlannedExercise.mutate({ sessionId, exerciseId: nextSet.exerciseId, targetWeight: w ?? 0 })
+			const targetWeight =
+				nextSet.setType === 'backoff'
+					? workingTargetsFromBackoff(w, nextSet.reps, nextSet.bwMultiplier).weightKg
+					: w
+			updatePlannedExercise.mutate({
+				sessionId,
+				exerciseId: nextSet.exerciseId,
+				targetWeight: targetWeight ?? 0
+			})
 		},
 		[nextSet, sessionId, updatePlannedExercise]
 	)
@@ -202,7 +211,12 @@ const TimerMode: FC = () => {
 	const handleEditNextReps = useCallback(
 		(r: number) => {
 			if (!(nextSet && sessionId) || r < 1) return
-			updatePlannedExercise.mutate({ sessionId, exerciseId: nextSet.exerciseId, targetReps: r })
+			const targetReps =
+				nextSet.setType === 'backoff'
+					? workingTargetsFromBackoff(nextSet.weightKg, r, nextSet.bwMultiplier).reps
+					: r
+			if (targetReps < 1) return
+			updatePlannedExercise.mutate({ sessionId, exerciseId: nextSet.exerciseId, targetReps })
 		},
 		[nextSet, sessionId, updatePlannedExercise]
 	)

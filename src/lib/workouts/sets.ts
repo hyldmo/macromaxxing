@@ -171,6 +171,44 @@ export function generateBackoffSets(
 	return sets
 }
 
+/**
+ * Invert the single planned backoff (80% round-up, +2 reps) back to a working
+ * target so updatePlannedExercise regenerates the same backoff numbers.
+ * Bodyweight backoffs are always +0 kg — weight passes through as working added kg.
+ */
+export function workingTargetsFromBackoff(
+	backoffWeightKg: number | null,
+	backoffReps: number,
+	bwMultiplier = 0
+): { weightKg: number | null; reps: number } {
+	const reps = Math.max(1, backoffReps - 2)
+	if (bwMultiplier > 0 || backoffWeightKg == null || backoffWeightKg <= 0) {
+		return { weightKg: backoffWeightKg, reps }
+	}
+	return { weightKg: workingWeightFromBackoffWeight(backoffWeightKg), reps }
+}
+
+/** Working weight whose first planned backoff matches `backoffWeightKg` (plate-aware). */
+export function workingWeightFromBackoffWeight(backoffWeightKg: number): number {
+	// Closed-form inverse is unreliable because generateBackoffSets round-ups to plates.
+	const approx = backoffWeightKg / 0.8
+	let best = roundWeight(approx, 'kg')
+	let bestDiff = Math.abs((generateBackoffSets(best, 1, 1)[0]?.weightKg ?? 0) - backoffWeightKg)
+
+	for (let delta = -20; delta <= 20; delta++) {
+		const candidate = roundWeight(approx + delta * 0.25, 'kg')
+		const produced = generateBackoffSets(candidate, 1, 1)[0]?.weightKg
+		if (produced == null) continue
+		const diff = Math.abs(produced - backoffWeightKg)
+		if (diff < bestDiff || (diff === bestDiff && Math.abs(candidate - approx) < Math.abs(best - approx))) {
+			best = candidate
+			bestDiff = diff
+		}
+		if (bestDiff === 0 && Math.abs(best - approx) <= 0.01) break
+	}
+	return best
+}
+
 // --- Planned set generation ---
 
 interface MuscleMapping {

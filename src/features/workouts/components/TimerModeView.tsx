@@ -67,7 +67,7 @@ export interface TimerModeViewProps {
 	onDismissTimer?: () => void
 	onEditWeight?: (kg: number | null) => void
 	onEditReps?: (reps: number) => void
-	/** Persist edits to the upcoming working set's planned target (session-scoped). Absent → no edit affordance. */
+	/** Persist edits to the upcoming working/backoff set's planned target (session-scoped). Absent → no edit affordance. */
 	onEditNextWeight?: (kg: number | null) => void
 	onEditNextReps?: (reps: number) => void
 }
@@ -109,11 +109,12 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	onEditNextWeight,
 	onEditNextReps
 }) => {
-	// Inline edit of the upcoming set's numbers. Only working sets round-trip
-	// cleanly (their planned weight/reps ARE the exercise target); warmup/backoff
-	// numbers are derived, so the toggle is offered for working sets only.
+	// Inline edit of the upcoming set's numbers. Warmups stay read-only (derived);
+	// working is 1:1 with the plan target, backoff is inverted back to that target
+	// by the container before persisting.
 	const [editingNext, setEditingNext] = useState(false)
-	const canEditNext = nextSet?.setType === 'working' && (!!onEditNextWeight || !!onEditNextReps)
+	const canEditNext =
+		(nextSet?.setType === 'working' || nextSet?.setType === 'backoff') && (!!onEditNextWeight || !!onEditNextReps)
 	const nextKey = nextSet ? `${nextSet.exerciseId}:${nextSet.setNumber}` : null
 	// Close the editor when the upcoming set changes (queue advanced / navigated away)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the set identity, not the setter
