@@ -185,3 +185,31 @@ export function windowSinceMs(window: AnalyticsWindow, now: number = Date.now())
 export function utcDateKey(ms: number): string {
 	return new Date(ms).toISOString().slice(0, 10)
 }
+
+export type WeightUnit = 'kg' | 'lbs'
+
+/** Pick the smallest practical plate increment for a given weight. */
+export function plateIncrement(weight: number, unit: WeightUnit): number {
+	if (unit === 'lbs') {
+		if (weight <= 10) return 1
+		if (weight <= 40) return 2.5
+		return 5
+	}
+	// kg
+	if (weight <= 5) return 0.5
+	if (weight <= 20) return 1.25
+	return 2.5
+}
+
+/** Round weight to the nearest practical plate increment. */
+export function roundWeight(
+	weight: number,
+	unit: WeightUnit = 'kg',
+	direction: 'nearest' | 'up' | 'down' = 'nearest'
+): number {
+	const inc = plateIncrement(Math.abs(weight), unit)
+	// Snap ratio to avoid floating-point errors (e.g. 20*0.7=14.0000000002 → 14/2=7.0000000001 → ceil=8)
+	const ratio = Math.round((weight / inc) * 1e10) / 1e10
+	const fn = direction === 'up' ? Math.ceil : direction === 'down' ? Math.floor : Math.round
+	return fn(ratio) * inc
+}

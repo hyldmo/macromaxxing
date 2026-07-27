@@ -1,6 +1,13 @@
+import { normalizeObjectSchema } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { deriveAnnotations, extractMcpTools, procedurePathToToolName, serializeToolResult } from './mcp-tools'
+import {
+	deriveAnnotations,
+	extractMcpTools,
+	procedurePathToToolName,
+	serializeToolResult,
+	unwrapInputSchema
+} from './mcp-tools'
 import { appRouter } from './router'
 
 describe('serializeToolResult', () => {
@@ -158,6 +165,30 @@ describe('deriveAnnotations', () => {
 // Guard against a recurring footgun: `z.custom()` has no JSON Schema
 // representation, so any MCP-exposed tRPC input that uses it makes tools/call
 // throw "Custom types cannot be represented in JSON Schema" at runtime.
+describe('unwrapInputSchema', () => {
+	const bag = z.object({ limit: z.number().default(20), window: z.enum(['4w', '12w']).optional() })
+
+	it('unwraps ZodOptional to the inner object', () => {
+		expect(unwrapInputSchema(bag.optional())).toBe(bag)
+	})
+
+	it('unwraps ZodDefault to the inner object', () => {
+		expect(unwrapInputSchema(bag.default({ limit: 20 }))).toBe(bag)
+	})
+
+	it('leaves a bare object schema alone', () => {
+		expect(unwrapInputSchema(bag)).toBe(bag)
+	})
+
+	it('returns undefined for no-input procedures', () => {
+		expect(unwrapInputSchema(undefined)).toBeUndefined()
+	})
+
+	it('the unwrapped object still accepts a no-filter call', () => {
+		expect(unwrapInputSchema(bag.optional())?.safeParse({}).success).toBe(true)
+	})
+})
+
 describe('extractMcpTools input schemas', () => {
 	it('every exposed tool has a Zod schema that converts to JSON Schema', () => {
 		const tools = extractMcpTools(appRouter)
@@ -165,5 +196,38 @@ describe('extractMcpTools input schemas', () => {
 			if (!tool.zodSchema) continue
 			expect(() => z.toJSONSchema(tool.zodSchema as z.ZodType), `tool ${tool.name}`).not.toThrow()
 		}
+	})
+
+	// Regression: `z.toJSONSchema` happily converts a `ZodOptional<ZodObject>`, so the check above
+	// passes for a wrapped schema — but the MCP SDK never calls it. It resolves the shape through
+	// `normalizeObjectSchema`, which returns undefined for wrapper types, and then publishes
+	// EMPTY_OBJECT_JSON_SCHEMA — every filter silently vanishes from the tool contract. Assert
+	// against the SDK's own resolver so the check can't drift from what actually gets published.
+	it('the SDK resolves a bare object but not a wrapped one', () => {
+		const bag = z.object({ window: z.string().optional() })
+		expect(normalizeObjectSchema(bag.optional())).toBeUndefined()
+		expect(normalizeObjectSchema(bag)).toBe(bag)
+	})
+
+	it('every exposed tool resolves through the SDK, so none publish an empty schema', () => {
+		const unresolved = extractMcpTools(appRouter)
+			.filter(tool => tool.zodSchema && !normalizeObjectSchema(tool.zodSchema))
+			.map(tool => tool.name)
+		expect(unresolved).toEqual([])
+	})
+
+	it('optional filter bags publish their fields as properties', () => {
+		const tools = extractMcpTools(appRouter)
+		// listSessions/listExercises/listWorkouts/muscleGroupTrend declare `z.object({...}).optional()`.
+		const listSessions = tools.find(t => t.name === 'workout_listSessions')
+		const schema = z.toJSONSchema(listSessions?.zodSchema as z.ZodType)
+		expect(Object.keys(schema.properties ?? {}).sort()).toEqual([
+			'completed',
+			'exerciseId',
+			'limit',
+			'verbose',
+			'window',
+			'workoutId'
+		])
 	})
 })

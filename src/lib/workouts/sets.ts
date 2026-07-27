@@ -1,6 +1,17 @@
 import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
+import { type GeneratedSet, splitTargetSets } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 import { roundWeight } from './formulas'
+
+// Backoff generation + the targetSets split live in `@macromaxxing/db/sets` (the workers backend
+// needs the same rules to price template rows). Re-exported so `~/lib/workouts/sets` consumers
+// keep working.
+export {
+	type GeneratedSet,
+	generateBackoffSets,
+	splitTargetSets,
+	workingTargetsFromBackoff
+} from '@macromaxxing/db'
 
 export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
 	hypertrophy: { targetSets: 3, targetReps: 10 },
@@ -79,12 +90,6 @@ export function estimateWorkoutDurationSec(workout: DurationWorkout): number {
 	return total
 }
 
-export interface GeneratedSet {
-	weightKg: number
-	reps: number
-	setType: 'warmup' | 'backoff'
-}
-
 export function generateWarmupSets(workingWeight: number, workingReps: number, bwMultiplier = 0): GeneratedSet[] {
 	if (bwMultiplier > 0) {
 		if (workingReps <= 0) return []
@@ -141,62 +146,6 @@ export function shouldSkipWarmup(currentMuscles: MuscleEntry[], warmedUpMuscles:
 	return coveredIntensity / totalIntensity >= 0.5
 }
 
-export function generateBackoffSets(
-	workingWeight: number,
-	workingReps: number,
-	count = 2,
-	bwMultiplier = 0
-): GeneratedSet[] {
-	if (bwMultiplier > 0) {
-		const sets: GeneratedSet[] = []
-		for (let i = 0; i < count; i++) {
-			sets.push({
-				weightKg: 0,
-				reps: workingReps + 2 * (i + 1),
-				setType: 'backoff'
-			})
-		}
-		return sets
-	}
-
-	const sets: GeneratedSet[] = []
-	for (let i = 0; i < count; i++) {
-		const pct = 0.8 - i * 0.1
-		sets.push({
-			weightKg: roundWeight(workingWeight * pct, 'kg', 'up'),
-			reps: workingReps + 2 * (i + 1),
-			setType: 'backoff'
-		})
-	}
-	return sets
-}
-
-/**
- * Invert the single planned backoff (80% round-up, +2 reps) back to a working
- * target so updatePlannedExercise regenerates the same backoff numbers.
- *
- * Returns null when the numbers aren't expressible as a backoff of any working
- * target (reps below 3) — callers reject the edit rather than snapping the user
- * to a value they didn't type.
- *
- * Bodyweight backoffs are always +0 kg, so their weight is NOT invertible — the
- * caller must not offer a weight edit there (see TimerModeView.canEditNextWeight).
- */
-export function workingTargetsFromBackoff(
-	backoffWeightKg: number | null,
-	backoffReps: number,
-	bwMultiplier = 0
-): { weightKg: number | null; reps: number } | null {
-	const reps = backoffReps - 2
-	if (reps < 1) return null
-	if (bwMultiplier > 0 || backoffWeightKg == null || backoffWeightKg <= 0) {
-		return { weightKg: backoffWeightKg, reps }
-	}
-	// generateBackoffSets is ceil(0.8W / plate) * plate, so the largest grid weight
-	// whose 80% still fits under the backoff inverts it exactly.
-	return { weightKg: roundWeight(backoffWeightKg / 0.8, 'kg', 'down'), reps }
-}
-
 // --- Planned set generation ---
 
 interface MuscleMapping {
@@ -224,7 +173,6 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 	let setNum = 1
 
 	const hasWarmup = setMode === 'warmup' || setMode === 'full'
-	const hasBackoff = setMode === 'backoff' || setMode === 'full'
 	const canGenerateLoad = bwMultiplier > 0 || (weightKg != null && weightKg > 0)
 
 	// Generate warmup sets
@@ -243,18 +191,20 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 		}
 	}
 
-	// Generate working sets (subtract 1 if backoff)
-	const workingCount = hasBackoff ? Math.max(1, targetSets - 1) : targetSets
+	// `backoff`/`full` fold one backoff into targetSets — shared with the muscle-load aggregates
+	// so a template row can't mean one thing here and another on the program screen.
+	const { workingCount, backoff } = splitTargetSets({
+		setMode,
+		targetSets,
+		targetReps: reps,
+		targetWeight: weightKg,
+		bwMultiplier
+	})
 	for (let i = 0; i < workingCount; i++) {
 		result.push({ setNumber: setNum++, weightKg, reps, setType: 'working' })
 	}
-
-	// Generate backoff set
-	if (hasBackoff && reps > 0 && canGenerateLoad) {
-		const backoffs = generateBackoffSets(weightKg ?? 0, reps, 1, bwMultiplier)
-		for (const bo of backoffs) {
-			result.push({ setNumber: setNum++, weightKg: bo.weightKg, reps: bo.reps, setType: 'backoff' })
-		}
+	if (backoff) {
+		result.push({ setNumber: setNum++, weightKg: backoff.weightKg, reps: backoff.reps, setType: 'backoff' })
 	}
 
 	return result

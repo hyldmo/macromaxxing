@@ -173,9 +173,13 @@ packages/db/                                # Shared package @macromaxxing/db
   types.ts                                  # Inferred types (Recipe, Ingredient, Exercise, Workout, etc.)
   custom-types.ts                           # typeidCol, newId, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
   preparation.ts                            # Preparation descriptor extraction (extractPreparation)
-  formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isE1rmPR, isStalledExercise)
+  formulas.ts                               # Pure workout math (estimated1RM, totalVolume, isE1rmPR, isStalledExercise, roundWeight)
                                             #   shared between src/ and workers/ (workers/ can't import from src/)
-  muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios)
+  sets.ts                                   # Set-scheme math: generateBackoffSets + splitTargetSets (how targetSets
+                                            #   splits into working sets + the folded backoff) — one source of truth for
+                                            #   the session planner and the muscle-load aggregates
+  muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios) +
+                                            #   plannedRowContributions (template row → per-muscle contributions)
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
 workers/functions/
   [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
@@ -362,7 +366,7 @@ trpc.workout.sessionsByMuscleGroup          # Logged sessions that trained a mus
 trpc.workout.coverageStats                  # Template muscle coverage for body map
 trpc.workout.exerciseMuscleLoad             # Single-exercise muscle breakdown at a given sets/reps/weight dose
 trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown with MEV/MAV/MRV zones + balance ratios
-trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual working sets + balance ratios
+trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual hard sets + balance ratios
 trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
 trpc.workout.exerciseHistory                # Per-exercise time series (top set, e1RM, volume per session) over 4w/12w/1y
 trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
@@ -372,7 +376,7 @@ trpc.workout.listStandards                  # Compound-to-isolation strength rat
 trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout templates
 trpc.analytics.recentPRs                    # Recent personal records (e1RM PRs vs prior max) within window
 trpc.analytics.stalledExercises             # Exercises with no progression over N sessions (flag for deload/swap)
-trpc.analytics.topExercises                 # Top exercises by working-set count over window
+trpc.analytics.topExercises                 # Top exercises by hard-set count over window
 trpc.analytics.weeklyTrend                  # Per-muscle current-period vs prior-period delta (sets + tonnage)
 trpc.analytics.calendarHeatmap              # Per-day training density (sessions, sets) for calendar grid
 trpc.analytics.weeklyVolumeByMuscle         # Per-week intensity-weighted volume by muscle group (Monday-aligned UTC grid)
@@ -433,6 +437,16 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   `useSessionSets` (src/features/workouts/hooks/useSessionSets.ts) — shared by the checklist page and timer mode; rest
   timers are started by the caller, not the mutation
 - **Supersets** group exercises via `supersetGroup` integer — rendered as interleaved rounds with transition timers
+- **`targetSets` semantics**: warmups are ADDITIVE (a `warmup`/`full` row generates its ramp on top of `targetSets`);
+  `backoff`/`full` fold ONE backoff INTO it (`targetSets` 3 → 2 working + 1 backoff at 80% × reps+2). `splitTargetSets`
+  in `packages/db/sets.ts` is the single source of truth, used by both the session planner (`generatePlannedSets`) and
+  the muscle-load aggregates (`plannedRowContributions`), which price the backoff at its real load rather than the
+  row's top-set numbers.
+- **Hard sets** = every non-warmup set. Backoffs count toward MEV/MAV/MRV — every set-count and volume surface
+  (`*MuscleLoad`, `muscleGroupStats`, `sessionsByMuscleGroup`, `muscleGroupTrend`, and all `analytics.*` volume
+  endpoints) filters `setType !== 'warmup'`. Only progression detection (`analytics.recentPRs`,
+  `analytics.stalledExercises`, `lastSessionForExercise`, `exerciseHistory`) restricts to `setType === 'working'`, so a
+  sub-maximal backoff can't masquerade as a top-set trend. Don't mix the two definitions in one comparison.
 - **Fatigue tiers** (1-4) on exercises drive dynamic rest duration: `reps × 4 × goalMultiplier + tierModifier`
 - **Body map** shows muscle coverage per workout template using exercise-muscle intensity mappings
 - **Session review** on completion compares actual vs. planned, offers to update template targets
@@ -518,6 +532,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **MCP server**
 - Use `CfWorkerJsonSchemaValidator` from `@modelcontextprotocol/sdk/validation/cfworker` (Workers can't use AJV — dynamic eval). Needs `@cfworker/json-schema` peer dep.
 - Short-circuit `GET` and `DELETE` on `/api/mcp` with `405 Method Not Allowed` + `Allow: POST` **before** the SDK runs. The stateless SSE handler hangs the CF runtime; spec-compliant clients fall back to POST-only JSON-RPC.
+- **A wrapped input schema silently erases every filter from the tool contract.** `.input(z.object({…}).optional())` is the natural way to make a filter bag optional for tRPC callers, but the SDK's `normalizeObjectSchema` only recognises a raw shape or a schema whose `def` carries a `shape` — a `ZodOptional`/`ZodDefault` has neither, so it returns undefined and `registerTool` publishes `EMPTY_OBJECT_JSON_SCHEMA`. The tool then advertises `{"type":"object","properties":{}}`, agents can't pass `window`/`search`/`limit`, and the only symptom is unfiltered full dumps. `unwrapInputSchema` in `mcp-tools.ts` strips the wrappers at extraction time — don't reintroduce an `as any` on `inputSchema` that would hide the next instance. Note `z.toJSONSchema()` converts wrapped schemas *correctly*, so a test that asserts against it will not catch this; assert the extracted schema is a `ZodObject`.
 
 **Drizzle ORM v1**
 - `defineRelations` replaces separate `relations()` calls (`fields/references` → `from/to`, `relationName` → `alias`)

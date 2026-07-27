@@ -1,4 +1,13 @@
-import { type ExerciseType, type FatigueTier, MUSCLE_GROUPS, type MuscleGroup, type TrainingGoal } from './custom-types'
+import {
+	type ExerciseType,
+	type FatigueTier,
+	MUSCLE_GROUPS,
+	type MuscleGroup,
+	type SetMode,
+	type TrainingGoal
+} from './custom-types'
+import { effectiveSetWeightKg } from './formulas'
+import { splitTargetSets } from './sets'
 
 /**
  * Relative CNS/systemic drain per fatigue tier. Tier 1 (heavy barbell compounds)
@@ -77,6 +86,75 @@ export interface MuscleContribution {
 	fatigueTier: FatigueTier
 	/** Per-exercise training goal if overridden, else parent (workout/session) goal. */
 	trainingGoal: TrainingGoal
+}
+
+/**
+ * A template row (`workoutExercises` / `sessionPlannedExercises`) reduced to the fields that
+ * drive muscle load. Structural, not a Drizzle row type, so this file stays pure.
+ */
+export interface PlannedRow {
+	setMode: SetMode
+	targetSets: number | null
+	targetReps: number | null
+	/** Added kg, or null when the row has no working weight yet. */
+	targetWeight: number | null
+	/** Per-exercise override; falls back to the parent workout's goal. */
+	trainingGoal: TrainingGoal | null
+	exercise: {
+		type: ExerciseType
+		fatigueTier: FatigueTier
+		bwMultiplier: number
+		muscles: ReadonlyArray<{ muscleGroup: MuscleGroup; intensity: number }>
+	}
+}
+
+/**
+ * Expand one planned/template row into its muscle contributions.
+ *
+ * Warmups contribute nothing — they're sub-threshold by construction, and they're additive to
+ * `targetSets` rather than folded into it, so they never appear here. The backoff that
+ * `backoff`/`full` modes DO fold into `targetSets` is emitted as its own contribution priced at
+ * its actual generated load (80% × reps+2) instead of the row's top-set numbers; counting it at
+ * full load overstates `volumeKg` by up to ~8%. It still counts as one whole effective set —
+ * a backoff taken to a comparable RIR is a hard set, and `sessionMuscleLoad` counts the logged
+ * one the same way.
+ */
+export function plannedRowContributions(
+	row: PlannedRow,
+	parentGoal: TrainingGoal,
+	bodyWeightKg: number | null
+): MuscleContribution[] {
+	const trainingGoal: TrainingGoal = row.trainingGoal ?? parentGoal
+	const targetSets = row.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
+	const targetReps = row.targetReps ?? 0
+	const { type: exerciseType, fatigueTier, bwMultiplier, muscles } = row.exercise
+
+	const { workingCount, backoff } = splitTargetSets({
+		setMode: row.setMode,
+		targetSets,
+		targetReps,
+		targetWeight: row.targetWeight,
+		bwMultiplier
+	})
+
+	const load = (addedKg: number | null) =>
+		addedKg != null ? effectiveSetWeightKg(bwMultiplier, bodyWeightKg, addedKg) : undefined
+
+	const dose = [{ sets: workingCount, reps: row.targetReps ?? undefined, weightKg: load(row.targetWeight) }]
+	if (backoff) dose.push({ sets: 1, reps: backoff.reps, weightKg: load(backoff.weightKg) })
+
+	return dose.flatMap(({ sets, reps, weightKg }) =>
+		muscles.map(m => ({
+			muscleGroup: m.muscleGroup,
+			intensity: m.intensity,
+			sets,
+			reps,
+			weightKg,
+			exerciseType,
+			fatigueTier,
+			trainingGoal
+		}))
+	)
 }
 
 export interface MuscleLoad {

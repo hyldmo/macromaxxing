@@ -1,5 +1,6 @@
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { AnyRouter } from '@trpc/server'
+import { ZodDefault, ZodOptional, ZodType } from 'zod'
 import { appRouter } from './router'
 
 /**
@@ -49,10 +50,38 @@ export function deriveAnnotations(
 export interface McpToolDef {
 	name: string
 	description: string
-	/** The raw Zod schema from tRPC's .input(), or undefined for no-input procedures */
-	zodSchema: unknown
+	/**
+	 * The Zod schema from tRPC's `.input()`, unwrapped to a bare object (see
+	 * `unwrapInputSchema`), or undefined for no-input procedures.
+	 */
+	zodSchema: ZodType | undefined
 	procedurePath: string
 	annotations: ToolAnnotations
+}
+
+/**
+ * Strip `ZodOptional`/`ZodDefault` wrappers off a procedure's input schema.
+ *
+ * List endpoints declare their filter bag as `z.object({...}).optional()` so tRPC callers can
+ * invoke them with no argument. The MCP SDK derives a tool's published JSON Schema via
+ * `normalizeObjectSchema`, which only recognises a raw shape or a schema whose `def` carries a
+ * `shape` — a wrapper type has neither, so it returns undefined and the SDK falls back to
+ * `EMPTY_OBJECT_JSON_SCHEMA`. The tool then advertises `{"type":"object","properties":{}}` and
+ * every documented filter (`window`, `search`, `muscleGroup`, `limit`, …) is unreachable:
+ * clients either drop the arguments or send them untyped and Zod rejects them.
+ *
+ * Unwrapping is safe because every field inside these objects is itself optional or defaulted,
+ * so `{}` still parses. It does mean a client that omits `arguments` entirely now fails
+ * validation where it previously passed `undefined` — acceptable, since a tool whose schema is
+ * an object is called with an object by every mainstream client, and the alternative is filters
+ * that cannot be used at all.
+ */
+export function unwrapInputSchema(schema: unknown): ZodType | undefined {
+	let current = schema
+	while (current instanceof ZodOptional || current instanceof ZodDefault) {
+		current = current.unwrap()
+	}
+	return current instanceof ZodType ? current : undefined
 }
 
 /** Walk the tRPC router and extract procedures that have .meta({ description }) set */
@@ -65,7 +94,7 @@ export function extractMcpTools(router: AnyRouter): McpToolDef[] {
 		if (!meta?.description) continue
 
 		const inputs = procedure._def?.inputs as unknown[] | undefined
-		const zodSchema = inputs?.[0]
+		const zodSchema = unwrapInputSchema(inputs?.[0])
 		const type = procedure._def?.type as 'query' | 'mutation' | 'subscription'
 
 		tools.push({

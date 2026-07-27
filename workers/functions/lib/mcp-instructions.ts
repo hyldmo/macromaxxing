@@ -20,7 +20,7 @@ export const MCP_INSTRUCTIONS = `Macromaxxing is a nutrition + strength-training
 When designing or modifying TRAINING programs, these are non-negotiable:
 
 1. Use muscle-load data, not intuition. Check each muscle against its MEV/MAV/MRV zone before adding or cutting volume — below MEV, add volume in any productive form; at or above MAV, justify the marginal set.
-2. The three muscle-load tools are distinct and not interchangeable: workout_workoutMuscleLoad (one template's weekly load), workout_programMuscleLoad (the whole program cycle, and the ONLY reliable source for balance ratios — push/pull, biceps/triceps, anterior/posterior), workout_sessionMuscleLoad (a single logged session, working sets only). Never hand-aggregate per-session loads to estimate ratios.
+2. The three muscle-load tools are distinct and not interchangeable: workout_workoutMuscleLoad (one template's weekly load), workout_programMuscleLoad (the whole program cycle, and the ONLY reliable source for balance ratios — push/pull, biceps/triceps, anterior/posterior), workout_sessionMuscleLoad (a single logged session). Never hand-aggregate per-session loads to estimate ratios. All three count hard sets (warmups excluded, backoffs included), so planned and logged numbers are directly comparable.
 3. workout_createExercise: fill every field. On isolations, pass explicit null for the strength rep range — never omit it. Pass the technique guide (description, cues, pitfalls) inline in the same call, not as a separate workout_upsertGuide follow-up. Host "No approval received" flakes are client-side — retry is OK, but check for a duplicate name before re-creating.
 4. One row per exercise per template. Warmup ramps are logged ad hoc during a session, never as separate template rows. setMode "full" means the row covers the warmup ramp plus working sets; its target sets/reps/weight describe the working sets only.
 5. Verify after building: a template with workout_workoutMuscleLoad, a program with workout_programMuscleLoad.
@@ -80,12 +80,18 @@ Users can define training locations (gym, home, hotel) with an equipment checkli
 
 - \`working\` — standard working set
 - \`warmup\` — ramp-up set
-- \`backoff\` — reduced-weight high-rep set after the working sets
+- \`backoff\` — reduced-weight high-rep set (80% of the load, +2 reps) after the working sets
 - \`full\` — the row represents the full scheme (warmup ramp + working sets logged together); targetSets/Reps/Weight describe the working sets only. Apply to the first heavy compound loading a cold muscle group.
 
 One row per exercise per template — warmup ramps are NOT separate template rows; they are logged ad hoc during the session.
 
-## Volume landmarks (MEV / MAV / MRV, working sets per week)
+How \`targetSets\` expands: warmups are ADDITIVE (never subtracted from targetSets), but \`backoff\` and \`full\` fold ONE backoff into it — targetSets 3 means 2 sets at the target load plus a backoff at 80% × reps+2. So a \`full\` row with targetSets 2 leaves a single top set; cutting the backoff there leaves nothing behind it.
+
+## Volume landmarks (MEV / MAV / MRV, hard sets per week)
+
+A hard set is any non-warmup set. Backoffs count — they're taken near failure and drive the same
+adaptation — so every set-count surface (muscle load, analytics, trends) excludes warmups and
+includes backoffs. Only PR and stall detection restrict to top working sets.
 
 | Muscle | MEV | MAV | MRV |
 |---|---|---|---|
@@ -130,7 +136,7 @@ Well-covered at home: chest, triceps, front/side/rear delts, biceps, forearms, c
 - Prefer filtered lists over full dumps: workout_listExercises (\`search\`, \`muscleGroup\`, \`equipment\`, \`limit\`), workout_listWorkouts (\`search\`, \`trainingGoal\`, \`locationId\`), workout_listSessions (\`window\`, \`completed\`, \`workoutId\`, \`exerciseId\`).
 - For "last working sets for exercise X", call workout_lastSessionForExercise — do not scan listSessions.
 - workout_updatePlannedExercise can also patch session-scoped targetSets/targetReps/targetWeight (does not touch the template).
-- workout_workoutMuscleLoad (one template's weekly load) vs workout_programMuscleLoad (the whole program cycle + balance ratios) vs workout_sessionMuscleLoad (a logged session, working sets only) are distinct — don't substitute one for another. workout_sessionMuscleLoad counts working sets only, so old-vs-new comparisons stay apples-to-apples.
+- workout_workoutMuscleLoad (one template's weekly load) vs workout_programMuscleLoad (the whole program cycle + balance ratios) vs workout_sessionMuscleLoad (a logged session) are distinct — don't substitute one for another. All three count hard sets (warmups excluded, backoffs included) and price the backoff a \`backoff\`/\`full\` row folds into targetSets at its real 80% × reps+2 load, so planned-vs-logged comparisons stay apples-to-apples.
 - workout_programMuscleLoad is the only reliable source for balance ratios (push/pull, biceps/triceps, anterior/posterior). Never hand-aggregate per-session loads to estimate them. If it fails, fall back to per-template workout_workoutMuscleLoad and aggregate manually, but flag that ratio calculations may be missing.
 - A 4-week window is sufficient for workout_exerciseHistory.
 - workout_listSessions returns a large payload ordered most-recent-first (use verbose:false + window/filters when scanning).

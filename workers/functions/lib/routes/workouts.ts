@@ -11,12 +11,14 @@ import {
 	exercises,
 	exerciseType,
 	type FatigueTier,
+	generateBackoffSets,
 	locationEquipment,
 	locations,
 	MUSCLE_GROUPS,
 	type MuscleContribution,
 	type MuscleGroup,
 	newId,
+	plannedRowContributions,
 	type SetType,
 	sessionPlannedExercises,
 	setMode,
@@ -2112,28 +2114,9 @@ export const workoutsRouter = router({
 			})
 			const bodyWeightKg = settings?.weightKg ?? null
 
-			const contributions: MuscleContribution[] = []
-			for (const we of workout.exercises) {
-				const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
-				const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
-				const targetWeight = we.targetWeight
-				const weightKg =
-					targetWeight != null
-						? effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, targetWeight)
-						: undefined
-				for (const m of we.exercise.muscles) {
-					contributions.push({
-						muscleGroup: m.muscleGroup,
-						intensity: m.intensity,
-						sets,
-						reps: we.targetReps ?? undefined,
-						weightKg,
-						exerciseType: we.exercise.type,
-						fatigueTier: we.exercise.fatigueTier,
-						trainingGoal: goal
-					})
-				}
-			}
+			const contributions = workout.exercises.flatMap(we =>
+				plannedRowContributions(we, workout.trainingGoal, bodyWeightKg)
+			)
 
 			const loads = computeMuscleLoad(contributions)
 			const muscles = withZones(loads)
@@ -2360,31 +2343,7 @@ export const workoutsRouter = router({
 			}
 
 			const { workingWeight, workingReps, count } = input
-
-			if (bwMultiplier > 0) {
-				const sets: Array<{ weightKg: number; reps: number; setType: 'backoff' }> = []
-				for (let i = 0; i < count; i++) {
-					sets.push({
-						weightKg: 0,
-						reps: workingReps + 2 * (i + 1),
-						setType: 'backoff'
-					})
-				}
-				return sets
-			}
-
-			const roundUp = (w: number) => Math.ceil(w / 0.5) * 0.5
-
-			const sets: Array<{ weightKg: number; reps: number; setType: 'backoff' }> = []
-			for (let i = 0; i < count; i++) {
-				const pct = 0.8 - i * 0.1
-				sets.push({
-					weightKg: roundUp(workingWeight * pct),
-					reps: workingReps + 2 * (i + 1),
-					setType: 'backoff'
-				})
-			}
-			return sets
+			return generateBackoffSets(workingWeight, workingReps, count, bwMultiplier)
 		}),
 
 	importWorkouts: protectedProcedure
@@ -3019,33 +2978,10 @@ export const workoutsRouter = router({
 			})
 			const bodyWeightKg = settings?.weightKg ?? null
 
-			const contributions: MuscleContribution[] = []
-			let exerciseCount = 0
-			for (const item of program.items) {
-				const workout = item.workout
-				for (const we of workout.exercises) {
-					exerciseCount++
-					const goal: TrainingGoal = we.trainingGoal ?? workout.trainingGoal
-					const sets = we.targetSets ?? (goal === 'strength' ? 5 : 3)
-					const targetWeight = we.targetWeight
-					const weightKg =
-						targetWeight != null
-							? effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, targetWeight)
-							: undefined
-					for (const m of we.exercise.muscles) {
-						contributions.push({
-							muscleGroup: m.muscleGroup,
-							intensity: m.intensity,
-							sets,
-							reps: we.targetReps ?? undefined,
-							weightKg,
-							exerciseType: we.exercise.type,
-							fatigueTier: we.exercise.fatigueTier,
-							trainingGoal: goal
-						})
-					}
-				}
-			}
+			const contributions = program.items.flatMap(({ workout }) =>
+				workout.exercises.flatMap(we => plannedRowContributions(we, workout.trainingGoal, bodyWeightKg))
+			)
+			const exerciseCount = program.items.reduce((n, { workout }) => n + workout.exercises.length, 0)
 
 			const loads = computeMuscleLoad(contributions)
 			const muscles = withZones(loads)
