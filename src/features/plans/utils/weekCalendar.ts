@@ -10,6 +10,8 @@ import {
 } from '~/features/recipes/utils/macros'
 import { type ActiveProgramRef, DAYS_SHORT, getWeekStart, pickNextWorkout } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { recoveryHoursFromPriorSession } from '~/lib/workouts/muscleReadiness'
+import { computeProgramRest } from '~/lib/workouts/programRest'
 
 type Summary = RouterOutput['dashboard']['summary']
 export type CalendarPlan = Summary['plans'][number]
@@ -128,11 +130,15 @@ function cycleTemplates(
 }
 
 /**
- * Lay the rest of the rotation across the remaining days of the week, one workout per open day.
- * Programs carry no day-of-week schedule, so this is a straight projection from wherever the cycle
- * currently stands — capped at one pass, so a 5-workout rotation fills 5 days and leaves the rest
- * open rather than repeating itself. Days that already hold a session re-anchor the cycle instead
- * of getting a ghost.
+ * Lay the rest of the rotation across the remaining days of the week, respecting the recovery debt
+ * each transition carries: `computeProgramRest` prices the muscles a workout shares with the one
+ * after it, and the projection leaves that many days open before placing the next ghost (floor of
+ * one day, so a no-overlap transition still goes back-to-back rather than twice in a day).
+ *
+ * Programs carry no day-of-week schedule, so placement is otherwise "as early as recovery allows",
+ * capped at one pass so a 5-workout rotation can't repeat itself inside a week. Days that already
+ * hold a session re-anchor the cycle — the logged workout sets both the next position and the rest
+ * owed from it — instead of getting a ghost.
  *
  * Returns `dayOfWeek → template`; the earliest entry is the "next" one the dashboard would start.
  */
@@ -150,20 +156,32 @@ export function projectUpcomingWorkouts({
 	const nextTemplate = next.kind === 'emptyActiveProgram' ? null : next.template
 	if (!nextTemplate) return upcoming
 
+	// Rest owed after cycle[i] before cycle[i+1], in whole days — the grid has no finer resolution.
+	// Planned days can only be priced from the template; a day that was actually trained is priced
+	// from its logged working sets instead, so a session cut short frees the next day sooner.
+	const transitions = computeProgramRest(cycle)
+	const toDays = (hours: number): number => Math.max(1, Math.ceil(hours / 24))
+	const restDaysAfter = (index: number): number => toDays(transitions[index % cycle.length]?.bottleneckHours ?? 0)
+
 	let cursor = Math.max(
 		cycle.findIndex(t => t.id === nextTemplate.id),
 		0
 	)
 	let placed = 0
+	let earliestDay = -1
 
 	for (const day of days) {
 		const logged = day.sessions.findLast(s => s.workoutId !== null && cycle.some(t => t.id === s.workoutId))
 		if (logged) {
-			cursor = cycle.findIndex(t => t.id === logged.workoutId) + 1
+			const loggedIdx = cycle.findIndex(t => t.id === logged.workoutId)
+			cursor = loggedIdx + 1
+			earliestDay = day.dayOfWeek + toDays(recoveryHoursFromPriorSession(logged, cycle[cursor % cycle.length]))
 			continue
 		}
 		if (day.isPast || day.sessions.length > 0 || placed === cycle.length) continue
+		if (day.dayOfWeek < earliestDay) continue // still recovering from the previous workout
 		upcoming.set(day.dayOfWeek, cycle[cursor % cycle.length])
+		earliestDay = day.dayOfWeek + restDaysAfter(cursor)
 		cursor++
 		placed++
 	}

@@ -140,3 +140,23 @@ export function pendingRecoveryFromPriorSession(
 
 	return pending.sort((a, b) => b.readyAt - a.readyAt)
 }
+
+/**
+ * Hours of rest the prior session's logged working sets demand before `nextTemplate` — the
+ * bottleneck muscle across the two, or 0 when they share none. Same model as
+ * `computeProgramRest`'s `bottleneckHours`, but priced from what was actually logged, so a
+ * session that was cut short (or pushed well past plan) moves the next workout accordingly.
+ */
+export function recoveryHoursFromPriorSession(
+	priorSession: ReadinessSessionInput,
+	nextTemplate: ReadinessTemplateInput
+): number {
+	const priorFatigue = collectSessionMuscleFatigue(priorSession)
+	let bottleneck = 0
+	for (const mg of templateMuscleGroups(nextTemplate)) {
+		const fatigueUnits = priorFatigue.get(mg)
+		if (fatigueUnits === undefined) continue
+		bottleneck = Math.max(bottleneck, recoveryHoursFromFatigue(fatigueUnits))
+	}
+	return bottleneck
+}
