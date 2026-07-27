@@ -174,39 +174,27 @@ export function generateBackoffSets(
 /**
  * Invert the single planned backoff (80% round-up, +2 reps) back to a working
  * target so updatePlannedExercise regenerates the same backoff numbers.
- * Bodyweight backoffs are always +0 kg — weight passes through as working added kg.
+ *
+ * Returns null when the numbers aren't expressible as a backoff of any working
+ * target (reps below 3) — callers reject the edit rather than snapping the user
+ * to a value they didn't type.
+ *
+ * Bodyweight backoffs are always +0 kg, so their weight is NOT invertible — the
+ * caller must not offer a weight edit there (see TimerModeView.canEditNextWeight).
  */
 export function workingTargetsFromBackoff(
 	backoffWeightKg: number | null,
 	backoffReps: number,
 	bwMultiplier = 0
-): { weightKg: number | null; reps: number } {
-	const reps = Math.max(1, backoffReps - 2)
+): { weightKg: number | null; reps: number } | null {
+	const reps = backoffReps - 2
+	if (reps < 1) return null
 	if (bwMultiplier > 0 || backoffWeightKg == null || backoffWeightKg <= 0) {
 		return { weightKg: backoffWeightKg, reps }
 	}
-	return { weightKg: workingWeightFromBackoffWeight(backoffWeightKg), reps }
-}
-
-/** Working weight whose first planned backoff matches `backoffWeightKg` (plate-aware). */
-export function workingWeightFromBackoffWeight(backoffWeightKg: number): number {
-	// Closed-form inverse is unreliable because generateBackoffSets round-ups to plates.
-	const approx = backoffWeightKg / 0.8
-	let best = roundWeight(approx, 'kg')
-	let bestDiff = Math.abs((generateBackoffSets(best, 1, 1)[0]?.weightKg ?? 0) - backoffWeightKg)
-
-	for (let delta = -20; delta <= 20; delta++) {
-		const candidate = roundWeight(approx + delta * 0.25, 'kg')
-		const produced = generateBackoffSets(candidate, 1, 1)[0]?.weightKg
-		if (produced == null) continue
-		const diff = Math.abs(produced - backoffWeightKg)
-		if (diff < bestDiff || (diff === bestDiff && Math.abs(candidate - approx) < Math.abs(best - approx))) {
-			best = candidate
-			bestDiff = diff
-		}
-		if (bestDiff === 0 && Math.abs(best - approx) <= 0.01) break
-	}
-	return best
+	// generateBackoffSets is ceil(0.8W / plate) * plate, so the largest grid weight
+	// whose 80% still fits under the backoff inverts it exactly.
+	return { weightKg: roundWeight(backoffWeightKg / 0.8, 'kg', 'down'), reps }
 }
 
 // --- Planned set generation ---

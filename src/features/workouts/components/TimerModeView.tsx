@@ -113,8 +113,12 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	// working is 1:1 with the plan target, backoff is inverted back to that target
 	// by the container before persisting.
 	const [editingNext, setEditingNext] = useState(false)
+	// Bodyweight backoffs are generated at a flat +0 kg, so a weight edit there has
+	// nothing to invert into — reps only.
+	const canEditNextWeight =
+		!!onEditNextWeight && !(nextSet?.setType === 'backoff' && nextSet.bwMultiplier > 0) && nextSet !== null
 	const canEditNext =
-		(nextSet?.setType === 'working' || nextSet?.setType === 'backoff') && (!!onEditNextWeight || !!onEditNextReps)
+		(nextSet?.setType === 'working' || nextSet?.setType === 'backoff') && (canEditNextWeight || !!onEditNextReps)
 	const nextKey = nextSet ? `${nextSet.exerciseId}:${nextSet.setNumber}` : null
 	// Close the editor when the upcoming set changes (queue advanced / navigated away)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the set identity, not the setter
@@ -415,18 +419,24 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 									)}
 									{editingNext && canEditNext ? (
 										<div className="flex items-center gap-1">
-											<NumberInput
-												className="w-16 text-center text-sm"
-												value={nextSet.weightKg ?? ''}
-												placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
-												unit="kg"
-												onChange={e => {
-													const v = Number.parseFloat(e.target.value)
-													onEditNextWeight?.(Number.isNaN(v) ? null : v)
-												}}
-												step={2.5}
-												min={0}
-											/>
+											{canEditNextWeight ? (
+												<NumberInput
+													className="w-16 text-center text-sm"
+													value={nextSet.weightKg ?? ''}
+													placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
+													unit="kg"
+													onChange={e => {
+														const v = Number.parseFloat(e.target.value)
+														onEditNextWeight?.(Number.isNaN(v) ? null : v)
+													}}
+													step={2.5}
+													min={0}
+												/>
+											) : (
+												<span className="font-mono text-ink text-sm tabular-nums">
+													{displayWeight(nextSet, nextSet.weightKg)}kg
+												</span>
+											)}
 											<span className="text-ink-faint text-xs">&times;</span>
 											<NumberInput
 												className="w-12 text-center text-sm"

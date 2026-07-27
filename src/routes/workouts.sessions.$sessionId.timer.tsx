@@ -190,15 +190,19 @@ const TimerMode: FC = () => {
 		[currentSet, updateSet]
 	)
 
-	// Edits to the "next up" set write to its plan row's working target. Working
-	// sets are 1:1; backoff numbers are inverted so regenerate keeps what was typed.
+	// Edits to the "next up" set write to its plan row's working target. Working sets
+	// are 1:1; backoff numbers are inverted so regenerate keeps what was typed. Note
+	// this rewrites the target the completed working sets are diffed against in
+	// SessionReview — intentional, since the plan row is the only place a target lives.
 	const handleEditNextWeight = useCallback(
 		(w: number | null) => {
 			if (!(nextSet && sessionId)) return
-			const targetWeight =
-				nextSet.setType === 'backoff'
-					? workingTargetsFromBackoff(w, nextSet.reps, nextSet.bwMultiplier).weightKg
-					: w
+			let targetWeight = w
+			if (nextSet.setType === 'backoff') {
+				const inverted = workingTargetsFromBackoff(w, nextSet.reps, nextSet.bwMultiplier)
+				if (!inverted) return
+				targetWeight = inverted.weightKg
+			}
 			updatePlannedExercise.mutate({
 				sessionId,
 				exerciseId: nextSet.exerciseId,
@@ -211,11 +215,13 @@ const TimerMode: FC = () => {
 	const handleEditNextReps = useCallback(
 		(r: number) => {
 			if (!(nextSet && sessionId) || r < 1) return
-			const targetReps =
-				nextSet.setType === 'backoff'
-					? workingTargetsFromBackoff(nextSet.weightKg, r, nextSet.bwMultiplier).reps
-					: r
-			if (targetReps < 1) return
+			let targetReps = r
+			if (nextSet.setType === 'backoff') {
+				const inverted = workingTargetsFromBackoff(nextSet.weightKg, r, nextSet.bwMultiplier)
+				// Below 3 reps has no working target that regenerates it — reject over snapping back.
+				if (!inverted) return
+				targetReps = inverted.reps
+			}
 			updatePlannedExercise.mutate({ sessionId, exerciseId: nextSet.exerciseId, targetReps })
 		},
 		[nextSet, sessionId, updatePlannedExercise]

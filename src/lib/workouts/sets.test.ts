@@ -311,21 +311,37 @@ describe('generateBackoffSets', () => {
 })
 
 describe('workingTargetsFromBackoff', () => {
-	it('round-trips so regenerate matches the edited backoff numbers', () => {
-		for (const working of [20, 60, 100, 120, 140]) {
-			const [{ weightKg, reps }] = generateBackoffSets(working, 8, 1)
-			const inverted = workingTargetsFromBackoff(weightKg, reps)
-			expect(generateBackoffSets(inverted.weightKg!, inverted.reps, 1)[0]).toEqual({
+	// Every backoff weight the UI can actually display — the image of generateBackoffSets
+	// over the plate grid. The inverse must be exact across all of it, not just a sample.
+	const reachableBackoffWeights = () => {
+		const weights = new Set<number>()
+		for (let working = 2.5; working <= 300; working += 2.5) {
+			weights.add(generateBackoffSets(working, 8, 1)[0].weightKg)
+		}
+		return [...weights]
+	}
+
+	it('round-trips every reachable backoff weight exactly', () => {
+		for (const weightKg of reachableBackoffWeights()) {
+			const inverted = workingTargetsFromBackoff(weightKg, 10)
+			expect(inverted).not.toBeNull()
+			expect(generateBackoffSets(inverted!.weightKg!, inverted!.reps, 1)[0]).toEqual({
 				weightKg,
-				reps,
+				reps: 10,
 				setType: 'backoff'
 			})
 		}
 	})
 
-	it('bodyweight: reps − 2, weight passes through', () => {
+	it('bodyweight: reps − 2, weight passes through (bw backoffs are always +0)', () => {
 		expect(workingTargetsFromBackoff(0, 10, 1)).toEqual({ weightKg: 0, reps: 8 })
 		expect(workingTargetsFromBackoff(5, 12, 1)).toEqual({ weightKg: 5, reps: 10 })
+	})
+
+	it('rejects reps a backoff cannot express instead of clamping', () => {
+		expect(workingTargetsFromBackoff(60, 3)).toEqual({ weightKg: 75, reps: 1 })
+		expect(workingTargetsFromBackoff(60, 2)).toBeNull()
+		expect(workingTargetsFromBackoff(60, 1)).toBeNull()
 	})
 })
 
