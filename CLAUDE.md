@@ -123,6 +123,13 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
+    plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
+      WeekCalendarSection.tsx               # Read-only Mon–Sun view of the current week (top of /plans), fed by
+                                            #   dashboard.summary; meals come only from plans CREATED in the current
+                                            #   week (no picker — a W7 plan must not surface in W39)
+      components/WeekCalendarDay.tsx        # One day cell: session chips, next-workout ghost chip, meal rows + totals
+      utils/weekCalendar.ts                 # Pure: folds undated meal-plan slots (dayOfWeek) and dated sessions
+                                            #   (startedAt) onto one week grid
     workouts/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets). Shared by
                                             #   /workouts/new and /workouts/:workoutId.
@@ -225,7 +232,7 @@ src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx
 /exercises                           → ExerciseListPage
 /exercises/new                       → ExerciseDetailPage (create mode)
 /exercises/:id                       → ExerciseDetailPage (editor + history chart/table)
-/plans                               → PlansPage (Meal Plans + Workout Programs sections)
+/plans                               → PlansPage (This week calendar + Meal Plans + Workout Programs sections)
 /plans/programs/new                  → ProgramEditor (new program)
 /plans/programs/:id                  → ProgramEditor (edit program)
 /plans/:id                           → MealPlannerPage

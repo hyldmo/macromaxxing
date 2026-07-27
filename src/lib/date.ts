@@ -22,7 +22,8 @@ export function formatTime(ts: number): string {
 	return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
-function getWeekStart(ts: number): number {
+/** Local-time midnight of the Monday starting the week that contains `ts`. */
+export function getWeekStart(ts: number): number {
 	const d = new Date(ts)
 	const day = d.getDay()
 	const diff = d.getDate() - day + (day === 0 ? -6 : 1)
