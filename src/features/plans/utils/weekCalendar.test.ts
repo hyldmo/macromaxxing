@@ -63,7 +63,17 @@ function makeSession(startedAt: number, name: string, workoutId: string | null =
 }
 
 function makeTemplates(count: number): CalendarTemplate[] {
-	return Array.from({ length: count }, (_, i) => ({ id: `wkt_${i}`, name: `W${i}` }) as unknown as CalendarTemplate)
+	return Array.from(
+		{ length: count },
+		(_, i) =>
+			({
+				id: `wkt_${i}`,
+				name: `W${i}`,
+				trainingGoal: 'hypertrophy',
+				// No exercises = no muscle overlap = no recovery debt, so these project back-to-back.
+				exercises: []
+			}) as unknown as CalendarTemplate
+	)
 }
 
 function makeProgram(templates: readonly CalendarTemplate[]): ActiveProgramRef {
@@ -215,5 +225,73 @@ describe('projectUpcomingWorkouts', () => {
 		})
 
 		expect(upcoming.size).toBe(0)
+	})
+})
+
+describe('projectUpcomingWorkouts recovery spacing', () => {
+	/** Two workouts that both hammer chest — computeProgramRest prices the overlap, not the volume alone. */
+	function pressWorkout(id: string, name: string, sets: number): CalendarTemplate {
+		return {
+			id,
+			name,
+			trainingGoal: 'hypertrophy',
+			exercises: [
+				{
+					targetSets: sets,
+					trainingGoal: null,
+					exercise: { fatigueTier: 1, muscles: [{ muscleGroup: 'chest', intensity: 1 }] }
+				}
+			]
+		} as unknown as CalendarTemplate
+	}
+
+	it('leaves rest days between workouts that share a muscle', () => {
+		// 6 sets x tier-1 chest -> 24 + 6*6 = 60h -> 3 days between starts.
+		const templates = [pressWorkout('wkt_a', 'Push A', 6), pressWorkout('wkt_b', 'Push B', 6)]
+		const days = buildWeekDays({ plans: [], sessions: [], now: NOW })
+
+		const upcoming = projectUpcomingWorkouts({
+			days,
+			templates,
+			sessions: [],
+			activeProgram: makeProgram(templates)
+		})
+
+		// Today is Wed (2): Push A Wed, Push B Sat — Thu/Fri are recovery.
+		expect([...upcoming.entries()].map(([d, t]) => [d, t.name])).toEqual([
+			[2, 'Push A'],
+			[5, 'Push B']
+		])
+	})
+
+	it('goes back-to-back when the transition shares no muscles', () => {
+		const templates = [
+			pressWorkout('wkt_a', 'Push', 6),
+			{
+				id: 'wkt_b',
+				name: 'Legs',
+				trainingGoal: 'hypertrophy',
+				exercises: [
+					{
+						targetSets: 6,
+						trainingGoal: null,
+						exercise: { fatigueTier: 1, muscles: [{ muscleGroup: 'quads', intensity: 1 }] }
+					}
+				]
+			} as unknown as CalendarTemplate
+		]
+		const days = buildWeekDays({ plans: [], sessions: [], now: NOW })
+
+		const upcoming = projectUpcomingWorkouts({
+			days,
+			templates,
+			sessions: [],
+			activeProgram: makeProgram(templates)
+		})
+
+		expect([...upcoming.entries()].map(([d, t]) => [d, t.name])).toEqual([
+			[2, 'Push'],
+			[3, 'Legs']
+		])
 	})
 })

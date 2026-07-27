@@ -133,8 +133,9 @@ src/
       components/WeekCalendarDay.tsx        # One day cell: session chips, projected-workout ghost chip, meals + totals
       utils/weekCalendar.ts                 # Pure: buildWeekDays folds undated meal-plan slots (dayOfWeek) and dated
                                             #   sessions (startedAt) onto one week grid; projectUpcomingWorkouts
-                                            #   spreads the rest of the rotation over the week's open days (one pass,
-                                            #   no repeats; logged sessions re-anchor the cycle)
+                                            #   spreads the rest of the rotation over the week's open days, spaced by
+                                            #   computeProgramRest bottleneck hours (one pass, no repeats; logged
+                                            #   sessions re-anchor both the cycle position and the rest owed)
     workouts/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets). Shared by
                                             #   /workouts/new and /workouts/:workoutId.
