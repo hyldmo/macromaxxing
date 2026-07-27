@@ -401,21 +401,22 @@ const AddSetRow: FC<{
 
 			<NumberInput
 				className="w-24"
-				placeholder="reps"
-				value={reps}
-				onChange={e => setReps(e.target.value)}
-				onKeyDown={handleKeyDown}
-				step={1}
-				min={0}
-			/>
-			<span className="text-ink-faint text-xs">×</span>
-			<NumberInput
-				className="w-20"
 				placeholder={exercise.bwMultiplier > 0 ? '+kg' : 'kg'}
+				unit="kg"
 				value={weight}
 				onChange={e => setWeight(e.target.value)}
 				onKeyDown={handleKeyDown}
 				step={2.5}
+				min={0}
+			/>
+			<span className="text-ink-faint text-xs">×</span>
+			<NumberInput
+				className="w-16"
+				unit="r"
+				value={reps}
+				onChange={e => setReps(e.target.value)}
+				onKeyDown={handleKeyDown}
+				step={1}
 				min={0}
 			/>
 			<Button size="icon" onClick={handleAdd} disabled={!(weight && reps)}>
