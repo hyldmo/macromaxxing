@@ -23,6 +23,21 @@ import { protectedProcedure, router } from '../trpc'
 
 const RECENT_PRS_CAP = 30
 
+/**
+ * Volume-surface log filter: a "hard set" is anything that isn't a warmup.
+ *
+ * Backoff sets are generated at 80% × (reps + 2) and taken to a comparable RIR, so they are
+ * stimulating sets and count toward the MEV/MAV/MRV landmarks these surfaces are read against.
+ * This matches the muscle-load family (`sessionMuscleLoad`, `muscleGroupStats`,
+ * `sessionsByMuscleGroup`, `muscleGroupTrend`), which all filter on `!== 'warmup'`. Filtering
+ * on `setType: 'working'` here instead would undercount every `backoff`/`full` template row by
+ * one set per exercise per session — material against a landmark like MEV 8.
+ *
+ * Progression surfaces (`recentPRs`, `stalledExercises`) deliberately stay strict `'working'`:
+ * a sub-maximal backoff must not masquerade as a top-set trend.
+ */
+const hardSets = { setType: { ne: 'warmup' } } as const
+
 export const analyticsRouter = router({
 	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
 	// Trade-off: "prior max" is computed from sets WITHIN the window only, not all-time.
@@ -167,7 +182,9 @@ export const analyticsRouter = router({
 
 	// Tenant-scoped via workout_sessions.userId — never drive query FROM workout_logs.
 	topExercises: protectedProcedure
-		.meta({ description: 'Top exercises by working-set count over the time window' })
+		.meta({
+			description: 'Top exercises by hard-set count (working + backoff, warmups excluded) over the time window'
+		})
 		.input(windowInput.extend({ limit: z.number().int().min(1).max(50).default(10) }))
 		.query(async ({ ctx, input }) => {
 			const since = windowSinceMs(input.window)
@@ -176,7 +193,7 @@ export const analyticsRouter = router({
 				where: { userId: ctx.user.id, startedAt: { gte: since } },
 				with: {
 					logs: {
-						where: { setType: 'working' },
+						where: hardSets,
 						with: { exercise: true }
 					}
 				}
@@ -219,7 +236,8 @@ export const analyticsRouter = router({
 	// One row per muscle group (not per week — see analytics-plan.md).
 	weeklyTrend: protectedProcedure
 		.meta({
-			description: 'Per-muscle-group weekly working-set volume over the time window with delta vs prior period'
+			description:
+				'Per-muscle-group weekly hard-set volume (working + backoff, warmups excluded) over the time window with delta vs prior period'
 		})
 		.input(windowInput)
 		.query(async ({ ctx, input }) => {
@@ -233,7 +251,7 @@ export const analyticsRouter = router({
 				where: { userId: ctx.user.id, startedAt: { gte: priorStart } },
 				with: {
 					logs: {
-						where: { setType: 'working' },
+						where: hardSets,
 						with: { exercise: { with: { muscles: true } } }
 					}
 				}
@@ -280,7 +298,10 @@ export const analyticsRouter = router({
 	// Day buckets are UTC `YYYY-MM-DD` for consistency across clients in different timezones;
 	// the frontend can re-bucket to local time if needed.
 	calendarHeatmap: protectedProcedure
-		.meta({ description: 'Per-day training density: working-set count per calendar day in the time window' })
+		.meta({
+			description:
+				'Per-day training density: hard-set count (working + backoff, warmups excluded) per calendar day in the time window'
+		})
 		.input(windowInput)
 		.query(async ({ ctx, input }) => {
 			const since = windowSinceMs(input.window)
@@ -289,7 +310,7 @@ export const analyticsRouter = router({
 				where: { userId: ctx.user.id, startedAt: { gte: since } },
 				with: {
 					logs: {
-						where: { setType: 'working' }
+						where: hardSets
 					}
 				}
 			})
@@ -349,7 +370,7 @@ export const analyticsRouter = router({
 				where: { userId: ctx.user.id, startedAt: { gte: queryStart } },
 				with: {
 					logs: {
-						where: { setType: 'working' },
+						where: hardSets,
 						with: { exercise: { with: { muscles: true } } }
 					}
 				}

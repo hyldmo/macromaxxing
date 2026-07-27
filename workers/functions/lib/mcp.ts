@@ -118,9 +118,12 @@ export async function handleMcpRequest(
 		const baseConfig = { description: tool.description, annotations: tool.annotations }
 
 		if (tool.zodSchema) {
-			// Pass the raw Zod schema — the MCP SDK converts to JSON Schema internally
-			const config = { ...baseConfig, inputSchema: tool.zodSchema as any }
-			const handler = async (args: Record<string, unknown>) => {
+			// Pass the Zod schema — the MCP SDK converts to JSON Schema internally. It must be a bare
+			// object schema, not a wrapper; `unwrapInputSchema` guarantees that (see mcp-tools.ts).
+			const config = { ...baseConfig, inputSchema: tool.zodSchema }
+			// `args` is whatever the SDK parsed out of the tool's (unwrapped) input schema; the tRPC
+			// procedure re-validates against its own schema, so it stays unknown here.
+			const handler = async (args: unknown) => {
 				try {
 					const fn = traverseCaller(caller, tool.procedurePath)
 					return toResult(await fn(args))

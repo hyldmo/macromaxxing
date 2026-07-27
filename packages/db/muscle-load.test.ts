@@ -6,6 +6,8 @@ import {
 	computeMuscleLoad,
 	FATIGUE_TIER_WEIGHTS,
 	type MuscleContribution,
+	type PlannedRow,
+	plannedRowContributions,
 	sumTotals,
 	VOLUME_LANDMARKS,
 	withZones
@@ -182,5 +184,101 @@ describe('sumTotals', () => {
 		expect(totals.workingSets).toBeCloseTo(3 + 1.5)
 		expect(totals.volumeKg).toBeCloseTo(3 * 10 * 100 + 3 * 10 * 100 * 0.5)
 		expect(totals.musclesTrained).toBe(2)
+	})
+})
+
+function plannedRow(overrides: Partial<PlannedRow> = {}): PlannedRow {
+	return {
+		setMode: 'full',
+		targetSets: 3,
+		targetReps: 8,
+		targetWeight: 80,
+		trainingGoal: null,
+		exercise: {
+			type: 'compound',
+			fatigueTier: 2,
+			bwMultiplier: 0,
+			muscles: [{ muscleGroup: 'chest', intensity: 1.0 }]
+		},
+		...overrides
+	}
+}
+
+describe('plannedRowContributions', () => {
+	it('counts targetSets as hard sets — warmups are additive and never included', () => {
+		// `full` generates a warmup ramp on top of targetSets; only the 3 prescribed sets count.
+		const loads = computeMuscleLoad(plannedRowContributions(plannedRow(), 'hypertrophy', null))
+		expect(loads.find(l => l.muscleGroup === 'chest')!.workingSets).toBe(3)
+	})
+
+	it('prices the folded backoff at its generated load, not the top-set numbers', () => {
+		const loads = computeMuscleLoad(plannedRowContributions(plannedRow(), 'hypertrophy', null))
+		// 2 working @ 80×8 + 1 backoff @ 65×10, vs the old 3 × 80×8 = 1920.
+		expect(loads.find(l => l.muscleGroup === 'chest')!.volumeKg).toBe(2 * 80 * 8 + 65 * 10)
+	})
+
+	it('working mode prices every set at the target load', () => {
+		const loads = computeMuscleLoad(
+			plannedRowContributions(plannedRow({ setMode: 'working' }), 'hypertrophy', null)
+		)
+		expect(loads.find(l => l.muscleGroup === 'chest')!.volumeKg).toBe(3 * 80 * 8)
+	})
+
+	it('weights each muscle by its intensity across both doses', () => {
+		const row = plannedRow({
+			exercise: {
+				type: 'compound',
+				fatigueTier: 2,
+				bwMultiplier: 0,
+				muscles: [
+					{ muscleGroup: 'chest', intensity: 1.0 },
+					{ muscleGroup: 'triceps', intensity: 0.5 }
+				]
+			}
+		})
+		const loads = computeMuscleLoad(plannedRowContributions(row, 'hypertrophy', null))
+		expect(loads.find(l => l.muscleGroup === 'triceps')!.workingSets).toBeCloseTo(1.5)
+		expect(loads.find(l => l.muscleGroup === 'triceps')!.volumeKg).toBeCloseTo((2 * 80 * 8 + 65 * 10) * 0.5)
+	})
+
+	it('resolves the bodyweight fraction into the effective load for both doses', () => {
+		const row = plannedRow({
+			targetWeight: 10,
+			targetReps: 6,
+			exercise: {
+				type: 'compound',
+				fatigueTier: 2,
+				bwMultiplier: 1,
+				muscles: [{ muscleGroup: 'lats', intensity: 1.0 }]
+			}
+		})
+		const loads = computeMuscleLoad(plannedRowContributions(row, 'hypertrophy', 80))
+		// 2 working @ (80 + 10) × 6, backoff sheds the added kg only: (80 + 0) × 8.
+		expect(loads.find(l => l.muscleGroup === 'lats')!.volumeKg).toBe(2 * 90 * 6 + 80 * 8)
+	})
+
+	it('falls back to the parent goal and its default set count', () => {
+		const loads = computeMuscleLoad(
+			plannedRowContributions(plannedRow({ targetSets: null, setMode: 'working' }), 'strength', null)
+		)
+		const chest = loads.find(l => l.muscleGroup === 'chest')!
+		expect(chest.workingSets).toBe(5)
+		expect(chest.strengthSets).toBe(5)
+	})
+
+	it('per-exercise goal overrides the parent goal', () => {
+		const loads = computeMuscleLoad(
+			plannedRowContributions(plannedRow({ trainingGoal: 'strength' }), 'hypertrophy', null)
+		)
+		expect(loads.find(l => l.muscleGroup === 'chest')!.strengthSets).toBe(3)
+	})
+
+	it('contributes no volume when the row has no target weight yet', () => {
+		const loads = computeMuscleLoad(
+			plannedRowContributions(plannedRow({ targetWeight: null }), 'hypertrophy', null)
+		)
+		const chest = loads.find(l => l.muscleGroup === 'chest')!
+		expect(chest.workingSets).toBe(3)
+		expect(chest.volumeKg).toBe(0)
 	})
 })
