@@ -1,7 +1,8 @@
 import { type FC, useMemo, useState } from 'react'
 import { Spinner, TRPCError } from '~/components/ui'
+import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
 import { WeekCalendarDay } from '~/features/plans/components/WeekCalendarDay'
-import { buildWeekDays, isPlanForWeek, projectUpcomingWorkouts } from '~/features/plans/utils/weekCalendar'
+import { buildWeekDays, projectUpcomingWorkouts } from '~/features/plans/utils/weekCalendar'
 import { getISOWeek, getWeekStart } from '~/lib'
 import { trpc } from '~/lib/trpc'
 

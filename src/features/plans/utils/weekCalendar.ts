@@ -1,4 +1,5 @@
 import type { AbsoluteMacros, MealPlan, Recipe } from '@macromaxxing/db'
+import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
 import {
 	calculateDayTotals,
 	calculatePortionMacros,
@@ -47,11 +48,6 @@ export interface BuildWeekDaysInput {
 	plans: readonly CalendarPlan[]
 	sessions: readonly CalendarSession[]
 	now: number
-}
-
-/** A plan belongs to the week it was created in — that's the week its slots describe. */
-export function isPlanForWeek(plan: Pick<CalendarPlan, 'createdAt'>, weekStart: number): boolean {
-	return getWeekStart(plan.createdAt) === weekStart
 }
 
 /**

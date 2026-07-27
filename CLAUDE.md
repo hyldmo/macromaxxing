@@ -123,6 +123,9 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
+      utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week it was created
+                                            #   in. Dashboard "Today's Meals" and the /plans calendar both filter on
+                                            #   it; without it every past plan stacks onto the same weekday.
     plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
       WeekCalendarSection.tsx               # Read-only Mon–Sun view of the current week (top of /plans), fed by
                                             #   dashboard.summary; meals come only from plans CREATED in the current

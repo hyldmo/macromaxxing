@@ -5,6 +5,7 @@ import { type FC, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
 import { LandingPage } from '~/features/landing'
+import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { MacroRing } from '~/features/recipes/components/MacroRing'
 import {
@@ -21,6 +22,7 @@ import {
 	cn,
 	DAYS_LONG,
 	estimateWorkoutDurationSec,
+	getWeekStart,
 	type ProgramCycleResult,
 	pendingRecoveryFromPriorSession,
 	pickNextWorkout,
@@ -88,9 +90,12 @@ interface MealSlotMacros {
 
 function computeTodayMeals(plans: RouterOutput['dashboard']['summary']['plans']): MealSlotMacros[] {
 	const today = todayDayIndex()
+	const weekStart = getWeekStart(Date.now())
 	const meals: MealSlotMacros[] = []
 
 	for (const plan of plans) {
+		// Slots are weekday-indexed, so every past plan would otherwise pile onto today as well.
+		if (!isPlanForWeek(plan, weekStart)) continue
 		for (const inv of plan.inventory) {
 			const todaySlots = inv.slots.filter(s => s.dayOfWeek === today)
 			if (todaySlots.length === 0) continue
