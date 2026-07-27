@@ -3,6 +3,8 @@
  * Mutates in place so tRPC inferred return types stay identical for the UI.
  */
 
+import { type SessionSummary, type SetType, summarizeSessionLogs } from '@macromaxxing/db'
+
 type ExerciseNest = {
 	muscles: unknown[]
 	equipment?: unknown[]
@@ -57,10 +59,34 @@ export function stripVerboseSession(session: SessionNest): void {
 	if (session.plannedExercises) stripVerboseRows(session.plannedExercises)
 }
 
-/** listSessions: workout is un-nested; only logs carry repeated exercise muscles. */
-export function stripVerboseSessionListItem(session: { logs: RowWithExercise[]; location?: unknown }): void {
-	stripVerboseRows(session.logs)
-	stripVerboseLocation(session.location)
+type SessionLog = {
+	exerciseId: string
+	setType: SetType
+	weightKg: number
+	reps: number
+	exercise: ExerciseNest & { name: string }
+}
+
+/**
+ * listSessions row shape: attach the per-exercise rollup, and at `verbose: false` drop the raw
+ * set rows it replaces. Those rows dominate the payload — each one re-nests the full exercise
+ * record — so emptying them is ~85% of the response on real data. Per-set detail lives in
+ * getSession; this is a list endpoint.
+ *
+ * Returns a new row, but `location` is shared with the input and stripped in place at
+ * `verbose: false` — same contract as the rest of this module. Safe on freshly-fetched query
+ * rows (the only caller); do not run it over an array you intend to reuse.
+ */
+export function toSessionListItem<S extends { logs: SessionLog[]; location?: unknown }>(
+	session: S,
+	verbose: boolean
+): S & { summary: SessionSummary } {
+	const item = { ...session, summary: summarizeSessionLogs(session.logs) }
+	if (!verbose) {
+		item.logs = []
+		stripVerboseLocation(item.location)
+	}
+	return item
 }
 
 /** Test/helper wrappers that clone then strip (avoid mutating fixtures). */

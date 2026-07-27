@@ -2,7 +2,7 @@ import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useMemo, useState } from 'react'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
-import { buildSupersetRounds, type PlannedSet, totalVolume } from '~/lib'
+import { buildSupersetRounds, isHardSet, type PlannedSet, totalVolume } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { LastSessionHint, type LastSessionHintProps } from './LastSessionHint'
@@ -57,7 +57,7 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 	const [uncheckedIds, setUncheckedIds] = useState<Set<string>>(new Set())
 
 	const allLogs = exercises.flatMap(e => e.logs)
-	const vol = totalVolume(allLogs.filter(l => l.setType !== 'warmup' && !uncheckedIds.has(l.id)))
+	const vol = totalVolume(allLogs.filter(l => isHardSet(l) && !uncheckedIds.has(l.id)))
 	const totalSets = allLogs.length
 	const totalPlanned = exercises.reduce((sum, e) => sum + e.plannedSets.length, 0)
 	const exerciseNames = exercises.map(e => e.exercise.name).join(' + ')

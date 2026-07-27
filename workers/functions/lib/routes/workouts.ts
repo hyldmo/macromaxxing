@@ -48,7 +48,7 @@ import { analyticsWindow, escapeLikePattern, paginationFields, searchField } fro
 import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
-import { stripVerboseSession, stripVerboseSessionListItem, stripVerboseWorkout } from '../workout-response'
+import { stripVerboseSession, stripVerboseWorkout, toSessionListItem } from '../workout-response'
 import {
 	buildTemplateExercisePatch,
 	type ExistingWorkoutExerciseRow,
@@ -1018,7 +1018,7 @@ export const workoutsRouter = router({
 	listSessions: protectedProcedure
 		.meta({
 			description:
-				'List workout sessions with dates (most recent first). Optional filters: window (4w|12w|1y|all), completed, workoutId, exerciseId (sessions with a working set for that exercise). Pass verbose:false to omit nested muscle/equipment lists.'
+				'List workout sessions (most recent first), each with a summary rolling its sets up per exercise (sets, hardSets, volumeKg, topSet). Optional filters: window (4w|12w|1y|all), completed, workoutId, exerciseId (sessions with a working set for that exercise). Pass verbose:false to drop the per-set logs array and nested muscle/equipment lists — the summary still covers what the session contained; call getSession for individual sets.'
 		})
 		.input(
 			z
@@ -1075,10 +1075,7 @@ export const workoutsRouter = router({
 				orderBy: { startedAt: 'desc' },
 				limit: input?.limit ?? 20
 			})
-			if (!verbose) {
-				for (const s of rows) stripVerboseSessionListItem(s)
-			}
-			return rows
+			return rows.map(s => toSessionListItem(s, verbose))
 		}),
 
 	getSession: protectedProcedure

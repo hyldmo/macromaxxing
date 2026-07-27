@@ -8,6 +8,8 @@
  * touches Drizzle, it belongs in a route file, not here.
  */
 
+import type { SetType } from './custom-types'
+
 /** Brzycki 1RM estimate: weight × 36 / (37 − reps), capped at 12 reps to avoid inflated estimates */
 const BRZYCKI_REP_CAP = 12
 
@@ -42,6 +44,91 @@ export function addedWeightKg(bwMultiplier: number, bodyWeightKg: number | null,
 /** Total volume = Σ(weight * reps) */
 export function totalVolume(logs: Array<{ weightKg: number; reps: number; sets?: number }>): number {
 	return logs.reduce((sum, { weightKg, reps, sets = 1 }) => sum + weightKg * reps * sets, 0)
+}
+
+/**
+ * Hard set = every non-warmup set (working AND backoff). This is the currency every
+ * volume/set-count surface counts in; only progression detection (PRs, stalls, top-set
+ * trends) narrows further to `setType === 'working'`. Named predicate so the rule lives
+ * in one place instead of being re-spelled as an inline filter at each call site.
+ */
+export function isHardSet(log: { setType: SetType }): boolean {
+	return log.setType !== 'warmup'
+}
+
+export interface SessionExerciseSummary {
+	exerciseId: string
+	name: string
+	/** Every logged set, warmups included — "what happened". */
+	sets: number
+	/** Non-warmup sets — the number that counts against MEV/MAV/MRV. */
+	hardSets: number
+	/** Hard-set volume only, consistent with every other volume surface. */
+	volumeKg: number
+	/** Best hard set by estimated 1RM; null when the exercise logged only warmups. */
+	topSet: { weightKg: number; reps: number } | null
+}
+
+export interface SessionSummary {
+	setCount: number
+	hardSetCount: number
+	volumeKg: number
+	/** One entry per exercise, in the order it was first logged. */
+	exercises: SessionExerciseSummary[]
+}
+
+/**
+ * Roll a session's per-set logs up into per-exercise totals. Lets list endpoints answer
+ * "what did this session contain" without shipping every set row (and its duplicated
+ * exercise record) to the client.
+ */
+export function summarizeSessionLogs(
+	logs: ReadonlyArray<{
+		exerciseId: string
+		setType: SetType
+		weightKg: number
+		reps: number
+		exercise: { name: string }
+	}>
+): SessionSummary {
+	const byExercise = new Map<string, SessionExerciseSummary>()
+	const bestE1rm = new Map<string, number>()
+
+	for (const log of logs) {
+		let entry = byExercise.get(log.exerciseId)
+		if (!entry) {
+			entry = {
+				exerciseId: log.exerciseId,
+				name: log.exercise.name,
+				sets: 0,
+				hardSets: 0,
+				volumeKg: 0,
+				topSet: null
+			}
+			byExercise.set(log.exerciseId, entry)
+		}
+
+		entry.sets += 1
+		if (!isHardSet(log)) continue
+
+		entry.hardSets += 1
+		entry.volumeKg += log.weightKg * log.reps
+
+		if (log.weightKg <= 0 || log.reps <= 0) continue
+		const e1rm = estimated1RM(log.weightKg, log.reps)
+		if (e1rm > (bestE1rm.get(log.exerciseId) ?? 0)) {
+			bestE1rm.set(log.exerciseId, e1rm)
+			entry.topSet = { weightKg: log.weightKg, reps: log.reps }
+		}
+	}
+
+	const exercises = [...byExercise.values()]
+	return {
+		setCount: exercises.reduce((sum, e) => sum + e.sets, 0),
+		hardSetCount: exercises.reduce((sum, e) => sum + e.hardSets, 0),
+		volumeKg: exercises.reduce((sum, e) => sum + e.volumeKg, 0),
+		exercises
+	}
 }
 
 export interface E1rmStat {

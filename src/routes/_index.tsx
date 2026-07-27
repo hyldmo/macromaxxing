@@ -25,7 +25,6 @@ import {
 	pendingRecoveryFromPriorSession,
 	pickNextWorkout,
 	prefetchRoute,
-	totalVolume,
 	useDocumentTitle
 } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
@@ -297,7 +296,7 @@ interface ActiveSessionBannerProps {
 }
 
 const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
-	const vol = totalVolume(session.logs)
+	const { setCount, volumeKg } = session.summary
 
 	return (
 		<Link to={`/workouts/sessions/${session.id}`}>
@@ -312,7 +311,7 @@ const ActiveSessionBanner: FC<ActiveSessionBannerProps> = ({ session }) => {
 								{session.name ?? 'Workout'} — in progress
 							</div>
 							<div className="font-mono text-ink-muted text-xs tabular-nums">
-								{session.logs.length} sets · {(vol / 1000).toFixed(1)}k vol
+								{setCount} sets · {(volumeKg / 1000).toFixed(1)}k vol
 								{session.location && ` · ${session.location.name}`}
 							</div>
 						</div>

@@ -8,6 +8,7 @@ import {
 	type Divergence,
 	exerciseE1rmStats,
 	formatAdjustTargetsPrompt,
+	isHardSet,
 	totalVolume
 } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
@@ -53,7 +54,7 @@ const DivergenceRow: FC<{ d: Divergence }> = ({ d }) => {
 }
 
 export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExercises, bodyWeightKg }) => {
-	const vol = totalVolume(session.logs)
+	const vol = totalVolume(session.logs.filter(isHardSet))
 	const e1rmStats = exerciseE1rmStats(session.logs)
 	const workoutGoal = session.workout?.trainingGoal ?? 'hypertrophy'
 

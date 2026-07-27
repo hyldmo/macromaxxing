@@ -5,7 +5,8 @@ import {
 	compactSessionPayload,
 	compactWorkoutPayload,
 	stripVerboseSession,
-	stripVerboseWorkout
+	stripVerboseWorkout,
+	toSessionListItem
 } from './workout-response'
 
 const fullExercise = () => ({
@@ -113,5 +114,51 @@ describe('stripVerboseSession / compactSessionPayload', () => {
 		const compact = compactSessionPayload(session, false)
 		expect(compact.logs?.[0].exercise.muscles).toEqual([])
 		expect(session.logs[0].exercise.muscles).toHaveLength(1)
+	})
+})
+
+describe('toSessionListItem', () => {
+	const sessionLog = (setType: 'warmup' | 'working' | 'backoff', weightKg: number, reps: number) => ({
+		exerciseId: 'exc_1',
+		setType,
+		weightKg,
+		reps,
+		exercise: fullExercise()
+	})
+
+	const session = () => ({
+		id: 'wks_1',
+		logs: [sessionLog('warmup', 40, 10), sessionLog('working', 100, 5), sessionLog('backoff', 80, 7)],
+		location: { id: 'loc_1', name: 'Home', equipment: [{ equipment: 'barbell' as const }] }
+	})
+
+	it('attaches the rollup in both modes', () => {
+		const summary = { setCount: 3, hardSetCount: 2, volumeKg: 1060 }
+		expect(toSessionListItem(session(), true).summary).toMatchObject(summary)
+		expect(toSessionListItem(session(), false).summary).toMatchObject(summary)
+	})
+
+	it('keeps the raw set rows when verbose', () => {
+		const item = toSessionListItem(session(), true)
+		expect(item.logs).toHaveLength(3)
+		expect(item.location.equipment).toHaveLength(1)
+	})
+
+	it('drops the set rows and location equipment when not verbose', () => {
+		const item = toSessionListItem(session(), false)
+		expect(item.logs).toEqual([])
+		expect(item.location.equipment).toEqual([])
+		// The rollup must survive the sets it replaced — otherwise verbose:false silently loses data.
+		expect(item.summary.exercises).toHaveLength(1)
+		expect(item.summary.exercises[0]).toMatchObject({ name: 'Bench Press', sets: 3, hardSets: 2 })
+	})
+
+	it("leaves the source row's logs intact — only location is stripped in place", () => {
+		const original = session()
+		toSessionListItem(original, false)
+		expect(original.logs).toHaveLength(3)
+		// Documented: location is shared with the input and stripped in place, like the
+		// rest of this module. Callers must not reuse the row afterwards.
+		expect(original.location.equipment).toEqual([])
 	})
 })

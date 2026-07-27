@@ -1,7 +1,7 @@
 import { ChevronRight, MapPin } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
-import { formatAgo, formatDate, formatDuration, totalVolume } from '~/lib'
+import { formatAgo, formatDate, formatDuration } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 
 type Session = RouterOutput['workout']['listSessions'][number]
@@ -11,8 +11,7 @@ export interface SessionCardProps {
 }
 
 export const SessionCard: FC<SessionCardProps> = ({ session }) => {
-	const exercises = new Set(session.logs.map(l => l.exercise.name))
-	const vol = totalVolume(session.logs)
+	const { exercises, setCount, volumeKg } = session.summary
 
 	return (
 		<Link
@@ -40,9 +39,9 @@ export const SessionCard: FC<SessionCardProps> = ({ session }) => {
 				</div>
 				<div className="mt-0.5 font-mono text-ink-muted text-xs tabular-nums">
 					{[
-						`${exercises.size} exercises`,
-						`${session.logs.length} sets`,
-						`${(vol / 1000).toFixed(1)}k vol`,
+						`${exercises.length} exercises`,
+						`${setCount} sets`,
+						`${(volumeKg / 1000).toFixed(1)}k vol`,
 						formatDuration(session.startedAt, session.completedAt),
 						session.completedAt && `finished ${formatAgo(session.completedAt)}`
 					]
