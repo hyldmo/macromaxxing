@@ -67,7 +67,7 @@ export interface TimerModeViewProps {
 	onDismissTimer?: () => void
 	onEditWeight?: (kg: number | null) => void
 	onEditReps?: (reps: number) => void
-	/** Persist edits to the upcoming working set's planned target (session-scoped). Absent → no edit affordance. */
+	/** Persist edits to the upcoming working/backoff set's planned target (session-scoped). Absent → no edit affordance. */
 	onEditNextWeight?: (kg: number | null) => void
 	onEditNextReps?: (reps: number) => void
 }
@@ -109,11 +109,16 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	onEditNextWeight,
 	onEditNextReps
 }) => {
-	// Inline edit of the upcoming set's numbers. Only working sets round-trip
-	// cleanly (their planned weight/reps ARE the exercise target); warmup/backoff
-	// numbers are derived, so the toggle is offered for working sets only.
+	// Inline edit of the upcoming set's numbers. Warmups stay read-only (derived);
+	// working is 1:1 with the plan target, backoff is inverted back to that target
+	// by the container before persisting.
 	const [editingNext, setEditingNext] = useState(false)
-	const canEditNext = nextSet?.setType === 'working' && (!!onEditNextWeight || !!onEditNextReps)
+	// Bodyweight backoffs are generated at a flat +0 kg, so a weight edit there has
+	// nothing to invert into — reps only.
+	const canEditNextWeight =
+		!!onEditNextWeight && !(nextSet?.setType === 'backoff' && nextSet.bwMultiplier > 0) && nextSet !== null
+	const canEditNext =
+		(nextSet?.setType === 'working' || nextSet?.setType === 'backoff') && (canEditNextWeight || !!onEditNextReps)
 	const nextKey = nextSet ? `${nextSet.exerciseId}:${nextSet.setNumber}` : null
 	// Close the editor when the upcoming set changes (queue advanced / navigated away)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the set identity, not the setter
@@ -414,18 +419,24 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 									)}
 									{editingNext && canEditNext ? (
 										<div className="flex items-center gap-1">
-											<NumberInput
-												className="w-16 text-center text-sm"
-												value={nextSet.weightKg ?? ''}
-												placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
-												unit="kg"
-												onChange={e => {
-													const v = Number.parseFloat(e.target.value)
-													onEditNextWeight?.(Number.isNaN(v) ? null : v)
-												}}
-												step={2.5}
-												min={0}
-											/>
+											{canEditNextWeight ? (
+												<NumberInput
+													className="w-16 text-center text-sm"
+													value={nextSet.weightKg ?? ''}
+													placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
+													unit="kg"
+													onChange={e => {
+														const v = Number.parseFloat(e.target.value)
+														onEditNextWeight?.(Number.isNaN(v) ? null : v)
+													}}
+													step={2.5}
+													min={0}
+												/>
+											) : (
+												<span className="font-mono text-ink text-sm tabular-nums">
+													{displayWeight(nextSet, nextSet.weightKg)}kg
+												</span>
+											)}
 											<span className="text-ink-faint text-xs">&times;</span>
 											<NumberInput
 												className="w-12 text-center text-sm"

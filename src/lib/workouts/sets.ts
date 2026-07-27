@@ -171,6 +171,32 @@ export function generateBackoffSets(
 	return sets
 }
 
+/**
+ * Invert the single planned backoff (80% round-up, +2 reps) back to a working
+ * target so updatePlannedExercise regenerates the same backoff numbers.
+ *
+ * Returns null when the numbers aren't expressible as a backoff of any working
+ * target (reps below 3) — callers reject the edit rather than snapping the user
+ * to a value they didn't type.
+ *
+ * Bodyweight backoffs are always +0 kg, so their weight is NOT invertible — the
+ * caller must not offer a weight edit there (see TimerModeView.canEditNextWeight).
+ */
+export function workingTargetsFromBackoff(
+	backoffWeightKg: number | null,
+	backoffReps: number,
+	bwMultiplier = 0
+): { weightKg: number | null; reps: number } | null {
+	const reps = backoffReps - 2
+	if (reps < 1) return null
+	if (bwMultiplier > 0 || backoffWeightKg == null || backoffWeightKg <= 0) {
+		return { weightKg: backoffWeightKg, reps }
+	}
+	// generateBackoffSets is ceil(0.8W / plate) * plate, so the largest grid weight
+	// whose 80% still fits under the backoff inverts it exactly.
+	return { weightKg: roundWeight(backoffWeightKg / 0.8, 'kg', 'down'), reps }
+}
+
 // --- Planned set generation ---
 
 interface MuscleMapping {
