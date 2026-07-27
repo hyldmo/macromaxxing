@@ -9,11 +9,13 @@ type Template = RouterOutput['dashboard']['summary']['templates'][number]
 
 export interface WeekCalendarDayProps {
 	day: CalendarDay
-	/** Next workout in the cycle — rendered as a ghost chip on today when nothing is logged yet. */
+	/** This day's slot in the projected rotation, rendered as a ghost chip. */
 	planned: Pick<Template, 'id' | 'name'> | null
+	/** Marks the soonest projected workout — the one the dashboard would start next. */
+	isNextUp: boolean
 }
 
-export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned }) => {
+export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNextUp }) => {
 	const isEmpty = day.meals.length === 0 && day.sessions.length === 0 && !planned
 
 	return (
@@ -53,7 +55,7 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned }) => {
 					>
 						<Dumbbell className="size-3 shrink-0" />
 						<span className="truncate">{planned.name}</span>
-						<span className="ml-auto shrink-0 text-[10px] text-ink-faint">next</span>
+						{isNextUp && <span className="ml-auto shrink-0 text-[10px] text-ink-faint">next</span>}
 					</Link>
 				)}
 

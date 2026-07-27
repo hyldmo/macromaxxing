@@ -1,8 +1,8 @@
 import { type FC, useMemo, useState } from 'react'
 import { Spinner, TRPCError } from '~/components/ui'
 import { WeekCalendarDay } from '~/features/plans/components/WeekCalendarDay'
-import { buildWeekDays, isPlanForWeek } from '~/features/plans/utils/weekCalendar'
-import { getISOWeek, getWeekStart, pickNextWorkout } from '~/lib'
+import { buildWeekDays, isPlanForWeek, projectUpcomingWorkouts } from '~/features/plans/utils/weekCalendar'
+import { getISOWeek, getWeekStart } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
 function formatWeekRange(start: number, end: number): string {
@@ -28,13 +28,18 @@ export const WeekCalendarSection: FC = () => {
 		[plans, data?.sessions, now]
 	)
 
-	// Only surface the cycle's next workout on today, and only while today is still unlogged.
-	const planned = useMemo(() => {
-		const today = days.find(d => d.isToday)
-		if (!data || today === undefined || today.sessions.length > 0) return null
-		const next = pickNextWorkout(data.templates, data.sessions, data.activeProgram ?? null)
-		return next.kind === 'emptyActiveProgram' ? null : next.template
-	}, [data, days])
+	// The rest of the rotation, spread across the week's open days.
+	const upcoming = useMemo(
+		() =>
+			projectUpcomingWorkouts({
+				days,
+				templates: data?.templates ?? [],
+				sessions: data?.sessions ?? [],
+				activeProgram: data?.activeProgram ?? null
+			}),
+		[days, data?.templates, data?.sessions, data?.activeProgram]
+	)
+	const nextDay = Math.min(...upcoming.keys())
 
 	if (summaryQuery.isLoading) {
 		return (
@@ -60,7 +65,12 @@ export const WeekCalendarSection: FC = () => {
 
 			<div className="grid grid-cols-1 gap-1 md:grid-cols-7">
 				{days.map(day => (
-					<WeekCalendarDay key={day.dayOfWeek} day={day} planned={day.isToday ? planned : null} />
+					<WeekCalendarDay
+						key={day.dayOfWeek}
+						day={day}
+						planned={upcoming.get(day.dayOfWeek) ?? null}
+						isNextUp={day.dayOfWeek === nextDay}
+					/>
 				))}
 			</div>
 		</section>

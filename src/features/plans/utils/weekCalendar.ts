@@ -7,12 +7,13 @@ import {
 	getEffectiveCookedWeight,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { DAYS_SHORT, getWeekStart } from '~/lib'
+import { type ActiveProgramRef, DAYS_SHORT, getWeekStart, pickNextWorkout } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 
 type Summary = RouterOutput['dashboard']['summary']
 export type CalendarPlan = Summary['plans'][number]
 export type CalendarSession = Summary['sessions'][number]
+export type CalendarTemplate = Summary['templates'][number]
 
 type Slot = CalendarPlan['inventory'][number]['slots'][number]
 
@@ -108,4 +109,68 @@ export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): Cal
 			sessions: sessionsByDay[dayOfWeek].toSorted((a, b) => a.startedAt - b.startedAt)
 		}
 	})
+}
+
+export interface ProjectUpcomingInput {
+	days: readonly CalendarDay[]
+	templates: readonly CalendarTemplate[]
+	sessions: readonly CalendarSession[]
+	activeProgram: ActiveProgramRef | null
+}
+
+/** The rotation, in cycle order: the active program's members, or every template as legacy fallback. */
+function cycleTemplates(
+	templates: readonly CalendarTemplate[],
+	activeProgram: ActiveProgramRef | null
+): CalendarTemplate[] {
+	if (!activeProgram) return [...templates]
+	const byId = new Map(templates.map(t => [t.id, t]))
+	return activeProgram.workoutIds.flatMap(id => {
+		const t = byId.get(id)
+		return t ? [t] : []
+	})
+}
+
+/**
+ * Lay the rest of the rotation across the remaining days of the week, one workout per open day.
+ * Programs carry no day-of-week schedule, so this is a straight projection from wherever the cycle
+ * currently stands — capped at one pass, so a 5-workout rotation fills 5 days and leaves the rest
+ * open rather than repeating itself. Days that already hold a session re-anchor the cycle instead
+ * of getting a ghost.
+ *
+ * Returns `dayOfWeek → template`; the earliest entry is the "next" one the dashboard would start.
+ */
+export function projectUpcomingWorkouts({
+	days,
+	templates,
+	sessions,
+	activeProgram
+}: ProjectUpcomingInput): Map<number, CalendarTemplate> {
+	const upcoming = new Map<number, CalendarTemplate>()
+	const cycle = cycleTemplates(templates, activeProgram)
+	if (cycle.length === 0) return upcoming
+
+	const next = pickNextWorkout(templates, sessions, activeProgram)
+	const nextTemplate = next.kind === 'emptyActiveProgram' ? null : next.template
+	if (!nextTemplate) return upcoming
+
+	let cursor = Math.max(
+		cycle.findIndex(t => t.id === nextTemplate.id),
+		0
+	)
+	let placed = 0
+
+	for (const day of days) {
+		const logged = day.sessions.findLast(s => s.workoutId !== null && cycle.some(t => t.id === s.workoutId))
+		if (logged) {
+			cursor = cycle.findIndex(t => t.id === logged.workoutId) + 1
+			continue
+		}
+		if (day.isPast || day.sessions.length > 0 || placed === cycle.length) continue
+		upcoming.set(day.dayOfWeek, cycle[cursor % cycle.length])
+		cursor++
+		placed++
+	}
+
+	return upcoming
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildWeekDays, type CalendarPlan, type CalendarSession } from './weekCalendar'
+import type { ActiveProgramRef } from '~/lib'
+import {
+	buildWeekDays,
+	type CalendarPlan,
+	type CalendarSession,
+	type CalendarTemplate,
+	projectUpcomingWorkouts
+} from './weekCalendar'
 
 // Wednesday 2026-07-29, 12:00 local. Week runs Mon 27th → Sun Aug 2nd.
 const NOW = new Date(2026, 6, 29, 12).getTime()
@@ -43,15 +50,24 @@ function makePlan(
 	} as unknown as CalendarPlan
 }
 
-function makeSession(startedAt: number, name: string): CalendarSession {
+function makeSession(startedAt: number, name: string, workoutId: string | null = null): CalendarSession {
 	return {
 		id: `wks_${name}`,
 		name,
+		workoutId,
 		startedAt,
 		completedAt: startedAt + 3_600_000,
 		workout: { name },
 		summary: { setCount: 12, hardSetCount: 10, volumeKg: 5000, exercises: [] }
 	} as unknown as CalendarSession
+}
+
+function makeTemplates(count: number): CalendarTemplate[] {
+	return Array.from({ length: count }, (_, i) => ({ id: `wkt_${i}`, name: `W${i}` }) as unknown as CalendarTemplate)
+}
+
+function makeProgram(templates: readonly CalendarTemplate[]): ActiveProgramRef {
+	return { id: 'wpr_1', name: 'Rotation', workoutIds: templates.map(t => t.id) } as unknown as ActiveProgramRef
 }
 
 describe('buildWeekDays', () => {
@@ -127,5 +143,77 @@ describe('buildWeekDays', () => {
 
 		expect(days.map(d => d.isToday)).toEqual([false, false, true, false, false, false, false])
 		expect(days.map(d => d.isPast)).toEqual([true, true, false, false, false, false, false])
+	})
+})
+
+describe('projectUpcomingWorkouts', () => {
+	const WEEK_START = new Date(2026, 6, 27).getTime()
+
+	function project(templates: CalendarTemplate[], sessions: CalendarSession[]) {
+		const days = buildWeekDays({ plans: [], sessions, now: NOW })
+		const upcoming = projectUpcomingWorkouts({
+			days,
+			templates,
+			sessions,
+			activeProgram: makeProgram(templates)
+		})
+		return [...upcoming.entries()].map(([dayOfWeek, t]) => [dayOfWeek, t.name])
+	}
+
+	it('spreads the whole rotation across the remaining days, one per day', () => {
+		// Today is Wed (index 2), so Wed–Sun is 5 open days for a 5-workout rotation.
+		expect(project(makeTemplates(5), [])).toEqual([
+			[2, 'W0'],
+			[3, 'W1'],
+			[4, 'W2'],
+			[5, 'W3'],
+			[6, 'W4']
+		])
+	})
+
+	it('stops after one pass instead of repeating a short rotation', () => {
+		expect(project(makeTemplates(3), [])).toEqual([
+			[2, 'W0'],
+			[3, 'W1'],
+			[4, 'W2']
+		])
+	})
+
+	it('resumes the cycle after a session logged this week', () => {
+		const templates = makeTemplates(5)
+		// Wed's session is rotation slot 1, so Thu picks up at slot 2 and Wed gets no ghost.
+		const sessions = [makeSession(WEEK_START + 2 * DAY_MS, 'wed', templates[1].id)]
+
+		expect(project(templates, sessions)).toEqual([
+			[3, 'W2'],
+			[4, 'W3'],
+			[5, 'W4'],
+			[6, 'W0']
+		])
+	})
+
+	it('never projects onto past days', () => {
+		const days = buildWeekDays({ plans: [], sessions: [], now: NOW })
+		const templates = makeTemplates(5)
+		const upcoming = projectUpcomingWorkouts({
+			days,
+			templates,
+			sessions: [],
+			activeProgram: makeProgram(templates)
+		})
+
+		expect(upcoming.has(0)).toBe(false)
+		expect(upcoming.has(1)).toBe(false)
+	})
+
+	it('returns nothing when the active program has no resolvable workouts', () => {
+		const upcoming = projectUpcomingWorkouts({
+			days: buildWeekDays({ plans: [], sessions: [], now: NOW }),
+			templates: makeTemplates(3),
+			sessions: [],
+			activeProgram: { id: 'wpr_1', name: 'Empty', workoutIds: [] }
+		})
+
+		expect(upcoming.size).toBe(0)
 	})
 })

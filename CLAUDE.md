@@ -127,9 +127,11 @@ src/
       WeekCalendarSection.tsx               # Read-only Mon–Sun view of the current week (top of /plans), fed by
                                             #   dashboard.summary; meals come only from plans CREATED in the current
                                             #   week (no picker — a W7 plan must not surface in W39)
-      components/WeekCalendarDay.tsx        # One day cell: session chips, next-workout ghost chip, meal rows + totals
-      utils/weekCalendar.ts                 # Pure: folds undated meal-plan slots (dayOfWeek) and dated sessions
-                                            #   (startedAt) onto one week grid
+      components/WeekCalendarDay.tsx        # One day cell: session chips, projected-workout ghost chip, meals + totals
+      utils/weekCalendar.ts                 # Pure: buildWeekDays folds undated meal-plan slots (dayOfWeek) and dated
+                                            #   sessions (startedAt) onto one week grid; projectUpcomingWorkouts
+                                            #   spreads the rest of the rotation over the week's open days (one pass,
+                                            #   no repeats; logged sessions re-anchor the cycle)
     workouts/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets). Shared by
                                             #   /workouts/new and /workouts/:workoutId.
