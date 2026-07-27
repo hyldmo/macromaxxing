@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { MealPlansSection } from '~/features/mealPlans/MealPlansSection'
+import { WeekCalendarSection } from '~/features/plans/WeekCalendarSection'
 import { ProgramsSection } from '~/features/workouts/components/ProgramsSection'
 import { prefetchRoute, useDocumentTitle } from '~/lib'
 
@@ -14,6 +15,7 @@ const PlansPage: FC = () => {
 	useDocumentTitle('Plans')
 	return (
 		<div className="space-y-8">
+			<WeekCalendarSection />
 			<MealPlansSection />
 			<ProgramsSection />
 		</div>

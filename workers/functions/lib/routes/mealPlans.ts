@@ -1,7 +1,31 @@
 import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString, zodTypeID } from '@macromaxxing/db'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
-import { protectedProcedure, router } from '../trpc'
+import { protectedProcedure, router, type TRPCContext } from '../trpc'
+
+/**
+ * `slotIndex` is a position within a day, so two rows must never share one: the planner renders a
+ * day as an ordered list of positions and a collision hides every row but one, while the inventory
+ * and weekly totals keep counting them all. Callers pass the index of the slot they *saw* as empty,
+ * which goes stale as soon as another allocation lands there (e.g. two adds from one open modal),
+ * so the server resolves the collision by appending after the day's last used index.
+ */
+async function resolveSlotIndex(
+	db: TRPCContext['db'],
+	planId: TypeIDString<'mpl'>,
+	dayOfWeek: number,
+	requested: number
+): Promise<number> {
+	const daySlots = await db
+		.select({ slotIndex: mealPlanSlots.slotIndex })
+		.from(mealPlanSlots)
+		.innerJoin(mealPlanInventory, eq(mealPlanSlots.inventoryId, mealPlanInventory.id))
+		.where(and(eq(mealPlanInventory.mealPlanId, planId), eq(mealPlanSlots.dayOfWeek, dayOfWeek)))
+
+	const taken = daySlots.map(s => s.slotIndex)
+	if (!taken.includes(requested)) return requested
+	return Math.max(...taken) + 1
+}
 
 export const mealPlansRouter = router({
 	list: protectedProcedure.meta({ description: 'List meal plans' }).query(async ({ ctx }) => {
@@ -297,12 +321,13 @@ export const mealPlansRouter = router({
 			}
 
 			const now = Date.now()
+			const slotIndex = await resolveSlotIndex(ctx.db, inv.mealPlanId, input.dayOfWeek, input.slotIndex)
 			const [slot] = await ctx.db
 				.insert(mealPlanSlots)
 				.values({
 					inventoryId: input.inventoryId,
 					dayOfWeek: input.dayOfWeek,
-					slotIndex: input.slotIndex,
+					slotIndex,
 					portions: input.portions,
 					createdAt: now
 				})
@@ -407,12 +432,13 @@ export const mealPlansRouter = router({
 			const newSlots = []
 
 			for (const day of input.targetDays) {
+				const slotIndex = await resolveSlotIndex(ctx.db, slot.inventory.mealPlanId, day, input.targetSlotIndex)
 				const [newSlot] = await ctx.db
 					.insert(mealPlanSlots)
 					.values({
 						inventoryId: slot.inventoryId,
 						dayOfWeek: day,
-						slotIndex: input.targetSlotIndex,
+						slotIndex,
 						portions: slot.portions,
 						createdAt: now
 					})

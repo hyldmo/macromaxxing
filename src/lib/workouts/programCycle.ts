@@ -21,7 +21,10 @@ export type ProgramCycleResult<T extends ProgramCycleTemplate> =
 	| { kind: 'emptyActiveProgram'; programName: string; programId: TypeIDString<'wpr'> }
 
 /** Legacy cycling: most-recently-completed template advances by one, wrapping. */
-function legacyNext<T extends ProgramCycleTemplate>(templates: T[], sessions: ProgramCycleSession[]): T | null {
+function legacyNext<T extends ProgramCycleTemplate>(
+	templates: readonly T[],
+	sessions: readonly ProgramCycleSession[]
+): T | null {
 	if (templates.length === 0) return null
 	const last = sessions.find(s => s.completedAt !== null && s.workoutId !== null)
 	if (!last) return templates[0]
@@ -44,8 +47,8 @@ function legacyNext<T extends ProgramCycleTemplate>(templates: T[], sessions: Pr
  * re-sorts in-program completions defensively.
  */
 export function pickNextWorkout<T extends ProgramCycleTemplate>(
-	templates: T[],
-	sessions: ProgramCycleSession[],
+	templates: readonly T[],
+	sessions: readonly ProgramCycleSession[],
 	activeProgram: ActiveProgramRef | null
 ): ProgramCycleResult<T> {
 	if (activeProgram === null) {

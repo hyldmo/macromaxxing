@@ -36,7 +36,6 @@
     "db:seed": "yarn db:migrate && yarn workspace @macromaxxing/workers wrangler d1 execute macromaxxing --local --file=scripts/seed.sql",
     "db:seed:usda": "node --experimental-transform-types scripts/seed-usda.ts",
     "db:seed:generate": "node --experimental-transform-types scripts/seed.ts",
-    "db:copy-to-prod": "node --experimental-transform-types scripts/copy-to-prod.ts",
     "db:copy-from-prod": "node --experimental-transform-types scripts/copy-from-prod.ts",
     "test": "vitest run",
     "postinstall": "prek install && prek install --hook-type commit-msg"

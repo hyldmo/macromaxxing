@@ -123,6 +123,18 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
+      utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week it was created
+                                            #   in. Dashboard "Today's Meals" and the /plans calendar both filter on
+                                            #   it; without it every past plan stacks onto the same weekday.
+    plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
+      WeekCalendarSection.tsx               # Read-only Mon–Sun view of the current week (top of /plans), fed by
+                                            #   dashboard.summary; meals come only from plans CREATED in the current
+                                            #   week (no picker — a W7 plan must not surface in W39)
+      components/WeekCalendarDay.tsx        # One day cell: session chips, projected-workout ghost chip, meals + totals
+      utils/weekCalendar.ts                 # Pure: buildWeekDays folds undated meal-plan slots (dayOfWeek) and dated
+                                            #   sessions (startedAt) onto one week grid; projectUpcomingWorkouts
+                                            #   spreads the rest of the rotation over the week's open days (one pass,
+                                            #   no repeats; logged sessions re-anchor the cycle)
     workouts/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets). Shared by
                                             #   /workouts/new and /workouts/:workoutId.
@@ -225,7 +237,7 @@ src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx
 /exercises                           → ExerciseListPage
 /exercises/new                       → ExerciseDetailPage (create mode)
 /exercises/:id                       → ExerciseDetailPage (editor + history chart/table)
-/plans                               → PlansPage (Meal Plans + Workout Programs sections)
+/plans                               → PlansPage (This week calendar + Meal Plans + Workout Programs sections)
 /plans/programs/new                  → ProgramEditor (new program)
 /plans/programs/:id                  → ProgramEditor (edit program)
 /plans/:id                           → MealPlannerPage
@@ -410,6 +422,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - Add recipes to plan's inventory with portion count → allocate portions to day slots (Mon-Sun)
 - Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
 - Over-allocation allowed with visual warning
+- `slotIndex` is a **position within a day, not an identity**. Clients send the index of the slot they saw as
+  empty, which goes stale the moment another allocation lands there, so `allocate`/`copySlot` resolve a taken
+  index server-side by appending after the day's last one. `DayColumn` buckets slots by index (rather than
+  writing into a sparse array) so a duplicate can never hide a meal, and day totals sum the slots themselves —
+  when they disagreed, the column footer showed less than the inventory and weekly averages counted.
+- A plan's slots belong to the week the plan was created in — see `isPlanForWeek` (features/mealPlans/utils)
 
 **Nutrition lookup priority:** Local USDA D1 (FTS5 search, ~14k foods) → USDA FoodData Central API → AI (user's configured provider)
 

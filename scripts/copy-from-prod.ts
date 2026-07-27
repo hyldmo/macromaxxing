@@ -5,10 +5,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type {
 	Exercise,
+	ExerciseEquipment,
 	ExerciseGuideRow,
 	ExerciseMuscle,
 	Ingredient,
 	IngredientUnit,
+	Location,
+	LocationEquipment,
 	MealPlan,
 	MealPlanInventory,
 	MealPlanSlot,
@@ -92,9 +95,19 @@ const mealPlanSlots = query<MealPlanSlot>(
 	true
 )
 
+const locations = query<Location>(`SELECT * FROM locations WHERE user_id = '${PROD_USER}'`, true)
+const locationEquipment = query<LocationEquipment>(
+	`SELECT le.* FROM location_equipment le JOIN locations l ON le.location_id = l.id WHERE l.user_id = '${PROD_USER}'`,
+	true
+)
+
 const exercises = query<Exercise>(`SELECT * FROM exercises WHERE user_id = '${PROD_USER}'`, true)
 const exerciseMuscles = query<ExerciseMuscle>(
 	`SELECT em.* FROM exercise_muscles em JOIN exercises e ON em.exercise_id = e.id WHERE e.user_id = '${PROD_USER}'`,
+	true
+)
+const exerciseEquipment = query<ExerciseEquipment>(
+	`SELECT ee.* FROM exercise_equipment ee JOIN exercises e ON ee.exercise_id = e.id WHERE e.user_id = '${PROD_USER}'`,
 	true
 )
 const exerciseGuides = query<ExerciseGuideRow>(
@@ -126,7 +139,8 @@ console.log(
 		`  ${ingredients.length} ingredients, ${ingredientUnits.length} units`,
 		`  ${recipes.length} recipes, ${recipeIngredients.length} recipe_ingredients`,
 		`  ${mealPlans.length} meal_plans, ${mealPlanInventory.length} inventory, ${mealPlanSlots.length} slots`,
-		`  ${exercises.length} exercises, ${exerciseMuscles.length} exercise_muscles, ${exerciseGuides.length} guides`,
+		`  ${locations.length} locations, ${locationEquipment.length} location_equipment`,
+		`  ${exercises.length} exercises, ${exerciseMuscles.length} exercise_muscles, ${exerciseEquipment.length} exercise_equipment, ${exerciseGuides.length} guides`,
 		`  ${workouts.length} workouts, ${workoutExercises.length} workout_exercises`,
 		`  ${workoutPrograms.length} programs, ${workoutProgramItems.length} program_items`,
 		`  ${workoutSessions.length} sessions, ${workoutLogs.length} logs`
@@ -135,9 +149,12 @@ console.log(
 
 // Order matters for FKs:
 //  • user_settings.activeProgramId → workout_programs (insert programs first)
+//  • workouts.locationId / workout_sessions.locationId → locations (insert locations first)
 //  • everything user-scoped → users (ensured row first)
 const sql = [
 	`INSERT OR IGNORE INTO users (id, email) VALUES ('${LOCAL_USER}', 'local@dev.local');`,
+	buildInserts('locations', remapUser(locations)),
+	buildInserts('location_equipment', locationEquipment),
 	buildInserts('ingredients', remapUser(ingredients)),
 	buildInserts('ingredient_units', ingredientUnits),
 	buildInserts('recipes', remapUser(recipes)),
@@ -147,6 +164,7 @@ const sql = [
 	buildInserts('meal_plan_slots', mealPlanSlots),
 	buildInserts('exercises', remapUserNullable(exercises)),
 	buildInserts('exercise_muscles', exerciseMuscles),
+	buildInserts('exercise_equipment', exerciseEquipment),
 	buildInserts('exercise_guides', exerciseGuides),
 	buildInserts('workouts', remapUser(workouts)),
 	buildInserts('workout_exercises', workoutExercises),
