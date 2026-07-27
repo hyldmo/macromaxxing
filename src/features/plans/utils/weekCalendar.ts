@@ -10,6 +10,7 @@ import {
 } from '~/features/recipes/utils/macros'
 import { type ActiveProgramRef, DAYS_SHORT, getWeekStart, pickNextWorkout } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
+import { recoveryHoursFromPriorSession } from '~/lib/workouts/muscleReadiness'
 import { computeProgramRest } from '~/lib/workouts/programRest'
 
 type Summary = RouterOutput['dashboard']['summary']
@@ -156,9 +157,11 @@ export function projectUpcomingWorkouts({
 	if (!nextTemplate) return upcoming
 
 	// Rest owed after cycle[i] before cycle[i+1], in whole days — the grid has no finer resolution.
+	// Planned days can only be priced from the template; a day that was actually trained is priced
+	// from its logged working sets instead, so a session cut short frees the next day sooner.
 	const transitions = computeProgramRest(cycle)
-	const restDaysAfter = (index: number): number =>
-		Math.max(1, Math.ceil((transitions[index % cycle.length]?.bottleneckHours ?? 0) / 24))
+	const toDays = (hours: number): number => Math.max(1, Math.ceil(hours / 24))
+	const restDaysAfter = (index: number): number => toDays(transitions[index % cycle.length]?.bottleneckHours ?? 0)
 
 	let cursor = Math.max(
 		cycle.findIndex(t => t.id === nextTemplate.id),
@@ -172,7 +175,7 @@ export function projectUpcomingWorkouts({
 		if (logged) {
 			const loggedIdx = cycle.findIndex(t => t.id === logged.workoutId)
 			cursor = loggedIdx + 1
-			earliestDay = day.dayOfWeek + restDaysAfter(loggedIdx)
+			earliestDay = day.dayOfWeek + toDays(recoveryHoursFromPriorSession(logged, cycle[cursor % cycle.length]))
 			continue
 		}
 		if (day.isPast || day.sessions.length > 0 || placed === cycle.length) continue

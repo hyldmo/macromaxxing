@@ -134,8 +134,9 @@ src/
       utils/weekCalendar.ts                 # Pure: buildWeekDays folds undated meal-plan slots (dayOfWeek) and dated
                                             #   sessions (startedAt) onto one week grid; projectUpcomingWorkouts
                                             #   spreads the rest of the rotation over the week's open days, spaced by
-                                            #   computeProgramRest bottleneck hours (one pass, no repeats; logged
-                                            #   sessions re-anchor both the cycle position and the rest owed)
+                                            #   recovery debt: planned days priced from the template
+                                            #   (computeProgramRest), trained days from their logged working sets
+                                            #   (recoveryHoursFromPriorSession). One pass, no repeats.
     workouts/
       WorkoutTemplatePage.tsx               # Create/edit workout template (exercises, targets, supersets). Shared by
                                             #   /workouts/new and /workouts/:workoutId.
