@@ -39,6 +39,7 @@ describe('MCP mutations', () => {
 			  "mealPlan_removeSlot",
 			  "mealPlan_update",
 			  "recipe_addIngredient",
+			  "recipe_addPremade",
 			  "recipe_create",
 			  "recipe_delete",
 			  "recipe_removeIngredient",
