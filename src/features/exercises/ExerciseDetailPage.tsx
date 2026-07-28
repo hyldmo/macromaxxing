@@ -1,13 +1,14 @@
-import { type Exercise, formatEquipment } from '@macromaxxing/db'
+import { type Exercise, formatEquipment, type MuscleGroup } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { ArrowLeft, ExternalLink } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { type FC, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button, ButtonGroup, Card, CardContent, CardHeader, Spinner, TRPCError } from '~/components/ui'
 import { useDocumentTitle, useUser } from '~/lib'
 import { formatDate } from '~/lib/date'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
+import { BodyMap } from '../workouts/components/BodyMap'
 import { ExerciseGuideContent } from '../workouts/components/ExerciseGuideContent'
 import { ExerciseForm } from './components/ExerciseForm'
 import { HistoryChart, type HistoryChartMetric } from './components/HistoryChart'
@@ -191,25 +192,31 @@ const ViewEditMode = ({ exercise, isOwned, onDelete }: ViewEditModeProps) => {
 				)}
 			</div>
 
-			{/* Top: edit form OR read-only summary */}
-			{isOwned ? (
-				<Card className="p-4">
-					<ExerciseForm editExercise={exercise} onClose={handleClose} />
-					<div className="mt-3 flex flex-col items-end gap-2 border-edge border-t pt-3">
-						<Button
-							variant="destructive"
-							size="sm"
-							onClick={handleDelete}
-							disabled={deleteMutation.isPending}
-						>
-							{deleteMutation.isPending ? 'Deleting…' : 'Delete exercise'}
-						</Button>
-						{deleteMutation.error && <TRPCError error={deleteMutation.error} />}
-					</div>
-				</Card>
-			) : (
-				<SystemSummary exercise={exercise} />
-			)}
+			<div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+				<div className="min-w-0 flex-1 space-y-4">
+					{/* Top: edit form OR read-only summary */}
+					{isOwned ? (
+						<Card className="p-4">
+							<ExerciseForm editExercise={exercise} onClose={handleClose} />
+							<div className="mt-3 flex flex-col items-end gap-2 border-edge border-t pt-3">
+								<Button
+									variant="destructive"
+									size="sm"
+									onClick={handleDelete}
+									disabled={deleteMutation.isPending}
+								>
+									{deleteMutation.isPending ? 'Deleting…' : 'Delete exercise'}
+								</Button>
+								{deleteMutation.error && <TRPCError error={deleteMutation.error} />}
+							</div>
+						</Card>
+					) : (
+						<SystemSummary exercise={exercise} />
+					)}
+				</div>
+
+				<MuscleSidebar exercise={exercise} />
+			</div>
 
 			{/* Middle: history */}
 			<Card>
@@ -303,12 +310,64 @@ const BackLink = () => (
 	</div>
 )
 
+interface MuscleSidebarProps {
+	exercise: ExerciseRow
+}
+
+/** Body map + intensity legend for the exercise's muscle mapping — narrows the form on desktop. */
+const MuscleSidebar: FC<MuscleSidebarProps> = ({ exercise }) => {
+	const profileQuery = trpc.settings.getProfile.useQuery()
+	const sex = profileQuery.data?.sex ?? 'male'
+
+	const muscleVolumes = useMemo(() => {
+		const volumes = new Map<MuscleGroup, number>()
+		for (const m of exercise.muscles) volumes.set(m.muscleGroup, m.intensity)
+		return volumes
+	}, [exercise.muscles])
+
+	const sorted = [...exercise.muscles].sort((a, b) => b.intensity - a.intensity)
+
+	return (
+		<Card className="shrink-0 p-3 lg:sticky lg:top-16 lg:w-64 lg:self-start">
+			<BodyMap
+				muscleVolumes={muscleVolumes}
+				sex={sex}
+				renderTooltip={hovered => {
+					const m = exercise.muscles.find(m => m.muscleGroup === hovered)
+					if (!m) return null
+					return (
+						<div className="font-mono text-[10px] text-ink-muted tabular-nums">
+							{m.intensity.toFixed(1)} intensity
+						</div>
+					)
+				}}
+			/>
+			{sorted.length === 0 ? (
+				<p className="mt-2 text-center text-ink-faint text-xs italic">No muscles defined.</p>
+			) : (
+				<ul className="mt-2 flex flex-wrap justify-center gap-1.5">
+					{sorted.map(m => (
+						<li
+							key={m.muscleGroup}
+							className="flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs"
+						>
+							<span className="text-ink">{startCase(m.muscleGroup)}</span>
+							<span className="font-mono text-[10px] text-ink-faint tabular-nums">
+								{m.intensity.toFixed(1)}
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
+		</Card>
+	)
+}
+
 interface SystemSummaryProps {
 	exercise: ExerciseRow
 }
 
 const SystemSummary = ({ exercise }: SystemSummaryProps) => {
-	const sortedMuscles = [...exercise.muscles].sort((a, b) => b.intensity - a.intensity)
 	return (
 		<Card>
 			<CardContent className="space-y-3">
@@ -339,27 +398,6 @@ const SystemSummary = ({ exercise }: SystemSummaryProps) => {
 									className="rounded-full bg-surface-2 px-2 py-0.5 text-ink text-xs"
 								>
 									{formatEquipment(e.equipment)}
-								</li>
-							))}
-						</ul>
-					)}
-				</div>
-
-				<div>
-					<div className="text-[10px] text-ink-faint uppercase tracking-wide">Muscles</div>
-					{sortedMuscles.length === 0 ? (
-						<p className="mt-1 text-ink-faint text-xs italic">No muscles defined.</p>
-					) : (
-						<ul className="mt-1 flex flex-wrap gap-1.5">
-							{sortedMuscles.map(m => (
-								<li
-									key={m.muscleGroup}
-									className="flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs"
-								>
-									<span className="text-ink">{startCase(m.muscleGroup)}</span>
-									<span className="font-mono text-[10px] text-ink-faint tabular-nums">
-										{m.intensity.toFixed(1)}
-									</span>
 								</li>
 							))}
 						</ul>

@@ -8,7 +8,9 @@ export const clientLoader = ({ params }: Route.ClientLoaderArgs) => {
 	const exerciseId = params.id as Exercise['id']
 	return prefetchRoute(utils => [
 		utils.workout.listExercises.ensureData(),
-		utils.workout.exerciseHistory.ensureData({ exerciseId, window: '4w' }),
+		utils.settings.getProfile.ensureData(),
+		// '12w' is the page's default window; '1y' backs the lifetime "best ever" stats.
+		utils.workout.exerciseHistory.ensureData({ exerciseId, window: '12w' }),
 		utils.workout.exerciseHistory.ensureData({ exerciseId, window: '1y' })
 	])
 }
