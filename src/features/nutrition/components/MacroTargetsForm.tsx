@@ -68,7 +68,11 @@ export const MacroTargetsForm: FC = () => {
 
 	const [goal, setGoal] = useState<NutritionGoal>('maintain')
 	const [activity, setActivity] = useState<ActivityLevel>('moderate')
-	const [fields, setFields] = useState<TargetFields>(EMPTY_FIELDS)
+	// Only `custom` owns editable numbers. Derived goals compute theirs during render below —
+	// mirroring them into state would race this effect: on the render where `saved` first
+	// arrives, `goal` is still the initial 'maintain', so a saved `custom` row would briefly
+	// produce a maintain-shaped preview and overwrite the user's stored targets with it.
+	const [customFields, setCustomFields] = useState<TargetFields>(EMPTY_FIELDS)
 
 	const saved = targetsQuery.data
 
@@ -76,7 +80,7 @@ export const MacroTargetsForm: FC = () => {
 		if (!saved) return
 		setGoal(saved.nutritionGoal ?? 'maintain')
 		setActivity(saved.activityLevel ?? 'moderate')
-		setFields(toFields(saved.targets))
+		setCustomFields(toFields(saved.targets))
 	}, [saved])
 
 	const derived = useMemo(
@@ -84,12 +88,14 @@ export const MacroTargetsForm: FC = () => {
 		[saved, goal, activity]
 	)
 
-	// Derived goals own the numbers; the fields follow so switching to Custom starts from them.
-	useEffect(() => {
-		if (derived) setFields(toFields(derived))
-	}, [derived])
-
 	const isCustom = goal === 'custom'
+	const fields = isCustom ? customFields : toFields(derived)
+
+	// Switching to Custom hands off whatever was on screen, so it reads as an edit, not a reset.
+	function handleGoalChange(next: NutritionGoal) {
+		if (next === 'custom' && derived) setCustomFields(toFields(derived))
+		setGoal(next)
+	}
 
 	function handleSave(e: React.FormEvent) {
 		e.preventDefault()
@@ -123,7 +129,7 @@ export const MacroTargetsForm: FC = () => {
 			<div className="flex flex-wrap items-end gap-3">
 				<div className="space-y-1">
 					<span className="block text-ink-muted text-sm">Goal</span>
-					<ButtonGroup options={GOAL_OPTIONS} value={goal} onChange={setGoal} />
+					<ButtonGroup options={GOAL_OPTIONS} value={goal} onChange={handleGoalChange} />
 				</div>
 				{!isCustom && (
 					<div className="space-y-1">
@@ -156,7 +162,7 @@ export const MacroTargetsForm: FC = () => {
 						<NumberInput
 							id={`target-${field.key}`}
 							value={fields[field.key]}
-							onChange={e => setFields(prev => ({ ...prev, [field.key]: e.target.value }))}
+							onChange={e => setCustomFields(prev => ({ ...prev, [field.key]: e.target.value }))}
 							min={0}
 							step={field.step}
 							unit={field.unit}

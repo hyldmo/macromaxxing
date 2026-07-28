@@ -50,12 +50,6 @@ export function estimateTDEE(bmr: number, activityMultiplier: number): number {
 	return bmr * activityMultiplier
 }
 
-/** Protein intake per kg bodyweight */
-export function proteinPerKg(proteinGrams: number, weightKg: number): number {
-	if (weightKg <= 0) return 0
-	return proteinGrams / weightKg
-}
-
 /** The body-profile inputs TDEE needs. `null` on any of them means no TDEE. */
 export interface BodyProfile {
 	weightKg: number | null
@@ -79,8 +73,10 @@ export function deriveMacroTargets(
 	weightKg: number,
 	goal: Exclude<NutritionGoal, 'custom'>
 ): MacroTargets {
-	const kcal = Math.round(tdee + GOAL_KCAL_OFFSET[goal])
-	const protein = Math.round(weightKg * GOAL_PROTEIN_PER_KG[goal])
+	// Every field floors at 0: a tiny TDEE (light, elderly, on a cut) can push the
+	// deficit past maintenance, and a negative calorie or fat goal is never meaningful.
+	const kcal = Math.max(0, Math.round(tdee + GOAL_KCAL_OFFSET[goal]))
+	const protein = Math.max(0, Math.round(weightKg * GOAL_PROTEIN_PER_KG[goal]))
 	const fat = Math.round((kcal * FAT_KCAL_SHARE) / 9)
 	const carbs = Math.round(Math.max(0, kcal - protein * 4 - fat * 9) / 4)
 	const fiber = Math.round((kcal / 1000) * FIBER_PER_1000_KCAL)

@@ -87,7 +87,9 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 
 				{day.totals.kcal > 0 && (
 					<div className="space-y-1 border-edge border-t pt-1">
-						<div className="flex items-baseline gap-2 font-mono text-[10px] tabular-nums">
+						{/* Wraps: at md the 7-column grid leaves ~85px per cell, and `1850/2400` plus
+						    three macro tags does not fit on one line. */}
+						<div className="flex flex-wrap items-baseline gap-x-2 font-mono text-[10px] tabular-nums">
 							<KcalReadout kcal={day.totals.kcal} target={targets?.kcal ?? null} />
 							<span className="text-macro-protein">P{day.totals.protein.toFixed(0)}</span>
 							<span className="text-macro-carbs">C{day.totals.carbs.toFixed(0)}</span>

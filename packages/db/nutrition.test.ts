@@ -62,6 +62,17 @@ describe('deriveMacroTargets', () => {
 		expect(fat).toBe(Math.round((kcal * 0.25) / 9))
 		expect(carbs).toBe(Math.round((kcal - protein * 4 - fat * 9) / 4))
 	})
+
+	it('clamps carbs at zero when protein and fat already spend the budget', () => {
+		expect(deriveMacroTargets(700, 200, 'cut').carbs).toBe(0)
+	})
+
+	it('never returns a negative goal, however small the TDEE', () => {
+		// 30 kg / 100 cm / 120 y female sedentary is the floor saveProfile still accepts;
+		// a 500 kcal deficit puts maintenance underwater.
+		const targets = deriveMacroTargets(196.8, 30, 'cut')
+		for (const value of Object.values(targets)) expect(value).toBeGreaterThanOrEqual(0)
+	})
 })
 
 describe('resolveMacroTargets', () => {
@@ -89,6 +100,16 @@ describe('resolveMacroTargets', () => {
 			})
 		)
 		expect(custom).toEqual({ kcal: 2200, protein: 180, carbs: 200, fat: 70, fiber: 30 })
+	})
+
+	it('defaults the custom columns it was not given to zero', () => {
+		expect(resolveMacroTargets(settings({ nutritionGoal: 'custom', targetKcal: 2200 }))).toEqual({
+			kcal: 2200,
+			protein: 0,
+			carbs: 0,
+			fat: 0,
+			fiber: 0
+		})
 	})
 
 	it('is null with no goal, or with a goal the profile cannot satisfy', () => {

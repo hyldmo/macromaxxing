@@ -90,7 +90,10 @@ export const settingsRouter = router({
 			z.object({
 				heightCm: z.number().min(100).max(250).nullable(),
 				weightKg: z.number().min(30).max(300).nullable(),
-				age: z.number().int().min(10).max(120).nullable(),
+				// Optional, not just nullable: a PWA bundle cached before this field shipped still
+				// posts {heightCm, weightKg, sex}, and an omitted age must leave the column alone
+				// rather than 400 the whole save.
+				age: z.number().int().min(10).max(120).nullish(),
 				sex: z.enum(['male', 'female'])
 			})
 		)

@@ -56,7 +56,8 @@ export const WeekCalendarSection: FC = () => {
 
 	return (
 		<section className="space-y-3">
-			<div className="flex items-center justify-between gap-2">
+			{/* Wraps: the macro-average readout is too wide to sit beside the heading on a phone. */}
+			<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
 				<h2 className="font-semibold text-ink">
 					This week
 					<span className="ml-2 font-mono font-normal text-ink-faint text-xs tabular-nums">
