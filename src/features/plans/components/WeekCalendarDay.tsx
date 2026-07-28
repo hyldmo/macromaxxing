@@ -1,6 +1,9 @@
+import type { MacroTargets } from '@macromaxxing/db'
 import { Dumbbell } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
+import { KcalReadout } from '~/features/nutrition/components/KcalReadout'
+import { MacroTargetBars } from '~/features/nutrition/components/MacroTargetBars'
 import type { CalendarDay } from '~/features/plans/utils/weekCalendar'
 import { cn, DAYS_SHORT } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
@@ -13,9 +16,11 @@ export interface WeekCalendarDayProps {
 	planned: Pick<Template, 'id' | 'name'> | null
 	/** Marks the soonest projected workout — the one the dashboard would start next. */
 	isNextUp: boolean
+	/** Daily macro goals, or null when the user hasn't set one — totals then render bare. */
+	targets: MacroTargets | null
 }
 
-export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNextUp }) => {
+export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNextUp, targets }) => {
 	const isEmpty = day.meals.length === 0 && day.sessions.length === 0 && !planned
 
 	return (
@@ -81,11 +86,14 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 				{isEmpty && <span className="px-1.5 text-ink-faint text-xs">Rest</span>}
 
 				{day.totals.kcal > 0 && (
-					<div className="flex items-baseline gap-2 border-edge border-t pt-1 font-mono text-[10px] tabular-nums">
-						<span className="font-semibold text-macro-kcal">{day.totals.kcal.toFixed(0)}</span>
-						<span className="text-macro-protein">P{day.totals.protein.toFixed(0)}</span>
-						<span className="text-macro-carbs">C{day.totals.carbs.toFixed(0)}</span>
-						<span className="text-macro-fat">F{day.totals.fat.toFixed(0)}</span>
+					<div className="space-y-1 border-edge border-t pt-1">
+						<div className="flex items-baseline gap-2 font-mono text-[10px] tabular-nums">
+							<KcalReadout kcal={day.totals.kcal} target={targets?.kcal ?? null} />
+							<span className="text-macro-protein">P{day.totals.protein.toFixed(0)}</span>
+							<span className="text-macro-carbs">C{day.totals.carbs.toFixed(0)}</span>
+							<span className="text-macro-fat">F{day.totals.fat.toFixed(0)}</span>
+						</div>
+						{targets && <MacroTargetBars totals={day.totals} targets={targets} />}
 					</div>
 				)}
 			</div>

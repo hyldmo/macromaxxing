@@ -1,4 +1,4 @@
-import type { Exercise, SetMode, Sex, TrainingGoal, TypeIDString } from '@macromaxxing/db'
+import type { Exercise, SetMode, TrainingGoal, TypeIDString } from '@macromaxxing/db'
 import { midpoint } from '../math'
 
 // Pure workout-math primitives shared with the workers/ backend live in
@@ -108,23 +108,6 @@ export function limbLengthFactor(heightCm: number): number {
 /** Work done in Joules: weight * 9.81 * ROM_meters * reps */
 export function workDoneJoules(weightKg: number, reps: number, romMeters: number): number {
 	return weightKg * 9.81 * romMeters * reps
-}
-
-/** Mifflin-St Jeor BMR estimate */
-export function estimateBMR(weightKg: number, heightCm: number, age: number, sex: Sex): number {
-	const base = 10 * weightKg + 6.25 * heightCm - 5 * age
-	return sex === 'male' ? base + 5 : base - 161
-}
-
-/** TDEE = BMR * activity multiplier */
-export function estimateTDEE(bmr: number, activityMultiplier: number): number {
-	return bmr * activityMultiplier
-}
-
-/** Protein intake per kg bodyweight */
-export function proteinPerKg(proteinGrams: number, weightKg: number): number {
-	if (weightKg <= 0) return 0
-	return proteinGrams / weightKg
 }
 
 export function defaultSets(goal: TrainingGoal): number {

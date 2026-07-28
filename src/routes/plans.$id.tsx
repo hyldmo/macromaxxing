@@ -13,7 +13,10 @@ import { trpc } from '~/lib/trpc'
 import type { Route } from './+types/plans.$id'
 
 export const clientLoader = ({ params }: Route.ClientLoaderArgs) =>
-	prefetchRoute(utils => [utils.mealPlan.get.ensureData({ id: params.id as MealPlan['id'] })])
+	prefetchRoute(utils => [
+		utils.mealPlan.get.ensureData({ id: params.id as MealPlan['id'] }),
+		utils.settings.getTargets.ensureData()
+	])
 
 const MealPlannerPage: FC = () => {
 	const { id } = useParams<{ id: MealPlan['id'] }>()
@@ -24,6 +27,8 @@ const MealPlannerPage: FC = () => {
 	useDocumentTitle(name || 'Meal Plan')
 
 	const planQuery = trpc.mealPlan.get.useQuery({ id: id! }, { enabled: !!id })
+	// Daily goals to price the grid against; null until the user sets one in Settings.
+	const targets = trpc.settings.getTargets.useQuery().data?.targets ?? null
 
 	useEffect(() => {
 		if (planQuery.data && !hasLoadedPlan) {
@@ -143,9 +148,9 @@ const MealPlannerPage: FC = () => {
 
 				{/* Week grid */}
 				<div className="min-w-0 flex-1">
-					<WeekGrid planId={id!} inventory={planQuery.data.inventory} onDrop={handleDrop} />
+					<WeekGrid planId={id!} inventory={planQuery.data.inventory} onDrop={handleDrop} targets={targets} />
 					<div className="mt-3">
-						<WeeklyAverages inventory={planQuery.data.inventory} />
+						<WeeklyAverages inventory={planQuery.data.inventory} targets={targets} />
 					</div>
 				</div>
 			</div>

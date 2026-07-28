@@ -1,4 +1,4 @@
-import type { AbsoluteMacros, MealPlan } from '@macromaxxing/db'
+import type { AbsoluteMacros, MacroTargets, MealPlan } from '@macromaxxing/db'
 import { type FC, type PropsWithChildren, useState } from 'react'
 import { objectKeys } from 'ts-extras'
 import {
@@ -25,6 +25,7 @@ export interface WeekGridProps {
 		inventoryId: InventoryItem['id'],
 		sourceSlotId?: InventoryItem['slots'][number]['id']
 	) => void
+	targets: MacroTargets | null
 }
 
 /** Map JS getDay() (Sun=0..Sat=6) to our Mon=0..Sun=6 index */
@@ -33,7 +34,7 @@ function todayDayIndex() {
 	return d === 0 ? 6 : d - 1
 }
 
-export const WeekGrid: FC<WeekGridProps> = ({ planId, inventory, onDrop }) => {
+export const WeekGrid: FC<WeekGridProps> = ({ planId, inventory, onDrop, targets }) => {
 	const [selectedDay, setSelectedDay] = useState(todayDayIndex)
 
 	// Collect all slots from inventory
@@ -106,6 +107,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ planId, inventory, onDrop }) => {
 					onDrop={(slotIndex, inventoryId, sourceSlotId) =>
 						onDrop(selectedDay, slotIndex, inventoryId, sourceSlotId)
 					}
+					targets={targets}
 				/>
 			</div>
 
@@ -122,6 +124,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ planId, inventory, onDrop }) => {
 						onDrop={(slotIndex, inventoryId, sourceSlotId) =>
 							onDrop(dayIndex, slotIndex, inventoryId, sourceSlotId)
 						}
+						targets={targets}
 					/>
 				))}
 			</div>

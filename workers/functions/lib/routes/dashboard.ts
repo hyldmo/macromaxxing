@@ -1,4 +1,10 @@
-import { mealPlanInventory, mealPlans, summarizeSessionLogs, type TypeIDString } from '@macromaxxing/db'
+import {
+	mealPlanInventory,
+	mealPlans,
+	resolveMacroTargets,
+	summarizeSessionLogs,
+	type TypeIDString
+} from '@macromaxxing/db'
 import { eq, inArray } from 'drizzle-orm'
 import { protectedProcedure, router } from '../trpc'
 
@@ -103,7 +109,10 @@ export const dashboardRouter = router({
 				// either query without re-deriving totals from the raw set rows.
 				sessions: sessions.map(s => ({ ...s, summary: summarizeSessionLogs(s.logs) })),
 				templates,
-				activeProgram
+				activeProgram,
+				// Derived from the same settings row the active program comes from, so the week
+				// calendar can price day totals against the user's goal without a second query.
+				macroTargets: settings ? resolveMacroTargets(settings) : null
 			}
 		})
 })

@@ -42,6 +42,12 @@ export const zImageSource = z.union([z.templateLiteral(['https://', z.string()])
 export const trainingGoal = z.enum(['hypertrophy', 'strength'])
 export type TrainingGoal = z.infer<typeof trainingGoal>
 
+export const nutritionGoal = z.enum(['cut', 'maintain', 'bulk', 'custom'])
+export type NutritionGoal = z.infer<typeof nutritionGoal>
+
+export const activityLevel = z.enum(['sedentary', 'light', 'moderate', 'active', 'very_active'])
+export type ActivityLevel = z.infer<typeof activityLevel>
+
 export const exerciseType = z.enum(['compound', 'isolation'])
 export type ExerciseType = z.infer<typeof exerciseType>
 

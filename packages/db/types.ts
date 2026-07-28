@@ -63,3 +63,12 @@ export interface AbsoluteMacros {
 	fiber: number
 	weight: number
 }
+
+/** Daily nutrition goals — the target counterpart to `AbsoluteMacros` (grams, kcal excepted). */
+export interface MacroTargets {
+	kcal: number
+	protein: number
+	carbs: number
+	fat: number
+	fiber: number
+}

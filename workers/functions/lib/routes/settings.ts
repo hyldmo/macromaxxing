@@ -1,4 +1,14 @@
-import { type AiProvider, apiTokens, userSettings, zAiProvider, zodTypeID } from '@macromaxxing/db'
+import {
+	type AiProvider,
+	activityLevel,
+	apiTokens,
+	estimateProfileTDEE,
+	nutritionGoal,
+	resolveMacroTargets,
+	userSettings,
+	zAiProvider,
+	zodTypeID
+} from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -6,6 +16,7 @@ import { MODELS } from '../constants'
 import { decrypt, encrypt } from '../crypto'
 import { generateToken, hashToken } from '../mcp-auth'
 import { protectedProcedure, router } from '../trpc'
+import { ensureUserSettingsRow } from '../utils'
 
 async function verifyKey(provider: AiProvider, apiKey: string) {
 	if (provider === 'gemini') {
@@ -60,15 +71,17 @@ export const settingsRouter = router({
 			}
 		}),
 
+	// userSettings rows aren't created on signup, so the profile/target queries answer with
+	// blanks rather than null — a first-time user must still be able to fill the form in.
 	getProfile: protectedProcedure.query(async ({ ctx }) => {
 		const settings = await ctx.db.query.userSettings.findFirst({
 			where: { userId: ctx.user.id }
 		})
-		if (!settings) return null
 		return {
-			heightCm: settings.heightCm,
-			weightKg: settings.weightKg,
-			sex: settings.sex
+			heightCm: settings?.heightCm ?? null,
+			weightKg: settings?.weightKg ?? null,
+			age: settings?.age ?? null,
+			sex: settings?.sex ?? 'male'
 		}
 	}),
 
@@ -77,30 +90,52 @@ export const settingsRouter = router({
 			z.object({
 				heightCm: z.number().min(100).max(250).nullable(),
 				weightKg: z.number().min(30).max(300).nullable(),
+				age: z.number().int().min(10).max(120).nullable(),
 				sex: z.enum(['male', 'female'])
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
-			const existing = await ctx.db.query.userSettings.findFirst({
+			await ensureUserSettingsRow(ctx.db, ctx.user.id)
+			await ctx.db.update(userSettings).set(input).where(eq(userSettings.userId, ctx.user.id))
+		}),
+
+	getTargets: protectedProcedure
+		.meta({ description: "Get the user's daily macro targets (kcal/protein/carbs/fat/fiber) and TDEE" })
+		.query(async ({ ctx }) => {
+			const settings = await ctx.db.query.userSettings.findFirst({
 				where: { userId: ctx.user.id }
 			})
-			if (existing) {
-				await ctx.db
-					.update(userSettings)
-					.set({ heightCm: input.heightCm, weightKg: input.weightKg, sex: input.sex })
-					.where(eq(userSettings.userId, ctx.user.id))
-			} else {
-				await ctx.db.insert(userSettings).values({
-					userId: ctx.user.id,
-					aiProvider: 'gemini',
-					aiApiKey: '',
-					aiKeyIv: '',
-					aiModel: '',
-					heightCm: input.heightCm,
-					weightKg: input.weightKg,
-					sex: input.sex
-				})
+			return {
+				nutritionGoal: settings?.nutritionGoal ?? null,
+				activityLevel: settings?.activityLevel ?? null,
+				// Body profile echoed back so the settings form can explain a missing TDEE
+				// without a second query.
+				heightCm: settings?.heightCm ?? null,
+				weightKg: settings?.weightKg ?? null,
+				age: settings?.age ?? null,
+				sex: settings?.sex ?? 'male',
+				tdee: settings ? estimateProfileTDEE(settings) : null,
+				/** What every surface renders against — derived unless the goal is `custom`. */
+				targets: settings ? resolveMacroTargets(settings) : null
 			}
+		}),
+
+	saveTargets: protectedProcedure
+		.input(
+			z.object({
+				nutritionGoal: nutritionGoal.nullable(),
+				activityLevel: activityLevel.nullable(),
+				// Only read back when nutritionGoal is 'custom'; ignored for derived goals.
+				targetKcal: z.number().min(0).max(20000).nullable(),
+				targetProtein: z.number().min(0).max(1000).nullable(),
+				targetCarbs: z.number().min(0).max(2000).nullable(),
+				targetFat: z.number().min(0).max(1000).nullable(),
+				targetFiber: z.number().min(0).max(500).nullable()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			await ensureUserSettingsRow(ctx.db, ctx.user.id)
+			await ctx.db.update(userSettings).set(input).where(eq(userSettings.userId, ctx.user.id))
 		}),
 
 	save: protectedProcedure.input(saveSettingsSchema).mutation(async ({ ctx, input }) => {

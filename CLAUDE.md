@@ -126,11 +126,21 @@ src/
       utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week it was created
                                             #   in. Dashboard "Today's Meals" and the /plans calendar both filter on
                                             #   it; without it every past plan stacks onto the same weekday.
+    nutrition/                              # Daily macro targets (settings form + the readouts every
+                                            #   meal surface prices its totals against)
+      components/MacroTargetsForm.tsx       # Settings card: goal (cut/maintain/bulk/custom) + activity level;
+                                            #   derived goals show read-only numbers, Custom unlocks the inputs
+      components/KcalReadout.tsx            # `1850/2400` — status-colored actual, faint target
+      components/MacroDelta.tsx             # `P180 -12` — macro value + signed distance from its target
+      components/MacroTargetBars.tsx        # Three hairline P/C/F progress bars
+      utils/targets.ts                      # targetStatus (±5% band → under/on/over), targetDelta
     plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
       WeekCalendarSection.tsx               # Read-only Mon–Sun view of the current week (top of /plans), fed by
                                             #   dashboard.summary; meals come only from plans CREATED in the current
                                             #   week (no picker — a W7 plan must not surface in W39)
-      components/WeekCalendarDay.tsx        # One day cell: session chips, projected-workout ghost chip, meals + totals
+      components/WeekCalendarDay.tsx        # One day cell: session chips, projected-workout ghost chip, meals +
+                                            #   totals priced against the day's macro targets
+      components/WeekMacroAverage.tsx       # Header readout: per-day average (filled days only) vs targets
       utils/weekCalendar.ts                 # Pure: buildWeekDays folds undated meal-plan slots (dayOfWeek) and dated
                                             #   sessions (startedAt) onto one week grid; projectUpcomingWorkouts
                                             #   spreads the rest of the rotation over the week's open days, spaced by
@@ -167,7 +177,7 @@ src/
         TimerRing.tsx                       # SVG circular timer progress ring
         RestTimer.tsx                       # Nav timer widget (countdown / elapsed / session link)
         ImportDialog.tsx                    # Import workouts from spreadsheet/CSV
-        ProfileForm.tsx                     # Body profile inputs (height/weight/sex)
+        ProfileForm.tsx                     # Body profile inputs (height/weight/age/sex) — also the TDEE inputs
         ProgramCard.tsx                     # Program row: star toggle for active + N sets/cycle stat
         ProgramsSection.tsx                 # Programs list + "New program" CTA, embedded into /plans
         ProgramEditor.tsx                   # Shared by /plans/programs/new and /plans/programs/:id (drag-reorder workouts + sidebar)
@@ -193,6 +203,9 @@ packages/db/                                # Shared package @macromaxxing/db
   sets.ts                                   # Set-scheme math: generateBackoffSets + splitTargetSets (how targetSets
                                             #   splits into working sets + the folded backoff) — one source of truth for
                                             #   the session planner and the muscle-load aggregates
+  nutrition.ts                              # Pure nutrition math: Mifflin-St Jeor BMR/TDEE, deriveMacroTargets,
+                                            #   and resolveMacroTargets — the ONE place a userSettings row turns
+                                            #   into MacroTargets (server + client both call it)
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios) +
                                             #   plannedRowContributions (template row → per-muscle contributions)
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
@@ -258,7 +271,10 @@ src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx
 ```
 users(id PK clerk_user_id, email)
   → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
-                 heightCm?, weightKg?, sex: male|female)
+                 heightCm?, weightKg?, age?, sex: male|female,
+                 activityLevel?: sedentary|light|moderate|active|very_active,
+                 nutritionGoal?: cut|maintain|bulk|custom,
+                 targetKcal?/targetProtein?/targetCarbs?/targetFat?/targetFiber?  -- ONLY read when goal='custom')
 
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?, source: manual|ai|usda|openfoodfacts|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
@@ -388,7 +404,8 @@ trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff set
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
-trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout templates
+trpc.dashboard.summary                      # Aggregated dashboard data: today's meals, recent sessions, workout
+                                            #   templates, and macroTargets (resolved from the same settings row)
 trpc.analytics.recentPRs                    # Recent personal records (e1RM PRs vs prior max) within window
 trpc.analytics.stalledExercises             # Exercises with no progression over N sessions (flag for deload/swap)
 trpc.analytics.topExercises                 # Top exercises by hard-set count over window
@@ -396,6 +413,8 @@ trpc.analytics.weeklyTrend                  # Per-muscle current-period vs prior
 trpc.analytics.calendarHeatmap              # Per-day training density (sessions, sets) for calendar grid
 trpc.analytics.weeklyVolumeByMuscle         # Per-week intensity-weighted volume by muscle group (Monday-aligned UTC grid)
 trpc.settings.get/save
+trpc.settings.getProfile/saveProfile         # Body profile (height, weight, age, sex)
+trpc.settings.getTargets/saveTargets         # Macro targets: goal + activity level in, resolved targets + TDEE out
 trpc.settings.listTokens/createToken/deleteToken    # Personal access token management
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions

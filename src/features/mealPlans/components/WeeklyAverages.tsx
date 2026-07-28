@@ -1,6 +1,8 @@
-import type { AbsoluteMacros } from '@macromaxxing/db'
+import type { AbsoluteMacros, MacroTargets } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { Card } from '~/components/ui'
+import { KcalReadout } from '~/features/nutrition/components/KcalReadout'
+import { MacroDelta } from '~/features/nutrition/components/MacroDelta'
 import {
 	calculateDayTotals,
 	calculatePortionMacros,
@@ -17,9 +19,11 @@ type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 
 export interface WeeklyAveragesProps {
 	inventory: InventoryItem[]
+	/** Daily goals, or null when the user hasn't set one — averages then render bare. */
+	targets: MacroTargets | null
 }
 
-export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory }) => {
+export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory, targets }) => {
 	// Calculate day totals for each day (0-6)
 	const dayTotals: AbsoluteMacros[] = []
 
@@ -53,10 +57,30 @@ export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory }) => {
 					Weekly Average <span className="font-normal text-ink-faint">({filledDays} days)</span>
 				</span>
 				<div className="flex items-center gap-3 font-mono text-sm tabular-nums">
-					<span className="font-bold text-macro-kcal">{weeklyAvg.kcal.toFixed(0)} kcal</span>
-					<span className="text-macro-protein">P {weeklyAvg.protein.toFixed(0)}g</span>
-					<span className="text-macro-carbs">C {weeklyAvg.carbs.toFixed(0)}g</span>
-					<span className="text-macro-fat">F {weeklyAvg.fat.toFixed(0)}g</span>
+					<span className="font-bold">
+						<KcalReadout kcal={weeklyAvg.kcal} target={targets?.kcal ?? null} /> kcal
+					</span>
+					<MacroDelta
+						label="P"
+						value={weeklyAvg.protein}
+						target={targets?.protein}
+						unit="g"
+						className="text-macro-protein"
+					/>
+					<MacroDelta
+						label="C"
+						value={weeklyAvg.carbs}
+						target={targets?.carbs}
+						unit="g"
+						className="text-macro-carbs"
+					/>
+					<MacroDelta
+						label="F"
+						value={weeklyAvg.fat}
+						target={targets?.fat}
+						unit="g"
+						className="text-macro-fat"
+					/>
 				</div>
 			</div>
 		</Card>
