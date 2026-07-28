@@ -1,6 +1,7 @@
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react'
 import {
 	BarChart3,
+	BicepsFlexed,
 	CalendarDays,
 	ChefHat,
 	CookingPot,
@@ -28,6 +29,7 @@ const publicLinks = [
 const desktopAuthLinks = [
 	{ to: '/plans', label: 'Plans', icon: CalendarDays },
 	{ to: '/workouts', label: 'Workouts', icon: Dumbbell },
+	{ to: '/exercises', label: 'Exercises', icon: BicepsFlexed },
 	{ to: '/analytics', label: 'Analytics', icon: BarChart3 }
 ] satisfies Link[]
 
