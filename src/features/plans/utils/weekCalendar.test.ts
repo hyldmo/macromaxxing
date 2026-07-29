@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ActiveProgramRef } from '~/lib'
+import { type ActiveProgramRef, getWeekStartDate } from '~/lib'
 import {
 	buildWeekDays,
 	type CalendarPlan,
@@ -16,13 +16,14 @@ const DAY_MS = 86_400_000
 function makePlan(
 	name: string,
 	slots: Array<{ dayOfWeek: number; slotIndex: number; portions: number }>,
-	createdAt = NOW,
+	weekStart: string | null = getWeekStartDate(NOW),
 	kcalPer100g = 200
 ): CalendarPlan {
 	return {
 		id: `mpl_${name}`,
 		name,
-		createdAt,
+		weekStart,
+		createdAt: NOW,
 		inventory: [
 			{
 				id: `mpi_${name}`,
@@ -126,8 +127,8 @@ describe('buildWeekDays', () => {
 		expect(days[2].meals.map(m => m.planName)).toEqual(['a', 'b'])
 	})
 
-	it('ignores plans created outside the current week', () => {
-		const lastWeek = new Date(2026, 6, 22, 9).getTime()
+	it('ignores plans belonging to another week', () => {
+		const lastWeek = getWeekStartDate(new Date(2026, 6, 22, 9).getTime())
 		const days = buildWeekDays({
 			plans: [
 				makePlan('old', [{ dayOfWeek: 2, slotIndex: 0, portions: 1 }], lastWeek),
@@ -139,6 +140,19 @@ describe('buildWeekDays', () => {
 
 		expect(days[2].meals.map(m => m.planName)).toEqual(['current'])
 		expect(days[2].totals.kcal).toBe(200)
+	})
+
+	it('ignores templates, which have no week of their own', () => {
+		const days = buildWeekDays({
+			plans: [
+				makePlan('template', [{ dayOfWeek: 2, slotIndex: 0, portions: 1 }], null),
+				makePlan('current', [{ dayOfWeek: 2, slotIndex: 1, portions: 1 }])
+			],
+			sessions: [],
+			now: NOW
+		})
+
+		expect(days[2].meals.map(m => m.planName)).toEqual(['current'])
 	})
 
 	it('places sessions by startedAt and drops ones outside the current week', () => {

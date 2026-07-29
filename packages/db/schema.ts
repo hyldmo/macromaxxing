@@ -10,11 +10,13 @@ import {
 	type MuscleGroup,
 	type NutritionGoal,
 	newId,
+	type RecipeType,
 	type SetMode,
 	type SetType,
 	type Sex,
 	type TrainingGoal,
-	typeidCol
+	typeidCol,
+	type WeekStart
 } from './custom-types'
 
 export const users = sqliteTable('users', {
@@ -116,7 +118,7 @@ export const recipes = sqliteTable(
 			.notNull()
 			.references(() => users.id),
 		name: text('name').notNull(),
-		type: text('type').notNull().default('recipe'), // 'recipe' | 'premade'
+		type: text('type').$type<RecipeType>().notNull().default('recipe'),
 		instructions: text('instructions'),
 		cookedWeight: real('cooked_weight'), // nullable, null = use raw total
 		portionSize: real('portion_size'), // null = entire dish is 1 portion
@@ -149,7 +151,7 @@ export const recipeIngredients = sqliteTable(
 	t => [index('recipe_ingredients_recipe_id_idx').on(t.recipeId)]
 )
 
-// Meal plan template
+// A Mon–Sun grid of meals: a plan when its week is ahead, a log once the week has passed
 export const mealPlans = sqliteTable(
 	'meal_plans',
 	{
@@ -160,6 +162,8 @@ export const mealPlans = sqliteTable(
 			.notNull()
 			.references(() => users.id),
 		name: text('name').notNull(),
+		/** Monday (`YYYY-MM-DD`) this plan's `dayOfWeek` slots fall on; null = reusable template. */
+		weekStart: text('week_start').$type<WeekStart>(),
 		createdAt: integer('created_at').notNull(),
 		updatedAt: integer('updated_at').notNull()
 	},

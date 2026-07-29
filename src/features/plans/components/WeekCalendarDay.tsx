@@ -1,5 +1,5 @@
 import type { MacroTargets } from '@macromaxxing/db'
-import { Dumbbell } from 'lucide-react'
+import { Dumbbell, Plus } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import { KcalReadout } from '~/features/nutrition/components/KcalReadout'
@@ -18,15 +18,17 @@ export interface WeekCalendarDayProps {
 	isNextUp: boolean
 	/** Daily macro goals, or null when the user hasn't set one — totals then render bare. */
 	targets: MacroTargets | null
+	/** Log a meal onto this day. Omitted on read-only surfaces (e.g. the landing page demo). */
+	onAddMeal?: (dayOfWeek: number) => void
 }
 
-export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNextUp, targets }) => {
+export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNextUp, targets, onAddMeal }) => {
 	const isEmpty = day.meals.length === 0 && day.sessions.length === 0 && !planned
 
 	return (
 		<div
 			className={cn(
-				'flex gap-2 rounded-md border p-2 md:flex-col md:gap-1',
+				'group flex gap-2 rounded-md border p-2 md:flex-col md:gap-1',
 				day.isToday ? 'border-accent bg-accent/5' : 'border-edge bg-surface-1',
 				day.isPast && 'opacity-60'
 			)}
@@ -36,6 +38,17 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 					{DAYS_SHORT[day.dayOfWeek]}
 				</span>
 				<span className="font-mono text-ink-faint text-xs tabular-nums">{new Date(day.date).getDate()}</span>
+				{onAddMeal && (
+					<button
+						type="button"
+						onClick={() => onAddMeal(day.dayOfWeek)}
+						aria-label={`Add meal to ${DAYS_SHORT[day.dayOfWeek]}`}
+						/* Always reachable on touch, where there is no hover to reveal it. */
+						className="ml-auto rounded-sm p-0.5 text-ink-faint opacity-100 transition-colors hover:bg-surface-2 hover:text-ink md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+					>
+						<Plus className="size-3.5" />
+					</button>
+				)}
 			</div>
 
 			<div className="min-w-0 flex-1 space-y-1">
@@ -72,10 +85,17 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 						title={`${meal.name} · ${meal.planName}`}
 					>
 						<span className="truncate text-ink">{meal.name}</span>
-						{meal.portions !== 1 && (
+						{/* A bare ingredient was logged by weight, so show grams rather than a portion count. */}
+						{meal.recipeType === 'ingredient' ? (
 							<span className="shrink-0 font-mono text-[10px] text-ink-faint tabular-nums">
-								×{meal.portions}
+								{meal.macros.weight.toFixed(0)}g
 							</span>
+						) : (
+							meal.portions !== 1 && (
+								<span className="shrink-0 font-mono text-[10px] text-ink-faint tabular-nums">
+									×{meal.portions}
+								</span>
+							)
 						)}
 						<span className="ml-auto shrink-0 font-mono text-[10px] text-macro-kcal tabular-nums">
 							{meal.macros.kcal.toFixed(0)}

@@ -1,4 +1,13 @@
-import { mealPlanInventory, mealPlanSlots, mealPlans, type TypeIDString, zodTypeID } from '@macromaxxing/db'
+import {
+	mealPlanInventory,
+	mealPlanSlots,
+	mealPlans,
+	recipeIngredients,
+	recipes,
+	type TypeIDString,
+	zodTypeID,
+	zWeekStart
+} from '@macromaxxing/db'
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router, type TRPCContext } from '../trpc'
@@ -25,6 +34,77 @@ async function resolveSlotIndex(
 	const taken = daySlots.map(s => s.slotIndex)
 	if (!taken.includes(requested)) return requested
 	return Math.max(...taken) + 1
+}
+
+/** One portion of an `ingredient`-type wrapper recipe, so a slot's portions read as hectograms. */
+const PORTION_GRAMS = 100
+
+/**
+ * Inventory takes a recipe id straight from the client, and `mealPlan.get` hands back each one as a
+ * full recipe with its ingredients. Without this, adding someone else's private recipe to your own
+ * plan reads it back in full — routing around the identical check `recipe.get` makes.
+ */
+async function assertRecipeVisible(db: TRPCContext['db'], recipeId: TypeIDString<'rcp'>, userId: string) {
+	const recipe = await db.query.recipes.findFirst({
+		where: { id: recipeId },
+		columns: { userId: true, isPublic: true }
+	})
+	if (!(recipe && (recipe.isPublic || recipe.userId === userId))) throw new Error('Recipe not found')
+}
+
+/**
+ * Find (or create) the wrapper recipe that lets a bare library ingredient sit in a meal plan.
+ *
+ * Inventory references recipes, not ingredients, so "200 g chicken breast" needs a recipe to hang
+ * off. Wrapping keeps every downstream consumer — macros, grocery list, week calendar, export —
+ * working on one shape instead of a nullable recipe/ingredient union. The wrapper holds 100 g so
+ * 1 portion = 100 g and the slot's (fractional) portions carry the amount, and it is reused across
+ * plans so logging chicken twice doesn't spawn a second recipe.
+ */
+async function findOrCreateIngredientRecipe(
+	db: TRPCContext['db'],
+	userId: string,
+	ingredientId: TypeIDString<'ing'>
+): Promise<TypeIDString<'rcp'>> {
+	const [existing] = await db
+		.select({ id: recipes.id })
+		.from(recipes)
+		.innerJoin(recipeIngredients, eq(recipeIngredients.recipeId, recipes.id))
+		.where(
+			and(
+				eq(recipes.userId, userId),
+				eq(recipes.type, 'ingredient'),
+				eq(recipeIngredients.ingredientId, ingredientId)
+			)
+		)
+		.limit(1)
+	if (existing) return existing.id
+
+	const ingredient = await db.query.ingredients.findFirst({ where: { id: ingredientId } })
+	if (!ingredient) throw new Error('Ingredient not found')
+
+	const now = Date.now()
+	const [recipe] = await db
+		.insert(recipes)
+		.values({
+			userId,
+			name: ingredient.name,
+			type: 'ingredient',
+			portionSize: PORTION_GRAMS,
+			isPublic: false,
+			createdAt: now,
+			updatedAt: now
+		})
+		.returning()
+
+	await db.insert(recipeIngredients).values({
+		recipeId: recipe.id,
+		ingredientId,
+		amountGrams: PORTION_GRAMS,
+		sortOrder: 0
+	})
+
+	return recipe.id
 }
 
 export const mealPlansRouter = router({
@@ -83,8 +163,11 @@ export const mealPlansRouter = router({
 		}),
 
 	create: protectedProcedure
-		.meta({ description: 'Create a new meal plan' })
-		.input(z.object({ name: z.string().min(1) }))
+		.meta({
+			description:
+				'Create a meal plan. `weekStart` is the Monday (YYYY-MM-DD) whose Mon–Sun grid the plan describes — a past week reads as a log, a future one as a plan. Omit it for a reusable template with no week of its own.'
+		})
+		.input(z.object({ name: z.string().min(1), weekStart: zWeekStart.nullish() }))
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
 			const [plan] = await ctx.db
@@ -92,6 +175,7 @@ export const mealPlansRouter = router({
 				.values({
 					userId: ctx.user.id,
 					name: input.name,
+					weekStart: input.weekStart ?? null,
 					createdAt: now,
 					updatedAt: now
 				})
@@ -100,11 +184,12 @@ export const mealPlansRouter = router({
 		}),
 
 	update: protectedProcedure
-		.meta({ description: 'Update meal plan name' })
+		.meta({ description: 'Rename a meal plan, or move it to another week (null = turn it into a template)' })
 		.input(
 			z.object({
 				id: zodTypeID('mpl'),
-				name: z.string().min(1).optional()
+				name: z.string().min(1).optional(),
+				weekStart: zWeekStart.nullable().optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -112,9 +197,9 @@ export const mealPlansRouter = router({
 			await ctx.db
 				.update(mealPlans)
 				.set({ ...updates, updatedAt: Date.now() })
-				.where(eq(mealPlans.id, id))
+				.where(and(eq(mealPlans.id, id), eq(mealPlans.userId, ctx.user.id)))
 			return ctx.db.query.mealPlans.findFirst({
-				where: { id }
+				where: { id, userId: ctx.user.id }
 			})
 		}),
 
@@ -122,14 +207,19 @@ export const mealPlansRouter = router({
 		.meta({ description: 'Delete a meal plan' })
 		.input(z.object({ id: zodTypeID('mpl') }))
 		.mutation(async ({ ctx, input }) => {
-			await ctx.db.delete(mealPlans).where(eq(mealPlans.id, input.id))
+			await ctx.db.delete(mealPlans).where(and(eq(mealPlans.id, input.id), eq(mealPlans.userId, ctx.user.id)))
 		}),
 
 	duplicate: protectedProcedure
+		.meta({
+			description:
+				'Copy a plan (inventory + slots) under a new name. Pass `weekStart` to drop a template onto a concrete week, or to carry last week forward.'
+		})
 		.input(
 			z.object({
 				id: zodTypeID('mpl'),
-				newName: z.string().min(1)
+				newName: z.string().min(1),
+				weekStart: zWeekStart.nullish()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -152,6 +242,7 @@ export const mealPlansRouter = router({
 				.values({
 					userId: ctx.user.id,
 					name: input.newName,
+					weekStart: input.weekStart ?? null,
 					createdAt: now,
 					updatedAt: now
 				})
@@ -204,6 +295,7 @@ export const mealPlansRouter = router({
 				where: { id: input.planId, userId: ctx.user.id }
 			})
 			if (!plan) throw new Error('Meal plan not found')
+			await assertRecipeVisible(ctx.db, input.recipeId, ctx.user.id)
 
 			const now = Date.now()
 			const [inv] = await ctx.db
@@ -299,6 +391,111 @@ export const mealPlansRouter = router({
 			await ctx.db.update(mealPlans).set({ updatedAt: Date.now() }).where(eq(mealPlans.id, inv.mealPlanId))
 		}),
 
+	ensureWeek: protectedProcedure
+		.meta({
+			description:
+				"Get the plan covering a week (Monday, YYYY-MM-DD), creating an empty one if there isn't one yet. Idempotent — call it before logging when you don't already hold a planId. If several plans share the week, returns the most recently touched."
+		})
+		.input(z.object({ weekStart: zWeekStart, name: z.string().min(1).optional() }))
+		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db.query.mealPlans.findFirst({
+				where: { userId: ctx.user.id, weekStart: input.weekStart },
+				orderBy: { updatedAt: 'desc' }
+			})
+			if (existing) return existing
+
+			const now = Date.now()
+			const [plan] = await ctx.db
+				.insert(mealPlans)
+				.values({
+					userId: ctx.user.id,
+					name: input.name ?? `Week of ${input.weekStart}`,
+					weekStart: input.weekStart,
+					createdAt: now,
+					updatedAt: now
+				})
+				.returning()
+			return plan
+		}),
+
+	logMeal: protectedProcedure
+		.meta({
+			description:
+				"Put a meal on a day in one call: resolves (or creates) the inventory row, then allocates the slot. This is the logging verb — use it to record what was eaten. Use addToInventory + allocate instead when planning a cook-up, where the portion pool is declared up front and over-allocating it should warn. `entry.kind: 'ingredient'` logs a bare library ingredient by weight, no recipe needed."
+		})
+		.input(
+			z.object({
+				planId: zodTypeID('mpl'),
+				dayOfWeek: z.number().int().min(0).max(6),
+				slotIndex: z.number().int().min(0).default(0),
+				entry: z.discriminatedUnion('kind', [
+					z.object({
+						kind: z.literal('recipe'),
+						recipeId: zodTypeID('rcp'),
+						portions: z.number().positive().default(1)
+					}),
+					z.object({
+						kind: z.literal('ingredient'),
+						ingredientId: zodTypeID('ing'),
+						grams: z.number().positive()
+					})
+				])
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const plan = await ctx.db.query.mealPlans.findFirst({
+				where: { id: input.planId, userId: ctx.user.id }
+			})
+			if (!plan) throw new Error('Meal plan not found')
+
+			if (input.entry.kind === 'recipe') await assertRecipeVisible(ctx.db, input.entry.recipeId, ctx.user.id)
+
+			const { recipeId, portions } =
+				input.entry.kind === 'recipe'
+					? { recipeId: input.entry.recipeId, portions: input.entry.portions }
+					: {
+							recipeId: await findOrCreateIngredientRecipe(ctx.db, ctx.user.id, input.entry.ingredientId),
+							portions: input.entry.grams / PORTION_GRAMS
+						}
+
+			const now = Date.now()
+			const existing = await ctx.db.query.mealPlanInventory.findFirst({
+				where: { mealPlanId: input.planId, recipeId },
+				with: { slots: true }
+			})
+
+			// `allocate` leaves the pool alone, so spreading a cook-up too thin still warns. Logging runs
+			// the other way — the portions are already eaten — so the pool grows to cover them and the
+			// over-allocation warning stays quiet on a plan that's being used as a diary.
+			let inventoryId: TypeIDString<'mpi'>
+			if (existing) {
+				inventoryId = existing.id
+				const allocated = existing.slots.reduce((sum, s) => sum + s.portions, 0) + portions
+				if (allocated > existing.totalPortions) {
+					await ctx.db
+						.update(mealPlanInventory)
+						.set({ totalPortions: allocated })
+						.where(eq(mealPlanInventory.id, existing.id))
+				}
+			} else {
+				const [inv] = await ctx.db
+					.insert(mealPlanInventory)
+					.values({ mealPlanId: input.planId, recipeId, totalPortions: portions, createdAt: now })
+					.returning()
+				inventoryId = inv.id
+			}
+
+			const slotIndex = await resolveSlotIndex(ctx.db, input.planId, input.dayOfWeek, input.slotIndex)
+			const [slot] = await ctx.db
+				.insert(mealPlanSlots)
+				.values({ inventoryId, dayOfWeek: input.dayOfWeek, slotIndex, portions, createdAt: now })
+				.returning()
+
+			await ctx.db.update(mealPlans).set({ updatedAt: now }).where(eq(mealPlans.id, input.planId))
+
+			return slot
+		}),
+
 	// Slot operations
 	allocate: protectedProcedure
 		.meta({ description: 'Allocate portions to a day and slot in the meal plan' })
@@ -363,7 +560,19 @@ export const mealPlansRouter = router({
 
 			const updates: Partial<typeof mealPlanSlots.$inferInsert> = {}
 			if (input.portions !== undefined) updates.portions = input.portions
-			if (input.inventoryId !== undefined) updates.inventoryId = input.inventoryId
+			if (input.inventoryId !== undefined) {
+				// Slots load through their inventory row rather than their plan, so an unchecked
+				// destination lets you re-parent your own slot onto another user's inventory — which
+				// makes the meal appear in THEIR plan. Confining the move to this plan covers both.
+				const target = await ctx.db.query.mealPlanInventory.findFirst({
+					where: { id: input.inventoryId },
+					columns: { mealPlanId: true }
+				})
+				if (!target || target.mealPlanId !== slot.inventory.mealPlanId) {
+					throw new Error('Inventory item not found')
+				}
+				updates.inventoryId = input.inventoryId
+			}
 
 			if (Object.keys(updates).length > 0) {
 				await ctx.db.update(mealPlanSlots).set(updates).where(eq(mealPlanSlots.id, input.slotId))
