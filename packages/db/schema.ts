@@ -1,12 +1,14 @@
 import { sql } from 'drizzle-orm'
 import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
+	type ActivityLevel,
 	type AiProvider,
 	type Equipment,
 	type ExerciseType,
 	type FatigueTier,
 	type ImageSource,
 	type MuscleGroup,
+	type NutritionGoal,
 	newId,
 	type SetMode,
 	type SetType,
@@ -33,7 +35,17 @@ export const userSettings = sqliteTable('user_settings', {
 	modelFallback: integer('model_fallback', { mode: 'boolean' }).notNull().default(false),
 	heightCm: real('height_cm'),
 	weightKg: real('weight_kg'),
+	age: integer('age'),
 	sex: text('sex').notNull().default('male').$type<Sex>(),
+	activityLevel: text('activity_level').$type<ActivityLevel>(),
+	// null = no targets set. cut/maintain/bulk derive from the body profile (resolveMacroTargets
+	// in nutrition.ts); only `custom` reads the target_* columns below.
+	nutritionGoal: text('nutrition_goal').$type<NutritionGoal>(),
+	targetKcal: real('target_kcal'),
+	targetProtein: real('target_protein'),
+	targetCarbs: real('target_carbs'),
+	targetFat: real('target_fat'),
+	targetFiber: real('target_fiber'),
 	activeProgramId: typeidCol('wpr')('active_program_id').references((): AnySQLiteColumn => workoutPrograms.id, {
 		onDelete: 'set null'
 	})

@@ -2,6 +2,7 @@ import { type FC, useMemo, useState } from 'react'
 import { Spinner, TRPCError } from '~/components/ui'
 import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
 import { WeekCalendarDay } from '~/features/plans/components/WeekCalendarDay'
+import { WeekMacroAverage } from '~/features/plans/components/WeekMacroAverage'
 import { buildWeekDays, projectUpcomingWorkouts } from '~/features/plans/utils/weekCalendar'
 import { getISOWeek, getWeekStart } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -23,6 +24,7 @@ export const WeekCalendarSection: FC = () => {
 
 	// buildWeekDays keeps only plans created in this week; the flag drives the empty-state note.
 	const hasWeekPlan = plans?.some(p => isPlanForWeek(p, weekStart)) ?? false
+	const targets = data?.macroTargets ?? null
 
 	const days = useMemo(
 		() => buildWeekDays({ plans: plans ?? [], sessions: data?.sessions ?? [], now }),
@@ -54,14 +56,19 @@ export const WeekCalendarSection: FC = () => {
 
 	return (
 		<section className="space-y-3">
-			<div className="flex items-center justify-between gap-2">
+			{/* Wraps: the macro-average readout is too wide to sit beside the heading on a phone. */}
+			<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
 				<h2 className="font-semibold text-ink">
 					This week
 					<span className="ml-2 font-mono font-normal text-ink-faint text-xs tabular-nums">
 						W{getISOWeek(weekStart)} · {formatWeekRange(weekStart, days[6].date)}
 					</span>
 				</h2>
-				{!hasWeekPlan && <span className="text-ink-faint text-xs">No meal plan this week</span>}
+				{hasWeekPlan ? (
+					<WeekMacroAverage days={days} targets={targets} />
+				) : (
+					<span className="text-ink-faint text-xs">No meal plan this week</span>
+				)}
 			</div>
 
 			<div className="grid grid-cols-1 gap-1 md:grid-cols-7">
@@ -71,6 +78,7 @@ export const WeekCalendarSection: FC = () => {
 						day={day}
 						planned={upcoming.get(day.dayOfWeek) ?? null}
 						isNextUp={day.dayOfWeek === nextDay}
+						targets={targets}
 					/>
 				))}
 			</div>

@@ -11,6 +11,7 @@ import {
 	Switch,
 	TRPCError
 } from '~/components/ui'
+import { MacroTargetsForm } from '~/features/nutrition/components/MacroTargetsForm'
 import { LocationsSection } from '~/features/workouts/components/LocationsSection'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
 import { prefetchRoute, useDocumentTitle, useUnsavedChanges } from '~/lib'
@@ -21,6 +22,7 @@ export const clientLoader = () =>
 		utils.settings.get.ensureData(),
 		utils.settings.listTokens.ensureData(),
 		utils.settings.getProfile.ensureData(),
+		utils.settings.getTargets.ensureData(),
 		utils.workout.listLocations.ensureData()
 	])
 
@@ -91,6 +93,19 @@ export default function SettingsPage() {
 				</CardHeader>
 				<CardContent>
 					<ProfileForm />
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<h2 className="font-medium text-ink text-sm">Macro Targets</h2>
+					<p className="text-ink-muted text-xs">
+						Daily nutrition goals. Cut/maintain/bulk derive from your TDEE and follow your body profile;
+						Custom lets you set the numbers yourself.
+					</p>
+				</CardHeader>
+				<CardContent>
+					<MacroTargetsForm />
 				</CardContent>
 			</Card>
 

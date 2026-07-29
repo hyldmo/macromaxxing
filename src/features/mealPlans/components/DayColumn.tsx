@@ -1,4 +1,4 @@
-import type { MealPlan } from '@macromaxxing/db'
+import type { MacroTargets, MealPlan } from '@macromaxxing/db'
 import type { FC } from 'react'
 import {
 	calculateDayTotals,
@@ -23,11 +23,12 @@ export interface DayColumnProps {
 	slots: SlotWithInventory[]
 	inventory: InventoryItem[]
 	onDrop: (slotIndex: number, inventoryId: InventoryItem['id'], sourceSlotId?: SlotWithInventory['id']) => void
+	targets: MacroTargets | null
 }
 
 const MIN_SLOTS = 3
 
-export const DayColumn: FC<DayColumnProps> = ({ planId, dayName, dayOfWeek, slots, inventory, onDrop }) => {
+export const DayColumn: FC<DayColumnProps> = ({ planId, dayName, dayOfWeek, slots, inventory, onDrop, targets }) => {
 	// Group by index rather than indexing into a sparse array: `slotIndex` is a position, and a day
 	// can still hold rows that share one (older data, or a race). Bucketing keeps the gaps that
 	// give a day its breakfast/lunch/dinner shape while rendering every allocated meal.
@@ -92,7 +93,7 @@ export const DayColumn: FC<DayColumnProps> = ({ planId, dayName, dayOfWeek, slot
 			</div>
 
 			{/* Day totals */}
-			<DayTotals totals={dayTotal} />
+			<DayTotals totals={dayTotal} targets={targets} />
 		</div>
 	)
 }

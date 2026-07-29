@@ -10,17 +10,22 @@ export const ProfileForm: FC = () => {
 		onSuccess: () => {
 			utils.settings.getProfile.invalidate()
 			utils.settings.get.invalidate()
+			// Height/weight/age feed TDEE, so derived macro targets move with them.
+			utils.settings.getTargets.invalidate()
+			utils.dashboard.summary.invalidate()
 		}
 	})
 
 	const [heightCm, setHeightCm] = useState('')
 	const [weightKg, setWeightKg] = useState('')
+	const [age, setAge] = useState('')
 	const [sex, setSex] = useState<Sex>('male')
 
 	useEffect(() => {
 		if (profileQuery.data) {
 			setHeightCm(profileQuery.data.heightCm?.toString() ?? '')
 			setWeightKg(profileQuery.data.weightKg?.toString() ?? '')
+			setAge(profileQuery.data.age?.toString() ?? '')
 			setSex(profileQuery.data.sex)
 		}
 	}, [profileQuery.data])
@@ -30,6 +35,7 @@ export const ProfileForm: FC = () => {
 		saveMutation.mutate({
 			heightCm: heightCm ? Number.parseFloat(heightCm) : null,
 			weightKg: weightKg ? Number.parseFloat(weightKg) : null,
+			age: age ? Number.parseInt(age, 10) : null,
 			sex
 		})
 	}
@@ -38,11 +44,12 @@ export const ProfileForm: FC = () => {
 		profileQuery.data &&
 		(String(profileQuery.data.heightCm ?? '') !== heightCm ||
 			String(profileQuery.data.weightKg ?? '') !== weightKg ||
+			String(profileQuery.data.age ?? '') !== age ||
 			profileQuery.data.sex !== sex)
 
 	return (
 		<form onSubmit={handleSave} className="space-y-3">
-			<div className="grid grid-cols-3 gap-3">
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				<div className="space-y-1">
 					<label className="text-ink-muted text-sm" htmlFor="height">
 						Height (cm)
@@ -67,6 +74,19 @@ export const ProfileForm: FC = () => {
 						placeholder="80"
 						min={30}
 						step={0.5}
+					/>
+				</div>
+				<div className="space-y-1">
+					<label className="text-ink-muted text-sm" htmlFor="age">
+						Age
+					</label>
+					<NumberInput
+						id="age"
+						value={age}
+						onChange={e => setAge(e.target.value)}
+						placeholder="30"
+						min={10}
+						step={1}
 					/>
 				</div>
 				<div className="space-y-1">
