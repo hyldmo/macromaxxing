@@ -6,13 +6,14 @@ import {
 	type TypeIDString
 } from '@macromaxxing/db'
 import { eq, inArray } from 'drizzle-orm'
+import { trainingSessionsPerWeek } from '../training-frequency'
 import { protectedProcedure, router } from '../trpc'
 
 export const dashboardRouter = router({
 	summary: protectedProcedure
 		.meta({ description: "Get today's meals, recent workout sessions, and macro progress" })
 		.query(async ({ ctx }) => {
-			const [sessions, templates, plansShallow, planRecipes, settings] = await Promise.all([
+			const [sessions, templates, plansShallow, planRecipes, settings, sessionsPerWeek] = await Promise.all([
 				// Recent workout sessions (3 levels — acceptable)
 				ctx.db.query.workoutSessions.findMany({
 					where: { userId: ctx.user.id },
@@ -81,7 +82,10 @@ export const dashboardRouter = router({
 							with: { items: { orderBy: { sortOrder: 'asc' } } }
 						}
 					}
-				})
+				}),
+
+				// Q6: Training frequency — what an `auto` activity level resolves against.
+				trainingSessionsPerWeek(ctx.db, ctx.user.id)
 			])
 
 			// Assemble plans with recipes
@@ -112,7 +116,9 @@ export const dashboardRouter = router({
 				activeProgram,
 				// Derived from the same settings row the active program comes from, so the week
 				// calendar can price day totals against the user's goal without a second query.
-				macroTargets: settings ? resolveMacroTargets(settings) : null
+				macroTargets: settings
+					? resolveMacroTargets({ ...settings, trainingSessionsPerWeek: sessionsPerWeek })
+					: null
 			}
 		})
 })

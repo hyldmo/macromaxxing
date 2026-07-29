@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+	activityFromTrainingFrequency,
 	deriveMacroTargets,
 	estimateBMR,
 	estimateProfileTDEE,
+	resolveActivityLevel,
 	resolveMacroTargets,
 	type TargetSettings
 } from './nutrition'
@@ -12,7 +14,8 @@ const profile = {
 	heightCm: 180,
 	age: 30,
 	sex: 'male',
-	activityLevel: 'moderate'
+	activityLevel: 'moderate',
+	trainingSessionsPerWeek: null
 } as const
 
 const settings = (overrides: Partial<TargetSettings> = {}): TargetSettings => ({
@@ -47,6 +50,50 @@ describe('estimateProfileTDEE', () => {
 		expect(estimateProfileTDEE({ ...profile, age: null })).toBeNull()
 		expect(estimateProfileTDEE({ ...profile, weightKg: null })).toBeNull()
 		expect(estimateProfileTDEE({ ...profile, heightCm: null })).toBeNull()
+	})
+
+	it('multiplies by the auto-resolved bracket', () => {
+		const auto = { ...profile, activityLevel: 'auto', trainingSessionsPerWeek: 6 } as const
+		expect(estimateProfileTDEE(auto)).toBeCloseTo(1780 * 1.725)
+	})
+})
+
+describe('activityFromTrainingFrequency', () => {
+	it('brackets logged frequency', () => {
+		expect(activityFromTrainingFrequency(0)).toBe('sedentary')
+		expect(activityFromTrainingFrequency(0.75)).toBe('sedentary')
+		expect(activityFromTrainingFrequency(1)).toBe('light')
+		expect(activityFromTrainingFrequency(2.9)).toBe('light')
+		expect(activityFromTrainingFrequency(3)).toBe('moderate')
+		expect(activityFromTrainingFrequency(5.5)).toBe('moderate')
+		expect(activityFromTrainingFrequency(6)).toBe('active')
+	})
+
+	it('never reaches very_active — 1.9 implies a physical job a training log cannot see', () => {
+		expect(activityFromTrainingFrequency(14)).toBe('active')
+	})
+})
+
+describe('resolveActivityLevel', () => {
+	it('passes fixed brackets through untouched', () => {
+		expect(resolveActivityLevel({ ...profile, activityLevel: 'very_active' })).toBe('very_active')
+	})
+
+	it('defaults to moderate when unset', () => {
+		expect(resolveActivityLevel({ ...profile, activityLevel: null })).toBe('moderate')
+	})
+
+	it('resolves auto from logged frequency', () => {
+		expect(resolveActivityLevel({ ...profile, activityLevel: 'auto', trainingSessionsPerWeek: 4 })).toBe('moderate')
+		expect(resolveActivityLevel({ ...profile, activityLevel: 'auto', trainingSessionsPerWeek: 0 })).toBe(
+			'sedentary'
+		)
+	})
+
+	it('keeps the neutral default when auto has no frequency to work from', () => {
+		expect(resolveActivityLevel({ ...profile, activityLevel: 'auto', trainingSessionsPerWeek: null })).toBe(
+			'moderate'
+		)
 	})
 })
 
