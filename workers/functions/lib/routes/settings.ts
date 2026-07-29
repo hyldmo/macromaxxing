@@ -1,9 +1,10 @@
 import {
 	type AiProvider,
-	activityLevel,
+	activitySetting,
 	apiTokens,
 	estimateProfileTDEE,
 	nutritionGoal,
+	resolveActivityLevel,
 	resolveMacroTargets,
 	userSettings,
 	zAiProvider,
@@ -15,6 +16,7 @@ import { z } from 'zod'
 import { MODELS } from '../constants'
 import { decrypt, encrypt } from '../crypto'
 import { generateToken, hashToken } from '../mcp-auth'
+import { trainingSessionsPerWeek } from '../training-frequency'
 import { protectedProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
 
@@ -105,9 +107,11 @@ export const settingsRouter = router({
 	getTargets: protectedProcedure
 		.meta({ description: "Get the user's daily macro targets (kcal/protein/carbs/fat/fiber) and TDEE" })
 		.query(async ({ ctx }) => {
-			const settings = await ctx.db.query.userSettings.findFirst({
-				where: { userId: ctx.user.id }
-			})
+			const [settings, sessionsPerWeek] = await Promise.all([
+				ctx.db.query.userSettings.findFirst({ where: { userId: ctx.user.id } }),
+				trainingSessionsPerWeek(ctx.db, ctx.user.id)
+			])
+			const profile = settings && { ...settings, trainingSessionsPerWeek: sessionsPerWeek }
 			return {
 				nutritionGoal: settings?.nutritionGoal ?? null,
 				activityLevel: settings?.activityLevel ?? null,
@@ -117,9 +121,13 @@ export const settingsRouter = router({
 				weightKg: settings?.weightKg ?? null,
 				age: settings?.age ?? null,
 				sex: settings?.sex ?? 'male',
-				tdee: settings ? estimateProfileTDEE(settings) : null,
+				/** Drives the `auto` bracket — echoed so the form can preview it without a second query. */
+				trainingSessionsPerWeek: sessionsPerWeek,
+				/** What `auto` currently resolves to; equal to `activityLevel` for the fixed brackets. */
+				resolvedActivityLevel: profile ? resolveActivityLevel(profile) : null,
+				tdee: profile ? estimateProfileTDEE(profile) : null,
 				/** What every surface renders against — derived unless the goal is `custom`. */
-				targets: settings ? resolveMacroTargets(settings) : null
+				targets: profile ? resolveMacroTargets(profile) : null
 			}
 		}),
 
@@ -127,7 +135,7 @@ export const settingsRouter = router({
 		.input(
 			z.object({
 				nutritionGoal: nutritionGoal.nullable(),
-				activityLevel: activityLevel.nullable(),
+				activityLevel: activitySetting.nullable(),
 				// Only read back when nutritionGoal is 'custom'; ignored for derived goals.
 				targetKcal: z.number().min(0).max(20000).nullable(),
 				targetProtein: z.number().min(0).max(1000).nullable(),

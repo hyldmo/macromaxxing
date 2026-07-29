@@ -48,6 +48,14 @@ export type NutritionGoal = z.infer<typeof nutritionGoal>
 export const activityLevel = z.enum(['sedentary', 'light', 'moderate', 'active', 'very_active'])
 export type ActivityLevel = z.infer<typeof activityLevel>
 
+/**
+ * What the user stores: a fixed bracket, or `auto` — resolved from logged training frequency
+ * (`resolveActivityLevel` in nutrition.ts). `auto` is deliberately NOT part of `ActivityLevel`
+ * so `ACTIVITY_MULTIPLIER` stays total — it has no multiplier of its own, it has to be resolved.
+ */
+export const activitySetting = z.enum(['auto', ...activityLevel.options])
+export type ActivitySetting = z.infer<typeof activitySetting>
+
 export const exerciseType = z.enum(['compound', 'isolation'])
 export type ExerciseType = z.infer<typeof exerciseType>
 

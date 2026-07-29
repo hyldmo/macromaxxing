@@ -1,20 +1,23 @@
 import {
 	ACTIVITY_MULTIPLIER,
-	type ActivityLevel,
-	activityLevel,
+	type ActivitySetting,
+	activitySetting,
+	DEFAULT_ACTIVITY_LEVEL,
 	deriveProfileTargets,
+	estimateProfileTDEE,
 	type MacroTargets,
 	type NutritionGoal,
-	nutritionGoal
+	nutritionGoal,
+	resolveActivityLevel
 } from '@macromaxxing/db'
 import { startCase } from 'es-toolkit'
 import { type FC, useEffect, useMemo, useState } from 'react'
 import { ButtonGroup, NumberInput, SaveButton, Select, TRPCError } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 
-const ACTIVITY_OPTIONS = activityLevel.options.map(value => ({
+const ACTIVITY_OPTIONS = activitySetting.options.map(value => ({
 	value,
-	label: `${startCase(value)} (${ACTIVITY_MULTIPLIER[value]})`
+	label: value === 'auto' ? 'Auto (from logged sessions)' : `${startCase(value)} (${ACTIVITY_MULTIPLIER[value]})`
 }))
 
 const GOAL_OPTIONS = nutritionGoal.options.map(value => ({ value, label: startCase(value) }))
@@ -67,7 +70,7 @@ export const MacroTargetsForm: FC = () => {
 	})
 
 	const [goal, setGoal] = useState<NutritionGoal>('maintain')
-	const [activity, setActivity] = useState<ActivityLevel>('moderate')
+	const [activity, setActivity] = useState<ActivitySetting>(DEFAULT_ACTIVITY_LEVEL)
 	// Only `custom` owns editable numbers. Derived goals compute theirs during render below —
 	// mirroring them into state would race this effect: on the render where `saved` first
 	// arrives, `goal` is still the initial 'maintain', so a saved `custom` row would briefly
@@ -79,17 +82,23 @@ export const MacroTargetsForm: FC = () => {
 	useEffect(() => {
 		if (!saved) return
 		setGoal(saved.nutritionGoal ?? 'maintain')
-		setActivity(saved.activityLevel ?? 'moderate')
+		setActivity(saved.activityLevel ?? DEFAULT_ACTIVITY_LEVEL)
 		setCustomFields(toFields(saved.targets))
 	}, [saved])
 
+	// The saved body profile under the *pending* activity choice, so TDEE, the resolved `auto`
+	// bracket and the macro numbers all preview the same selection instead of lagging until save.
+	const profile = useMemo(() => saved && { ...saved, activityLevel: activity }, [saved, activity])
+
 	const derived = useMemo(
-		() => (saved && goal !== 'custom' ? deriveProfileTargets({ ...saved, activityLevel: activity }, goal) : null),
-		[saved, goal, activity]
+		() => (profile && goal !== 'custom' ? deriveProfileTargets(profile, goal) : null),
+		[profile, goal]
 	)
 
 	const isCustom = goal === 'custom'
 	const fields = isCustom ? customFields : toFields(derived)
+	const tdee = profile && estimateProfileTDEE(profile)
+	const resolvedActivity = profile ? resolveActivityLevel(profile) : DEFAULT_ACTIVITY_LEVEL
 
 	// Switching to Custom hands off whatever was on screen, so it reads as an edit, not a reset.
 	function handleGoalChange(next: NutritionGoal) {
@@ -117,7 +126,7 @@ export const MacroTargetsForm: FC = () => {
 	const hasChanges =
 		saved &&
 		(saved.nutritionGoal !== goal ||
-			(saved.activityLevel ?? 'moderate') !== activity ||
+			(saved.activityLevel ?? DEFAULT_ACTIVITY_LEVEL) !== activity ||
 			(isCustom && MACRO_FIELDS.some(f => savedFields[f.key] !== fields[f.key])))
 
 	const missingProfile = !(isCustom || (saved?.weightKg && saved.heightCm && saved.age))
@@ -139,12 +148,23 @@ export const MacroTargetsForm: FC = () => {
 						<Select id="activity" value={activity} options={ACTIVITY_OPTIONS} onChange={setActivity} />
 					</div>
 				)}
-				{saved?.tdee != null && !isCustom && (
+				{!isCustom && tdee != null && (
 					<p className="font-mono text-ink-muted text-sm tabular-nums">
-						TDEE <span className="font-semibold text-ink">{Math.round(saved.tdee)}</span> kcal
+						TDEE <span className="font-semibold text-ink">{Math.round(tdee)}</span> kcal
 					</p>
 				)}
 			</div>
+
+			{!isCustom && activity === 'auto' && saved && (
+				<p className="text-ink-faint text-xs">
+					<span className="font-mono tabular-nums">{saved.trainingSessionsPerWeek.toFixed(1)}</span>{' '}
+					sessions/wk logged over the last 4 weeks →{' '}
+					<span className="text-ink-muted">
+						{startCase(resolvedActivity)} ({ACTIVITY_MULTIPLIER[resolvedActivity]})
+					</span>
+					. Pick a level by hand if you also train outside Macromaxxing.
+				</p>
+			)}
 
 			{missingProfile && (
 				<p className="text-ink-faint text-xs">

@@ -7,7 +7,7 @@
  * targets with it. Only `custom` reads the explicit `target*` columns.
  */
 
-import type { ActivityLevel, NutritionGoal, Sex } from './custom-types'
+import type { ActivityLevel, ActivitySetting, NutritionGoal, Sex } from './custom-types'
 import type { MacroTargets } from './types'
 
 /** TDEE multiplier per activity level (Mifflin-St Jeor convention). */
@@ -17,6 +17,28 @@ export const ACTIVITY_MULTIPLIER: Record<ActivityLevel, number> = {
 	moderate: 1.55,
 	active: 1.725,
 	very_active: 1.9
+}
+
+/** What an unset — or unresolvable `auto` — activity level falls back to. */
+export const DEFAULT_ACTIVITY_LEVEL: ActivityLevel = 'moderate'
+
+/**
+ * Logged sessions per week → Mifflin bracket, highest threshold first.
+ *
+ * Capped at `active`: `very_active` (1.9) describes a physically demanding JOB or two-a-days,
+ * which a training log can't evidence — a 6×/week lifter with a desk job is not 1.9. That, plus
+ * un-logged cardio/sport/manual labour, is why the fixed brackets stay selectable.
+ */
+const AUTO_ACTIVITY_BRACKETS: ReadonlyArray<readonly [minSessionsPerWeek: number, ActivityLevel]> = [
+	[6, 'active'],
+	[3, 'moderate'],
+	[1, 'light'],
+	[0, 'sedentary']
+]
+
+/** The bracket a given training frequency lands in. */
+export function activityFromTrainingFrequency(sessionsPerWeek: number): ActivityLevel {
+	return AUTO_ACTIVITY_BRACKETS.find(([min]) => sessionsPerWeek >= min)?.[1] ?? 'sedentary'
 }
 
 /** Daily calorie offset from maintenance for each goal. */
@@ -56,7 +78,24 @@ export interface BodyProfile {
 	heightCm: number | null
 	age: number | null
 	sex: Sex
-	activityLevel: ActivityLevel | null
+	activityLevel: ActivitySetting | null
+	/**
+	 * Completed sessions per week over the trailing window — only read when the setting is `auto`.
+	 * Required rather than optional so a caller can't quietly omit it and land an `auto` user in
+	 * the wrong bracket; `null` means "not measured here" and keeps the neutral default.
+	 */
+	trainingSessionsPerWeek: number | null
+}
+
+/** The concrete bracket a profile's activity setting resolves to. */
+export function resolveActivityLevel(profile: BodyProfile): ActivityLevel {
+	const setting = profile.activityLevel ?? DEFAULT_ACTIVITY_LEVEL
+	if (setting !== 'auto') return setting
+	// An unknown frequency stays neutral instead of dropping to sedentary — guessing 1.2 for
+	// someone who trains understates their targets by ~600 kcal, which is worse than guessing high.
+	return profile.trainingSessionsPerWeek == null
+		? DEFAULT_ACTIVITY_LEVEL
+		: activityFromTrainingFrequency(profile.trainingSessionsPerWeek)
 }
 
 /** TDEE for a body profile, or null when height/weight/age aren't filled in yet. */
@@ -64,7 +103,7 @@ export function estimateProfileTDEE(profile: BodyProfile): number | null {
 	const { weightKg, heightCm, age } = profile
 	if (!(weightKg && heightCm && age)) return null
 	const bmr = estimateBMR(weightKg, heightCm, age, profile.sex)
-	return estimateTDEE(bmr, ACTIVITY_MULTIPLIER[profile.activityLevel ?? 'moderate'])
+	return estimateTDEE(bmr, ACTIVITY_MULTIPLIER[resolveActivityLevel(profile)])
 }
 
 /** Derive macro targets from TDEE + bodyweight + goal. */

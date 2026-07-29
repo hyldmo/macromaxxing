@@ -128,8 +128,10 @@ src/
                                             #   it; without it every past plan stacks onto the same weekday.
     nutrition/                              # Daily macro targets (settings form + the readouts every
                                             #   meal surface prices its totals against)
-      components/MacroTargetsForm.tsx       # Settings card: goal (cut/maintain/bulk/custom) + activity level;
-                                            #   derived goals show read-only numbers, Custom unlocks the inputs
+      components/MacroTargetsForm.tsx       # Settings card: goal (cut/maintain/bulk/custom) + activity setting;
+                                            #   derived goals show read-only numbers, Custom unlocks the inputs.
+                                            #   Activity 'Auto' reads the logged sessions/wk and shows which bracket
+                                            #   it lands in; TDEE + macros preview the PENDING selection, not the saved one
       components/KcalReadout.tsx            # `1850/2400` — status-colored actual, faint target
       components/MacroDelta.tsx             # `P180 -12` — macro value + signed distance from its target
       components/MacroTargetBars.tsx        # Three hairline P/C/F progress bars
@@ -205,7 +207,9 @@ packages/db/                                # Shared package @macromaxxing/db
                                             #   the session planner and the muscle-load aggregates
   nutrition.ts                              # Pure nutrition math: Mifflin-St Jeor BMR/TDEE, deriveMacroTargets,
                                             #   and resolveMacroTargets — the ONE place a userSettings row turns
-                                            #   into MacroTargets (server + client both call it)
+                                            #   into MacroTargets (server + client both call it). resolveActivityLevel
+                                            #   turns the stored ActivitySetting into a real bracket: 'auto' maps
+                                            #   trainingSessionsPerWeek through activityFromTrainingFrequency
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios) +
                                             #   plannedRowContributions (template row → per-muscle contributions)
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
@@ -272,7 +276,8 @@ src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx
 users(id PK clerk_user_id, email)
   → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
                  heightCm?, weightKg?, age?, sex: male|female,
-                 activityLevel?: sedentary|light|moderate|active|very_active,
+                 activityLevel?: auto|sedentary|light|moderate|active|very_active,  -- 'auto' = derived from
+                                 -- logged session frequency on read; plain text column, widening needs no migration
                  nutritionGoal?: cut|maintain|bulk|custom,
                  targetKcal?/targetProtein?/targetCarbs?/targetFat?/targetFiber?  -- ONLY read when goal='custom')
 
@@ -414,7 +419,9 @@ trpc.analytics.calendarHeatmap              # Per-day training density (sessions
 trpc.analytics.weeklyVolumeByMuscle         # Per-week intensity-weighted volume by muscle group (Monday-aligned UTC grid)
 trpc.settings.get/save
 trpc.settings.getProfile/saveProfile         # Body profile (height, weight, age, sex)
-trpc.settings.getTargets/saveTargets         # Macro targets: goal + activity level in, resolved targets + TDEE out
+trpc.settings.getTargets/saveTargets         # Macro targets: goal + activity setting in, resolved targets + TDEE out
+                                             #   (plus trainingSessionsPerWeek + resolvedActivityLevel, so an 'auto'
+                                             #   setting explains itself without the caller knowing the brackets)
 trpc.settings.listTokens/createToken/deleteToken    # Personal access token management
 trpc.ai.lookup                              # Returns { protein, carbs, fat, kcal, fiber, density, units[], source } per 100g
 trpc.ai.estimateCookedWeight                # Returns { cookedWeight } based on ingredients + instructions

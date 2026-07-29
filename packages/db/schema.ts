@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import {
-	type ActivityLevel,
+	type ActivitySetting,
 	type AiProvider,
 	type Equipment,
 	type ExerciseType,
@@ -37,7 +37,8 @@ export const userSettings = sqliteTable('user_settings', {
 	weightKg: real('weight_kg'),
 	age: integer('age'),
 	sex: text('sex').notNull().default('male').$type<Sex>(),
-	activityLevel: text('activity_level').$type<ActivityLevel>(),
+	// 'auto' resolves from logged session frequency on read — no schema change, the column is plain text.
+	activityLevel: text('activity_level').$type<ActivitySetting>(),
 	// null = no targets set. cut/maintain/bulk derive from the body profile (resolveMacroTargets
 	// in nutrition.ts); only `custom` reads the target_* columns below.
 	nutritionGoal: text('nutrition_goal').$type<NutritionGoal>(),
