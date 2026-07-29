@@ -1,6 +1,7 @@
 import {
 	ingredients,
 	ingredientUnits,
+	type RecipeType,
 	recipeIngredients,
 	recipes,
 	type TypeIDString,
@@ -77,11 +78,22 @@ const updateIngredientSchema = z.object({
 	sortOrder: z.number().int().optional()
 })
 
+/**
+ * Types the user actually authored. `ingredient` wrappers exist only so `mealPlan.logMeal` can put a
+ * bare ingredient in a plan — they're plumbing, and listing them would duplicate the ingredient list.
+ */
+const AUTHORED_TYPES: RecipeType[] = ['recipe', 'premade']
+
 export const recipesRouter = router({
 	list: publicProcedure.meta({ description: 'List all recipes with macro summaries' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
 			where: ctx.user
-				? { OR: [{ isPublic: true, type: 'recipe' }, { userId: ctx.user.id }] }
+				? {
+						OR: [
+							{ isPublic: true, type: 'recipe' },
+							{ userId: ctx.user.id, type: { in: AUTHORED_TYPES } }
+						]
+					}
 				: { isPublic: true, type: 'recipe' },
 			with: recipeIngredientsWith,
 			orderBy: { updatedAt: 'desc' },

@@ -1,7 +1,7 @@
 import type { MealPlan } from '@macromaxxing/db'
 import { ArrowLeft, Package, ScanLine, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Button, Input, Modal, Spinner, TRPCError } from '~/components/ui'
+import { Button, Input, Modal, NumberInput, Spinner, TRPCError } from '~/components/ui'
 import { BarcodeLookup } from '~/features/recipes/components/BarcodeLookup'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
@@ -17,6 +17,7 @@ import { type RouterOutput, trpc } from '~/lib/trpc'
 
 type Recipe = RouterOutput['recipe']['list'][number]
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
+type IngredientOption = RouterOutput['ingredient']['list'][number]
 
 export interface AddToInventoryModalProps {
 	planId: MealPlan['id']
@@ -53,8 +54,17 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 	const [showPremade, setShowPremade] = useState(false)
 	const [scanMode, setScanMode] = useState(false)
 	const [scannedProduct, setScannedProduct] = useState<OFFProduct | null>(null)
+	// Picking a bare ingredient needs an amount, so it's a two-step: select, then confirm grams.
+	const [selectedIngredient, setSelectedIngredient] = useState<IngredientOption | null>(null)
+	const [gramsInput, setGramsInput] = useState('100')
+	const grams = Number(gramsInput) || 0
 
 	const recipesQuery = trpc.recipe.list.useQuery()
+	// Bare ingredients are a logging affordance — when planning a cook-up you add recipes, not raw grams.
+	const ingredientsQuery = trpc.ingredient.list.useQuery(
+		{ search },
+		{ enabled: Boolean(slotAllocation) && search.length > 1 }
+	)
 	const utils = trpc.useUtils()
 
 	const allocateMutation = trpc.mealPlan.allocate.useMutation({
@@ -92,7 +102,22 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		}
 	})
 
-	const isPending = addMutation.isPending || allocateMutation.isPending || addPremadeMutation.isPending
+	// Logging goes straight onto the day in one call. `addToInventory` stays the planning verb: it
+	// declares a portion pool up front, so over-allocating a cook-up still warns.
+	const logMealMutation = trpc.mealPlan.logMeal.useMutation({
+		onSuccess: () => {
+			utils.mealPlan.get.invalidate({ id: planId })
+			// The week calendar and dashboard read plans off the summary, not mealPlan.get, and the
+			// plan list carries its own inventory count — without this it keeps reporting the old one.
+			utils.dashboard.summary.invalidate()
+			utils.mealPlan.list.invalidate()
+			utils.recipe.list.invalidate()
+			onClose()
+		}
+	})
+
+	const isPending =
+		addMutation.isPending || allocateMutation.isPending || addPremadeMutation.isPending || logMealMutation.isPending
 
 	function handleConfirmScanned() {
 		if (!scannedProduct) return
@@ -124,17 +149,44 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 			.slice(0, 10) ?? []
 
 	const query = search.toLowerCase()
-	const filteredInventory = slotAllocation
+	// Ingredient wrappers are excluded from the quick-picks on purpose. They'd duplicate the row the
+	// Ingredients section already shows, and the quick-pick allocates a fixed 1 portion through
+	// `allocate` — which doesn't grow the pool, so re-logging one would trip the over-allocation
+	// warning that logging is supposed to stay clear of. Re-log via Ingredients, which sets the amount.
+	const loggableInventory = slotAllocation?.inventory.filter(inv => inv.recipe.type !== 'ingredient')
+	const filteredInventory = loggableInventory
 		? query
-			? slotAllocation.inventory.filter(inv => inv.recipe.name.toLowerCase().includes(query))
-			: slotAllocation.inventory
+			? loggableInventory.filter(inv => inv.recipe.name.toLowerCase().includes(query))
+			: loggableInventory
 		: undefined
 
+	const filteredIngredients =
+		ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(query)).slice(0, 5) ?? []
+
 	function handleAdd(recipe: Recipe) {
+		if (slotAllocation) {
+			logMealMutation.mutate({
+				planId,
+				dayOfWeek: slotAllocation.dayOfWeek,
+				slotIndex: slotAllocation.slotIndex,
+				entry: { kind: 'recipe', recipeId: recipe.id, portions: 1 }
+			})
+			return
+		}
 		addMutation.mutate({
 			planId,
 			recipeId: recipe.id,
 			totalPortions: getDefaultPortions(recipe)
+		})
+	}
+
+	function handleLogIngredient() {
+		if (!(slotAllocation && selectedIngredient)) return
+		logMealMutation.mutate({
+			planId,
+			dayOfWeek: slotAllocation.dayOfWeek,
+			slotIndex: slotAllocation.slotIndex,
+			entry: { kind: 'ingredient', ingredientId: selectedIngredient.id, grams }
 		})
 	}
 
@@ -218,6 +270,46 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 						) : (
 							<BarcodeLookup active onProductFound={setScannedProduct} />
 						)}
+					</div>
+				) : selectedIngredient ? (
+					<div className="space-y-3 p-4">
+						<div className="rounded-sm border border-edge p-3">
+							<div className="font-medium text-ink text-sm">{selectedIngredient.name}</div>
+							<div className="mt-1 flex items-center gap-3 font-mono text-xs tabular-nums">
+								<span className="text-macro-protein">
+									P{((selectedIngredient.protein * grams) / 100).toFixed(0)}
+								</span>
+								<span className="text-macro-carbs">
+									C{((selectedIngredient.carbs * grams) / 100).toFixed(0)}
+								</span>
+								<span className="text-macro-fat">
+									F{((selectedIngredient.fat * grams) / 100).toFixed(0)}
+								</span>
+								<span className="text-macro-kcal">
+									{((selectedIngredient.kcal * grams) / 100).toFixed(0)}
+								</span>
+							</div>
+						</div>
+						<label className="flex items-center gap-2 text-ink-muted text-sm">
+							Amount
+							<NumberInput
+								value={gramsInput}
+								onChange={e => setGramsInput(e.target.value)}
+								className="h-8 w-24"
+								min={0}
+								autoFocus
+							/>
+							g
+						</label>
+						{logMealMutation.error && <TRPCError error={logMealMutation.error} />}
+						<div className="flex justify-end gap-2">
+							<Button variant="ghost" onClick={() => setSelectedIngredient(null)} disabled={isPending}>
+								Back
+							</Button>
+							<Button onClick={handleLogIngredient} disabled={isPending || grams <= 0}>
+								{isPending ? <Spinner className="size-4 text-current" /> : 'Add'}
+							</Button>
+						</div>
 					</div>
 				) : (
 					<div className="p-4">
@@ -337,8 +429,42 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 									)
 								})}
 
+							{/* Bare ingredients — logged by weight, no recipe needed */}
+							{filteredIngredients.length > 0 && (
+								<>
+									<div className="border-edge border-t pt-1">
+										<div className="px-2 pb-1 font-semibold text-[10px] text-ink-faint uppercase tracking-wider">
+											Ingredients
+										</div>
+									</div>
+									{filteredIngredients.map(ingredient => (
+										<button
+											key={ingredient.id}
+											type="button"
+											onClick={() => setSelectedIngredient(ingredient)}
+											disabled={isPending}
+											className="flex w-full flex-col gap-0.5 rounded-sm p-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
+										>
+											<span className="truncate font-medium text-ink text-sm">
+												{ingredient.name}
+											</span>
+											<div className="flex items-center gap-2 font-mono text-xs tabular-nums">
+												<span className="text-macro-protein">
+													P{ingredient.protein.toFixed(0)}
+												</span>
+												<span className="text-macro-carbs">C{ingredient.carbs.toFixed(0)}</span>
+												<span className="text-macro-fat">F{ingredient.fat.toFixed(0)}</span>
+												<span className="text-macro-kcal">{ingredient.kcal.toFixed(0)}</span>
+												<span className="text-ink-faint">/100g</span>
+											</div>
+										</button>
+									))}
+								</>
+							)}
+
 							{/* Empty states */}
 							{filtered.length === 0 &&
+								filteredIngredients.length === 0 &&
 								(!filteredInventory || filteredInventory.length === 0) &&
 								!recipesQuery.isLoading && (
 									<div className="py-4 text-center text-ink-faint text-sm">No recipes found</div>

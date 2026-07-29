@@ -1,3 +1,5 @@
+import type { WeekStart } from '@macromaxxing/db'
+
 export function getISOWeek(timestamp: number): number {
 	const date = new Date(timestamp)
 	const thursday = new Date(date)
@@ -30,6 +32,25 @@ export function getWeekStart(ts: number): number {
 	d.setDate(diff)
 	d.setHours(0, 0, 0, 0)
 	return d.getTime()
+}
+
+/** `YYYY-MM-DD` for a timestamp, in local time — `toISOString` would shift it across the UTC date line. */
+export function toDateKey(ts: number): WeekStart {
+	const d = new Date(ts)
+	const month = String(d.getMonth() + 1).padStart(2, '0')
+	const day = String(d.getDate()).padStart(2, '0')
+	return `${d.getFullYear()}-${month}-${day}`
+}
+
+/** Local midnight of a `YYYY-MM-DD` key — `new Date(key)` parses it as UTC and lands a day early west of it. */
+export function fromDateKey(key: WeekStart): number {
+	const [year, month, day] = key.split('-').map(Number)
+	return new Date(year, month - 1, day).getTime()
+}
+
+/** The `mealPlans.weekStart` key for the week containing `ts`. */
+export function getWeekStartDate(ts: number): WeekStart {
+	return toDateKey(getWeekStart(ts))
 }
 
 /** Format seconds as a clock display: M:SS.CC or H:MM:SS.CC, with centiseconds by default */

@@ -8,7 +8,7 @@ import {
 	getEffectiveCookedWeight,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { type ActiveProgramRef, DAYS_SHORT, getWeekStart, pickNextWorkout } from '~/lib'
+import { type ActiveProgramRef, DAYS_SHORT, getWeekStart, getWeekStartDate, pickNextWorkout } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { recoveryHoursFromPriorSession } from '~/lib/workouts/muscleReadiness'
 import { computeProgramRest } from '~/lib/workouts/programRest'
@@ -26,6 +26,8 @@ export interface CalendarMeal {
 	id: Slot['id']
 	recipeId: Recipe['id']
 	name: string
+	/** `ingredient` wrappers hold exactly 100g, so their portions read as an amount, not a count. */
+	recipeType: Recipe['type']
 	planId: MealPlan['id']
 	planName: string
 	/** Position within the day (breakfast → dinner), from `mealPlanSlots.slotIndex`. */
@@ -53,17 +55,18 @@ export interface BuildWeekDaysInput {
 }
 
 /**
- * Fold the (undated) meal-plan slots and the (dated) workout sessions onto one Mon–Sun grid
- * for the week containing `now`. A plan's `dayOfWeek` slots map onto the week the plan was
- * created in, so older plans are skipped entirely; sessions are matched by `startedAt`.
+ * Fold the (weekday-indexed) meal-plan slots and the (dated) workout sessions onto one Mon–Sun grid
+ * for the week containing `now`. A plan's `dayOfWeek` slots map onto the week the plan declares via
+ * `weekStart`, so other weeks' plans and undated templates are skipped; sessions match by `startedAt`.
  */
 export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): CalendarDay[] {
 	const weekStart = getWeekStart(now)
+	const weekKey = getWeekStartDate(now)
 	const todayIndex = Math.floor((now - weekStart) / DAY_MS)
 
 	const mealsByDay: CalendarMeal[][] = DAYS_SHORT.map(() => [])
 	for (const plan of plans) {
-		if (!isPlanForWeek(plan, weekStart)) continue
+		if (!isPlanForWeek(plan, weekKey)) continue
 		for (const inv of plan.inventory) {
 			const recipe = inv.recipe
 			const recipeTotals = calculateRecipeTotals(recipe.recipeIngredients.map(toIngredientWithAmount))
@@ -77,6 +80,7 @@ export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): Cal
 					id: slot.id,
 					recipeId: recipe.id,
 					name: recipe.name,
+					recipeType: recipe.type,
 					planId: plan.id,
 					planName: plan.name,
 					slotIndex: slot.slotIndex,

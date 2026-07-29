@@ -1,13 +1,36 @@
+import type { WeekStart } from '@macromaxxing/db'
 import { Plus, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Link } from 'react-router'
-import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
-import { getISOWeek, useUser } from '~/lib'
+import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
+import { cn, fromDateKey, getISOWeek, getWeekStart, getWeekStartDate, toDateKey, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
+
+const WEEK_MS = 604_800_000
+
+/** `Select` can't carry null, so the "no week" choice rides as a sentinel value. */
+const TEMPLATE = 'template'
+
+/** Weeks a new plan can target: last week (backfilling a log) through three weeks out. */
+function weekOptions(now: number): { value: WeekStart; label: string }[] {
+	const thisMonday = getWeekStart(now)
+	return [-1, 0, 1, 2, 3].map(offset => {
+		const monday = thisMonday + offset * WEEK_MS
+		const relative = offset === 0 ? 'This week' : offset === 1 ? 'Next week' : offset === -1 ? 'Last week' : null
+		return {
+			value: toDateKey(monday),
+			label: `W${getISOWeek(monday)}${relative ? ` · ${relative}` : ''}`
+		}
+	})
+}
 
 export const MealPlansSection: FC = () => {
 	const [newPlanName, setNewPlanName] = useState('')
 	const [isCreating, setIsCreating] = useState(false)
+	const [now] = useState(() => Date.now())
+	const weeks = weekOptions(now)
+	// Default to the week you're in — the overwhelmingly common case is logging or planning it.
+	const [newPlanWeek, setNewPlanWeek] = useState<WeekStart | typeof TEMPLATE>(() => getWeekStartDate(now))
 	const { user } = useUser()
 
 	const plansQuery = trpc.mealPlan.list.useQuery()
@@ -17,6 +40,7 @@ export const MealPlansSection: FC = () => {
 		onSuccess: () => {
 			utils.mealPlan.list.invalidate()
 			setNewPlanName('')
+			setNewPlanWeek(getWeekStartDate(now))
 			setIsCreating(false)
 		}
 	})
@@ -27,7 +51,10 @@ export const MealPlansSection: FC = () => {
 
 	function handleCreate() {
 		if (!newPlanName.trim()) return
-		createMutation.mutate({ name: newPlanName.trim() })
+		createMutation.mutate({
+			name: newPlanName.trim(),
+			weekStart: newPlanWeek === TEMPLATE ? null : newPlanWeek
+		})
 	}
 
 	return (
@@ -58,6 +85,12 @@ export const MealPlansSection: FC = () => {
 							}}
 							autoFocus
 							className="flex-1"
+						/>
+						<Select
+							value={newPlanWeek}
+							onChange={setNewPlanWeek}
+							options={[...weeks, { value: TEMPLATE, label: 'Template · no week' }]}
+							className="w-auto"
 						/>
 						<Button onClick={handleCreate} disabled={!newPlanName.trim() || createMutation.isPending}>
 							{createMutation.isPending ? <Spinner className="size-4 text-current" /> : 'Create'}
@@ -92,9 +125,14 @@ export const MealPlansSection: FC = () => {
 				{plansQuery.data?.map(plan => (
 					<Link key={plan.id} to={`/plans/${plan.id}`}>
 						<Card className="flex items-center gap-4 p-3 transition-colors hover:bg-surface-2">
-							<div className="flex size-10 flex-col items-center justify-center rounded-sm bg-accent/10 text-accent">
+							<div
+								className={cn(
+									'flex size-10 flex-col items-center justify-center rounded-sm',
+									plan.weekStart ? 'bg-accent/10 text-accent' : 'bg-surface-2 text-ink-faint'
+								)}
+							>
 								<span className="font-mono text-[10px] tabular-nums leading-none">
-									W{getISOWeek(plan.createdAt)}
+									{plan.weekStart ? `W${getISOWeek(fromDateKey(plan.weekStart))}` : 'TPL'}
 								</span>
 							</div>
 							<div className="min-w-0 flex-1">

@@ -22,7 +22,7 @@ import {
 	cn,
 	DAYS_LONG,
 	estimateWorkoutDurationSec,
-	getWeekStart,
+	getWeekStartDate,
 	type ProgramCycleResult,
 	pendingRecoveryFromPriorSession,
 	pickNextWorkout,
@@ -90,12 +90,12 @@ interface MealSlotMacros {
 
 function computeTodayMeals(plans: RouterOutput['dashboard']['summary']['plans']): MealSlotMacros[] {
 	const today = todayDayIndex()
-	const weekStart = getWeekStart(Date.now())
+	const weekKey = getWeekStartDate(Date.now())
 	const meals: MealSlotMacros[] = []
 
 	for (const plan of plans) {
-		// Slots are weekday-indexed, so every past plan would otherwise pile onto today as well.
-		if (!isPlanForWeek(plan, weekStart)) continue
+		// Slots are weekday-indexed, so every other week's plan would otherwise pile onto today as well.
+		if (!isPlanForWeek(plan, weekKey)) continue
 		for (const inv of plan.inventory) {
 			const todaySlots = inv.slots.filter(s => s.dayOfWeek === today)
 			if (todaySlots.length === 0) continue

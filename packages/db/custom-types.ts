@@ -27,6 +27,25 @@ export const AI_PROVIDER_OPTIONS = zAiProvider.options.map(p => ({ value: p, lab
 export const ingredientSource = z.enum(['manual', 'ai', 'usda', 'openfoodfacts', 'label'])
 export type IngredientSource = z.infer<typeof ingredientSource>
 
+/**
+ * `recipe` = cooked from components, `premade` = a packaged product read off its label,
+ * `ingredient` = a single library ingredient wrapped so it can be dropped into a meal plan
+ * (1 portion = 100g). Only the first two are things a user authored, so the recipe list hides
+ * `ingredient`.
+ */
+export const recipeType = z.enum(['recipe', 'premade', 'ingredient'])
+export type RecipeType = z.infer<typeof recipeType>
+
+/**
+ * `YYYY-MM-DD` of the Monday a meal plan's weekday slots fall on.
+ *
+ * A date key rather than an epoch because the Monday is derived in the user's local time
+ * (`getWeekStart`): storing that as a number bakes the client's timezone into a column the server
+ * and MCP tools read back with no timezone to interpret it in.
+ */
+export const zWeekStart = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+export type WeekStart = z.infer<typeof zWeekStart>
+
 export const sex = z.enum(['male', 'female'])
 export type Sex = z.infer<typeof sex>
 

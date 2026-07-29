@@ -42,6 +42,15 @@ Set `API_URL` env var to override the API proxy target (defaults to `http://loca
 
 ## Local Setup
 
+**Authenticating as a specific user locally** (no Clerk sign-in needed) — two paths, both useful for
+verifying multi-tenant behaviour, which is otherwise untestable since there's no route-level DB harness:
+
+- **tRPC**: `X-Dev-User-Email: <email>` plus `CF-Connecting-IP: 127.0.0.1` (the header `authenticateRequest`
+  gates the fallback on — a missing one must NOT count as dev, or the bypass goes live). Unknown emails get
+  a `dev_*` user created on the spot, so two identities cost nothing.
+- **MCP** (`/api/mcp`): `Authorization: Bearer <token>`. Mint one by inserting into `api_tokens` with
+  `token_hash` = `printf '%s' "$RAW" | shasum -a 256`. Reaches any procedure carrying `.meta({ description })`.
+
 Create `.dev.vars` for local secrets:
 
 ```bash
@@ -123,9 +132,10 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
-      utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week it was created
-                                            #   in. Dashboard "Today's Meals" and the /plans calendar both filter on
-                                            #   it; without it every past plan stacks onto the same weekday.
+      utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week its `weekStart`
+                                            #   declares. Dashboard "Today's Meals" and the /plans calendar both filter
+                                            #   on it; without it every other week's plan stacks onto the same weekday.
+                                            #   Templates (weekStart null) never match.
     nutrition/                              # Daily macro targets (settings form + the readouts every
                                             #   meal surface prices its totals against)
       components/MacroTargetsForm.tsx       # Settings card: goal (cut/maintain/bulk/custom) + activity setting;
@@ -137,9 +147,11 @@ src/
       components/MacroTargetBars.tsx        # Three hairline P/C/F progress bars
       utils/targets.ts                      # targetStatus (±5% band → under/on/over), targetDelta
     plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
-      WeekCalendarSection.tsx               # Read-only Mon–Sun view of the current week (top of /plans), fed by
-                                            #   dashboard.summary; meals come only from plans CREATED in the current
-                                            #   week (no picker — a W7 plan must not surface in W39)
+      WeekCalendarSection.tsx               # Mon–Sun view of the current week (top of /plans), fed by dashboard.summary,
+                                            #   and the surface you LOG onto: each day has a + that opens
+                                            #   AddToInventoryModal via mealPlan.logMeal. Meals come only from plans whose
+                                            #   weekStart is this week (no picker — a W7 plan must not surface in W39).
+                                            #   First log of a week calls ensureWeek to bootstrap the plan.
       components/WeekCalendarDay.tsx        # One day cell: session chips, projected-workout ghost chip, meals +
                                             #   totals priced against the day's macro targets
       components/WeekMacroAverage.tsx       # Header readout: per-day average (filled days only) vs targets
@@ -284,10 +296,12 @@ users(id PK clerk_user_id, email)
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?, source: manual|ai|usda|openfoodfacts|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
 
-recipes(id typeid:rcp, userId, name, type: recipe|premade, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
+recipes(id typeid:rcp, userId, name, type: recipe|premade|ingredient, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
+  -- type 'ingredient' = auto-created wrapper holding 100g of one library ingredient, so mealPlan.logMeal
+  -- can put a bare ingredient in a plan; hidden from recipe.list (AUTHORED_TYPES in routes/recipes.ts)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
-mealPlans(id typeid:mpl, userId, name)
+mealPlans(id typeid:mpl, userId, name, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
   → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
     → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
 
@@ -375,9 +389,11 @@ trpc.recipe.addSubrecipe                    # Add recipe as subrecipe component 
 trpc.recipe.addPremade                      # Creates premade meal (ingredient source:'label' + recipe type:'premade') from nutrition label
 trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
-trpc.mealPlan.list/get/create/update/delete/duplicate
+trpc.mealPlan.list/get/create/update/delete/duplicate   # create/update/duplicate take weekStart (null = template)
+trpc.mealPlan.ensureWeek                    # Idempotent find-or-create of a week's plan — call before logging with no planId
+trpc.mealPlan.logMeal                       # LOGGING verb: recipe or bare ingredient+grams → inventory + slot in one call
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
-trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot
+trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot   # allocate = PLANNING verb (never grows the pool)
 trpc.workout.guide                                                        # No-arg orientation doc (MCP tool workout_guide) — training/program-design conventions reference incl. bwMultiplier bodyweight logging
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings + equipment; listExercises filters: type?, search?, muscleGroup?, equipment[]? (AND), limit?/offset?
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only
@@ -446,8 +462,25 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - `batchLookups` — batch N ingredient AI calls into 1 (fewer requests, may reduce accuracy)
 - `modelFallback` — retry with cheaper models on 429 (Gemini fallback chain: gemini-2.5-flash → gemini-2.5-flash-lite-preview → gemma-3-27b-it)
 
-**Meal Plans** - Template-based weekly meal planning with per-plan inventory:
-- Add recipes to plan's inventory with portion count → allocate portions to day slots (Mon-Sun)
+**Meal Plans** - A Mon–Sun grid of meals, used both as a plan and as a log:
+- **Log vs plan is tense, not a mode.** The same rows serve both: a plan whose `weekStart` is ahead is
+  intent, one behind is a record. There is deliberately no `isLog` flag — nothing about a slot changes
+  when Thursday stops being upcoming.
+- `mealPlans.weekStart` is the Monday (`YYYY-MM-DD`) the plan's weekday slots fall on; **null = reusable
+  template**. Stored as a date key, not an epoch, because `getWeekStart` resolves in the user's local
+  time and an epoch would bake the client's timezone into a column the server/MCP read back blind.
+- **Two write verbs, and the difference is load-bearing.** `addToInventory` + `allocate` is the PLANNING
+  path: it declares a portion pool up front ("I cooked 6 portions") and `allocate` never grows it, so
+  spreading a cook-up too thin still warns. `logMeal` is the LOGGING path: one call, find-or-create the
+  inventory row, and the pool grows to cover what was allocated so the warning stays quiet on a diary.
+- `logMeal` also takes a bare library ingredient + grams — it wraps it in a `type: 'ingredient'` recipe
+  holding 100g (so 1 portion = 100g and the slot's fractional portions carry the amount), reused across
+  plans. Inventory stays a non-nullable recipe FK, so macros/grocery/calendar/export all keep working on
+  one shape instead of a recipe-or-ingredient union. Surfaces that show a portion COUNT must special-case
+  these (`recipeType === 'ingredient'` → render grams); `×2.5` is a meaningless way to say 250g.
+- Ingredient wrappers are filtered out of `AddToInventoryModal`'s inventory quick-picks. They duplicate
+  the Ingredients row, and the quick-pick goes through `allocate` — which doesn't grow the pool, so
+  re-logging one would trip the very over-allocation warning logging is meant to stay clear of.
 - Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
 - Over-allocation allowed with visual warning
 - `slotIndex` is a **position within a day, not an identity**. Clients send the index of the slot they saw as
@@ -455,7 +488,8 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   index server-side by appending after the day's last one. `DayColumn` buckets slots by index (rather than
   writing into a sparse array) so a duplicate can never hide a meal, and day totals sum the slots themselves —
   when they disagreed, the column footer showed less than the inventory and weekly averages counted.
-- A plan's slots belong to the week the plan was created in — see `isPlanForWeek` (features/mealPlans/utils)
+- A plan's slots belong to the week it declares via `weekStart` — see `isPlanForWeek` (features/mealPlans/utils).
+  Templates (null) never match, so they stay off every "what am I eating now" surface.
 
 **Nutrition lookup priority:** Local USDA D1 (FTS5 search, ~14k foods) → USDA FoodData Central API → AI (user's configured provider)
 
@@ -599,7 +633,10 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - **drizzle-zod blocked on Workers** — hand-written mutation Zod schemas (`insertRecipeSchema`, `createIngredientSchema`, exercise create input, etc.) have TODOs to collapse to `createInsertSchema` once [drizzle-orm#5192](https://github.com/drizzle-team/drizzle-orm/pull/5192) lands (Buffer type detection for Cloudflare Workers). That unlocks mutation codegen only. **It does not unlock auto-gen list filters** — agents need joins (`muscleGroup`, equipment), tenant rules (`OR` public/owned), computed fields, and D1 param limits that do not fall out of `createSelectSchema`. Prefer shared Zod helpers (`windowInput`, search, pagination) wired per list endpoint — not a generic column-filter DSL.
 
 **Backend / tRPC**
-- Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD
+- Ownership checks belong on **all** mutations including sub-resources (`addIngredient`, `updateIngredient`, `removeIngredient`, `addSubrecipe`) — not just top-level CRUD. Three distinct things need checking, and owning the parent covers only the first:
+  1. **The row you're writing** — `update`/`delete` must carry `userId` in the `WHERE`, or assert first. A bare `eq(table.id, input.id)` is an IDOR.
+  2. **Any id in the input that becomes a foreign key** — `updateSlot`'s `inventoryId`, `updateWorkout`'s `locationId`. Owning the row you're editing says nothing about where you're pointing it. Re-parenting onto another tenant's row can inject data into *their* view (meal-plan slots load through their inventory row, not their plan).
+  3. **Any id you'll read back joined** — `mealPlan.addToInventory`/`logMeal` take a `recipeId` that `mealPlan.get` returns as a full recipe with ingredients, so an unchecked one bypasses `recipe.get`'s `isPublic || isOwner` guard. `assertRecipeVisible` in routes/mealPlans.ts.
 - Always index foreign keys on new tables: `t => [index('table_fk_idx').on(t.fkColumn)]`
 - `userSettings` rows are NOT auto-created on signup. Mutations writing to it must upsert or call `ensureUserSettingsRow(userId)` first; bare `UPDATE` silently no-ops for new users.
 - Pure utility functions (date helpers, math, formatting) go in `src/lib/`, not feature-specific `utils/` folders
