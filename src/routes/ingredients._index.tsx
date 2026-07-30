@@ -8,7 +8,7 @@ import { IngredientForm } from '~/features/ingredients/components/IngredientForm
 import { BarcodeScanDialog } from '~/features/recipes/components/BarcodeScanDialog'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import type { OFFProduct } from '~/lib'
-import { prefetchRoute, useDocumentTitle, useUser } from '~/lib'
+import { offUnits, prefetchRoute, useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import type { Route } from './+types/ingredients._index'
 
@@ -50,7 +50,7 @@ export default function IngredientListPage() {
 				fiber: product.per100g.fiber,
 				source: 'openfoodfacts',
 				sourceId: product.barcode,
-				units: product.packageSize ? [{ name: 'pkg', grams: product.packageSize }] : undefined
+				units: offUnits(product)
 			})
 			setShowBarcodeDialog(false)
 		},

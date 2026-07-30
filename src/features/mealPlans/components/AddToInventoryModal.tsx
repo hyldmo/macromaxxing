@@ -1,8 +1,7 @@
 import type { MealPlan } from '@macromaxxing/db'
-import { ArrowLeft, Package, ScanLine, Search, X } from 'lucide-react'
+import { Package, ScanLine, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, Input, Modal, NumberInput, Spinner, TRPCError } from '~/components/ui'
-import { BarcodeLookup } from '~/features/recipes/components/BarcodeLookup'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import {
@@ -12,10 +11,10 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import type { OFFProduct } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 type Recipe = RouterOutput['recipe']['list'][number]
+type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type IngredientOption = RouterOutput['ingredient']['list'][number]
 
@@ -51,9 +50,10 @@ function getDefaultPortions(recipe: Recipe) {
 
 export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onClose, slotAllocation }) => {
 	const [search, setSearch] = useState('')
-	const [showPremade, setShowPremade] = useState(false)
-	const [scanMode, setScanMode] = useState(false)
-	const [scannedProduct, setScannedProduct] = useState<OFFProduct | null>(null)
+	// Both entry points land in the same editable form — a scan only decides whether it opens
+	// straight into the camera. Committing an Open Food Facts payload unseen is how a mis-tagged
+	// record (per-100 values filed as a whole-package serving) gets stored without anyone noticing.
+	const [premadeMode, setPremadeMode] = useState<'manual' | 'scan' | null>(null)
 	// Picking a bare ingredient needs an amount, so it's a two-step: select, then confirm grams.
 	const [selectedIngredient, setSelectedIngredient] = useState<IngredientOption | null>(null)
 	const [gramsInput, setGramsInput] = useState('100')
@@ -90,18 +90,6 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		}
 	})
 
-	const addPremadeMutation = trpc.recipe.addPremade.useMutation({
-		onSuccess: recipe => {
-			if (!recipe) return
-			utils.recipe.list.invalidate()
-			addMutation.mutate({
-				planId,
-				recipeId: recipe.id,
-				totalPortions: getDefaultPortions(recipe)
-			})
-		}
-	})
-
 	// Logging goes straight onto the day in one call. `addToInventory` stays the planning verb: it
 	// declares a portion pool up front, so over-allocating a cook-up still warns.
 	const logMealMutation = trpc.mealPlan.logMeal.useMutation({
@@ -116,28 +104,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		}
 	})
 
-	const isPending =
-		addMutation.isPending || allocateMutation.isPending || addPremadeMutation.isPending || logMealMutation.isPending
-
-	function handleConfirmScanned() {
-		if (!scannedProduct) return
-		addPremadeMutation.mutate({
-			name: scannedProduct.name,
-			servingSize: scannedProduct.servingSize,
-			servings: scannedProduct.servings ?? 1,
-			protein: scannedProduct.protein,
-			carbs: scannedProduct.carbs,
-			fat: scannedProduct.fat,
-			kcal: scannedProduct.kcal,
-			fiber: scannedProduct.fiber,
-			sourceUrl: `https://world.openfoodfacts.org/product/${scannedProduct.barcode}`
-		})
-	}
-
-	function exitScan() {
-		setScanMode(false)
-		setScannedProduct(null)
-	}
+	const isPending = addMutation.isPending || allocateMutation.isPending || logMealMutation.isPending
 
 	const inventoryRecipeIds = slotAllocation ? new Set(slotAllocation.inventory.map(inv => inv.recipe.id)) : undefined
 
@@ -190,6 +157,19 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		})
 	}
 
+	function handlePremadeCreated(recipe: PremadeRecipe) {
+		if (slotAllocation) {
+			logMealMutation.mutate({
+				planId,
+				dayOfWeek: slotAllocation.dayOfWeek,
+				slotIndex: slotAllocation.slotIndex,
+				entry: { kind: 'recipe', recipeId: recipe.id, portions: 1 }
+			})
+			return
+		}
+		addMutation.mutate({ planId, recipeId: recipe.id, totalPortions: getDefaultPortions(recipe) })
+	}
+
 	function handleAllocateExisting(inv: InventoryItem) {
 		if (!slotAllocation) return
 		allocateMutation.mutate({
@@ -205,20 +185,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 			<Modal onClose={onClose} className="w-full max-w-md">
 				{/* Header */}
 				<div className="flex items-center justify-between border-edge border-b px-4 py-3">
-					<div className="flex items-center gap-2">
-						{scanMode && (
-							<button
-								type="button"
-								onClick={exitScan}
-								className="rounded-sm p-1 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
-							>
-								<ArrowLeft className="size-4" />
-							</button>
-						)}
-						<h2 className="font-semibold text-ink">
-							{scanMode ? 'Scan barcode' : slotAllocation ? 'Add meal' : 'Add Recipe'}
-						</h2>
-					</div>
+					<h2 className="font-semibold text-ink">{slotAllocation ? 'Add meal' : 'Add Recipe'}</h2>
 					<button
 						type="button"
 						onClick={onClose}
@@ -229,49 +196,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 				</div>
 
 				{/* Content */}
-				{scanMode ? (
-					<div className="p-4">
-						{scannedProduct ? (
-							<div className="space-y-3">
-								<div className="rounded-sm border border-edge p-3">
-									<div className="font-medium text-ink text-sm">{scannedProduct.name}</div>
-									{scannedProduct.brand && (
-										<div className="text-ink-faint text-xs">{scannedProduct.brand}</div>
-									)}
-									<div className="mt-2 text-ink-muted text-xs">
-										Per serving ({scannedProduct.servingSize}g
-										{scannedProduct.servings && scannedProduct.servings > 1
-											? ` × ${scannedProduct.servings}`
-											: ''}
-										)
-									</div>
-									<div className="mt-1 flex items-center gap-3 font-mono text-xs tabular-nums">
-										<span className="text-macro-protein">P{scannedProduct.protein.toFixed(0)}</span>
-										<span className="text-macro-carbs">C{scannedProduct.carbs.toFixed(0)}</span>
-										<span className="text-macro-fat">F{scannedProduct.fat.toFixed(0)}</span>
-										<span className="text-macro-kcal">{scannedProduct.kcal.toFixed(0)}</span>
-										<span className="text-macro-fiber">Fb{scannedProduct.fiber.toFixed(0)}</span>
-									</div>
-								</div>
-								{(addPremadeMutation.error || addMutation.error || allocateMutation.error) && (
-									<TRPCError
-										error={addPremadeMutation.error || addMutation.error || allocateMutation.error}
-									/>
-								)}
-								<div className="flex justify-end gap-2">
-									<Button variant="ghost" onClick={exitScan} disabled={isPending}>
-										Cancel
-									</Button>
-									<Button onClick={handleConfirmScanned} disabled={isPending}>
-										{isPending ? <Spinner className="size-4 text-current" /> : 'Add'}
-									</Button>
-								</div>
-							</div>
-						) : (
-							<BarcodeLookup active onProductFound={setScannedProduct} />
-						)}
-					</div>
-				) : selectedIngredient ? (
+				{selectedIngredient ? (
 					<div className="space-y-3 p-4">
 						<div className="rounded-sm border border-edge p-3">
 							<div className="font-medium text-ink text-sm">{selectedIngredient.name}</div>
@@ -325,12 +250,12 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 									autoFocus
 								/>
 							</div>
-							<Button variant="outline" className="shrink-0" onClick={() => setScanMode(true)}>
+							<Button variant="outline" className="shrink-0" onClick={() => setPremadeMode('scan')}>
 								<ScanLine className="size-4" />
 								Scan
 							</Button>
 							{!slotAllocation && (
-								<Button variant="outline" className="shrink-0" onClick={() => setShowPremade(true)}>
+								<Button variant="outline" className="shrink-0" onClick={() => setPremadeMode('manual')}>
 									<Package className="size-4" />
 									Premade
 								</Button>
@@ -471,23 +396,24 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 								)}
 						</div>
 
-						{(addMutation.error || allocateMutation.error) && (
-							<TRPCError error={addMutation.error || allocateMutation.error} className="mt-3" />
+						{/* logMeal lands here too: the premade dialog closes on create, so a failure of the
+						    follow-up log has nowhere else to surface */}
+						{(addMutation.error || allocateMutation.error || logMealMutation.error) && (
+							<TRPCError
+								error={addMutation.error || allocateMutation.error || logMealMutation.error}
+								className="mt-3"
+							/>
 						)}
 					</div>
 				)}
 			</Modal>
-			{!slotAllocation && (
+			{/* Mounted per-open so `autoScan` seeds the scanner state on a fresh mount */}
+			{premadeMode && (
 				<PremadeDialog
-					open={showPremade}
-					onClose={() => setShowPremade(false)}
-					onCreated={recipe => {
-						addMutation.mutate({
-							planId,
-							recipeId: recipe.id,
-							totalPortions: getDefaultPortions(recipe)
-						})
-					}}
+					open
+					autoScan={premadeMode === 'scan'}
+					onClose={() => setPremadeMode(null)}
+					onCreated={handlePremadeCreated}
 				/>
 			)}
 		</>

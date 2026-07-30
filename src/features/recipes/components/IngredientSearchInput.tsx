@@ -3,7 +3,7 @@ import { BookOpen, ClipboardPaste, Database, Plus, ScanLine, Search, Sparkles } 
 import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import type { OFFProduct } from '~/lib'
-import { FuzzyHighlight, fuzzyMatch, useUser } from '~/lib'
+import { FuzzyHighlight, fuzzyMatch, offUnits, useUser } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { calculateRecipeTotals, getEffectiveCookedWeight, getEffectivePortionSize } from '../utils/macros'
 import { BarcodeScanDialog } from './BarcodeScanDialog'
@@ -250,14 +250,15 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 				fiber: product.per100g.fiber,
 				source: 'openfoodfacts',
 				sourceId: product.barcode,
-				units: product.packageSize ? [{ name: 'pkg', grams: product.packageSize }] : undefined
+				units: offUnits(product)
 			})
 			addIngredient.mutate({
 				recipeId,
 				ingredientId: ingredient.id,
-				amountGrams: product.servingSize,
-				displayUnit: null,
-				displayAmount: null,
+				// OFF records with no serving describe 100 g — that's the amount, not a package
+				amountGrams: product.servingSize ?? 100,
+				displayUnit: product.servingSize ? 'pcs' : null,
+				displayAmount: product.servingSize ? 1 : null,
 				preparation: null
 			})
 		},

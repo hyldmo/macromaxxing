@@ -1,26 +1,41 @@
+import type { AbsoluteMacros } from '@macromaxxing/db'
+
+type MacroSet = Omit<AbsoluteMacros, 'weight'>
+
 export interface OFFProduct {
 	name: string
 	brand: string | null
-	servingSize: number
+	/** OFF `serving_quantity`, null when the record declares no serving (do NOT silently read as 100) */
+	servingSize: number | null
+	/** Unit OFF recorded the serving in — 'ml' for drinks, so serving size is a volume, not a mass */
+	servingUnit: string | null
 	servings: number | null
 	/** Net package weight in grams (product_quantity), null when OFF has no value */
 	packageSize: number | null
-	protein: number
-	carbs: number
-	fat: number
-	kcal: number
-	fiber: number
-	per100g: {
-		protein: number
-		carbs: number
-		fat: number
-		kcal: number
-		fiber: number
-	}
+	/**
+	 * Macros for one serving, or for 100 g when OFF declares none. Full precision on purpose:
+	 * callers divide back out by `servingSize` to store per-100g, and pre-rounding here would
+	 * bake the rounding error in at 100/servingSize × its size (0.5 g/100 g on a 10 g serving).
+	 */
+	perServing: MacroSet
+	per100g: MacroSet
 	barcode: string
 }
 
 type OFFLookupResult = { found: true; product: OFFProduct } | { found: false; barcode: string }
+
+/**
+ * The countable units an OFF record implies: one serving ('pcs') and the whole package ('pkg'),
+ * so a scanned item can be logged as "1" instead of the user weighing out its grams.
+ */
+export function offUnits(product: OFFProduct): { name: string; grams: number }[] {
+	const units: { name: string; grams: number }[] = []
+	if (product.servingSize) units.push({ name: 'pcs', grams: product.servingSize })
+	// A single-serving package would make 'pkg' a duplicate of 'pcs'
+	if (product.packageSize && product.packageSize !== product.servingSize)
+		units.push({ name: 'pkg', grams: product.packageSize })
+	return units
+}
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
@@ -29,7 +44,7 @@ export function isValidBarcode(value: string): boolean {
 }
 
 export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
-	const fields = 'product_name,brands,nutriments,serving_size,serving_quantity,product_quantity'
+	const fields = 'product_name,brands,nutriments,serving_size,serving_quantity,serving_quantity_unit,product_quantity'
 	const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${fields}`, {
 		headers: { 'User-Agent': 'Macromaxxing/1.0 (https://github.com/hyldmo/macromaxxing)' }
 	})
@@ -44,6 +59,7 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 			nutriments?: Record<string, number>
 			serving_size?: string
 			serving_quantity?: number
+			serving_quantity_unit?: string
 			product_quantity?: number
 		}
 	}
@@ -54,7 +70,7 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 	const p = data.product
 	const n = p.nutriments ?? {}
 
-	const per100 = {
+	const per100g: MacroSet = {
 		protein: Number(n.proteins_100g) || 0,
 		carbs: Number(n.carbohydrates_100g) || 0,
 		fat: Number(n.fat_100g) || 0,
@@ -63,8 +79,8 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 	}
 
 	const servingQty = Number(p.serving_quantity) || 0
-	const servingSize = servingQty > 0 ? servingQty : 100
-	const factor = servingSize / 100
+	const servingSize = servingQty > 0 ? round1(servingQty) : null
+	const factor = (servingSize ?? 100) / 100
 
 	const productQty = Number(p.product_quantity) || 0
 	const servings = servingQty > 0 && productQty > 0 ? Math.round(productQty / servingQty) : null
@@ -77,21 +93,18 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 		product: {
 			name: brand ? `${brand} - ${name}` : name,
 			brand,
-			servingSize: round1(servingSize),
+			servingSize,
+			servingUnit: p.serving_quantity_unit?.trim() || null,
 			servings,
 			packageSize: productQty > 0 ? round1(productQty) : null,
-			protein: round1(per100.protein * factor),
-			carbs: round1(per100.carbs * factor),
-			fat: round1(per100.fat * factor),
-			kcal: round1(per100.kcal * factor),
-			fiber: round1(per100.fiber * factor),
-			per100g: {
-				protein: round1(per100.protein),
-				carbs: round1(per100.carbs),
-				fat: round1(per100.fat),
-				kcal: round1(per100.kcal),
-				fiber: round1(per100.fiber)
+			perServing: {
+				protein: per100g.protein * factor,
+				carbs: per100g.carbs * factor,
+				fat: per100g.fat * factor,
+				kcal: per100g.kcal * factor,
+				fiber: per100g.fiber * factor
 			},
+			per100g,
 			barcode
 		}
 	}
