@@ -322,7 +322,7 @@ export const recipesRouter = router({
 	addPremade: protectedProcedure
 		.meta({
 			description:
-				"Create a premade/packaged meal from its nutrition label: a type:'premade' recipe backed by a source:'label' ingredient. Macros are PER SERVING (not per 100g); servingSize is that serving's weight in grams and servings is how many servings the package holds. Use this instead of recipe_create for store-bought products — recipe_create always yields type:'recipe'."
+				"Create a premade/packaged meal from its nutrition label: a type:'premade' recipe backed by a source:'label' ingredient. Macros are PER SERVING (not per 100g); servingSize is that serving's weight in grams and servings is how many servings the package holds. The backing ingredient gets a 'pcs' unit worth one serving. Use this instead of recipe_create for store-bought products — recipe_create always yields type:'recipe'."
 		})
 		.input(
 			z.object({
@@ -334,7 +334,9 @@ export const recipesRouter = router({
 				fat: z.number().nonnegative(),
 				kcal: z.number().nonnegative(),
 				fiber: z.number().nonnegative().default(0),
-				sourceUrl: z.string().url().nullable().optional()
+				sourceUrl: z.string().url().nullable().optional(),
+				/** Barcode when the label came from a scan, so the ingredient keeps its provenance too */
+				sourceId: z.string().nullable().optional()
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -353,19 +355,31 @@ export const recipesRouter = router({
 					kcal: per100g(input.kcal),
 					fiber: per100g(input.fiber),
 					source: 'label',
+					sourceId: input.sourceId ?? null,
 					createdAt: now
 				})
 				.returning()
 
-			// 2. Add 'g' unit
-			await ctx.db.insert(ingredientUnits).values({
-				ingredientId: ingredient.id,
-				name: 'g',
-				grams: 1,
-				isDefault: true,
-				source: 'manual',
-				createdAt: now
-			})
+			// 2. Units: 'g' plus a 'pcs' worth one serving, so the package can be logged as a countable
+			//    item ("1 pcs = 330 g") instead of the user re-deriving the gram weight every time.
+			await ctx.db.insert(ingredientUnits).values([
+				{
+					ingredientId: ingredient.id,
+					name: 'g',
+					grams: 1,
+					isDefault: false,
+					source: 'manual',
+					createdAt: now
+				},
+				{
+					ingredientId: ingredient.id,
+					name: 'pcs',
+					grams: input.servingSize,
+					isDefault: true,
+					source: 'manual',
+					createdAt: now
+				}
+			])
 
 			// 3. Create premade recipe
 			const [recipe] = await ctx.db
@@ -387,6 +401,8 @@ export const recipesRouter = router({
 				recipeId: recipe.id,
 				ingredientId: ingredient.id,
 				amountGrams: input.servingSize * input.servings,
+				displayUnit: 'pcs',
+				displayAmount: input.servings,
 				sortOrder: 0
 			})
 

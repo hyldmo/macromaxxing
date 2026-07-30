@@ -8,13 +8,18 @@ import { BarcodeLookup } from './BarcodeLookup'
 
 type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
 
+/** Form values carry more precision than the display: a 10 g serving amplifies each rounded digit 10× */
+const fmt = (value: number) => String(Math.round(value * 100) / 100)
+
 export interface PremadeDialogProps {
 	open: boolean
 	onClose: () => void
 	onCreated?: (recipe: PremadeRecipe) => void
+	/** Open straight into the barcode scanner (entry point is a "Scan" button, not "Premade") */
+	autoScan?: boolean
 }
 
-export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated }) => {
+export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated, autoScan = false }) => {
 	const [name, setName] = useState('')
 	const [url, setUrl] = useState('')
 	const [servingSize, setServingSize] = useState('')
@@ -24,7 +29,10 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 	const [fat, setFat] = useState('')
 	const [kcal, setKcal] = useState('')
 	const [fiber, setFiber] = useState('')
-	const [barcodeActive, setBarcodeActive] = useState(false)
+	const [barcodeActive, setBarcodeActive] = useState(autoScan)
+	const [barcode, setBarcode] = useState<string | null>(null)
+	// OFF records drink servings in ml. We store grams, so say so rather than mislabelling the number.
+	const [servingUnit, setServingUnit] = useState<string | null>(null)
 
 	const utils = trpc.useUtils()
 
@@ -64,11 +72,13 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 			setFat('')
 			setKcal('')
 			setFiber('')
-			setBarcodeActive(false)
+			setBarcodeActive(autoScan)
+			setBarcode(null)
+			setServingUnit(null)
 			resetAdd()
 			resetParse()
 		}
-	}, [open, resetAdd, resetParse])
+	}, [open, autoScan, resetAdd, resetParse])
 
 	// Close on Escape
 	useEffect(() => {
@@ -95,23 +105,40 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 			fat: Number.parseFloat(fat) || 0,
 			kcal: Number.parseFloat(kcal) || 0,
 			fiber: Number.parseFloat(fiber) || 0,
-			sourceUrl: url.trim() || null
+			sourceUrl: url.trim() || null,
+			sourceId: barcode
 		})
 	}
 
 	const handleBarcodeProduct = useCallback((product: OFFProduct) => {
 		setName(product.name)
-		setServingSize(String(product.servingSize))
+		// OFF records with no serving describe 100 g; keep that explicit rather than inventing a package
+		setServingSize(String(product.servingSize ?? 100))
+		setServingUnit(product.servingUnit)
 		if (product.servings != null) setServings(String(product.servings))
-		setProtein(String(product.protein))
-		setCarbs(String(product.carbs))
-		setFat(String(product.fat))
-		setKcal(String(product.kcal))
-		setFiber(String(product.fiber))
+		setProtein(fmt(product.perServing.protein))
+		setCarbs(fmt(product.perServing.carbs))
+		setFat(fmt(product.perServing.fat))
+		setKcal(fmt(product.perServing.kcal))
+		setFiber(fmt(product.perServing.fiber))
+		setBarcode(product.barcode)
 		setUrl(`https://world.openfoodfacts.org/product/${product.barcode}`)
 	}, [])
 
 	const canSubmit = name.trim() && Number.parseFloat(servingSize) > 0
+
+	// The per-100 column is what's printed on the packet, so it's the one worth checking the entry against
+	const servingGrams = Number.parseFloat(servingSize)
+	const per100 =
+		servingGrams > 0
+			? {
+					protein: ((Number.parseFloat(protein) || 0) / servingGrams) * 100,
+					carbs: ((Number.parseFloat(carbs) || 0) / servingGrams) * 100,
+					fat: ((Number.parseFloat(fat) || 0) / servingGrams) * 100,
+					kcal: ((Number.parseFloat(kcal) || 0) / servingGrams) * 100,
+					fiber: ((Number.parseFloat(fiber) || 0) / servingGrams) * 100
+				}
+			: null
 
 	if (!open) return null
 
@@ -196,6 +223,12 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 					</label>
 				</div>
 
+				{servingUnit && servingUnit !== 'g' && (
+					<p className="text-ink-faint text-xs">
+						Listed as {servingSize} {servingUnit}, stored as grams.
+					</p>
+				)}
+
 				<div className="space-y-1.5">
 					<span className="text-ink-muted text-xs">Per serving</span>
 					<div className="grid grid-cols-5 gap-2">
@@ -206,6 +239,21 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 						<MacroInput label="Fiber" value={fiber} onChange={setFiber} />
 					</div>
 				</div>
+
+				{per100 && (
+					<div className="rounded-sm border border-edge px-2.5 py-2">
+						<div className="font-semibold text-[10px] text-ink-faint uppercase tracking-wider">
+							Per 100 g
+						</div>
+						<div className="mt-1 flex items-center gap-3 font-mono text-xs tabular-nums">
+							<span className="text-macro-protein">P{per100.protein.toFixed(1)}</span>
+							<span className="text-macro-carbs">C{per100.carbs.toFixed(1)}</span>
+							<span className="text-macro-fat">F{per100.fat.toFixed(1)}</span>
+							<span className="text-macro-kcal">{per100.kcal.toFixed(0)}</span>
+							<span className="text-macro-fiber">Fb{per100.fiber.toFixed(1)}</span>
+						</div>
+					</div>
+				)}
 
 				{addPremade.error && <TRPCError error={addPremade.error} />}
 
