@@ -1,9 +1,10 @@
 import type { MealPlan } from '@macromaxxing/db'
 import { Package, ScanLine, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { Button, Input, Modal, NumberInput, Spinner, TRPCError } from '~/components/ui'
+import { Button, Input, Modal, NumberInput, Select, Spinner, TRPCError } from '~/components/ui'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
+import { getAllUnits, resolveUnitGrams } from '~/features/recipes/utils/format'
 import {
 	calculatePortionMacros,
 	calculateRecipeTotals,
@@ -54,10 +55,34 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 	// straight into the camera. Committing an Open Food Facts payload unseen is how a mis-tagged
 	// record (per-100 values filed as a whole-package serving) gets stored without anyone noticing.
 	const [premadeMode, setPremadeMode] = useState<'manual' | 'scan' | null>(null)
-	// Picking a bare ingredient needs an amount, so it's a two-step: select, then confirm grams.
+	// Picking a bare ingredient needs an amount, so it's a two-step: select, then confirm the amount.
 	const [selectedIngredient, setSelectedIngredient] = useState<IngredientOption | null>(null)
-	const [gramsInput, setGramsInput] = useState('100')
-	const grams = Number(gramsInput) || 0
+	const [amountInput, setAmountInput] = useState('100')
+	// The unit an amount is *entered* in. Grams stay the storage unit — this only decides the
+	// multiplier — so a piece unit here is exactly as precise as the ingredient's own table.
+	const [unitName, setUnitName] = useState('g')
+	const amount = Number(amountInput) || 0
+
+	const ingredientUnits = selectedIngredient ? getAllUnits(selectedIngredient.units, selectedIngredient.density) : []
+	// Units are the ingredient's own rows plus the volume ones its density implies; 'g' is always
+	// offered even when an ingredient carries no unit table at all.
+	const unitOptions = [
+		{ label: 'g', value: 'g' },
+		...ingredientUnits.filter(u => u.name !== 'g').map(u => ({ label: u.name, value: u.name }))
+	]
+	const gramsPerUnit = selectedIngredient
+		? (resolveUnitGrams(unitName, selectedIngredient.units, selectedIngredient.density) ?? 1)
+		: 1
+	const grams = amount * gramsPerUnit
+
+	function selectIngredient(ingredient: IngredientOption) {
+		setSelectedIngredient(ingredient)
+		// Default to the ingredient's own default unit — an egg logs as pieces, flour as grams —
+		// and seed a sensible amount for it: 100 g, but 1 of anything countable.
+		const preferred = ingredient.units.find(u => u.isDefault && u.name !== 'g')
+		setUnitName(preferred?.name ?? 'g')
+		setAmountInput(preferred ? '1' : '100')
+	}
 
 	const recipesQuery = trpc.recipe.list.useQuery()
 	// Bare ingredients are a logging affordance — when planning a cook-up you add recipes, not raw grams.
@@ -153,7 +178,9 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 			planId,
 			dayOfWeek: slotAllocation.dayOfWeek,
 			slotIndex: slotAllocation.slotIndex,
-			entry: { kind: 'ingredient', ingredientId: selectedIngredient.id, grams }
+			// Sent as amount + unit rather than pre-multiplied grams: the server owns the conversion,
+			// so the number stored can't drift from what mealPlan.logMeal would compute for an agent.
+			entry: { kind: 'ingredient', ingredientId: selectedIngredient.id, amount, unit: unitName }
 		})
 	}
 
@@ -215,17 +242,34 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 								</span>
 							</div>
 						</div>
-						<label className="flex items-center gap-2 text-ink-muted text-sm">
-							Amount
+						<div className="flex items-center gap-2 text-ink-muted text-sm">
+							<label htmlFor="log-ingredient-amount">Amount</label>
 							<NumberInput
-								value={gramsInput}
-								onChange={e => setGramsInput(e.target.value)}
+								id="log-ingredient-amount"
+								value={amountInput}
+								onChange={e => setAmountInput(e.target.value)}
 								className="h-8 w-24"
 								min={0}
 								autoFocus
 							/>
-							g
-						</label>
+							{unitOptions.length > 1 ? (
+								<Select
+									className="h-8 w-24 font-mono"
+									value={unitName}
+									onChange={setUnitName}
+									options={unitOptions}
+								/>
+							) : (
+								<span>g</span>
+							)}
+							{/* The gram equivalent stays visible: it's the number actually stored, and it's the
+							    only way to notice a unit whose weight is wrong before it lands in the log. */}
+							{unitName !== 'g' && (
+								<span className="font-mono text-ink-faint text-xs tabular-nums">
+									({Math.round(grams)} g)
+								</span>
+							)}
+						</div>
 						{logMealMutation.error && <TRPCError error={logMealMutation.error} />}
 						<div className="flex justify-end gap-2">
 							<Button variant="ghost" onClick={() => setSelectedIngredient(null)} disabled={isPending}>
@@ -366,7 +410,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 										<button
 											key={ingredient.id}
 											type="button"
-											onClick={() => setSelectedIngredient(ingredient)}
+											onClick={() => selectIngredient(ingredient)}
 											disabled={isPending}
 											className="flex w-full flex-col gap-0.5 rounded-sm p-2 text-left transition-colors hover:bg-surface-2 disabled:opacity-50"
 										>

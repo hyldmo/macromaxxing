@@ -2,7 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenAI } from '@ai-sdk/openai'
 import { APICallError } from '@ai-sdk/provider'
-import { type AiProvider, extractPreparation, type HttpsUrl } from '@macromaxxing/db'
+import { type AiProvider, extractPreparation, type HttpsUrl, VOLUME_UNITS } from '@macromaxxing/db'
 import { type GenerateTextResult, generateText, type Output } from 'ai'
 import { sql } from 'drizzle-orm'
 import type { z } from 'zod'
@@ -179,15 +179,6 @@ export async function fetchUsdaPortions(fdcId: number, apiKey: string): Promise<
 	return units
 }
 
-// Volume units with their ml equivalents - used to calculate gram weights from density
-export const VOLUME_UNITS = [
-	{ name: 'ml', ml: 1 },
-	{ name: 'tsp', ml: 5 },
-	{ name: 'tbsp', ml: 15 },
-	{ name: 'dl', ml: 100 },
-	{ name: 'cup', ml: 240 }
-] as const
-
 const VOLUME_ML: Map<string, number> = new Map(VOLUME_UNITS.map(u => [u.name, u.ml]))
 
 /** Calculate density (g/ml) from USDA portions that are volume-based */
@@ -199,14 +190,15 @@ export function densityFromPortions(portions: UsdaPortion[]): number | null {
 	return null
 }
 
-/** Check if a unit name is a volume unit (derivable from density) */
-export function isVolumeUnit(name: string): boolean {
-	return VOLUME_ML.has(name.toLowerCase())
-}
-
 export const INGREDIENT_AI_PROMPT = `Return nutritional values per 100g raw weight for the ingredient.
 
 Also provide common units for measuring this ingredient with their gram equivalents:
+- EDIBLE WEIGHT ONLY: a unit's grams must be the part that is actually eaten, on the same basis as
+  the per-100g macros above. Subtract skin, peel, pit, stone, core, shell, bone and rind.
+  - "pcs" avocado = ~140g of flesh (NOT the ~200g whole fruit)
+  - "medium" banana = ~118g peeled (NOT the ~150g with peel)
+  - "pcs" chicken thigh = boneless weight
+  Getting this wrong overstates every logged piece by the weight of what gets thrown away.
 - For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
 - For supplements/protein powders: include scoop
 - Do NOT include volume units (tbsp, tsp, cup, dl, ml) - these are calculated from density
@@ -222,6 +214,9 @@ For each ingredient, provide:
 - Macros per 100g (protein, carbs, fat, kcal, fiber)
 - density in g/ml for liquids and powders (null for solid items)
 - Common measurement units with gram equivalents:
+  - EDIBLE WEIGHT ONLY: grams per unit is the part actually eaten, on the same basis as the per-100g
+    macros — subtract skin, peel, pit, core, shell, bone and rind. "pcs" avocado = ~140g of flesh,
+    not the ~200g whole fruit; "medium" banana = ~118g peeled.
   - For whole items (eggs, fruits, vegetables): include pcs, small, medium, large
   - For supplements/protein powders: include scoop
   - Do NOT include volume units (tbsp, tsp, cup, dl, ml) - these are calculated from density

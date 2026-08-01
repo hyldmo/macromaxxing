@@ -1,3 +1,4 @@
+import { resolveUnitGrams } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
 import {
 	calculatePortionMacros,
@@ -46,5 +47,29 @@ describe('ingredient wrapper recipe', () => {
 		expect(slot.weight).toBeCloseTo(grams)
 		expect(slot.protein).toBeCloseTo((PER_100G.protein * grams) / 100)
 		expect(slot.kcal).toBeCloseTo((PER_100G.kcal * grams) / 100)
+	})
+})
+
+/** Avocado, per 100 g of flesh — and a `pcs` that is the flesh too, not the whole fruit. */
+const AVOCADO_PER_100G = { protein: 2, carbs: 8.5, fat: 14.7, kcal: 160, fiber: 6.7 }
+const AVOCADO_UNITS = [
+	{ name: 'g', grams: 1 },
+	{ name: 'pcs', grams: 140 }
+]
+
+describe('logging a piece unit', () => {
+	it('prices half an avocado off the edible weight, not the market weight', () => {
+		const gramsPerPiece = resolveUnitGrams('pcs', AVOCADO_UNITS, null)
+		const grams = (gramsPerPiece ?? 0) * 0.5
+		expect(grams).toBe(70)
+
+		const totals = calculateRecipeTotals([{ per100g: AVOCADO_PER_100G, amountGrams: PORTION_GRAMS }])
+		const portion = calculatePortionMacros(totals, getEffectiveCookedWeight(totals.weight, null), PORTION_GRAMS)
+		const slot = calculateSlotMacros(portion, grams / PORTION_GRAMS)
+
+		expect(slot.weight).toBeCloseTo(70)
+		expect(slot.kcal).toBeCloseTo(112)
+		// Logging the ~201 g whole fruit instead would bill 322 kcal for the same half avocado.
+		expect(slot.kcal).toBeLessThan((AVOCADO_PER_100G.kcal * 201 * 0.5) / 100)
 	})
 })

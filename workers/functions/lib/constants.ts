@@ -11,7 +11,11 @@ export const macroSchema = z.object({
 
 export const unitSchema = z.object({
 	name: z.string().describe("Unit name: 'tbsp', 'tsp', 'cup', 'pcs', 'medium', 'large', 'scoop', etc."),
-	grams: z.number().describe('Weight in grams per 1 unit'),
+	grams: z
+		.number()
+		.describe(
+			'Edible weight in grams per 1 unit, on the same basis as the per-100g macros — skin, peel, pit, shell, bone and rind excluded (1 pcs avocado ≈ 140g of flesh, not the ~200g whole fruit)'
+		),
 	isDefault: z.boolean().describe('true for the most natural unit (e.g., "pcs" for eggs, "g" for flour)')
 })
 

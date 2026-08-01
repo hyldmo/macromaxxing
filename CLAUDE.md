@@ -222,6 +222,10 @@ packages/db/                                # Shared package @macromaxxing/db
                                             #   into MacroTargets (server + client both call it). resolveActivityLevel
                                             #   turns the stored ActivitySetting into a real bracket: 'auto' maps
                                             #   trainingSessionsPerWeek through activityFromTrainingFrequency
+  units.ts                                  # Ingredient measurement units: VOLUME_UNITS, isVolumeUnit, getAllUnits
+                                            #   (stored rows + the volume units density implies) and resolveUnitGrams —
+                                            #   the ONE place an {amount, unit} pair becomes grams (server + client).
+                                            #   A unit's grams is EDIBLE weight on the same basis as the per-100g macros
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios) +
                                             #   plannedRowContributions (template row → per-muscle contributions)
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
@@ -295,6 +299,9 @@ users(id PK clerk_user_id, email)
 
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?, source: manual|ai|usda|openfoodfacts|label)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
+    -- `grams` is EDIBLE weight, on the same basis as the parent's per-100g macros: 1 pcs avocado is
+    -- the ~140g of flesh, not the ~200g fruit with skin and pit. Volume units (ml/tsp/tbsp/dl/cup)
+    -- are NOT stored — they're derived from `ingredients.density` (see packages/db/units.ts)
 
 recipes(id typeid:rcp, userId, name, type: recipe|premade|ingredient, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
   -- type 'ingredient' = auto-created wrapper holding 100g of one library ingredient, so mealPlan.logMeal
@@ -391,7 +398,9 @@ trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate   # create/update/duplicate take weekStart (null = template)
 trpc.mealPlan.ensureWeek                    # Idempotent find-or-create of a week's plan — call before logging with no planId
-trpc.mealPlan.logMeal                       # LOGGING verb: recipe or bare ingredient+grams → inventory + slot in one call
+trpc.mealPlan.logMeal                       # LOGGING verb: recipe or bare ingredient → inventory + slot in one call.
+                                            #   Ingredient entries take `grams`, or `amount` + `unit` (e.g. 0.5 pcs)
+                                            #   resolved server-side against that ingredient's units — unknown unit errors
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
 trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot   # allocate = PLANNING verb (never grows the pool)
 trpc.workout.guide                                                        # No-arg orientation doc (MCP tool workout_guide) — training/program-design conventions reference incl. bwMultiplier bodyweight logging
@@ -473,6 +482,13 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   path: it declares a portion pool up front ("I cooked 6 portions") and `allocate` never grows it, so
   spreading a cook-up too thin still warns. `logMeal` is the LOGGING path: one call, find-or-create the
   inventory row, and the pool grows to cover what was allocated so the warning stays quiet on a diary.
+- **A logged ingredient amount is `{ amount, unit }`, and the server does the multiplication.** Grams
+  stay the storage unit, but a client that pre-multiplies is a second conversion rule waiting to drift
+  from `resolveUnitGrams` — so the modal and MCP agents both send `0.5 pcs` and let `logMeal` price it
+  from the ingredient's own table (`grams` still accepted for callers that measured on a scale). An
+  unknown unit is an error, never a silent 1 g fallback. This is only as accurate as the unit rows
+  themselves: `ingredientUnits.grams` must be EDIBLE weight (see DB Schema), which is what the AI
+  lookup prompts now demand — a whole-fruit gram value overstates every logged piece by the peel.
 - `logMeal` also takes a bare library ingredient + grams — it wraps it in a `type: 'ingredient'` recipe
   holding 100g (so 1 portion = 100g and the slot's fractional portions carry the amount), reused across
   plans. Inventory stays a non-nullable recipe FK, so macros/grocery/calendar/export all keep working on
