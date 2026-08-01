@@ -114,6 +114,7 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 							<span className="text-macro-protein">P{day.totals.protein.toFixed(0)}</span>
 							<span className="text-macro-carbs">C{day.totals.carbs.toFixed(0)}</span>
 							<span className="text-macro-fat">F{day.totals.fat.toFixed(0)}</span>
+							<span className="text-macro-fiber">Fi{day.totals.fiber.toFixed(0)}</span>
 						</div>
 						{targets && <MacroTargetBars totals={day.totals} targets={targets} />}
 					</div>

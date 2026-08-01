@@ -81,6 +81,13 @@ export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory, targets }) 
 						unit="g"
 						className="text-macro-fat"
 					/>
+					<MacroDelta
+						label="Fi"
+						value={weeklyAvg.fiber}
+						target={targets?.fiber}
+						unit="g"
+						className="text-macro-fiber"
+					/>
 				</div>
 			</div>
 		</Card>
