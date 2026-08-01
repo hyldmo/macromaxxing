@@ -144,7 +144,7 @@ src/
                                             #   it lands in; TDEE + macros preview the PENDING selection, not the saved one
       components/KcalReadout.tsx            # `1850/2400` — status-colored actual, faint target
       components/MacroDelta.tsx             # `P180 -12` — macro value + signed distance from its target
-      components/MacroTargetBars.tsx        # Three hairline P/C/F progress bars
+      components/MacroTargetBars.tsx        # Four hairline P/C/F/Fi progress bars
       utils/targets.ts                      # targetStatus (±5% band → under/on/over), targetDelta
     plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
       WeekCalendarSection.tsx               # Mon–Sun view of the current week (top of /plans), fed by dashboard.summary,

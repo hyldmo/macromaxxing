@@ -6,13 +6,13 @@ import { cn } from '~/lib'
 const fill = (actual: number, target: number): number => (target > 0 ? Math.min(1, actual / target) : 0)
 
 export interface MacroTargetBarsProps {
-	totals: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat'>
+	totals: Pick<AbsoluteMacros, 'protein' | 'carbs' | 'fat' | 'fiber'>
 	targets: MacroTargets
 	className?: string
 }
 
 /**
- * Three hairline progress bars (P/C/F) against the day's targets. Deliberately
+ * Four hairline progress bars (P/C/F/Fi) against the day's targets. Deliberately
  * uncolored past 100% — overshoot is only a problem for calories, and the kcal
  * readout carries that signal.
  */
@@ -21,6 +21,7 @@ export const MacroTargetBars: FC<MacroTargetBarsProps> = ({ totals, targets, cla
 		<Bar value={fill(totals.protein, targets.protein)} className="bg-macro-protein" />
 		<Bar value={fill(totals.carbs, targets.carbs)} className="bg-macro-carbs" />
 		<Bar value={fill(totals.fat, targets.fat)} className="bg-macro-fat" />
+		<Bar value={fill(totals.fiber, targets.fiber)} className="bg-macro-fiber" />
 	</div>
 )
 

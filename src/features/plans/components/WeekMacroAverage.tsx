@@ -27,6 +27,7 @@ export const WeekMacroAverage: FC<WeekMacroAverageProps> = ({ days, targets }) =
 			<MacroDelta label="P" value={avg.protein} target={targets?.protein} className="text-macro-protein" />
 			<MacroDelta label="C" value={avg.carbs} target={targets?.carbs} className="text-macro-carbs" />
 			<MacroDelta label="F" value={avg.fat} target={targets?.fat} className="text-macro-fat" />
+			<MacroDelta label="Fi" value={avg.fiber} target={targets?.fiber} className="text-macro-fiber" />
 			<span className="font-sans text-ink-faint">{filled}d</span>
 		</div>
 	)

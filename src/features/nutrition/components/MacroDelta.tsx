@@ -3,7 +3,7 @@ import { targetDelta } from '~/features/nutrition/utils/targets'
 import { cn } from '~/lib'
 
 export interface MacroDeltaProps {
-	/** Single-letter macro tag: P / C / F. */
+	/** Short macro tag: P / C / F / Fi. */
 	label: string
 	value: number
 	/** null/undefined when no goal is set — the delta is simply omitted. */

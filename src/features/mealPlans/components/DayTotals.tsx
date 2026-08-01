@@ -22,10 +22,11 @@ export const DayTotals: FC<DayTotalsProps> = ({ totals, targets }) => {
 					<span className="absolute -bottom-px ml-0.5 font-mono text-[8px] text-ink-muted"> kcal</span>
 				</span>
 			</div>
-			<div className="flex justify-center gap-1 font-mono text-[9px] text-ink-muted">
+			<div className="flex flex-wrap justify-center gap-x-1 font-mono text-[9px] text-ink-muted">
 				<span className="font-semibold text-macro-protein">P{totals.protein.toFixed(0)}</span>
 				<span className="text-macro-carbs">C{totals.carbs.toFixed(0)}</span>
 				<span className="text-macro-fat">F{totals.fat.toFixed(0)}</span>
+				<span className="text-macro-fiber">Fi{totals.fiber.toFixed(0)}</span>
 			</div>
 			{targets && <MacroTargetBars totals={totals} targets={targets} />}
 		</div>
