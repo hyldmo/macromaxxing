@@ -311,6 +311,12 @@ const TimerMode: FC = () => {
 		setGuideOpen(true)
 	}, [])
 
+	// Stable — the overlays key effects off their onClose, and this component
+	// re-renders at ~30fps while a timer runs.
+	const handleCloseGuide = useCallback(() => setGuideOpen(false), [])
+	const handleOpenNotes = useCallback(() => setNotesOpen(true), [])
+	const handleCloseNotes = useCallback(() => setNotesOpen(false), [])
+
 	// Keyboard: Enter/Space confirms or dismisses, Escape closes
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
@@ -379,7 +385,7 @@ const TimerMode: FC = () => {
 				reps={reps}
 				bodyWeightKg={bodyWeightKg}
 				onClose={onClose}
-				onOpenNotes={() => setNotesOpen(true)}
+				onOpenNotes={handleOpenNotes}
 				onOpenGuide={handleOpenGuide}
 				onNavigate={handleNavigate}
 				onNavigateSet={handleNavigateSet}
@@ -399,7 +405,7 @@ const TimerMode: FC = () => {
 				<ExerciseGuideModal
 					exerciseId={activeGuideExercise.id}
 					exerciseName={activeGuideExercise.name}
-					onClose={() => setGuideOpen(false)}
+					onClose={handleCloseGuide}
 				/>
 			)}
 			{notesOpen && (
@@ -408,7 +414,7 @@ const TimerMode: FC = () => {
 					initialNotes={session.notes}
 					exercises={notesExercises}
 					focusExerciseId={currentSet?.exerciseId}
-					onClose={() => setNotesOpen(false)}
+					onClose={handleCloseNotes}
 				/>
 			)}
 		</>

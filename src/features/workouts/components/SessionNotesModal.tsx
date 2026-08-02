@@ -53,10 +53,13 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 	const textareas = useRef(new Map<Exercise['id'] | typeof SESSION_KEY, HTMLTextAreaElement>())
 
 	const utils = trpc.useUtils()
-	const updateExerciseNote = trpc.workout.updateExerciseNote.useMutation({
+	// The mutation result is a fresh object every render (only its callables are
+	// stable), so holding it would rebuild flush/flushAll/handleClose on every tick
+	// of the timer behind this overlay, re-firing every effect that depends on them.
+	const { mutate: saveExerciseNote } = trpc.workout.updateExerciseNote.useMutation({
 		onSuccess: () => utils.workout.getSession.invalidate({ id: sessionId })
 	})
-	const updateSessionNotes = trpc.workout.updateSessionNotes.useMutation()
+	const { mutate: saveSessionNotes } = trpc.workout.updateSessionNotes.useMutation()
 	useScrollLock()
 
 	const flush = useCallback(
@@ -69,10 +72,10 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 			const value = valuesRef.current[key] ?? ''
 			if (savedRef.current[key] === value) return
 			savedRef.current[key] = value
-			if (key === SESSION_KEY) updateSessionNotes.mutate({ id: sessionId, notes: value })
-			else updateExerciseNote.mutate({ id: key as WorkoutExercise['id'], note: value })
+			if (key === SESSION_KEY) saveSessionNotes({ id: sessionId, notes: value })
+			else saveExerciseNote({ id: key as WorkoutExercise['id'], note: value })
 		},
-		[sessionId, updateExerciseNote, updateSessionNotes]
+		[sessionId, saveExerciseNote, saveSessionNotes]
 	)
 
 	const scheduleSave = useCallback(
@@ -114,10 +117,17 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 		[scheduleSave]
 	)
 
+	// Focus the requested section once, on open. Deliberately not re-run: the timer
+	// behind this overlay ticks at ~30fps, so a refocus would rip the caret out of
+	// whatever field was just clicked and pin it to the active exercise forever.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: focus target is captured at open time
 	useEffect(() => {
 		const target = (focusExerciseId && textareas.current.get(focusExerciseId)) ?? textareas.current.get(SESSION_KEY)
 		target?.focus()
 		target?.scrollIntoView({ block: 'center' })
+	}, [])
+
+	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
 				e.preventDefault()
@@ -127,7 +137,7 @@ export const SessionNotesModal: FC<SessionNotesModalProps> = ({
 		}
 		document.addEventListener('keydown', handler, true)
 		return () => document.removeEventListener('keydown', handler, true)
-	}, [focusExerciseId, handleClose])
+	}, [handleClose])
 
 	// Flush any pending edits on unmount (e.g. closing via the timer overlay).
 	useEffect(() => () => flushAll(), [flushAll])

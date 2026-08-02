@@ -17,6 +17,12 @@ export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, ex
 	const closeBtnRef = useRef<HTMLButtonElement>(null)
 	useScrollLock()
 
+	// Focus once, on open — re-running would steal focus back on every render of the
+	// timer behind this overlay (it ticks at ~30fps).
+	useEffect(() => {
+		closeBtnRef.current?.focus()
+	}, [])
+
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') {
@@ -26,7 +32,6 @@ export const ExerciseGuideModal: FC<ExerciseGuideModalProps> = ({ exerciseId, ex
 			}
 		}
 		document.addEventListener('keydown', handler, true)
-		closeBtnRef.current?.focus()
 		return () => document.removeEventListener('keydown', handler, true)
 	}, [onClose])
 
