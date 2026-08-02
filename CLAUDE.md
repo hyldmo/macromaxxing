@@ -651,6 +651,8 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 
 **Zustand** — never subscribe to the entire store (`const store = useStore()` infinite-loops any effect with `store` in deps). Selectors only: `useStore(s => s.field)` for reactive state, `useStore.getState().action()` for callbacks.
 
+**tRPC mutations in dep arrays** — `useMutation()` ends in `return { ...result, mutate, mutateAsync }`, a fresh object literal every render; the callables inside it (`mutate`, `mutateAsync`, `reset`) are the stable parts. A `useCallback`/`useEffect` that lists the mutation object re-runs on every render, and that propagates down any callback chain built on it. Destructure (`const { mutate: saveNote } = trpc.x.useMutation()`) and depend on that. Anything under timer mode is the loud case — it re-renders at ~30fps (`useElapsedTimer`), so an unstable dep turns a once-on-open `focus()` into a focus trap and makes a `() => () => flushAll()` unmount cleanup fire every frame.
+
 **html5-qrcode** — `scanner.stop()` throws **synchronously** (not as a rejected Promise) if the scanner never reached RUNNING. React Strict Mode's dev double-mount triggers this every time: first mount's cleanup fires before async `start()` resolves. A bare `.stop().catch()` won't catch the sync throw — wrap the whole call in `try/catch` in the effect cleanup of `BarcodeScanner.tsx`.
 
 **CSS**
