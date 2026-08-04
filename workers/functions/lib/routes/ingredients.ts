@@ -1,4 +1,4 @@
-import { ingredientSource, ingredients, ingredientUnits, zodTypeID } from '@macromaxxing/db'
+import { ingredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -12,7 +12,6 @@ import {
 	generateTextWithFallback,
 	getLocalUsdaFood,
 	INGREDIENT_AI_PROMPT,
-	isVolumeUnit,
 	lookupLocalUSDA,
 	lookupUSDA,
 	searchLocalUSDA,
@@ -162,7 +161,10 @@ const updateUnitSchema = z.object({
 
 export const ingredientsRouter = router({
 	list: publicProcedure
-		.meta({ description: 'List ingredients with nutrition data per 100g' })
+		.meta({
+			description:
+				"List ingredients with nutrition data per 100g, each with its measurement units (name + edible grams per unit). Those unit names are what mealPlan.logMeal's `unit` field accepts, so log pieces as amount + unit rather than converting to grams yourself."
+		})
 		.input(z.object({ search: z.string().optional() }).optional())
 		.query(async ({ ctx, input }) => {
 			const search = input?.search?.trim()
@@ -276,7 +278,7 @@ export const ingredientsRouter = router({
 	update: protectedProcedure
 		.meta({
 			description:
-				'Update an ingredient you created (macros per 100g, name, density) and optionally add measurement units (tbsp, scoop, pcs, …)'
+				"Update an ingredient you created (macros per 100g, name, density) and optionally add or correct measurement units (tbsp, scoop, pcs, …). Units are matched by name, so re-sending an existing name overwrites its grams. A unit's grams is EDIBLE weight on the same basis as the per-100g macros — skin, peel, pit, shell and bone excluded (1 pcs avocado ≈ 140g of flesh, not the ~200g whole fruit)."
 		})
 		.input(updateIngredientSchema)
 		.mutation(async ({ ctx, input }) => {

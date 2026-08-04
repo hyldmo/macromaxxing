@@ -32,25 +32,6 @@ export function formatIngredientAmount(amount: number, unit: string): string {
 	return `${formatted} ${unit}`
 }
 
-// Volume units with their ml equivalents — must match backend VOLUME_UNITS
-const VOLUME_UNITS = [
-	{ name: 'ml', ml: 1 },
-	{ name: 'tsp', ml: 5 },
-	{ name: 'tbsp', ml: 15 },
-	{ name: 'dl', ml: 100 },
-	{ name: 'cup', ml: 240 }
-] as const
-
-/** Get all units for an ingredient, including volume units computed from density */
-export function getAllUnits<T extends { name: string }>(
-	storedUnits: T[],
-	density: number | null
-): (T | { name: string; grams: number })[] {
-	if (!density) return storedUnits
-	const existingNames = new Set(storedUnits.map(u => u.name.toLowerCase()))
-	const volumeUnits = VOLUME_UNITS.filter(vu => !existingNames.has(vu.name)).map(vu => ({
-		name: vu.name,
-		grams: Math.round(vu.ml * density * 100) / 100
-	}))
-	return [...storedUnits, ...volumeUnits]
-}
+// Unit math is shared with the server (`mealPlan.logMeal` resolves `{ amount, unit }` the same way),
+// so it lives in @macromaxxing/db. Re-exported here so existing `../utils/format` imports keep working.
+export { getAllUnits, resolveUnitGrams } from '@macromaxxing/db'

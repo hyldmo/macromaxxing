@@ -1,9 +1,11 @@
 import {
+	getAllUnits,
 	mealPlanInventory,
 	mealPlanSlots,
 	mealPlans,
 	recipeIngredients,
 	recipes,
+	resolveUnitGrams,
 	type TypeIDString,
 	zodTypeID,
 	zWeekStart
@@ -105,6 +107,37 @@ async function findOrCreateIngredientRecipe(
 	})
 
 	return recipe.id
+}
+
+/**
+ * How much of an ingredient a log entry means, in grams.
+ *
+ * `grams` is the literal path. `amount` + `unit` resolves against the ingredient's own unit table
+ * (plus the volume units its density implies), so "half an avocado" is priced from the stored
+ * edible weight rather than each client inventing its own conversion — and a unit the ingredient
+ * doesn't have is an error, never a silent fallback to 1 g.
+ */
+async function resolveIngredientGrams(
+	db: TRPCContext['db'],
+	entry: { ingredientId: TypeIDString<'ing'>; grams?: number; amount?: number; unit?: string }
+): Promise<number> {
+	if (entry.grams != null) return entry.grams
+	if (entry.amount == null) throw new Error('Ingredient entry needs either grams, or amount + unit')
+
+	const ingredient = await db.query.ingredients.findFirst({
+		where: { id: entry.ingredientId },
+		with: { units: true }
+	})
+	if (!ingredient) throw new Error('Ingredient not found')
+
+	const unitName = entry.unit ?? 'g'
+	const gramsPerUnit = resolveUnitGrams(unitName, ingredient.units, ingredient.density)
+	if (gramsPerUnit == null) {
+		const known = new Set(['g', ...getAllUnits(ingredient.units, ingredient.density).map(u => u.name)])
+		throw new Error(`${ingredient.name} has no unit "${unitName}". Known units: ${[...known].join(', ')}`)
+	}
+
+	return entry.amount * gramsPerUnit
 }
 
 export const mealPlansRouter = router({
@@ -421,7 +454,7 @@ export const mealPlansRouter = router({
 	logMeal: protectedProcedure
 		.meta({
 			description:
-				"Put a meal on a day in one call: resolves (or creates) the inventory row, then allocates the slot. This is the logging verb — use it to record what was eaten. Use addToInventory + allocate instead when planning a cook-up, where the portion pool is declared up front and over-allocating it should warn. `entry.kind: 'ingredient'` logs a bare library ingredient by weight, no recipe needed."
+				"Put a meal on a day in one call: resolves (or creates) the inventory row, then allocates the slot. This is the logging verb — use it to record what was eaten. Use addToInventory + allocate instead when planning a cook-up, where the portion pool is declared up front and over-allocating it should warn. `entry.kind: 'ingredient'` logs a bare library ingredient, no recipe needed — either by `grams`, or by `amount` + `unit` (e.g. 0.5 pcs) resolved against the ingredient's own units, which is the accurate way to log something you measured in pieces rather than on a scale."
 		})
 		.input(
 			z.object({
@@ -437,7 +470,24 @@ export const mealPlansRouter = router({
 					z.object({
 						kind: z.literal('ingredient'),
 						ingredientId: zodTypeID('ing'),
-						grams: z.number().positive()
+						grams: z
+							.number()
+							.positive()
+							.optional()
+							.describe('Weight in grams. Omit when passing amount + unit.'),
+						amount: z
+							.number()
+							.positive()
+							.optional()
+							.describe(
+								'Amount in `unit`s, e.g. 0.5 with unit "pcs". Requires unit; ignored if grams is set.'
+							),
+						unit: z
+							.string()
+							.optional()
+							.describe(
+								'Unit name from this ingredient\'s own table (ingredient.listUnits), e.g. "pcs", "medium", "tbsp", "scoop". Gram values are edible weight on the same basis as the per-100g macros, so 0.5 pcs avocado is half the flesh — no need to convert client-side. Unknown units error rather than guess.'
+							)
 					})
 				])
 			})
@@ -454,8 +504,9 @@ export const mealPlansRouter = router({
 				input.entry.kind === 'recipe'
 					? { recipeId: input.entry.recipeId, portions: input.entry.portions }
 					: {
-							recipeId: await findOrCreateIngredientRecipe(ctx.db, ctx.user.id, input.entry.ingredientId),
-							portions: input.entry.grams / PORTION_GRAMS
+							// Amount first: an unknown unit must fail before findOrCreate leaves a wrapper recipe behind.
+							portions: (await resolveIngredientGrams(ctx.db, input.entry)) / PORTION_GRAMS,
+							recipeId: await findOrCreateIngredientRecipe(ctx.db, ctx.user.id, input.entry.ingredientId)
 						}
 
 			const now = Date.now()
