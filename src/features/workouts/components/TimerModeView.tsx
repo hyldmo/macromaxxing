@@ -177,6 +177,14 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 							<Button onClick={onClose} className="w-full">
 								Close
 							</Button>
+							{/* Every set being logged must not be a dead end — stepping back re-enters
+							    the queue at its last set to review or add one. */}
+							{exerciseGroupCount > 0 && (
+								<Button variant="ghost" onClick={() => onNavigateSet?.(-1)} className="w-full">
+									<ChevronLeft className="size-4" />
+									Back to sets
+								</Button>
+							)}
 						</>
 					) : (
 						<>

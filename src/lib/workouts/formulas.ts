@@ -142,10 +142,17 @@ export interface Divergence {
 	exerciseId: TypeIDString<'exc'>
 	exerciseName: string
 	bwMultiplier: number
+	/**
+	 * The template's own `targetSets` — backoff INCLUDED, unlike `planned.sets`.
+	 * `planned.sets` is the working-set count (comparable to `actual.sets`); this is the
+	 * value a template write-back has to be expressed in, so the two must not be swapped.
+	 */
+	templateSets: number
 	planned: { sets: number; reps: number; weight: number | null }
 	actual: { sets: number; reps: number; weight: number }
 	improved: boolean
-	suggestion: { targetSets: number; targetReps: number; targetWeight: number | null }
+	/** Double progression: reps + weight only. Sets are never suggested — see below. */
+	suggestion: { targetReps: number; targetWeight: number | null }
 }
 
 interface PlannedExerciseInput {
@@ -211,12 +218,10 @@ export function computeDivergences(
 			const hitCeiling = bestSet.reps >= range.max && (bestAddedKg > 0 || bwMultiplier > 0)
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
-						targetSets: effectiveSets,
 						targetReps: range.min,
 						targetWeight: roundWeight(bestAddedKg + plateIncrement(bestAddedKg, 'kg'), 'kg', 'up')
 					}
 				: {
-						targetSets: effectiveSets,
 						targetReps: bestSet.reps,
 						targetWeight: bestAddedKg > 0 ? bestAddedKg : null
 					}
@@ -231,6 +236,7 @@ export function computeDivergences(
 					exerciseId: we.exerciseId,
 					exerciseName: we.exercise.name,
 					bwMultiplier,
+					templateSets: totalSets,
 					planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
 					actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestAddedKg },
 					improved,
@@ -279,11 +285,11 @@ export function computeMatchedExercises(
 			exerciseId: we.exerciseId,
 			exerciseName: we.exercise.name,
 			bwMultiplier,
+			templateSets: totalSets,
 			planned: { sets: effectiveSets, reps: effectiveReps, weight: we.targetWeight },
 			actual: { sets: exerciseLogs.length, reps: bestSet.reps, weight: bestAddedKg },
 			improved: false,
 			suggestion: {
-				targetSets: exerciseLogs.length,
 				targetReps: bestSet.reps,
 				targetWeight: bestAddedKg > 0 ? bestAddedKg : null
 			}

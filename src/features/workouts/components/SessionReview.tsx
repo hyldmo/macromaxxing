@@ -26,11 +26,12 @@ interface ExtraDef {
 	logs: Log[]
 }
 
-type Target = { targetSets: number; targetReps: number; targetWeight: number | null }
+/** `targetSets: null` = leave the template's set count alone (the default — sets are never suggested). */
+type Target = { targetSets: number | null; targetReps: number; targetWeight: number | null }
 
-function bestSetTarget(d: Divergence): Target {
+function bestSetTarget(d: Divergence, current: Target): Target {
 	return {
-		targetSets: d.actual.sets,
+		targetSets: current.targetSets,
 		targetReps: d.actual.reps,
 		targetWeight: d.actual.weight > 0 ? d.actual.weight : null
 	}
@@ -38,7 +39,7 @@ function bestSetTarget(d: Divergence): Target {
 
 function resolveTarget(d: Divergence, custom?: Target): Target {
 	if (custom) return custom
-	return d.suggestion
+	return { targetSets: null, ...d.suggestion }
 }
 
 function targetsMatch(
@@ -108,7 +109,8 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 				const target = resolveTarget(d, customTargets.get(d.exerciseId))
 				return {
 					exerciseId: d.exerciseId,
-					targetSets: target.targetSets,
+					// Omitted unless the user typed one — the review suggests reps/weight, never volume.
+					targetSets: target.targetSets ?? undefined,
 					targetReps: target.targetReps,
 					targetWeight: target.targetWeight
 				}
@@ -180,13 +182,13 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 							{reviewExercises.map(d => {
 								const isEditing = editing.has(d.exerciseId)
 								const custom = customTargets.get(d.exerciseId)
-								const {
-									targetSets: sets,
-									targetReps: reps,
-									targetWeight: weight
-								} = resolveTarget(d, custom)
+								const target = resolveTarget(d, custom)
+								const { targetReps: reps, targetWeight: weight } = target
+								// Everything on this row is template-scale (backoff included), so the
+								// displayed set count falls back to what the template already says.
+								const sets = target.targetSets ?? d.templateSets
 								const hasDiff = !targetsMatch(
-									{ sets: d.planned.sets, reps: d.planned.reps, weight: d.planned.weight },
+									{ sets: d.templateSets, reps: d.planned.reps, weight: d.planned.weight },
 									{ sets, reps, weight }
 								)
 
@@ -209,7 +211,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 														<div className="flex items-center gap-1">
 															<span className="text-ink-faint">
 																{formatTarget(
-																	d.planned.sets,
+																	d.templateSets,
 																	d.planned.reps,
 																	d.planned.weight,
 																	d.bwMultiplier
@@ -264,24 +266,6 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 												<div className="flex items-center gap-2">
 													<NumberInput
 														className="w-14"
-														value={sets}
-														min={1}
-														step={1}
-														unit="sets"
-														onChange={e => {
-															const v = Number.parseInt(e.target.value, 10)
-															if (!Number.isNaN(v))
-																setCustomTargets(p =>
-																	new Map(p).set(d.exerciseId, {
-																		...(p.get(d.exerciseId) ?? resolveTarget(d)),
-																		targetSets: v
-																	})
-																)
-														}}
-													/>
-													<span className="text-ink-faint text-xs">×</span>
-													<NumberInput
-														className="w-14"
 														value={reps}
 														min={1}
 														step={1}
@@ -315,6 +299,25 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 															)
 														}}
 													/>
+													<span className="text-ink-faint text-xs">×</span>
+													{/* Blank = leave the template's volume alone; the placeholder is what it already says. */}
+													<NumberInput
+														className="w-16"
+														value={target.targetSets ?? ''}
+														min={1}
+														step={1}
+														unit="sets"
+														placeholder={String(d.templateSets)}
+														onChange={e => {
+															const v = Number.parseInt(e.target.value, 10)
+															setCustomTargets(p =>
+																new Map(p).set(d.exerciseId, {
+																	...(p.get(d.exerciseId) ?? resolveTarget(d)),
+																	targetSets: Number.isNaN(v) ? null : v
+																})
+															)
+														}}
+													/>
 												</div>
 												<Button
 													variant="ghost"
@@ -322,7 +325,13 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 													className="h-7 px-2 text-[11px]"
 													onClick={() =>
 														setCustomTargets(p =>
-															new Map(p).set(d.exerciseId, bestSetTarget(d))
+															new Map(p).set(
+																d.exerciseId,
+																bestSetTarget(
+																	d,
+																	p.get(d.exerciseId) ?? resolveTarget(d)
+																)
+															)
 														)
 													}
 												>

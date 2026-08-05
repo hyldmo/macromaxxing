@@ -336,3 +336,42 @@ describe('computeDivergences bodyweight', () => {
 		expect(divergences[0]?.bwMultiplier).toBe(1)
 	})
 })
+
+describe('computeDivergences set counts', () => {
+	const benchWithBackoff = {
+		exerciseId: 'exc_test_bench' as const,
+		exercise: {
+			name: 'Bench Press',
+			type: 'compound' as const,
+			bwMultiplier: 0,
+			strengthRepsMin: 3,
+			strengthRepsMax: 5,
+			hypertrophyRepsMin: 8,
+			hypertrophyRepsMax: 12
+		},
+		targetSets: 3,
+		targetReps: 8,
+		targetWeight: 60,
+		// 'full' folds ONE backoff into targetSets → 2 working + 1 backoff
+		setMode: 'full' as const,
+		trainingGoal: null
+	}
+
+	it('reports templateSets at template scale and planned.sets at working scale', () => {
+		const divergences = computeDivergences(
+			[
+				{ exerciseId: benchWithBackoff.exerciseId, setType: 'working', weightKg: 60, reps: 10 },
+				{ exerciseId: benchWithBackoff.exerciseId, setType: 'working', weightKg: 60, reps: 9 },
+				{ exerciseId: benchWithBackoff.exerciseId, setType: 'backoff', weightKg: 48, reps: 12 }
+			],
+			[benchWithBackoff],
+			'hypertrophy'
+		)
+		expect(divergences).toHaveLength(1)
+		// Folding the backoff must not leak into the value a template write-back uses,
+		// or every completed session shaves a set off the template.
+		expect(divergences[0]?.templateSets).toBe(3)
+		expect(divergences[0]?.planned.sets).toBe(2)
+		expect(divergences[0]?.actual.sets).toBe(2)
+	})
+})
