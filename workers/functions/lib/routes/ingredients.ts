@@ -18,9 +18,13 @@ import {
 	searchUSDA
 } from '../ai-utils'
 import { batchIngredientAiSchema, ingredientAiSchema } from '../constants'
+import { escapeLikePattern, paginationFields, searchField } from '../list-inputs'
 import { protectedProcedure, publicProcedure, router, type TRPCContext } from '../trpc'
 import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
+
+/** Page size when the caller doesn't ask for one — what the list page has always fetched. */
+const DEFAULT_LIST_LIMIT = 200
 
 type UnitSource = 'usda' | 'ai'
 type PortionUnit = { name: string; grams: number; isDefault: boolean; source: UnitSource }
@@ -164,18 +168,29 @@ export const ingredientsRouter = router({
 	list: publicProcedure
 		.meta({
 			description:
-				"List ingredients with nutrition data per 100g, each with its measurement units (name + edible grams per unit). Those unit names are what mealPlan.logMeal's `unit` field accepts, so log pieces as amount + unit rather than converting to grams yourself."
+				"List ingredients with nutrition data per 100g, each with its measurement units (name + edible grams per unit). Those unit names are what mealPlan.logMeal's `unit` field accepts, so log pieces as amount + unit rather than converting to grams yourself. Filters: search (case-insensitive name substring), limit/offset — the library runs past one page, so page through it rather than assuming an unfiltered call showed everything."
 		})
-		.input(z.object({ search: z.string().optional() }).optional())
+		.input(z.object({ search: searchField, ...paginationFields }).optional())
 		.query(async ({ ctx, input }) => {
-			const search = input?.search?.trim()
+			const search = input?.search
 			return ctx.db.query.ingredients.findMany({
-				where: search
-					? { OR: [{ source: { ne: 'label' } }, { source: 'label', name: search }] }
-					: { source: { ne: 'label' } },
+				where: {
+					// Narrows every source. Without it `search` only ever ADDED the label row below, so the
+					// unfiltered list came back verbatim — invisible to the UI, which filters client-side anyway.
+					...(search
+						? {
+								RAW: t =>
+									sql`lower(${t.name}) like ${`%${escapeLikePattern(search.toLowerCase())}%`} escape '\\'`
+							}
+						: {}),
+					// `label` rows are a premade's backing ingredient and stay hidden, unless the search names one
+					// exactly: /ingredients?search=<name> is how clicking an ingredient in a recipe reaches it to edit.
+					OR: [{ source: { ne: 'label' } }, ...(search ? [{ source: 'label', name: search }] : [])]
+				},
 				with: { units: true },
 				orderBy: { name: 'asc' },
-				limit: 200
+				limit: input?.limit ?? DEFAULT_LIST_LIMIT,
+				offset: input?.offset ?? 0
 			})
 		}),
 
