@@ -2,12 +2,12 @@ import type { Exercise } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
 import type { FlatSet, SessionLog } from './sets'
 import {
+	adjacentExerciseIndex,
 	confirmOutcome,
 	cursorEquals,
 	cursorIndex,
 	cursorOf,
 	dismissOutcome,
-	nextExercisePendingIndex,
 	nextPendingIndex,
 	nextPendingWrapped,
 	resolveCursorIndex,
@@ -112,7 +112,7 @@ describe('nextPendingWrapped', () => {
 	})
 })
 
-describe('nextExercisePendingIndex', () => {
+describe('adjacentExerciseIndex', () => {
 	const queue = [
 		makeSet({ exerciseId: exc('exc_a'), itemIndex: 0, setNumber: 1, completed: true }),
 		makeSet({ exerciseId: exc('exc_a'), itemIndex: 0, setNumber: 2 }),
@@ -120,19 +120,32 @@ describe('nextExercisePendingIndex', () => {
 		makeSet({ exerciseId: exc('exc_c'), itemIndex: 2, setNumber: 1 })
 	]
 
-	it('direction=1 → first pending set of a later group', () => {
-		expect(nextExercisePendingIndex(queue, 1, 1)).toBe(2)
+	it('steps one group and lands on its first pending set', () => {
+		expect(adjacentExerciseIndex(queue, 1, 1)).toBe(2)
+		// From exc_b back into exc_a: completed set 1 is skipped for pending set 2
+		expect(adjacentExerciseIndex(queue, 2, -1)).toBe(1)
 	})
 
-	it('direction=-1 → last pending set of an earlier group, skipping completed', () => {
-		expect(nextExercisePendingIndex(queue, 3, -1)).toBe(2)
-		// From exc_b: exc_a's completed set 1 is skipped, pending set 2 is the target
-		expect(nextExercisePendingIndex(queue, 2, -1)).toBe(1)
+	it('walks one group at a time, never skipping over one', () => {
+		expect(adjacentExerciseIndex(queue, 3, -1)).toBe(2)
 	})
 
-	it('-1 when no pending group in that direction or fromIndex invalid', () => {
-		expect(nextExercisePendingIndex(queue, 3, 1)).toBe(-1)
-		expect(nextExercisePendingIndex(queue, -1, 1)).toBe(-1)
+	it('a fully logged group is still reachable — last set going back, first going forward', () => {
+		const done = [
+			makeSet({ exerciseId: exc('exc_a'), itemIndex: 0, setNumber: 1, completed: true }),
+			makeSet({ exerciseId: exc('exc_a'), itemIndex: 0, setNumber: 2, completed: true }),
+			makeSet({ exerciseId: exc('exc_b'), itemIndex: 1, setNumber: 1 }),
+			makeSet({ exerciseId: exc('exc_c'), itemIndex: 2, setNumber: 1, completed: true }),
+			makeSet({ exerciseId: exc('exc_c'), itemIndex: 2, setNumber: 2, completed: true })
+		]
+		expect(adjacentExerciseIndex(done, 2, -1)).toBe(1)
+		expect(adjacentExerciseIndex(done, 2, 1)).toBe(3)
+	})
+
+	it('-1 at the ends of the queue or when fromIndex is invalid', () => {
+		expect(adjacentExerciseIndex(queue, 3, 1)).toBe(-1)
+		expect(adjacentExerciseIndex(queue, 0, -1)).toBe(-1)
+		expect(adjacentExerciseIndex(queue, -1, 1)).toBe(-1)
 	})
 })
 

@@ -9,6 +9,7 @@ import { isOptimisticLogId, useSessionSets } from '~/features/workouts/hooks/use
 import { useWorkoutSessionStore } from '~/features/workouts/store'
 import { useWakeLock } from '~/features/workouts/useWakeLock'
 import {
+	adjacentExerciseIndex,
 	buildSessionPlanFromSession,
 	calculateRest,
 	confirmOutcome,
@@ -17,7 +18,6 @@ import {
 	cursorOf,
 	dismissOutcome,
 	flattenSets,
-	nextExercisePendingIndex,
 	nextPendingIndex,
 	resolveCursorIndex,
 	undoCursor,
@@ -291,7 +291,7 @@ const TimerMode: FC = () => {
 
 	const handleNavigate = useCallback(
 		(direction: -1 | 1) => {
-			const target = nextExercisePendingIndex(flatSets, currentIndex, direction)
+			const target = adjacentExerciseIndex(flatSets, currentIndex, direction)
 			if (target >= 0) actions().setCursor(cursorOf(flatSets[target]))
 		},
 		[flatSets, currentIndex]
@@ -299,7 +299,9 @@ const TimerMode: FC = () => {
 
 	const handleNavigateSet = useCallback(
 		(direction: -1 | 1) => {
-			const target = currentIndex + direction
+			// From the completion screen (no cursor) there is nowhere ahead — stepping
+			// back re-enters the queue at its last set.
+			const target = currentIndex < 0 ? (direction === -1 ? flatSets.length - 1 : -1) : currentIndex + direction
 			if (target < 0 || target >= flatSets.length) return
 			actions().setCursor(cursorOf(flatSets[target]))
 		},

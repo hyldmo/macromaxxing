@@ -53,22 +53,26 @@ export function nextPendingWrapped(queue: FlatSet[], from: number, exclude = -1)
 }
 
 /**
- * Pending set in a different exercise group: dir=1 → first set of a later group,
- * dir=-1 → last pending set of an earlier group. -1 = none.
+ * Set to land on when stepping one exercise group in `direction`. Completion is a
+ * landing preference, never a filter — a fully logged exercise is still a place you
+ * can stand (to review or fix what you logged), so the chevrons walk adjacent groups
+ * rather than hunting for the next one with work left. Lands on the group's first
+ * pending set, else the set nearest where you came from (its last going back, its
+ * first going forward). -1 = no such group.
  */
-export function nextExercisePendingIndex(queue: FlatSet[], fromIndex: number, direction: -1 | 1): number {
+export function adjacentExerciseIndex(queue: FlatSet[], fromIndex: number, direction: -1 | 1): number {
 	const current = queue[fromIndex]?.itemIndex
 	if (current === undefined) return -1
-	let target = -1
+	const target = current + direction
+	let first = -1
+	let last = -1
 	for (let i = 0; i < queue.length; i++) {
-		if (queue[i].completed) continue
-		if (direction === 1) {
-			if (queue[i].itemIndex > current) return i
-		} else if (queue[i].itemIndex < current) {
-			target = i
-		}
+		if (queue[i].itemIndex !== target) continue
+		if (!queue[i].completed) return i
+		if (first < 0) first = i
+		last = i
 	}
-	return target
+	return direction === -1 ? last : first
 }
 
 /**
