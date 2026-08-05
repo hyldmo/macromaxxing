@@ -620,6 +620,14 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - D1 supports FTS5 but Drizzle can't model it — use raw SQL migrations + `db.all()` queries
 - `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
 - D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
+- **Changing a column (nullability, type) makes drizzle-kit rebuild the table: `CREATE __new_x` → copy →
+  `DROP TABLE x` → rename.** On a table other rows point at, that `DROP` is the dangerous statement —
+  SQLite runs an implicit `DELETE FROM` first, which fires every child's `ON DELETE CASCADE`. The
+  generated `PRAGMA foreign_keys=OFF` is what stops it, and D1 *does* honour it (verified on remote with
+  scratch parent/child tables: the child rows survived). Before shipping such a migration on a parent
+  table, count the child rows on remote first — a wrong assumption here is silent data loss, not an error.
+  Also check drizzle-kit's `CREATE TABLE`: it now emits `id text PRIMARY KEY` without `NOT NULL`, and
+  SQLite lets a TEXT primary key be null, so re-add it by hand.
 - D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
 
 **MCP Apps widgets**
