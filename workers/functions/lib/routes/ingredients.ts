@@ -1,4 +1,4 @@
-import { ingredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
+import { authoredIngredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -18,9 +18,13 @@ import {
 	searchUSDA
 } from '../ai-utils'
 import { batchIngredientAiSchema, ingredientAiSchema } from '../constants'
+import { escapeLikePattern, paginationFields, searchField } from '../list-inputs'
 import { protectedProcedure, publicProcedure, router, type TRPCContext } from '../trpc'
 import { normalizeIngredientName } from '../utils'
 import { getDecryptedApiKey } from './settings'
+
+/** Page size when the caller doesn't ask for one — what the list page has always fetched. */
+const DEFAULT_LIST_LIMIT = 200
 
 type UnitSource = 'usda' | 'ai'
 type PortionUnit = { name: string; grams: number; isDefault: boolean; source: UnitSource }
@@ -126,7 +130,7 @@ const createIngredientSchema = z.object({
 	fiber: z.number().nonnegative(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	source: ingredientSource,
+	source: authoredIngredientSource.default('manual'),
 	units: z.array(unitInputSchema).optional()
 })
 
@@ -140,7 +144,8 @@ const updateIngredientSchema = z.object({
 	fiber: z.number().nonnegative().optional(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	source: ingredientSource.optional(),
+	// Correcting a mis-tagged provenance is fine; retagging a row as `label` would hide it, so it's rejected
+	source: authoredIngredientSource.optional(),
 	// Add or update measurement units; matched by name (case-insensitive), so re-sending a name updates its grams
 	units: z.array(unitInputSchema).optional()
 })
@@ -163,18 +168,29 @@ export const ingredientsRouter = router({
 	list: publicProcedure
 		.meta({
 			description:
-				"List ingredients with nutrition data per 100g, each with its measurement units (name + edible grams per unit). Those unit names are what mealPlan.logMeal's `unit` field accepts, so log pieces as amount + unit rather than converting to grams yourself."
+				"List ingredients with nutrition data per 100g, each with its measurement units (name + edible grams per unit). Those unit names are what mealPlan.logMeal's `unit` field accepts, so log pieces as amount + unit rather than converting to grams yourself. Filters: search (case-insensitive name substring), limit/offset — the library runs past one page, so page through it rather than assuming an unfiltered call showed everything."
 		})
-		.input(z.object({ search: z.string().optional() }).optional())
+		.input(z.object({ search: searchField, ...paginationFields }).optional())
 		.query(async ({ ctx, input }) => {
-			const search = input?.search?.trim()
+			const search = input?.search
 			return ctx.db.query.ingredients.findMany({
-				where: search
-					? { OR: [{ source: { ne: 'label' } }, { source: 'label', name: search }] }
-					: { source: { ne: 'label' } },
+				where: {
+					// Narrows every source. Without it `search` only ever ADDED the label row below, so the
+					// unfiltered list came back verbatim — invisible to the UI, which filters client-side anyway.
+					...(search
+						? {
+								RAW: t =>
+									sql`lower(${t.name}) like ${`%${escapeLikePattern(search.toLowerCase())}%`} escape '\\'`
+							}
+						: {}),
+					// `label` rows are a premade's backing ingredient and stay hidden, unless the search names one
+					// exactly: /ingredients?search=<name> is how clicking an ingredient in a recipe reaches it to edit.
+					OR: [{ source: { ne: 'label' } }, ...(search ? [{ source: 'label', name: search }] : [])]
+				},
 				with: { units: true },
 				orderBy: { name: 'asc' },
-				limit: 200
+				limit: input?.limit ?? DEFAULT_LIST_LIMIT,
+				offset: input?.offset ?? 0
 			})
 		}),
 
@@ -244,7 +260,10 @@ export const ingredientsRouter = router({
 		}),
 
 	create: protectedProcedure
-		.meta({ description: 'Create a custom ingredient with macro values' })
+		.meta({
+			description:
+				"Create a custom ingredient with macros per 100g, plus optional measurement units (tbsp, pcs, scoop, …) whose grams are EDIBLE weight — peel, pit, shell and bone excluded, on the same basis as the macros. `source` records where the numbers came from and defaults to 'manual' (copied off a package or weighed yourself); use 'ai' when you estimated them, or 'usda'/'openfoodfacts' with the matching sourceId when you copied a specific record. For a store-bought packaged product, prefer recipe.addPremade — it takes PER-SERVING macros off the label and creates the premade recipe alongside the ingredient."
+		})
 		.input(createIngredientSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { units, ...data } = input
