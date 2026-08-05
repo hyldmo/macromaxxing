@@ -198,16 +198,16 @@ export const mealPlansRouter = router({
 	create: protectedProcedure
 		.meta({
 			description:
-				'Create a meal plan. `weekStart` is the Monday (YYYY-MM-DD) whose Mon–Sun grid the plan describes — a past week reads as a log, a future one as a plan. Omit it for a reusable template with no week of its own.'
+				'Create a meal plan. `weekStart` is the Monday (YYYY-MM-DD) whose Mon–Sun grid the plan describes — a past week reads as a log, a future one as a plan. Omit it for a reusable template with no week of its own. `name` is optional: an unnamed plan is shown as its week number.'
 		})
-		.input(z.object({ name: z.string().min(1), weekStart: zWeekStart.nullish() }))
+		.input(z.object({ name: z.string().min(1).nullish(), weekStart: zWeekStart.nullish() }))
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
 			const [plan] = await ctx.db
 				.insert(mealPlans)
 				.values({
 					userId: ctx.user.id,
-					name: input.name,
+					name: input.name ?? null,
 					weekStart: input.weekStart ?? null,
 					createdAt: now,
 					updatedAt: now
@@ -217,11 +217,14 @@ export const mealPlansRouter = router({
 		}),
 
 	update: protectedProcedure
-		.meta({ description: 'Rename a meal plan, or move it to another week (null = turn it into a template)' })
+		.meta({
+			description:
+				'Rename a meal plan (name null = drop the name and fall back to its week number), or move it to another week (weekStart null = turn it into a template)'
+		})
 		.input(
 			z.object({
 				id: zodTypeID('mpl'),
-				name: z.string().min(1).optional(),
+				name: z.string().min(1).nullable().optional(),
 				weekStart: zWeekStart.nullable().optional()
 			})
 		)
@@ -246,12 +249,12 @@ export const mealPlansRouter = router({
 	duplicate: protectedProcedure
 		.meta({
 			description:
-				'Copy a plan (inventory + slots) under a new name. Pass `weekStart` to drop a template onto a concrete week, or to carry last week forward.'
+				'Copy a plan (inventory + slots). Pass `weekStart` to drop a template onto a concrete week, or to carry last week forward; omit `newName` to leave the copy unnamed (it reads as its week number).'
 		})
 		.input(
 			z.object({
 				id: zodTypeID('mpl'),
-				newName: z.string().min(1),
+				newName: z.string().min(1).nullish(),
 				weekStart: zWeekStart.nullish()
 			})
 		)
@@ -274,7 +277,7 @@ export const mealPlansRouter = router({
 				.insert(mealPlans)
 				.values({
 					userId: ctx.user.id,
-					name: input.newName,
+					name: input.newName ?? null,
 					weekStart: input.weekStart ?? null,
 					createdAt: now,
 					updatedAt: now
@@ -429,7 +432,7 @@ export const mealPlansRouter = router({
 			description:
 				"Get the plan covering a week (Monday, YYYY-MM-DD), creating an empty one if there isn't one yet. Idempotent — call it before logging when you don't already hold a planId. If several plans share the week, returns the most recently touched."
 		})
-		.input(z.object({ weekStart: zWeekStart, name: z.string().min(1).optional() }))
+		.input(z.object({ weekStart: zWeekStart, name: z.string().min(1).nullish() }))
 		.mutation(async ({ ctx, input }) => {
 			const existing = await ctx.db.query.mealPlans.findFirst({
 				where: { userId: ctx.user.id, weekStart: input.weekStart },
@@ -442,7 +445,7 @@ export const mealPlansRouter = router({
 				.insert(mealPlans)
 				.values({
 					userId: ctx.user.id,
-					name: input.name ?? `Week of ${input.weekStart}`,
+					name: input.name ?? null,
 					weekStart: input.weekStart,
 					createdAt: now,
 					updatedAt: now

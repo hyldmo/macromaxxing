@@ -8,7 +8,14 @@ import {
 	getEffectiveCookedWeight,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { type ActiveProgramRef, DAYS_SHORT, getWeekStart, getWeekStartDate, pickNextWorkout } from '~/lib'
+import {
+	type ActiveProgramRef,
+	DAYS_SHORT,
+	getWeekStart,
+	getWeekStartDate,
+	mealPlanLabel,
+	pickNextWorkout
+} from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { recoveryHoursFromPriorSession } from '~/lib/workouts/muscleReadiness'
 import { computeProgramRest } from '~/lib/workouts/programRest'
@@ -82,7 +89,7 @@ export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): Cal
 					name: recipe.name,
 					recipeType: recipe.type,
 					planId: plan.id,
-					planName: plan.name,
+					planName: mealPlanLabel(plan),
 					slotIndex: slot.slotIndex,
 					portions: slot.portions,
 					macros: calculateSlotMacros(portionMacros, slot.portions)

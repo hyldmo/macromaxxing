@@ -9,7 +9,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { DAYS_LONG } from '~/lib'
+import { DAYS_LONG, mealPlanLabel } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 
 type MealPlan = RouterOutput['mealPlan']['get']
@@ -44,7 +44,7 @@ export function formatMealPlan(plan: MealPlan): string {
 	const weeklyAvg = calculateWeeklyAverage(dayTotals)
 	const filledDays = dayTotals.filter(d => d.kcal > 0).length
 
-	lines.push(`# Weekly Meal Plan: "${plan.name}"`)
+	lines.push(`# Weekly Meal Plan: "${mealPlanLabel(plan)}"`)
 	if (filledDays > 0) {
 		lines.push(`Weekly average (${filledDays} days): ${fmt(weeklyAvg)}`)
 	}

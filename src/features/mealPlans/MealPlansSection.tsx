@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Link } from 'react-router'
 import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
-import { cn, fromDateKey, getISOWeek, getWeekStart, getWeekStartDate, toDateKey, useUser } from '~/lib'
+import { cn, fromDateKey, getISOWeek, getWeekStart, getWeekStartDate, mealPlanLabel, toDateKey, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
 const WEEK_MS = 604_800_000
@@ -50,9 +50,9 @@ export const MealPlansSection: FC = () => {
 	})
 
 	function handleCreate() {
-		if (!newPlanName.trim()) return
 		createMutation.mutate({
-			name: newPlanName.trim(),
+			// Unnamed is the common case — the plan reads as its week number.
+			name: newPlanName.trim() || null,
 			weekStart: newPlanWeek === TEMPLATE ? null : newPlanWeek
 		})
 	}
@@ -73,7 +73,7 @@ export const MealPlansSection: FC = () => {
 				<Card className="p-3">
 					<div className="flex items-center gap-2">
 						<Input
-							placeholder="Plan name (e.g., Cutting Week)"
+							placeholder="Name (optional, e.g. Cutting Week)"
 							value={newPlanName}
 							onChange={e => setNewPlanName(e.target.value)}
 							onKeyDown={e => {
@@ -92,7 +92,7 @@ export const MealPlansSection: FC = () => {
 							options={[...weeks, { value: TEMPLATE, label: 'Template · no week' }]}
 							className="w-auto"
 						/>
-						<Button onClick={handleCreate} disabled={!newPlanName.trim() || createMutation.isPending}>
+						<Button onClick={handleCreate} disabled={createMutation.isPending}>
 							{createMutation.isPending ? <Spinner className="size-4 text-current" /> : 'Create'}
 						</Button>
 						<Button
@@ -136,7 +136,7 @@ export const MealPlansSection: FC = () => {
 								</span>
 							</div>
 							<div className="min-w-0 flex-1">
-								<h3 className="truncate font-medium text-ink text-sm">{plan.name}</h3>
+								<h3 className="truncate font-medium text-ink text-sm">{mealPlanLabel(plan)}</h3>
 								<p className="text-ink-faint text-xs">{plan.inventory.length} recipes in inventory</p>
 							</div>
 							<button

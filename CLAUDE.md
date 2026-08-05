@@ -308,7 +308,7 @@ recipes(id typeid:rcp, userId, name, type: recipe|premade|ingredient, instructio
   -- can put a bare ingredient in a plan; hidden from recipe.list (AUTHORED_TYPES in routes/recipes.ts)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
-mealPlans(id typeid:mpl, userId, name, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
+mealPlans(id typeid:mpl, userId, name? -- null reads as its week number, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
   → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
     → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
 
@@ -397,6 +397,7 @@ trpc.recipe.addPremade                      # Creates premade meal (ingredient s
 trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate   # create/update/duplicate take weekStart (null = template)
+                                            #   and an optional name (null = unnamed; update null clears it)
 trpc.mealPlan.ensureWeek                    # Idempotent find-or-create of a week's plan — call before logging with no planId
 trpc.mealPlan.logMeal                       # LOGGING verb: recipe or bare ingredient → inventory + slot in one call.
                                             #   Ingredient entries take `grams`, or `amount` + `unit` (e.g. 0.5 pcs)
@@ -478,6 +479,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - `mealPlans.weekStart` is the Monday (`YYYY-MM-DD`) the plan's weekday slots fall on; **null = reusable
   template**. Stored as a date key, not an epoch, because `getWeekStart` resolves in the user's local
   time and an epoch would bake the client's timezone into a column the server/MCP read back blind.
+- **`mealPlans.name` is nullable and usually null.** Most plans are just "the week", so nothing is stored
+  and the label is derived: `mealPlanLabel` (`src/lib/mealPlans.ts`) → the name, else `Week <ISO week>`,
+  else `Untitled template`. Never render `plan.name` directly — an unnamed plan would come out blank. The
+  derivation is client-side on purpose: the ISO week has to be computed in the user's locale, the same
+  reason `weekStart` is a date key. Clearing the rename field writes null rather than being ignored,
+  which is the only way back to the derived label.
 - **Two write verbs, and the difference is load-bearing.** `addToInventory` + `allocate` is the PLANNING
   path: it declares a portion pool up front ("I cooked 6 portions") and `allocate` never grows it, so
   spreading a cook-up too thin still warns. `logMeal` is the LOGGING path: one call, find-or-create the
@@ -613,6 +620,14 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - D1 supports FTS5 but Drizzle can't model it — use raw SQL migrations + `db.all()` queries
 - `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
 - D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
+- **Changing a column (nullability, type) makes drizzle-kit rebuild the table: `CREATE __new_x` → copy →
+  `DROP TABLE x` → rename.** On a table other rows point at, that `DROP` is the dangerous statement —
+  SQLite runs an implicit `DELETE FROM` first, which fires every child's `ON DELETE CASCADE`. The
+  generated `PRAGMA foreign_keys=OFF` is what stops it, and D1 *does* honour it (verified on remote with
+  scratch parent/child tables: the child rows survived). Before shipping such a migration on a parent
+  table, count the child rows on remote first — a wrong assumption here is silent data loss, not an error.
+  Also check drizzle-kit's `CREATE TABLE`: it now emits `id text PRIMARY KEY` without `NOT NULL`, and
+  SQLite lets a TEXT primary key be null, so re-add it by hand.
 - D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
 
 **MCP Apps widgets**

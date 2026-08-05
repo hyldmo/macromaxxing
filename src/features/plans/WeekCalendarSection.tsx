@@ -40,7 +40,8 @@ export const WeekCalendarSection: FC = () => {
 			return
 		}
 		try {
-			const plan = await ensureWeek.mutateAsync({ weekStart: weekKey, name: `W${getISOWeek(weekStart)}` })
+			// Unnamed — the plan is just "this week", and `mealPlanLabel` says so wherever it's shown.
+			const plan = await ensureWeek.mutateAsync({ weekStart: weekKey })
 			setAddTarget({ planId: plan.id, dayOfWeek })
 		} catch {
 			// Surfaced via ensureWeek.error below; rethrowing would just be an unhandled rejection.

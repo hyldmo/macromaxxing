@@ -8,7 +8,7 @@ import { InventorySidebar } from '~/features/mealPlans/components/InventorySideb
 import { WeekGrid } from '~/features/mealPlans/components/WeekGrid'
 import { WeeklyAverages } from '~/features/mealPlans/components/WeeklyAverages'
 import { formatMealPlan } from '~/features/mealPlans/utils/export'
-import { prefetchRoute, useDocumentTitle } from '~/lib'
+import { mealPlanLabel, prefetchRoute, useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import type { Route } from './+types/plans.$id'
 
@@ -24,15 +24,17 @@ const MealPlannerPage: FC = () => {
 	const [name, setName] = useState('')
 	const [hasLoadedPlan, setHasLoadedPlan] = useState(false)
 	const [showGroceryList, setShowGroceryList] = useState(false)
-	useDocumentTitle(name || 'Meal Plan')
 
 	const planQuery = trpc.mealPlan.get.useQuery({ id: id! }, { enabled: !!id })
+	// What an unnamed plan is called — also the placeholder, so clearing the field shows what it falls back to.
+	const fallbackName = planQuery.data ? mealPlanLabel({ ...planQuery.data, name: null }) : 'Meal Plan'
+	useDocumentTitle(name || fallbackName)
 	// Daily goals to price the grid against; null until the user sets one in Settings.
 	const targets = trpc.settings.getTargets.useQuery().data?.targets ?? null
 
 	useEffect(() => {
 		if (planQuery.data && !hasLoadedPlan) {
-			setName(planQuery.data.name)
+			setName(planQuery.data.name ?? '')
 			setHasLoadedPlan(true)
 		}
 	}, [planQuery.data, hasLoadedPlan])
@@ -60,8 +62,10 @@ const MealPlannerPage: FC = () => {
 	})
 
 	function handleNameBlur() {
-		if (id && name.trim() && name.trim() !== planQuery.data?.name) {
-			updateMutation.mutate({ id, name: name.trim() })
+		// Empty clears the name rather than being ignored — that's how you get back to "Week 32".
+		const next = name.trim() || null
+		if (id && next !== (planQuery.data?.name ?? null)) {
+			updateMutation.mutate({ id, name: next })
 		}
 	}
 
@@ -70,7 +74,8 @@ const MealPlannerPage: FC = () => {
 	}
 
 	function handleDuplicate() {
-		duplicateMutation.mutate({ id: id!, newName: `${planQuery.data?.name} (copy)` })
+		const sourceName = planQuery.data?.name
+		duplicateMutation.mutate({ id: id!, newName: sourceName ? `${sourceName} (copy)` : null })
 	}
 
 	function handleDrop(
@@ -110,6 +115,7 @@ const MealPlannerPage: FC = () => {
 				</Link>
 				<Input
 					value={name}
+					placeholder={fallbackName}
 					onChange={e => setName(e.target.value)}
 					onBlur={handleNameBlur}
 					className="border-none bg-transparent p-0 font-semibold text-ink text-lg placeholder:text-ink-faint focus-visible:ring-0"
