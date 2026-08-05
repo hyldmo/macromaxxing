@@ -621,13 +621,16 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 - `wrangler d1 export` errors on virtual tables (FTS5). Use `d1 time-travel` for backups instead.
 - D1 has no Drizzle transactions — use `db.batch([stmt1, stmt2])` for atomic multi-statement writes
 - **Changing a column (nullability, type) makes drizzle-kit rebuild the table: `CREATE __new_x` → copy →
-  `DROP TABLE x` → rename.** On a table other rows point at, that `DROP` is the dangerous statement —
-  SQLite runs an implicit `DELETE FROM` first, which fires every child's `ON DELETE CASCADE`. The
-  generated `PRAGMA foreign_keys=OFF` is what stops it, and D1 *does* honour it (verified on remote with
-  scratch parent/child tables: the child rows survived). Before shipping such a migration on a parent
-  table, count the child rows on remote first — a wrong assumption here is silent data loss, not an error.
-  Also check drizzle-kit's `CREATE TABLE`: it now emits `id text PRIMARY KEY` without `NOT NULL`, and
-  SQLite lets a TEXT primary key be null, so re-add it by hand.
+  `DROP TABLE x` → rename. On a table others reference, that `DROP` deletes their rows.** SQLite runs an
+  implicit `DELETE FROM` first, which fires every child's `ON DELETE CASCADE`, and the generated
+  `PRAGMA foreign_keys=OFF` does *not* save you: D1 scopes PRAGMAs to the current transaction, and
+  `wrangler d1 migrations apply` does not run a migration file as one. (`wrangler d1 execute --file`
+  does, so a rehearsal through `execute` passes while the real deploy destroys data — this exact
+  discrepancy already cost the prod `meal_plan_inventory`/`meal_plan_slots` rows once, recovered with
+  `d1 time-travel restore`.) **Copy the children into scratch tables inside the migration and
+  `INSERT OR IGNORE` them back after the rename** — see `20260805203035_colossal_wallow.sql`. That is
+  correct whether or not the cascade fires. Also re-add the `NOT NULL` drizzle-kit now omits from
+  `id text PRIMARY KEY`; SQLite lets a TEXT primary key be null without it.
 - D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
 
 **MCP Apps widgets**
