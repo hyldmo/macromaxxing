@@ -1,4 +1,4 @@
-import { ingredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
+import { authoredIngredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -126,7 +126,7 @@ const createIngredientSchema = z.object({
 	fiber: z.number().nonnegative(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	source: ingredientSource,
+	source: authoredIngredientSource.default('manual'),
 	units: z.array(unitInputSchema).optional()
 })
 
@@ -140,7 +140,8 @@ const updateIngredientSchema = z.object({
 	fiber: z.number().nonnegative().optional(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	source: ingredientSource.optional(),
+	// Correcting a mis-tagged provenance is fine; retagging a row as `label` would hide it, so it's rejected
+	source: authoredIngredientSource.optional(),
 	// Add or update measurement units; matched by name (case-insensitive), so re-sending a name updates its grams
 	units: z.array(unitInputSchema).optional()
 })
@@ -244,7 +245,10 @@ export const ingredientsRouter = router({
 		}),
 
 	create: protectedProcedure
-		.meta({ description: 'Create a custom ingredient with macro values' })
+		.meta({
+			description:
+				"Create a custom ingredient with macros per 100g, plus optional measurement units (tbsp, pcs, scoop, …) whose grams are EDIBLE weight — peel, pit, shell and bone excluded, on the same basis as the macros. `source` records where the numbers came from and defaults to 'manual' (copied off a package or weighed yourself); use 'ai' when you estimated them, or 'usda'/'openfoodfacts' with the matching sourceId when you copied a specific record. For a store-bought packaged product, prefer recipe.addPremade — it takes PER-SERVING macros off the label and creates the premade recipe alongside the ingredient."
+		})
 		.input(createIngredientSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { units, ...data } = input
