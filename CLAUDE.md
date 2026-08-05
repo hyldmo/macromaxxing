@@ -308,7 +308,7 @@ recipes(id typeid:rcp, userId, name, type: recipe|premade|ingredient, instructio
   -- can put a bare ingredient in a plan; hidden from recipe.list (AUTHORED_TYPES in routes/recipes.ts)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
-mealPlans(id typeid:mpl, userId, name, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
+mealPlans(id typeid:mpl, userId, name? -- null reads as its week number, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
   → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
     → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
 
@@ -397,6 +397,7 @@ trpc.recipe.addPremade                      # Creates premade meal (ingredient s
 trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate   # create/update/duplicate take weekStart (null = template)
+                                            #   and an optional name (null = unnamed; update null clears it)
 trpc.mealPlan.ensureWeek                    # Idempotent find-or-create of a week's plan — call before logging with no planId
 trpc.mealPlan.logMeal                       # LOGGING verb: recipe or bare ingredient → inventory + slot in one call.
                                             #   Ingredient entries take `grams`, or `amount` + `unit` (e.g. 0.5 pcs)
@@ -478,6 +479,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - `mealPlans.weekStart` is the Monday (`YYYY-MM-DD`) the plan's weekday slots fall on; **null = reusable
   template**. Stored as a date key, not an epoch, because `getWeekStart` resolves in the user's local
   time and an epoch would bake the client's timezone into a column the server/MCP read back blind.
+- **`mealPlans.name` is nullable and usually null.** Most plans are just "the week", so nothing is stored
+  and the label is derived: `mealPlanLabel` (`src/lib/mealPlans.ts`) → the name, else `Week <ISO week>`,
+  else `Untitled template`. Never render `plan.name` directly — an unnamed plan would come out blank. The
+  derivation is client-side on purpose: the ISO week has to be computed in the user's locale, the same
+  reason `weekStart` is a date key. Clearing the rename field writes null rather than being ignored,
+  which is the only way back to the derived label.
 - **Two write verbs, and the difference is load-bearing.** `addToInventory` + `allocate` is the PLANNING
   path: it declares a portion pool up front ("I cooked 6 portions") and `allocate` never grows it, so
   spreading a cook-up too thin still warns. `logMeal` is the LOGGING path: one call, find-or-create the

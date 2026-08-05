@@ -23,6 +23,7 @@ import {
 	DAYS_LONG,
 	estimateWorkoutDurationSec,
 	getWeekStartDate,
+	mealPlanLabel,
 	type ProgramCycleResult,
 	pendingRecoveryFromPriorSession,
 	pickNextWorkout,
@@ -109,7 +110,7 @@ function computeTodayMeals(plans: RouterOutput['dashboard']['summary']['plans'])
 			for (const slot of todaySlots) {
 				meals.push({
 					recipeName: recipe.name,
-					planName: plan.name,
+					planName: mealPlanLabel(plan),
 					planId: plan.id,
 					portions: slot.portions,
 					macros: calculateSlotMacros(portionMacros, slot.portions)

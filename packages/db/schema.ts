@@ -161,7 +161,8 @@ export const mealPlans = sqliteTable(
 		userId: text('user_id')
 			.notNull()
 			.references(() => users.id),
-		name: text('name').notNull(),
+		/** Optional label; null reads as its week number ("Week 32") — see `mealPlanLabel`. */
+		name: text('name'),
 		/** Monday (`YYYY-MM-DD`) this plan's `dayOfWeek` slots fall on; null = reusable template. */
 		weekStart: text('week_start').$type<WeekStart>(),
 		createdAt: integer('created_at').notNull(),
