@@ -1,3 +1,5 @@
+CREATE TABLE `_mpl_bk_inventory` AS SELECT * FROM `meal_plan_inventory`;--> statement-breakpoint
+CREATE TABLE `_mpl_bk_slots` AS SELECT * FROM `meal_plan_slots`;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_meal_plans` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -13,4 +15,8 @@ INSERT INTO `__new_meal_plans`(`id`, `user_id`, `name`, `week_start`, `created_a
 DROP TABLE `meal_plans`;--> statement-breakpoint
 ALTER TABLE `__new_meal_plans` RENAME TO `meal_plans`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
-CREATE INDEX `meal_plans_user_id_idx` ON `meal_plans` (`user_id`);
+CREATE INDEX `meal_plans_user_id_idx` ON `meal_plans` (`user_id`);--> statement-breakpoint
+INSERT OR IGNORE INTO `meal_plan_inventory` SELECT * FROM `_mpl_bk_inventory`;--> statement-breakpoint
+INSERT OR IGNORE INTO `meal_plan_slots` SELECT * FROM `_mpl_bk_slots`;--> statement-breakpoint
+DROP TABLE `_mpl_bk_slots`;--> statement-breakpoint
+DROP TABLE `_mpl_bk_inventory`;
