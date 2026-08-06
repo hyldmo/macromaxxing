@@ -116,7 +116,8 @@ src/
                                             #   BatchMultiplierPills, CookIngredientList, CookInstructionSteps,
                                             #   CookPortionSummary
       hooks/useRecipeCalculations.ts        # Derives totals, per-portion, per-100g from ingredients + cooked weight
-      utils/macros.ts                       # Pure math: macro calculations
+      utils/macros.ts                       # Re-export of @macromaxxing/db/macros (lives there so
+                                            #   recipe.search can price a portion server-side)
       utils/format.ts                       # Number/unit formatting helpers
     ingredients/
       components/IngredientForm.tsx          # Add/edit ingredient form
@@ -217,6 +218,9 @@ packages/db/                                # Shared package @macromaxxing/db
   sets.ts                                   # Set-scheme math: generateBackoffSets + splitTargetSets (how targetSets
                                             #   splits into working sets + the folded backoff) — one source of truth for
                                             #   the session planner and the muscle-load aggregates
+  macros.ts                                 # Pure recipe macro math: calculateRecipeTotals, calculatePortionMacros,
+                                            #   toIngredientWithAmount, day/week rollups. Shared so recipe.search
+                                            #   prices a portion server-side; src/features/recipes/utils/macros re-exports
   nutrition.ts                              # Pure nutrition math: Mifflin-St Jeor BMR/TDEE, deriveMacroTargets,
                                             #   and resolveMacroTargets — the ONE place a userSettings row turns
                                             #   into MacroTargets (server + client both call it). resolveActivityLevel
@@ -391,6 +395,10 @@ No shadows — borders-only depth strategy.
 
 ```
 trpc.recipe.list/get/create/update/delete
+trpc.recipe.search                          # Lean picker feed: SQL name match, per-portion macros computed
+                                            #   server-side, NO nested ingredients. Filters: search, limit/offset.
+                                            #   Use for "find a recipe to log/plan"; recipe.list is the library
+                                            #   page's fat payload (capped at 50) and must not be searched over.
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
 trpc.recipe.addSubrecipe                    # Add recipe as subrecipe component (with cycle detection)
 trpc.recipe.addPremade                      # Creates premade meal (ingredient source:'label' + recipe type:'premade') from nutrition label
