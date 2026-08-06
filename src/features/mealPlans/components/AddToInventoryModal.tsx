@@ -1,4 +1,5 @@
 import type { MealPlan } from '@macromaxxing/db'
+import { keepPreviousData } from '@tanstack/react-query'
 import { Package, ScanLine, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, Input, Modal, NumberInput, Select, Spinner, TRPCError } from '~/components/ui'
@@ -14,7 +15,8 @@ import {
 } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
-type Recipe = RouterOutput['recipe']['list'][number]
+/** Lean picker row: `recipe.search` prices the portion server-side, so no ingredients come down. */
+type RecipeHit = RouterOutput['recipe']['search'][number]
 type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type IngredientOption = RouterOutput['ingredient']['list'][number]
@@ -41,7 +43,8 @@ function getRecipePortionMacros(recipe: {
 	return calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 }
 
-function getDefaultPortions(recipe: Recipe) {
+/** Only the premade dialog still hands us a full recipe — search results carry `defaultPortions`. */
+function getDefaultPortions(recipe: PremadeRecipe) {
 	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
 	const totals = calculateRecipeTotals(items)
 	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
@@ -84,7 +87,13 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		setAmountInput(preferred ? '1' : '100')
 	}
 
-	const recipesQuery = trpc.recipe.list.useQuery()
+	// Server-side name match, so a recipe outside the most-recently-touched page is still findable.
+	// Each keystroke is a new query key, so hold the last results rather than blanking to a spinner.
+	// Slot mode renders nothing until you type, so don't fetch a page it won't show.
+	const recipesQuery = trpc.recipe.search.useQuery(
+		{ search: search || undefined },
+		{ enabled: !slotAllocation || search.length > 0, placeholderData: keepPreviousData }
+	)
 	// Bare ingredients are a logging affordance — when planning a cook-up you add recipes, not raw grams.
 	const ingredientsQuery = trpc.ingredient.list.useQuery(
 		{ search },
@@ -133,12 +142,12 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 
 	const inventoryRecipeIds = slotAllocation ? new Set(slotAllocation.inventory.map(inv => inv.recipe.id)) : undefined
 
-	const filtered =
-		recipesQuery.data
-			?.filter(r => r.type !== 'premade')
-			.filter(r => !inventoryRecipeIds?.has(r.id))
-			.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
-			.slice(0, 10) ?? []
+	// Premades are searchable here on purpose. They're the single most loggable thing a user owns —
+	// a bought item eaten as-is — and the "Premade" button only creates NEW ones, so filtering the
+	// existing ones out left re-creating the same product from its label as the only way to log it.
+	// Name matching is the server's job now; the only client-side cut is what's already in inventory,
+	// which is a local fact the query can't know.
+	const filtered = recipesQuery.data?.filter(r => !inventoryRecipeIds?.has(r.id)).slice(0, 10) ?? []
 
 	const query = search.toLowerCase()
 	// Ingredient wrappers are excluded from the quick-picks on purpose. They'd duplicate the row the
@@ -155,7 +164,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 	const filteredIngredients =
 		ingredientsQuery.data?.filter(i => i.name.toLowerCase().includes(query)).slice(0, 5) ?? []
 
-	function handleAdd(recipe: Recipe) {
+	function handleAdd(recipe: RecipeHit) {
 		if (slotAllocation) {
 			logMealMutation.mutate({
 				planId,
@@ -168,7 +177,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		addMutation.mutate({
 			planId,
 			recipeId: recipe.id,
-			totalPortions: getDefaultPortions(recipe)
+			totalPortions: recipe.defaultPortions
 		})
 	}
 
@@ -365,8 +374,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 							{/* Recipe search results */}
 							{(!slotAllocation || search) &&
 								filtered.map(recipe => {
-									const portion = getRecipePortionMacros(recipe)
-									const defaultPortions = getDefaultPortions(recipe)
+									const portion = recipe.portionMacros
 									return (
 										<button
 											key={recipe.id}
@@ -381,7 +389,11 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 												</span>
 												{!slotAllocation && (
 													<span className="shrink-0 font-mono text-ink-muted text-xs tabular-nums">
-														{defaultPortions} portions
+														{/* A premade's package IS the portion, so it always adds as one
+														    countable item — "1 portions" reads like a bug. */}
+														{recipe.type === 'premade'
+															? '1 item'
+															: `${recipe.defaultPortions} portions`}
 													</span>
 												)}
 											</div>

@@ -1,11 +1,11 @@
 import { extractPreparation, type Ingredient } from '@macromaxxing/db'
+import { keepPreviousData } from '@tanstack/react-query'
 import { BookOpen, ClipboardPaste, Database, Plus, ScanLine, Search, Sparkles } from 'lucide-react'
 import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import type { OFFProduct } from '~/lib'
 import { FuzzyHighlight, fuzzyMatch, offUnits, useUser } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
-import { calculateRecipeTotals, getEffectiveCookedWeight, getEffectivePortionSize } from '../utils/macros'
 import { BarcodeScanDialog } from './BarcodeScanDialog'
 import { MacroBar } from './MacroBar'
 
@@ -209,8 +209,16 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	}, [search])
 
 	const settingsQuery = trpc.settings.get.useQuery(undefined, { enabled: isSignedIn })
+	// Unfiltered on purpose: `handlePaste` matches every pasted line against the whole library.
 	const ingredientsQuery = trpc.ingredient.list.useQuery()
-	const recipesQuery = trpc.recipe.list.useQuery()
+	// Recipes go the other way — the library outgrew `recipe.list`'s 50-row cap, so a subrecipe
+	// past that page was unreachable however you spelled it. Match server-side; `fuzzyMatch` below
+	// still ranks and highlights, it just no longer decides what exists.
+	const debouncedSearchName = parseSingleIngredient(debouncedSearch)?.name ?? debouncedSearch
+	const recipesQuery = trpc.recipe.search.useQuery(
+		{ search: debouncedSearchName.trim() || undefined },
+		{ enabled: debouncedSearchName.trim().length > 0, placeholderData: keepPreviousData }
+	)
 	const findOrCreate = trpc.ingredient.findOrCreate.useMutation({
 		onSuccess: () => utils.ingredient.list.invalidate()
 	})
@@ -705,13 +713,7 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 								Recipes
 							</div>
 							{recipeSearchResults.map(({ recipe, match }) => {
-								const items = recipe.recipeIngredients
-									.filter(ri => ri.ingredient != null)
-									.map(ri => ({ per100g: ri.ingredient!, amountGrams: ri.amountGrams }))
-								const totals = calculateRecipeTotals(items)
-								const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-								const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
-								const portionCount = portionSize > 0 ? Math.round(cookedWeight / portionSize) : 1
+								const portionCount = recipe.defaultPortions
 								return (
 									<button
 										key={recipe.id}
@@ -732,8 +734,10 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 												{portionCount} {portionCount === 1 ? 'portion' : 'portions'}
 											</span>
 										</div>
+										{/* Per-portion, not whole-recipe — MacroBar normalizes to ratios, so
+										    the two render identically. */}
 										<div className="ml-5.5">
-											<MacroBar macros={totals} />
+											<MacroBar macros={recipe.portionMacros} />
 										</div>
 									</button>
 								)

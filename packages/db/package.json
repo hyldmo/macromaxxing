@@ -9,6 +9,7 @@
   },
   "exports": {
     ".": "./index.ts",
+    "./macros": "./macros.ts",
     "./schema": "./schema.ts",
     "./types": "./types.ts"
   },

@@ -1,17 +1,23 @@
 import {
+	calculatePortionMacros,
+	calculateRecipeTotals,
+	getEffectiveCookedWeight,
+	type IngredientWithAmount,
 	ingredients,
 	ingredientUnits,
 	type RecipeType,
 	recipeIngredients,
 	recipes,
 	type TypeIDString,
+	toIngredientWithAmount,
 	zImageSource,
 	zodTypeID
 } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Database } from '../db'
+import { escapeLikePattern, paginationFields, searchField } from '../list-inputs'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 
 async function assertRecipeOwnership(db: Database, recipeId: TypeIDString<'rcp'>, userId: string) {
@@ -84,17 +90,84 @@ const updateIngredientSchema = z.object({
  */
 const AUTHORED_TYPES: RecipeType[] = ['recipe', 'premade']
 
+/** Visibility rule shared by `list` and `search`: everyone's public recipes plus all of your own. */
+const visibleRecipes = (userId: string | undefined) =>
+	userId
+		? {
+				OR: [
+					{ isPublic: true, type: 'recipe' as const },
+					{ userId, type: { in: AUTHORED_TYPES } }
+				]
+			}
+		: { isPublic: true, type: 'recipe' as const }
+
+const DEFAULT_SEARCH_LIMIT = 20
+
 export const recipesRouter = router({
+	/**
+	 * Name-matched picker feed. Separate from `list` because the two want opposite payloads: `list`
+	 * ships every nested ingredient (+ its units, + subrecipe trees) so the library page can derive
+	 * macros and open an editor — an order of magnitude more bytes than a picker needs, and capped at
+	 * 50 rows. Prod passed 50 recipes in Aug 2026, so a recipe outside the 50 most-recently-touched
+	 * was already unfindable in the meal-plan modal no matter what you typed: the search ran
+	 * client-side over a page the server had already truncated. Match in SQL, price the portion here,
+	 * and leave the ingredients home — `recipe.get` is where those belong.
+	 */
+	search: publicProcedure
+		.meta({
+			description:
+				'Search recipes by name, returning per-portion macros only (no nested ingredients). Use this to find a recipe to log or plan; use recipe.get for its ingredients. Every whitespace-separated word must appear in the name, in any order. Filters: search, limit/offset.'
+		})
+		.input(z.object({ search: searchField, ...paginationFields }).optional())
+		.query(async ({ ctx, input }) => {
+			// Word-wise AND, not one match on the whole string, because `fuzzyMatch` (src/lib/fuzzy)
+			// gates on exactly that and the recipe-editor picker still ranks with it client-side. A
+			// single LIKE would demand the words be contiguous, so the server would drop candidates
+			// the client was about to score — "latte protein" would find nothing.
+			const terms = input?.search?.split(/\s+/).filter(Boolean) ?? []
+			const rows = await ctx.db.query.recipes.findMany({
+				where: {
+					...visibleRecipes(ctx.user?.id),
+					...(terms.length
+						? {
+								RAW: t =>
+									sql.join(
+										terms.map(
+											term =>
+												sql`lower(${t.name}) like ${`%${escapeLikePattern(term.toLowerCase())}%`} escape '\\'`
+										),
+										sql` and `
+									)
+							}
+						: {})
+				},
+				with: recipeIngredientsWith,
+				orderBy: { updatedAt: 'desc' },
+				limit: input?.limit ?? DEFAULT_SEARCH_LIMIT,
+				offset: input?.offset ?? 0
+			})
+			return rows.map(recipe => {
+				const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
+				const totals = calculateRecipeTotals(items)
+				const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
+				return {
+					id: recipe.id,
+					name: recipe.name,
+					type: recipe.type,
+					image: recipe.image,
+					portionSize: recipe.portionSize,
+					cookedWeight,
+					portionMacros: calculatePortionMacros(totals, cookedWeight, recipe.portionSize),
+					// How many portions a cook-up yields, i.e. what `addToInventory` should pre-fill.
+					// A null portionSize means the whole thing is one portion — premades always land here.
+					defaultPortions: recipe.portionSize ? Math.round(cookedWeight / recipe.portionSize) : 1
+				}
+			})
+		}),
+
 	list: publicProcedure.meta({ description: 'List all recipes with macro summaries' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.recipes.findMany({
-			where: ctx.user
-				? {
-						OR: [
-							{ isPublic: true, type: 'recipe' },
-							{ userId: ctx.user.id, type: { in: AUTHORED_TYPES } }
-						]
-					}
-				: { isPublic: true, type: 'recipe' },
+			where: visibleRecipes(ctx.user?.id),
 			with: recipeIngredientsWith,
 			orderBy: { updatedAt: 'desc' },
 			limit: 50
