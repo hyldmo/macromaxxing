@@ -2,7 +2,7 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import { dark } from '@clerk/themes'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { FC, ReactNode } from 'react'
-import { Links, Meta, Scripts, ScrollRestoration } from 'react-router'
+import { Links, Meta, Scripts } from 'react-router'
 import { ErrorBoundary as AppErrorBoundary } from '~/components/ErrorBoundary'
 import { RootLayout } from '~/components/layout/RootLayout'
 import { AppLoader } from '~/components/ui'
@@ -56,7 +56,8 @@ export const Layout: FC<LayoutProps> = ({ children }) => {
 						</trpc.Provider>
 					</ClerkProvider>
 				</div>
-				<ScrollRestoration />
+				{/* No <ScrollRestoration /> — it drives window.scrollTo and the document doesn't
+				    scroll. useScrollRestoration handles the shell's inner scroller instead. */}
 				<Scripts />
 			</body>
 		</html>

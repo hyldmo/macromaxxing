@@ -28,8 +28,10 @@ const ticks = Array.from({ length: TICK_COUNT }, (_, i) => {
 	}
 })
 
+// h-full, not min-h-screen: the document is clipped to 100%, and on iOS 100vh is the LARGER
+// toolbar-hidden viewport, so a screen-height box overflows and centres off-screen.
 export const AppLoader: FC = () => (
-	<div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-surface-0">
+	<div className="flex h-full flex-col items-center justify-center gap-8 bg-surface-0">
 		<svg width={SIZE} height={SIZE} className="-rotate-90" role="img" aria-label="Loading">
 			<circle
 				cx={CENTER}

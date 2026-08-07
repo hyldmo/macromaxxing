@@ -700,15 +700,22 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **CSS**
 - `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
 - In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
-- **`position: fixed` resolves against the LAYOUT viewport, and iOS ignores `user-scalable=no`.** A pinch-zoom
-  splits the layout and visual viewports, so a bottom-pinned bar stays glued to the bottom of the now off-screen
-  layout viewport — it reads as the bar hanging mid-screen and drifting with the page. The viewport meta already
-  carries `maximum-scale=1.0, user-scalable=no`; that suppresses focus auto-zoom but NOT the pinch gesture, so it
-  is not a fix. `useVisualViewportPin` (`src/lib/`) tracks `window.visualViewport` and re-lays the element onto it
-  while the two diverge, restoring the plain CSS position when they agree (so desktop/Android never touch the JS
-  path). It deliberately ignores a shrunken visual viewport at scale 1 — that's the software keyboard, and a tab
-  bar riding above the keys would cover the field being typed into. Applied to the mobile bottom nav;
-  `ReloadPrompt` has the same exposure and is not yet pinned.
+- **The app is an app shell: the DOCUMENT never scrolls, an inner `<main>` does.** `html, body, #root` are
+  `height: 100%` with `body { overflow: hidden }` (`src/index.css`), and `RootLayout` is a flex column whose
+  middle row (`#app-scroller`, id from `APP_SCROLLER_ID`) is the only scroller. This is load-bearing on iOS, not
+  cosmetic: iOS resolves `position: fixed` against the LAYOUT viewport and only re-resolves it when a scroll
+  gesture *ends*, so a bottom bar pinned over a scrolling `<body>` detaches and floats mid-screen for the whole
+  gesture while the browser chrome collapses — the bug every mobile web app has (LinkedIn included). A document
+  that never scrolls has no such gesture, so the tab bar is just a flex child on the bottom edge. Consequences:
+  - **Don't reintroduce `position: fixed` for bottom-anchored chrome** — put it in the shell's flex flow.
+    Full-viewport `fixed inset-0` overlays (Modal, drawers, timer mode) are fine and unaffected.
+  - **Don't use `100vh`/`min-h-screen` for full-height boxes** — use `h-full`. On iOS `100vh` is the *larger*
+    toolbar-hidden viewport, so it overflows a document clipped to 100%.
+  - **`window.scrollY`/`scrollTo` do nothing.** `useScrollLock` toggles `overflow` on the scroller, and
+    `useScrollRestoration` (`src/lib/`) replaces react-router's `<ScrollRestoration />`, which drives
+    `window.scrollTo` and would silently no-op. Same contract: POP restores, everything else goes to top.
+  - Trade-off: because the document doesn't scroll, mobile browsers no longer auto-collapse their chrome, so
+    in-browser tabs lose that strip of height. Standalone/installed PWA has no chrome, so it's pure win there.
 - `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes
