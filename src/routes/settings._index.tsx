@@ -228,7 +228,33 @@ export default function SettingsPage() {
 			<LocationsSection />
 
 			<ApiTokensSection />
+
+			<VersionFooter />
 		</div>
+	)
+}
+
+// `dev` is the fallback when `git describe` finds no tag (local build, or CI without fetch-depth: 0),
+// so only a real tag gets linked — a /releases/tag/dev URL would 404.
+const VersionFooter: FC = () => {
+	const version = import.meta.env.VITE_APP_VERSION
+	const label = `§ Macromaxxing ${version}`
+
+	return (
+		<p className="pt-2 text-center font-mono text-ink-faint text-xs">
+			{version === 'dev' ? (
+				label
+			) : (
+				<a
+					href={`${import.meta.env.VITE_REPO_URL}/releases/tag/${version}`}
+					target="_blank"
+					rel="noreferrer"
+					className="transition-colors hover:text-ink-muted"
+				>
+					{label}
+				</a>
+			)}
+		</p>
 	)
 }
 
