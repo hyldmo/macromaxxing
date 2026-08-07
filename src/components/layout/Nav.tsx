@@ -18,7 +18,7 @@ import { Button } from '~/components/ui/Button'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { useWorkoutSessionStore } from '~/features/workouts/store'
-import { cn, FAVORITABLE_ROUTES, useBottomNavFavorites } from '~/lib'
+import { cn, FAVORITABLE_ROUTES, useBottomNavFavorites, useVisualViewportPin } from '~/lib'
 import { MobileMenuDrawer } from './MobileMenuDrawer'
 
 const publicLinks = [
@@ -45,6 +45,9 @@ export function Nav() {
 	const { favorites, isFavorite, toggle } = useBottomNavFavorites()
 	const [menuOpen, setMenuOpen] = useState(false)
 	const closeMenu = useCallback(() => setMenuOpen(false), [])
+	// iOS resolves `fixed` against the layout viewport, so a pinch-zoom leaves the bottom
+	// bar floating mid-screen and drifting with the page — pin it to what's on screen.
+	const bottomBarRef = useVisualViewportPin<HTMLElement>()
 
 	// Close menu when a workout timer starts so the RestTimer isn't covered by an open drawer.
 	useEffect(() => {
@@ -131,7 +134,10 @@ export function Nav() {
 			</nav>
 
 			{/* Mobile bottom tab bar */}
-			<nav className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden">
+			<nav
+				ref={bottomBarRef}
+				className="fixed right-0 bottom-0 left-0 z-50 border-edge border-t bg-surface-1 md:hidden"
+			>
 				<div className="grid auto-cols-fr grid-flow-col justify-center px-3 2xs:py-1">
 					<SignedIn>
 						<AppLinks links={mobileFavLinks} />

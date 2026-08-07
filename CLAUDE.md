@@ -700,6 +700,15 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **CSS**
 - `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
 - In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
+- **`position: fixed` resolves against the LAYOUT viewport, and iOS ignores `user-scalable=no`.** A pinch-zoom
+  splits the layout and visual viewports, so a bottom-pinned bar stays glued to the bottom of the now off-screen
+  layout viewport — it reads as the bar hanging mid-screen and drifting with the page. The viewport meta already
+  carries `maximum-scale=1.0, user-scalable=no`; that suppresses focus auto-zoom but NOT the pinch gesture, so it
+  is not a fix. `useVisualViewportPin` (`src/lib/`) tracks `window.visualViewport` and re-lays the element onto it
+  while the two diverge, restoring the plain CSS position when they agree (so desktop/Android never touch the JS
+  path). It deliberately ignores a shrunken visual viewport at scale 1 — that's the software keyboard, and a tab
+  bar riding above the keys would cover the field being typed into. Applied to the mobile bottom nav;
+  `ReloadPrompt` has the same exposure and is not yet pinned.
 - `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes
