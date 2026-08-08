@@ -22,7 +22,8 @@ export {
 	summarizeSessionLogs,
 	totalVolume,
 	type WeightUnit,
-	weightForReps
+	weightForReps,
+	weightStepKg
 } from '@macromaxxing/db'
 
 import {

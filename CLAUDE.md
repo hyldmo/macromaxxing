@@ -562,6 +562,13 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   in `packages/db/sets.ts` is the single source of truth, used by both the session planner (`generatePlannedSets`) and
   the muscle-load aggregates (`plannedRowContributions`), which price the backoff at its real load rather than the
   row's top-set numbers.
+- **A live session's backoff drops off the LAST logged working set, not the row's target** (`backoffFrom` on
+  `splitTargetSets`, fed by `buildSessionPlan`). Load 12.5 where the template said 10 and the backoff has to move with
+  it, or its number is stale before the set comes up; nothing logged yet → the target stands in. This is also why the
+  timer's "next up" editor edits WORKING sets only: warmups and backoffs are derived off the working sets, so they
+  follow along on their own, and an edit there could only be honoured by rewriting the target they are computed from
+  (which moves sets the lifter never touched, and can only represent numbers that survive a round-trip through the
+  weight grid). Typing on a derived set waits until it is the set in hand, where it is logged verbatim.
 - **Hard sets** = every non-warmup set. Backoffs count toward MEV/MAV/MRV — every set-count and volume surface
   (`*MuscleLoad`, `muscleGroupStats`, `sessionsByMuscleGroup`, `muscleGroupTrend`, and all `analytics.*` volume
   endpoints) filters `setType !== 'warmup'`. Only progression detection (`analytics.recentPRs`,
@@ -585,10 +592,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
     logged on that load class at that location (≥2 uses, so a typo never becomes a prescription). The ladder is a
     SAMPLE, not an inventory: it only overrides the grid inside a gap between two rungs no wider than 2 increments
     (consecutive notches), never outside its range. Otherwise one logged 24 kg drags a 40 kg target down to it.
-  - **Warmups snap to the ladder; the folded backoff does NOT.** A backoff is stored as the working target it implies
-    (`workingTargetsFromBackoff`), so generate→invert has to round-trip exactly — true on a uniform grid, false across
-    an irregular ladder — and the backend prices the same backoff for muscle load on the grid. Hence `gridSnap` in
+  - **Warmups snap to the ladder; the folded backoff does NOT.** The backend prices the same backoff for muscle load
+    on the grid, so planning it on the ladder would make planned volume disagree across surfaces. Hence `gridSnap` in
     `GeneratePlannedSetsInput`. Nothing reads a warmup back, so it gets the real rungs.
+  - **A snapper only ever prices a DERIVED load. A typed one is final** — never snapped, rounded, or round-tripped
+    through a derivation, not even onto a weight the gym can load. A logged set is a typed number; so is a target the
+    user entered. Only generated warmups, folded backoffs, and estimates go through a snapper.
 - **Fatigue tiers** (1-4) on exercises drive dynamic rest duration via `calculateRest` (src/lib/workouts/sets.ts) —
   tier base × goal multiplier + per-rep increment. Retuning the constants shifts `estimateWorkoutDurationSec` too,
   which is user-visible on the dashboard and program sidebar, so update `sets.test.ts` expectations in both blocks.

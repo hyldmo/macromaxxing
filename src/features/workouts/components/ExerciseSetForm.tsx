@@ -2,7 +2,7 @@ import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
-import { isHardSet, type PlannedSet, totalVolume } from '~/lib'
+import { isHardSet, type PlannedSet, totalVolume, weightStepKg } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
@@ -259,7 +259,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 								value={newWeight}
 								onChange={e => setNewWeight(e.target.value)}
 								onKeyDown={handleKeyDown}
-								step={2.5}
+								step={weightStepKg}
 								min={0}
 							/>
 							<span className="text-ink-faint text-xs">×</span>

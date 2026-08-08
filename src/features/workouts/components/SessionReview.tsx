@@ -9,7 +9,8 @@ import {
 	computeMatchedExercises,
 	type Divergence,
 	exerciseE1rmStats,
-	formatAdjustTargetsPrompt
+	formatAdjustTargetsPrompt,
+	weightStepKg
 } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
@@ -290,7 +291,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 														className="w-20"
 														value={weight ?? ''}
 														min={0}
-														step="auto"
+														step={weightStepKg}
 														unit="kg"
 														placeholder={d.bwMultiplier > 0 ? '+kg' : 'kg'}
 														onChange={e => {

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Equipment } from './custom-types'
 import type { EquipmentRequirement } from './equipment'
-import { generateBackoffSets, workingTargetsFromBackoff } from './sets'
-import { loadClass, nextLoadableWeight, snapperFor, weightSnapper } from './weights'
+import { loadClass, nextLoadableWeight, snapperFor, weightSnapper, weightStepKg } from './weights'
 
 const eq = (...items: Equipment[]): EquipmentRequirement[] => items.map(equipment => ({ equipment }))
 
@@ -84,6 +83,19 @@ describe('weightSnapper — the user’s own ladder', () => {
 	})
 })
 
+describe('weightStepKg', () => {
+	it('stays a small fraction of the load at every scale', () => {
+		expect(weightStepKg(7.5)).toBe(0.5)
+		expect(weightStepKg(12)).toBe(1)
+		expect(weightStepKg(100)).toBe(2.5)
+	})
+
+	it('a light weight steps down to its neighbour, not past it', () => {
+		// 7.5 - 2.5 = 5 skipped a third of the lift; the regression this rule exists for.
+		expect(7.5 - weightStepKg(7.5)).toBe(7)
+	})
+})
+
 describe('nextLoadableWeight', () => {
 	it('is the next rung on the rack, not the current weight plus a plate', () => {
 		const rack = { equipment: eq('dumbbell'), ladder: HOME_DUMBBELLS }
@@ -98,29 +110,5 @@ describe('nextLoadableWeight', () => {
 
 	it('falls back to the plate grid past the end of the ladder', () => {
 		expect(nextLoadableWeight(24, { equipment: eq('dumbbell'), ladder: HOME_DUMBBELLS })).toBe(25)
-	})
-})
-
-describe('backoff inversion on an equipment grid', () => {
-	// TimerMode stores an edited backoff as the working target it implies, so generating and
-	// inverting must round-trip exactly or the number the user typed comes back as another one.
-	// This is why backoffs use the equipment grid and NOT the logged ladder, whose irregular gaps
-	// make the relationship non-invertible (see GeneratePlannedSetsInput.gridSnap).
-	const snap = weightSnapper({ equipment: eq('dumbbell') })
-
-	it('round-trips every backoff the grid can produce', () => {
-		const reachable = new Set<number>()
-		for (let working = 2.5; working <= 60; working += 2.5) {
-			reachable.add(generateBackoffSets(working, 8, 1, 0, snap)[0].weightKg)
-		}
-		for (const weightKg of reachable) {
-			const inverted = workingTargetsFromBackoff(weightKg, 10, 0, snap)
-			expect(inverted).not.toBeNull()
-			expect(generateBackoffSets(inverted!.weightKg!, inverted!.reps, 1, 0, snap)[0]).toEqual({
-				weightKg,
-				reps: 10,
-				setType: 'backoff'
-			})
-		}
 	})
 })

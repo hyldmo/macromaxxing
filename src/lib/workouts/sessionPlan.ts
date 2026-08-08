@@ -103,6 +103,14 @@ export function buildSessionPlan({
 		goals.set(pe.exerciseId, goal)
 		const defaults = TRAINING_DEFAULTS[goal]
 
+		const logged = logsByExercise.get(pe.exerciseId)
+		// A backoff is a drop off the set you JUST did, so it follows the session rather than the
+		// plan the session started with: loading 12.5 where the template said 10 has to move the
+		// backoff with it, or its number is already stale by the time the set comes up. The LAST
+		// working set, not the top one — that is the set being dropped from. Before any working set
+		// is logged there is nothing to follow, and the row's target stands in.
+		const lastWorkingLog = logged?.logs.filter(l => l.setType === 'working').at(-1)
+
 		const planned = generatePlannedSets({
 			setMode: pe.setMode,
 			sets: pe.targetSets ?? defaults.targetSets,
@@ -112,10 +120,10 @@ export function buildSessionPlan({
 			warmedUpMuscles,
 			bwMultiplier: pe.exercise.bwMultiplier,
 			snap: snapperFor(pe.exercise.equipment, ladders),
-			gridSnap: snapperFor(pe.exercise.equipment, undefined)
+			gridSnap: snapperFor(pe.exercise.equipment, undefined),
+			backoffFrom: lastWorkingLog && { weightKg: lastWorkingLog.weightKg, reps: lastWorkingLog.reps }
 		})
 
-		const logged = logsByExercise.get(pe.exerciseId)
 		exerciseDataList.push({
 			exerciseId: pe.exerciseId,
 			exercise: logged?.exercise ?? pe.exercise,

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Button, ButtonGroup, NumberInput } from '~/components/ui'
-import { cn, effectiveSetWeightKg, type FlatSet, formatTimer, SET_TYPE_STYLES } from '~/lib'
+import { cn, effectiveSetWeightKg, type FlatSet, formatTimer, SET_TYPE_STYLES, weightStepKg } from '~/lib'
 import { SecondaryTimer } from './SecondaryTimer'
 import { TimerRing } from './TimerRing'
 
@@ -109,16 +109,12 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	onEditNextWeight,
 	onEditNextReps
 }) => {
-	// Inline edit of the upcoming set's numbers. Warmups stay read-only (derived);
-	// working is 1:1 with the plan target, backoff is inverted back to that target
-	// by the container before persisting.
+	// Inline edit of the upcoming set's numbers — working sets only, because those numbers ARE the
+	// plan row's working target and store as typed. Warmups and backoffs are derived off the
+	// working sets (the backoff off the last one logged), so they follow along on their own; an
+	// edit there could only be honoured by mangling the working target it is computed from.
 	const [editingNext, setEditingNext] = useState(false)
-	// Bodyweight backoffs are generated at a flat +0 kg, so a weight edit there has
-	// nothing to invert into — reps only.
-	const canEditNextWeight =
-		!!onEditNextWeight && !(nextSet?.setType === 'backoff' && nextSet.bwMultiplier > 0) && nextSet !== null
-	const canEditNext =
-		(nextSet?.setType === 'working' || nextSet?.setType === 'backoff') && (canEditNextWeight || !!onEditNextReps)
+	const canEditNext = nextSet?.setType === 'working' && (!!onEditNextWeight || !!onEditNextReps)
 	const nextKey = nextSet ? `${nextSet.exerciseId}:${nextSet.setNumber}` : null
 	// Close the editor when the upcoming set changes (queue advanced / navigated away)
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset keyed on the set identity, not the setter
@@ -329,7 +325,7 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 										const v = Number.parseFloat(e.target.value)
 										onEditWeight?.(Number.isNaN(v) ? null : v)
 									}}
-									step={2.5}
+									step={weightStepKg}
 									min={0}
 								/>
 								<span className="text-ink-faint text-xl">&times;</span>
@@ -432,24 +428,18 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 									)}
 									{editingNext && canEditNext ? (
 										<div className="flex items-center gap-1">
-											{canEditNextWeight ? (
-												<NumberInput
-													className="w-16 text-center text-sm"
-													value={nextSet.weightKg ?? ''}
-													placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
-													unit="kg"
-													onChange={e => {
-														const v = Number.parseFloat(e.target.value)
-														onEditNextWeight?.(Number.isNaN(v) ? null : v)
-													}}
-													step={2.5}
-													min={0}
-												/>
-											) : (
-												<span className="font-mono text-ink text-sm tabular-nums">
-													{displayWeight(nextSet, nextSet.weightKg)}kg
-												</span>
-											)}
+											<NumberInput
+												className="w-16 text-center text-sm"
+												value={nextSet.weightKg ?? ''}
+												placeholder={nextSet.bwMultiplier > 0 ? '+kg' : 'kg'}
+												unit="kg"
+												onChange={e => {
+													const v = Number.parseFloat(e.target.value)
+													onEditNextWeight?.(Number.isNaN(v) ? null : v)
+												}}
+												step={weightStepKg}
+												min={0}
+											/>
 											<span className="text-ink-faint text-xs">&times;</span>
 											<NumberInput
 												className="w-12 text-center text-sm"

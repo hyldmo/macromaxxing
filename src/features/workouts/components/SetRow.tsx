@@ -2,7 +2,16 @@ import type { SetType } from '@macromaxxing/db'
 import { Check, Circle } from 'lucide-react'
 import type { FC } from 'react'
 import { NumberInput } from '~/components/ui'
-import { cn, effectiveSetWeightKg, estimated1RM, isE1rmPR, METRIC_LABEL, METRIC_UNIT, SET_TYPE_STYLES } from '~/lib'
+import {
+	cn,
+	effectiveSetWeightKg,
+	estimated1RM,
+	isE1rmPR,
+	METRIC_LABEL,
+	METRIC_UNIT,
+	SET_TYPE_STYLES,
+	weightStepKg
+} from '~/lib'
 
 const CONFIRM_BORDER_STYLES = {
 	warmup: 'border-macro-carbs bg-macro-carbs/20 text-macro-carbs',
@@ -85,7 +94,7 @@ export const SetRow: FC<SetRowProps> = ({
 					const v = Number.parseFloat(e.target.value)
 					onWeightChange?.(Number.isNaN(v) ? null : v)
 				}}
-				step={2.5}
+				step={weightStepKg}
 				min={0}
 				disabled={weightDisabled}
 			/>

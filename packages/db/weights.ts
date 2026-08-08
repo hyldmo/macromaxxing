@@ -93,6 +93,24 @@ function loadClassIncrementKg(cls: LoadClass, weight: number): number {
 	}
 }
 
+/**
+ * How much one arrow press (or ↑/↓) moves a hand-entered weight, in kg.
+ *
+ * Deliberately NOT `loadClassIncrementKg`: that answers "what can this gym load", which is the
+ * right question for a PRESCRIBED weight and the wrong one for a typed weight — the field records
+ * what was actually lifted, on the racks the plate grid can't describe (an adjustable dumbbell at
+ * 6.5, a fixed 7 kg bell, microplates), which is precisely when a lifter reaches for the arrows.
+ *
+ * Proportional to the load, because a fixed step can't be right at both ends: 2.5 kg off a 100 kg
+ * squat is a nudge, off a 7.5 kg curl it's a third of the lift.
+ */
+export function weightStepKg(weight: number): number {
+	const abs = Math.abs(weight)
+	if (abs < 10) return 0.5
+	if (abs < 20) return 1
+	return 2.5
+}
+
 export type SnapDirection = 'nearest' | 'up' | 'down'
 
 /** Snap a computed weight (warmup %, backoff %, estimate) onto something loadable. */
