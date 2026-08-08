@@ -24,7 +24,10 @@ export const Layout: FC<LayoutProps> = ({ children }) => {
 				<meta charSet="UTF-8" />
 				<meta
 					name="viewport"
-					content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+					// viewport-fit=cover is what makes env(safe-area-inset-*) resolve to anything
+					// but 0. Without it iOS insets the viewport and a `bottom: 0` bar stops short
+					// of the screen edge, leaving page content visible in the strip below it.
+					content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
 				/>
 				<meta name="theme-color" content="#1f1d1b" />
 				<Meta />

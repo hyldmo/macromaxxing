@@ -707,6 +707,14 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
   the element onto its own compositing layer hands positioning to the compositor and dodges the broken paint
   path; `transform: translateZ(0)` (Tailwind `transform-gpu`) is the confirmed fix, and `will-change: transform`
   or `z-index: 0` work too. Applied to the mobile tab bar in `Nav.tsx` — don't strip it as dead styling.
+  - **The viewport meta carries `viewport-fit=cover`, and that is what makes `env(safe-area-inset-*)` resolve
+    to anything but 0.** Without it iOS insets the viewport and a `bottom: 0` bar stops a home-indicator's
+    width short of the screen edge, with page content showing through the strip below it. The flag is set in
+    BOTH `src/root.tsx` and `public/standalone-viewport.js` — the latter rewrites the meta wholesale in
+    standalone, so the two must stay in step or the insets silently zero out. Because content now extends
+    under the notch and home indicator, every edge-touching surface pads itself: the top nav (`inset-top`),
+    the mobile tab bar (`inset-bottom`), the content reserve (`calc(5rem + inset-bottom)`), and the
+    full-screen overlays (TimerModeView, MobileMenuDrawer, Modal). Add the padding to any new one.
   - **Fix this at the compositing layer, not the layout layer.** Converting the app to a non-scrolling shell
     (`body { overflow: hidden }` + an inner scroller) also hides the symptom, but it stops mobile browsers
     auto-collapsing their own chrome — they only do that when the DOCUMENT scrolls — so it trades ~44px of
