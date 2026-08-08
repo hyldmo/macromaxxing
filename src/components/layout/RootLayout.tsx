@@ -21,15 +21,15 @@ export function RootLayout() {
 		return () => navigator.serviceWorker.removeEventListener('message', onMessage)
 	}, [navigate])
 
-	// Fixed-height shell: the document never scrolls, this <main> does. That's what keeps the
-	// mobile tab bar welded to the bottom edge on iOS — see the note in index.css.
+	// Fixed-height shell: the document never scrolls, this <main> does. The mobile tab bar
+	// positions against this box — whose geometry is stable — instead of against the viewport
+	// iOS re-measures mid-scroll, which is what kept it welded to the bottom edge. See index.css.
 	return (
-		<div className="flex h-full flex-col bg-surface-0">
-			{/* Nav emits the top bar, the bottom tab bar and the drawer as one fragment, so the
-			    scroller is ordered between the two bars rather than splitting the component. */}
+		<div className="relative flex h-full flex-col bg-surface-0">
 			<Nav />
-			<main id={APP_SCROLLER_ID} ref={scrollerRef} className="order-2 flex-1 overflow-y-auto overscroll-contain">
-				<div className="mx-auto max-w-7xl px-3 py-4 md:px-4">
+			<main id={APP_SCROLLER_ID} ref={scrollerRef} className="flex-1 overflow-y-auto overscroll-contain">
+				{/* pb-20 reserves the tab bar's strip, which overlays the bottom of this scroller. */}
+				<div className="mx-auto max-w-7xl px-3 pt-4 pb-20 md:px-4 md:pb-4">
 					<Outlet />
 				</div>
 			</main>

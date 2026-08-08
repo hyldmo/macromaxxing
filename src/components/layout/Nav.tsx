@@ -18,7 +18,7 @@ import { Button } from '~/components/ui/Button'
 import { OfflineIndicator } from '~/components/ui/OfflineIndicator'
 import { RestTimer } from '~/features/workouts/components/RestTimer'
 import { useWorkoutSessionStore } from '~/features/workouts/store'
-import { cn, FAVORITABLE_ROUTES, useBottomNavFavorites } from '~/lib'
+import { cn, FAVORITABLE_ROUTES, useBottomNavFavorites, useHideOnScroll } from '~/lib'
 import { MobileMenuDrawer } from './MobileMenuDrawer'
 
 const publicLinks = [
@@ -45,6 +45,7 @@ export function Nav() {
 	const { favorites, isFavorite, toggle } = useBottomNavFavorites()
 	const [menuOpen, setMenuOpen] = useState(false)
 	const closeMenu = useCallback(() => setMenuOpen(false), [])
+	const hideChrome = useHideOnScroll()
 
 	// Close menu when a workout timer starts so the RestTimer isn't covered by an open drawer.
 	useEffect(() => {
@@ -62,7 +63,7 @@ export function Nav() {
 	return (
 		<>
 			{/* Top nav (desktop full, mobile collapsed to brand + status + hamburger) */}
-			<nav className="z-50 order-1 shrink-0 border-edge border-b bg-surface-1">
+			<nav className="z-50 shrink-0 border-edge border-b bg-surface-1">
 				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-3 md:px-4">
 					<NavLink to="/" className="flex items-center gap-2 font-semibold text-accent">
 						<ChefHat className="size-5" />
@@ -130,9 +131,16 @@ export function Nav() {
 				</div>
 			</nav>
 
-			{/* Mobile bottom tab bar. In flow as the shell's last row — NOT `position: fixed`,
-			    which is what made it float mid-screen on iOS while scrolling. */}
-			<nav className="z-50 order-3 shrink-0 border-edge border-t bg-surface-1 md:hidden">
+			{/* Mobile bottom tab bar. `absolute` against the shell — NOT `fixed`, which resolves
+			    against a layout viewport that mutates mid-gesture and is what made it float
+			    mid-screen on iOS. The shell's geometry never changes, so neither does this.
+			    Slides away while scrolling down to buy back the height the shell costs. */}
+			<nav
+				className={cn(
+					'absolute inset-x-0 bottom-0 z-50 border-edge border-t bg-surface-1 transition-transform duration-200 motion-reduce:transition-none md:hidden',
+					hideChrome && 'translate-y-full'
+				)}
+			>
 				<div className="grid auto-cols-fr grid-flow-col justify-center px-3 2xs:py-1">
 					<SignedIn>
 						<AppLinks links={mobileFavLinks} />

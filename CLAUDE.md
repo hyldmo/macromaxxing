@@ -707,15 +707,20 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
   gesture *ends*, so a bottom bar pinned over a scrolling `<body>` detaches and floats mid-screen for the whole
   gesture while the browser chrome collapses — the bug every mobile web app has (LinkedIn included). A document
   that never scrolls has no such gesture, so the tab bar is just a flex child on the bottom edge. Consequences:
-  - **Don't reintroduce `position: fixed` for bottom-anchored chrome** — put it in the shell's flex flow.
-    Full-viewport `fixed inset-0` overlays (Modal, drawers, timer mode) are fine and unaffected.
+  - **Don't reintroduce `position: fixed` for bottom-anchored chrome** — anchor it `absolute` against the
+    shell (which is `relative`), whose geometry is stable. Full-viewport `fixed inset-0` overlays (Modal,
+    drawers, timer mode) are fine and unaffected.
+  - The tab bar overlays the bottom of the scroller, so content reserves `pb-20` for it (the bar measures
+    ~71px). It slides away on scroll-down via `useHideOnScroll` and returns on scroll-up and at both ends
+    of the scroll — that reclaims ~71px, which is how the shell pays back the browser chrome below.
   - **Don't use `100vh`/`min-h-screen` for full-height boxes** — use `h-full`. On iOS `100vh` is the *larger*
     toolbar-hidden viewport, so it overflows a document clipped to 100%.
   - **`window.scrollY`/`scrollTo` do nothing.** `useScrollLock` toggles `overflow` on the scroller, and
     `useScrollRestoration` (`src/lib/`) replaces react-router's `<ScrollRestoration />`, which drives
     `window.scrollTo` and would silently no-op. Same contract: POP restores, everything else goes to top.
-  - Trade-off: because the document doesn't scroll, mobile browsers no longer auto-collapse their chrome, so
-    in-browser tabs lose that strip of height. Standalone/installed PWA has no chrome, so it's pure win there.
+  - Trade-off: because the document doesn't scroll, mobile browsers no longer auto-collapse their own chrome
+    (~44px). The app collapses its own chrome instead — see `useHideOnScroll` above — which gives back more
+    than was lost. Standalone/installed PWA has no browser chrome, so it's pure win there.
 - `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes
