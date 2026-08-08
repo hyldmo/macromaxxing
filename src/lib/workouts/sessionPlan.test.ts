@@ -84,8 +84,37 @@ describe('buildSessionPlan', () => {
 		if (item.type !== 'standalone') throw new Error('expected standalone')
 		// 10kg × 0.6 = 6.0 → the rung they own, not the 6.0/6.25 that no rack holds.
 		expect(item.planned[0]).toMatchObject({ setType: 'warmup', weightKg: 6.5 })
-		// The folded backoff is invertible, so it stays on the grid: 10 × 0.8 = 8.
+		// The backend prices this backoff on the grid, so the plan does too: 10 × 0.8 = 8.
 		expect(item.planned.at(-1)).toMatchObject({ setType: 'backoff', weightKg: 8 })
+	})
+
+	it('drops the backoff off the last working set logged, not off the plan', () => {
+		const rows = [
+			{
+				...makeRow({ exerciseId: exc('exc_a'), targetSets: 3, targetReps: 8, targetWeight: 10 }),
+				setMode: 'backoff' as const
+			}
+		]
+		// Planned 10 × 8; they loaded 12.5 and got 6 on the second set.
+		const logs = [
+			{ ...makeLog('log_1', exc('exc_a')), weightKg: 12.5, reps: 8 },
+			{ ...makeLog('log_2', exc('exc_a')), weightKg: 12.5, reps: 6 }
+		]
+
+		const before = buildSessionPlan({ plannedExercises: rows, logs: [], workoutGoal: 'hypertrophy' })
+		const after = buildSessionPlan({ plannedExercises: rows, logs, workoutGoal: 'hypertrophy' })
+		for (const plan of [before, after]) {
+			if (plan.exerciseGroups[0].type !== 'standalone') throw new Error('expected standalone')
+		}
+		const planned = (plan: typeof before) =>
+			plan.exerciseGroups[0].type === 'standalone' ? plan.exerciseGroups[0].planned : []
+
+		// Nothing logged yet: the row's own target is all there is to go on.
+		expect(planned(before).at(-1)).toMatchObject({ setType: 'backoff', weightKg: 8, reps: 10 })
+		// 80% of the 12.5 they actually did, +2 on the 6 reps that set came in at.
+		expect(planned(after).at(-1)).toMatchObject({ setType: 'backoff', weightKg: 10, reps: 8 })
+		// The working sets still show the plan — only the backoff follows the log.
+		expect(planned(after)[0]).toMatchObject({ setType: 'working', weightKg: 10, reps: 8 })
 	})
 
 	it('per-exercise trainingGoal overrides the workout goal and drives defaults', () => {

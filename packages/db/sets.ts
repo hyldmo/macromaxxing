@@ -42,33 +42,6 @@ export function generateBackoffSets(
 	return sets
 }
 
-/**
- * Invert the single planned backoff (80% round-up, +2 reps) back to a working
- * target so updatePlannedExercise regenerates the same backoff numbers.
- *
- * Returns null when the numbers aren't expressible as a backoff of any working
- * target (reps below 3) — callers reject the edit rather than snapping the user
- * to a value they didn't type.
- *
- * Bodyweight backoffs are always +0 kg, so their weight is NOT invertible — the
- * caller must not offer a weight edit there (see TimerModeView.canEditNextWeight).
- */
-export function workingTargetsFromBackoff(
-	backoffWeightKg: number | null,
-	backoffReps: number,
-	bwMultiplier = 0,
-	snap: WeightSnapper = defaultSnapper
-): { weightKg: number | null; reps: number } | null {
-	const reps = backoffReps - 2
-	if (reps < 1) return null
-	if (bwMultiplier > 0 || backoffWeightKg == null || backoffWeightKg <= 0) {
-		return { weightKg: backoffWeightKg, reps }
-	}
-	// generateBackoffSets snaps 0.8W upward, so the largest loadable weight whose 80%
-	// still fits under the backoff inverts it — snapping down is exactly that weight.
-	return { weightKg: snap(backoffWeightKg / 0.8, 'down'), reps }
-}
-
 export interface TargetSetSplitInput {
 	setMode: SetMode
 	targetSets: number
@@ -78,6 +51,13 @@ export interface TargetSetSplitInput {
 	bwMultiplier?: number
 	/** How the folded backoff's load becomes a loadable weight. Defaults to the generic plate grid. */
 	snap?: WeightSnapper
+	/**
+	 * The working set the backoff drops off, when it isn't the row's own target. Defaults to
+	 * `targetWeight`/`targetReps` — what a TEMPLATE row can say. A live session passes the working
+	 * set actually logged, so the drop follows today's numbers instead of a plan the lifter has
+	 * already deviated from. (Bodyweight rows ignore the weight: their backoff is always +0 kg.)
+	 */
+	backoffFrom?: { weightKg: number | null; reps: number }
 }
 
 export interface TargetSetSplit {
@@ -103,13 +83,16 @@ export function splitTargetSets({
 	targetReps,
 	targetWeight,
 	bwMultiplier = 0,
-	snap = defaultSnapper
+	snap = defaultSnapper,
+	backoffFrom
 }: TargetSetSplitInput): TargetSetSplit {
 	const hasBackoff = setMode === 'backoff' || setMode === 'full'
-	const canGenerateLoad = bwMultiplier > 0 || (targetWeight != null && targetWeight > 0)
-	if (!hasBackoff || targetReps <= 0 || !canGenerateLoad) {
+	const fromWeight = backoffFrom?.weightKg ?? targetWeight
+	const fromReps = backoffFrom?.reps ?? targetReps
+	const canGenerateLoad = bwMultiplier > 0 || (fromWeight != null && fromWeight > 0)
+	if (!hasBackoff || fromReps <= 0 || !canGenerateLoad) {
 		return { workingCount: targetSets, backoff: null }
 	}
-	const [backoff] = generateBackoffSets(targetWeight ?? 0, targetReps, 1, bwMultiplier, snap)
+	const [backoff] = generateBackoffSets(fromWeight ?? 0, fromReps, 1, bwMultiplier, snap)
 	return { workingCount: Math.max(1, targetSets - 1), backoff: backoff ?? null }
 }

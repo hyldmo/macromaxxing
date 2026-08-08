@@ -12,7 +12,8 @@ import {
 	getRepRange,
 	METRIC_LABEL,
 	METRIC_UNIT,
-	TRAINING_DEFAULTS
+	TRAINING_DEFAULTS,
+	weightStepKg
 } from '~/lib'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
@@ -162,7 +163,7 @@ export const TemplateExerciseRow: FC<TemplateExerciseRowProps> = ({
 						onUpdate({ targetWeight: Number.isNaN(v) ? null : v })
 					}}
 					min={0}
-					step={0.5}
+					step={weightStepKg}
 				/>
 			</div>
 			<div className="mt-1.5 flex items-center gap-1.5 pl-6">

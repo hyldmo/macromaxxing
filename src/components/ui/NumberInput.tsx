@@ -2,11 +2,12 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { forwardRef, type KeyboardEvent, type MouseEvent, useCallback, useRef, useState } from 'react'
 import { cn } from '~/lib'
 
-export interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'inputMode'> {
+export interface NumberInputProps
+	extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'inputMode' | 'step'> {
 	/** Minimum value (default: 0) */
 	min?: number
-	/** Step for arrow key increment/decrement (default: 1) */
-	step?: number | 'auto'
+	/** Step for arrow key increment/decrement — fixed, magnitude-scaled ('auto'), or derived from the current value */
+	step?: number | 'auto' | ((current: number) => number)
 	/** Unit label shown in the arrow button area when not hovered/focused */
 	unit?: string
 }
@@ -47,7 +48,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 				const placeholderNumber = placeholder ? Number.parseFloat(placeholder) : NaN
 				const defaultNumber = Number.isNaN(placeholderNumber) ? 0 : placeholderNumber
 				const current = Number.parseFloat(normalizeDecimal(input.value)) || defaultNumber
-				const s = step === 'auto' ? autoStep(current) : step
+				const s = typeof step === 'function' ? step(current) : step === 'auto' ? autoStep(current) : step
 				const stepDecimals = String(s).split('.')[1]?.length ?? 0
 				const snapped = direction === 1 ? Math.floor(current / s) * s + s : Math.ceil(current / s) * s - s
 				const next = Math.max(min, snapped)

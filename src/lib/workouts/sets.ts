@@ -1,16 +1,11 @@
 import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal, WeightSnapper } from '@macromaxxing/db'
-import { defaultSnapper, type GeneratedSet, splitTargetSets } from '@macromaxxing/db'
+import { defaultSnapper, type GeneratedSet, splitTargetSets, type TargetSetSplitInput } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 
 // Backoff generation + the targetSets split live in `@macromaxxing/db/sets` (the workers backend
 // needs the same rules to price template rows). Re-exported so `~/lib/workouts/sets` consumers
 // keep working.
-export {
-	type GeneratedSet,
-	generateBackoffSets,
-	splitTargetSets,
-	workingTargetsFromBackoff
-} from '@macromaxxing/db'
+export { type GeneratedSet, generateBackoffSets, splitTargetSets } from '@macromaxxing/db'
 
 export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targetReps: number }> = {
 	hypertrophy: { targetSets: 3, targetReps: 10 },
@@ -186,16 +181,17 @@ export interface GeneratePlannedSetsInput {
 	/** Loadable-weight grid for this exercise (equipment + the user's logged ladder). */
 	snap?: WeightSnapper
 	/**
-	 * Equipment grid WITHOUT the logged ladder, used for the folded backoff.
-	 *
-	 * A backoff is stored as the working target it implies (`workingTargetsFromBackoff`), so
-	 * generating and inverting it have to round-trip exactly or the weight the user typed in timer
-	 * mode comes back as a different one. That holds on a uniform grid and not on an irregular
-	 * ladder. The backend prices the same backoff for muscle load on the grid too, so keeping it
-	 * here also stops planned volume disagreeing across surfaces. Warmups have no such constraint
-	 * — nothing reads them back — so they get the user's real rungs.
+	 * Equipment grid WITHOUT the logged ladder, used for the folded backoff. The backend prices
+	 * the same backoff for muscle load on the grid, so planning it on the ladder instead would
+	 * make planned volume disagree across surfaces. Warmups have no such reader, so they get the
+	 * user's real rungs.
 	 */
 	gridSnap?: WeightSnapper
+	/**
+	 * The working set the folded backoff drops off, when the session has one logged. Defaults to
+	 * this row's own target — see `TargetSetSplitInput.backoffFrom`.
+	 */
+	backoffFrom?: TargetSetSplitInput['backoffFrom']
 }
 
 /**
@@ -212,7 +208,8 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 		warmedUpMuscles,
 		bwMultiplier = 0,
 		snap = defaultSnapper,
-		gridSnap = snap
+		gridSnap = snap,
+		backoffFrom
 	} = input
 	const result: PlannedSet[] = []
 	let setNum = 1
@@ -244,7 +241,8 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 		targetReps: reps,
 		targetWeight: weightKg,
 		bwMultiplier,
-		snap: gridSnap
+		snap: gridSnap,
+		backoffFrom
 	})
 	for (let i = 0; i < workingCount; i++) {
 		result.push({ setNumber: setNum++, weightKg, reps, setType: 'working' })

@@ -12,7 +12,7 @@ import {
 	type SessionLog,
 	type SupersetExerciseInput,
 	shouldSkipWarmup,
-	workingTargetsFromBackoff
+	splitTargetSets
 } from './sets'
 
 describe('calculateRest', () => {
@@ -326,38 +326,49 @@ describe('generateBackoffSets', () => {
 	})
 })
 
-describe('workingTargetsFromBackoff', () => {
-	// Every backoff weight the UI can actually display — the image of generateBackoffSets
-	// over the plate grid. The inverse must be exact across all of it, not just a sample.
-	const reachableBackoffWeights = () => {
-		const weights = new Set<number>()
-		for (let working = 2.5; working <= 300; working += 2.5) {
-			weights.add(generateBackoffSets(working, 8, 1)[0].weightKg)
-		}
-		return [...weights]
-	}
+describe('splitTargetSets — where the backoff drops from', () => {
+	const row = { setMode: 'backoff', targetSets: 3, targetReps: 8, targetWeight: 10 } as const
 
-	it('round-trips every reachable backoff weight exactly', () => {
-		for (const weightKg of reachableBackoffWeights()) {
-			const inverted = workingTargetsFromBackoff(weightKg, 10)
-			expect(inverted).not.toBeNull()
-			expect(generateBackoffSets(inverted!.weightKg!, inverted!.reps, 1)[0]).toEqual({
-				weightKg,
-				reps: 10,
-				setType: 'backoff'
-			})
-		}
+	it('uses the row\u2019s own target when nothing else is known (a template row)', () => {
+		expect(splitTargetSets(row)).toEqual({
+			workingCount: 2,
+			backoff: { weightKg: 8, reps: 10, setType: 'backoff' }
+		})
 	})
 
-	it('bodyweight: reps − 2, weight passes through (bw backoffs are always +0)', () => {
-		expect(workingTargetsFromBackoff(0, 10, 1)).toEqual({ weightKg: 0, reps: 8 })
-		expect(workingTargetsFromBackoff(5, 12, 1)).toEqual({ weightKg: 5, reps: 10 })
+	it('follows the set actually performed, not the plan it deviated from', () => {
+		// Planned 10, loaded 12.5: the drop is off the 12.5, so 80% of it (10) and its reps + 2.
+		expect(splitTargetSets({ ...row, backoffFrom: { weightKg: 12.5, reps: 6 } }).backoff).toEqual({
+			weightKg: 10,
+			reps: 8,
+			setType: 'backoff'
+		})
 	})
 
-	it('rejects reps a backoff cannot express instead of clamping', () => {
-		expect(workingTargetsFromBackoff(60, 3)).toEqual({ weightKg: 75, reps: 1 })
-		expect(workingTargetsFromBackoff(60, 2)).toBeNull()
-		expect(workingTargetsFromBackoff(60, 1)).toBeNull()
+	it('follows a working set downward too', () => {
+		expect(splitTargetSets({ ...row, backoffFrom: { weightKg: 7.5, reps: 8 } }).backoff).toEqual({
+			weightKg: 6,
+			reps: 10,
+			setType: 'backoff'
+		})
+	})
+
+	it('leaves the working sets alone — only the backoff follows the log', () => {
+		expect(splitTargetSets({ ...row, backoffFrom: { weightKg: 12.5, reps: 6 } }).workingCount).toBe(2)
+	})
+
+	it('bodyweight rows take the logged reps and ignore the load (backoff is always +0)', () => {
+		expect(
+			splitTargetSets({ ...row, targetWeight: null, bwMultiplier: 1, backoffFrom: { weightKg: 82, reps: 9 } })
+				.backoff
+		).toEqual({ weightKg: 0, reps: 11, setType: 'backoff' })
+	})
+
+	it('a row with no target at all can still price a backoff once a set is logged', () => {
+		// 20 × 0.8 = 16, rounded UP onto the plate grid a lifter can load.
+		expect(splitTargetSets({ ...row, targetWeight: null, backoffFrom: { weightKg: 20, reps: 8 } }).backoff).toEqual(
+			{ weightKg: 17.5, reps: 10, setType: 'backoff' }
+		)
 	})
 })
 
