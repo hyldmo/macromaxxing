@@ -567,7 +567,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   `dashboard.summary` attach it as `summary`, so `SessionCard` renders from either query without re-deriving totals.
   `listSessions` with `verbose:false` returns `logs: []` and leans on the summary — that's an 85% payload cut on real
   data, since every set row otherwise nests a duplicate exercise record. Per-set detail comes from `getSession`.
-- **Fatigue tiers** (1-4) on exercises drive dynamic rest duration: `reps × 4 × goalMultiplier + tierModifier`
+- **Fatigue tiers** (1-4) on exercises drive dynamic rest duration via `calculateRest` (src/lib/workouts/sets.ts) —
+  tier base × goal multiplier + per-rep increment. Retuning the constants shifts `estimateWorkoutDurationSec` too,
+  which is user-visible on the dashboard and program sidebar, so update `sets.test.ts` expectations in both blocks.
+  Hypertrophy rest must stay clear of 60s at EVERY tier: sub-60s is where short rest measurably costs hypertrophy
+  (it truncates volume load on sets 2+), and a prior table put T4 isolation at exactly 60s while its own JSDoc
+  cited 60-120s as the evidence-based range.
 - **Body map** shows muscle coverage per workout template using exercise-muscle intensity mappings
 - **Session review** on completion compares actual vs. planned, offers to update template targets
 - **Rest timer** persists globally (nav widget) — shows countdown, overshot time, or session elapsed
