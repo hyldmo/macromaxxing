@@ -233,6 +233,9 @@ packages/db/                                # Shared package @macromaxxing/db
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios) +
                                             #   plannedRowContributions (template row → per-muscle contributions)
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
+  weights.ts                                # The ONE place a computed load (warmup %, backoff %, estimate) becomes a
+                                            #   weight someone can lift: LOAD_CLASSES/loadClass (which equipment carries
+                                            #   the weight) + weightSnapper/snapperFor. See Loadable weights below
 workers/functions/
   [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
@@ -245,6 +248,8 @@ workers/functions/
     crypto.ts                               # AES-GCM encrypt/decrypt for API keys
     constants.ts                            # Shared constants + Zod schemas
     utils.ts                                # Shared backend helpers (toStartCase, etc.)
+    weight-ladders.ts                       # loadWeightLadders: the rungs a user has actually loaded per load class,
+                                            #   from their own workout_logs (see Loadable weights below)
     routes/
       dashboard.ts                          # dashboard.* endpoints
       recipes.ts                            # recipe.* endpoints
@@ -439,7 +444,10 @@ trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown 
 trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual hard sets + balance ratios
 trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
 trpc.workout.exerciseHistory                # Per-exercise time series (top set, e1RM, volume per session) over 4w/12w/1y
-trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets
+trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets (snapped to loadable weights; both
+                                            #   take an optional locationId to pick that gym's ladder)
+trpc.workout.weightLadders                  # Weights the user has actually loaded, per load class (dumbbell, barbell,
+                                            #   lat_pulldown…), optionally scoped to a location — see Loadable weights
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
@@ -567,6 +575,20 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   `dashboard.summary` attach it as `summary`, so `SessionCard` renders from either query without re-deriving totals.
   `listSessions` with `verbose:false` returns `logs: []` and leans on the summary — that's an 85% payload cut on real
   data, since every set row otherwise nests a duplicate exercise record. Per-set detail comes from `getSession`.
+- **Loadable weights**: every generated load (warmup %, backoff %, strength-standard estimate) goes through a
+  `WeightSnapper` (`packages/db/weights.ts`) — never `roundWeight` directly, which is now only its fallback. Two layers:
+  - **The equipment tells you the step.** `loadClass` picks the one item that carries the weight (a dumbbell press
+    needs a bench, but the bench has no grid). Plates go on a bar in PAIRS → 2.5 kg steps, but on a dip belt SINGLY →
+    1.25 kg. There is deliberately no 1.25 kg band for bars: 6.25/13.75/16.25 kg cannot be loaded on anything.
+  - **The user's own logs tell you the rungs.** A rack is a discrete list, not an increment — adjustable dumbbells land
+    on 6.5/11.5/13.5, a pin stack on 65/70/73 — so `workout.weightLadders` reads back the weights they have actually
+    logged on that load class at that location (≥2 uses, so a typo never becomes a prescription). The ladder is a
+    SAMPLE, not an inventory: it only overrides the grid inside a gap between two rungs no wider than 2 increments
+    (consecutive notches), never outside its range. Otherwise one logged 24 kg drags a 40 kg target down to it.
+  - **Warmups snap to the ladder; the folded backoff does NOT.** A backoff is stored as the working target it implies
+    (`workingTargetsFromBackoff`), so generate→invert has to round-trip exactly — true on a uniform grid, false across
+    an irregular ladder — and the backend prices the same backoff for muscle load on the grid. Hence `gridSnap` in
+    `GeneratePlannedSetsInput`. Nothing reads a warmup back, so it gets the real rungs.
 - **Fatigue tiers** (1-4) on exercises drive dynamic rest duration via `calculateRest` (src/lib/workouts/sets.ts) —
   tier base × goal multiplier + per-rep increment. Retuning the constants shifts `estimateWorkoutDurationSec` too,
   which is user-visible on the dashboard and program sidebar, so update `sets.test.ts` expectations in both blocks.

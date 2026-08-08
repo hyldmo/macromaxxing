@@ -25,7 +25,16 @@ export {
 	weightForReps
 } from '@macromaxxing/db'
 
-import { addedWeightKg, estimated1RM, plateIncrement, roundWeight, weightForReps } from '@macromaxxing/db'
+import {
+	addedWeightKg,
+	type EquipmentRequirement,
+	estimated1RM,
+	nextLoadableWeight,
+	roundWeight,
+	snapperInputFor,
+	type WeightLadders,
+	weightForReps
+} from '@macromaxxing/db'
 
 // ─── Rep Range Resolution ───────────────────────────────────────────
 
@@ -157,7 +166,12 @@ export interface Divergence {
 
 interface PlannedExerciseInput {
 	exerciseId: TypeIDString<'exc'>
-	exercise: RepRangeExercise & { name: string; bwMultiplier: number }
+	/** `equipment` decides what a "one notch heavier" suggestion can round to. */
+	exercise: RepRangeExercise & {
+		name: string
+		bwMultiplier: number
+		equipment?: readonly EquipmentRequirement[]
+	}
 	targetSets: number | null
 	targetReps: number | null
 	targetWeight: number | null
@@ -177,7 +191,9 @@ export function computeDivergences(
 	logs: ReadonlyArray<LogInput>,
 	plannedExercises: ReadonlyArray<PlannedExerciseInput>,
 	workoutGoal: TrainingGoal,
-	bodyWeightKg: number | null = null
+	bodyWeightKg: number | null = null,
+	/** The user's logged rungs — without them a "go heavier" suggestion falls back to plate math. */
+	ladders?: WeightLadders
 ): Divergence[] {
 	const result: Divergence[] = []
 
@@ -219,7 +235,7 @@ export function computeDivergences(
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
 						targetReps: range.min,
-						targetWeight: roundWeight(bestAddedKg + plateIncrement(bestAddedKg, 'kg'), 'kg', 'up')
+						targetWeight: nextLoadableWeight(bestAddedKg, snapperInputFor(we.exercise.equipment, ladders))
 					}
 				: {
 						targetReps: bestSet.reps,

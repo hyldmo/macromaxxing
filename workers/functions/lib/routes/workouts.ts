@@ -1,6 +1,7 @@
 import {
 	computeBalances,
 	computeMuscleLoad,
+	defaultSnapper,
 	EQUIPMENT,
 	type ExerciseType,
 	effectiveSetWeightKg,
@@ -12,6 +13,8 @@ import {
 	exerciseType,
 	type FatigueTier,
 	generateBackoffSets,
+	type LoadClass,
+	loadClass,
 	locationEquipment,
 	locations,
 	MUSCLE_GROUPS,
@@ -22,11 +25,13 @@ import {
 	type SetType,
 	sessionPlannedExercises,
 	setMode,
+	snapperFor,
 	sumTotals,
 	type TrainingGoal,
 	type TypeIDString,
 	trainingGoal,
 	userSettings,
+	type WeightSnapper,
 	WINDOW_CUTOFF_MS,
 	windowSinceMs,
 	withZones,
@@ -48,6 +53,7 @@ import { analyticsWindow, escapeLikePattern, paginationFields, searchField } fro
 import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
+import { loadWeightLadders } from '../weight-ladders'
 import { stripVerboseSession, stripVerboseWorkout, toSessionListItem } from '../workout-response'
 import {
 	buildTemplateExercisePatch,
@@ -60,6 +66,44 @@ const verboseInput = z.boolean().default(true)
 const CUE_MAX = 300
 const DESCRIPTION_MAX = 500
 const CUES_MAX_COUNT = 10
+
+const BARBELL_CLASSES: ReadonlySet<LoadClass> = new Set(['barbell', 'ez_bar', 'trap_bar', 'smith_machine'])
+
+/**
+ * Everything the set generators need to put a real weight on a real bar: the exercise's bodyweight
+ * fraction, and a snapper built from its equipment plus the rungs the user has logged on that
+ * equipment at this location. Without an `exerciseId` the caller gets the generic plate grid.
+ */
+async function exerciseWeightContext(
+	db: Database,
+	userId: string,
+	input: { exerciseId?: TypeIDString<'exc'>; locationId?: TypeIDString<'loc'> | null }
+): Promise<{ bwMultiplier: number; snap: WeightSnapper; gridSnap: WeightSnapper; isBarbell: boolean }> {
+	if (!input.exerciseId) {
+		return { bwMultiplier: 0, snap: defaultSnapper, gridSnap: defaultSnapper, isBarbell: true }
+	}
+
+	const [exercise, ladders] = await Promise.all([
+		db.query.exercises.findFirst({
+			where: { id: input.exerciseId },
+			columns: { bwMultiplier: true },
+			with: { equipment: true }
+		}),
+		loadWeightLadders(db, userId, input.locationId)
+	])
+
+	const equipment = exercise?.equipment ?? []
+	const cls = loadClass(equipment)
+	return {
+		bwMultiplier: exercise?.bwMultiplier ?? 0,
+		snap: snapperFor(equipment, ladders),
+		// Backoffs stay on the plate grid so they invert exactly and match the muscle-load
+		// pricing — see GeneratePlannedSetsInput.gridSnap.
+		gridSnap: snapperFor(equipment, undefined),
+		// No equipment rows at all means bodyweight, where the bar floor is meaningless either way.
+		isBarbell: cls === null || BARBELL_CLASSES.has(cls)
+	}
+}
 
 /** Highest e1RM across a list of sets; returns 0 for empty/invalid input. */
 function pickTopE1rm(sets: ReadonlyArray<{ weightKg: number; reps: number }>): number {
@@ -2258,6 +2302,14 @@ export const workoutsRouter = router({
 
 	// ─── Generators ───────────────────────────────────────────────
 
+	weightLadders: protectedProcedure
+		.meta({
+			description:
+				'Weights the user has actually loaded, grouped by the equipment that carries them (dumbbell, barbell, lat_pulldown, …). Their gym\'s real grid — racks and pin stacks are discrete lists, not increments, so prescribe from these rungs rather than rounding to a "nice" number. Optional locationId scopes it to that gym; a class with nothing logged there falls back to every location.'
+		})
+		.input(z.object({ locationId: zodTypeID('loc').nullish() }).optional())
+		.query(({ ctx, input }) => loadWeightLadders(ctx.db, ctx.user.id, input?.locationId)),
+
 	generateWarmup: protectedProcedure
 		.meta({
 			description:
@@ -2267,18 +2319,12 @@ export const workoutsRouter = router({
 			z.object({
 				workingWeight: z.number().min(0),
 				workingReps: z.number().int().min(1),
-				exerciseId: zodTypeID('exc').optional()
+				exerciseId: zodTypeID('exc').optional(),
+				locationId: zodTypeID('loc').nullish()
 			})
 		)
 		.query(async ({ ctx, input }) => {
-			let bwMultiplier = 0
-			if (input.exerciseId) {
-				const exercise = await ctx.db.query.exercises.findFirst({
-					where: { id: input.exerciseId },
-					columns: { bwMultiplier: true }
-				})
-				bwMultiplier = exercise?.bwMultiplier ?? 0
-			}
+			const { bwMultiplier, snap, isBarbell } = await exerciseWeightContext(ctx.db, ctx.user.id, input)
 
 			if (bwMultiplier > 0) {
 				const sets: Array<{ weightKg: number; reps: number; setType: 'warmup' }> = []
@@ -2292,19 +2338,20 @@ export const workoutsRouter = router({
 			}
 
 			const { workingWeight } = input
-			const bar = 20
-			const round = (w: number) => Math.round(w / 0.5) * 0.5
+			// The empty bar is a floor only when there IS a bar — on dumbbells or a stack the same
+			// rule would drop every ramp set under 20 kg and return no warmup at all.
+			const bar = isBarbell ? 20 : 0
 
 			const sets: Array<{ weightKg: number; reps: number; setType: 'warmup' }> = []
 
-			if (workingWeight > bar * 2) {
+			if (bar > 0 && workingWeight > bar * 2) {
 				sets.push({ weightKg: bar, reps: 10, setType: 'warmup' })
 			}
 
 			const pcts = [0.5, 0.7, 0.85]
 			for (const pct of pcts) {
-				const w = round(workingWeight * pct)
-				if (w <= bar) continue
+				const w = snap(workingWeight * pct)
+				if (w <= bar || w <= 0) continue
 				// Skip if too close to working weight (within 5kg)
 				if (workingWeight - w < 5) continue
 				// Skip if same as last added set
@@ -2326,21 +2373,14 @@ export const workoutsRouter = router({
 				workingWeight: z.number().min(0),
 				workingReps: z.number().int().min(1),
 				count: z.number().int().min(1).max(5).default(2),
-				exerciseId: zodTypeID('exc').optional()
+				exerciseId: zodTypeID('exc').optional(),
+				locationId: zodTypeID('loc').nullish()
 			})
 		)
 		.query(async ({ ctx, input }) => {
-			let bwMultiplier = 0
-			if (input.exerciseId) {
-				const exercise = await ctx.db.query.exercises.findFirst({
-					where: { id: input.exerciseId },
-					columns: { bwMultiplier: true }
-				})
-				bwMultiplier = exercise?.bwMultiplier ?? 0
-			}
-
+			const { bwMultiplier, gridSnap } = await exerciseWeightContext(ctx.db, ctx.user.id, input)
 			const { workingWeight, workingReps, count } = input
-			return generateBackoffSets(workingWeight, workingReps, count, bwMultiplier)
+			return generateBackoffSets(workingWeight, workingReps, count, bwMultiplier, gridSnap)
 		}),
 
 	importWorkouts: protectedProcedure

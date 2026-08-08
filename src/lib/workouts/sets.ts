@@ -1,7 +1,6 @@
-import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
-import { type GeneratedSet, splitTargetSets } from '@macromaxxing/db'
+import type { Exercise, FatigueTier, SetMode, SetType, TrainingGoal, WeightSnapper } from '@macromaxxing/db'
+import { defaultSnapper, type GeneratedSet, splitTargetSets } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
-import { roundWeight } from './formulas'
 
 // Backoff generation + the targetSets split live in `@macromaxxing/db/sets` (the workers backend
 // needs the same rules to price template rows). Re-exported so `~/lib/workouts/sets` consumers
@@ -103,7 +102,17 @@ export function estimateWorkoutDurationSec(workout: DurationWorkout): number {
 	return total
 }
 
-export function generateWarmupSets(workingWeight: number, workingReps: number, bwMultiplier = 0): GeneratedSet[] {
+/**
+ * Ramp-up sets below the working weight. `snap` turns each percentage into a weight the lifter
+ * can actually load (their equipment's step size, or a rung they have logged before) — without it
+ * a 10 kg working set warms up at a weight no rack in the building holds.
+ */
+export function generateWarmupSets(
+	workingWeight: number,
+	workingReps: number,
+	bwMultiplier = 0,
+	snap: WeightSnapper = defaultSnapper
+): GeneratedSet[] {
 	if (bwMultiplier > 0) {
 		if (workingReps <= 0) return []
 		const sets: GeneratedSet[] = []
@@ -121,15 +130,15 @@ export function generateWarmupSets(workingWeight: number, workingReps: number, b
 
 	if (workingWeight > 60) {
 		// Heavy lifts: 50% × 60% reps, 75% × 40% reps
-		const half = roundWeight(workingWeight * 0.5)
+		const half = snap(workingWeight * 0.5)
 		sets.push({ weightKg: half, reps: Math.max(3, Math.round(workingReps * 0.6)), setType: 'warmup' })
-		const three4 = roundWeight(workingWeight * 0.75)
+		const three4 = snap(workingWeight * 0.75)
 		if (three4 > half && workingWeight - three4 >= 5) {
 			sets.push({ weightKg: three4, reps: Math.max(2, Math.round(workingReps * 0.4)), setType: 'warmup' })
 		}
 	} else {
 		// Light/dumbbell: single set at ~60%
-		const w = roundWeight(workingWeight * 0.6)
+		const w = snap(workingWeight * 0.6)
 		if (w > 0) sets.push({ weightKg: w, reps: workingReps, setType: 'warmup' })
 	}
 
@@ -174,6 +183,19 @@ export interface GeneratePlannedSetsInput {
 	muscles: MuscleMapping[]
 	warmedUpMuscles: Map<string, number>
 	bwMultiplier?: number
+	/** Loadable-weight grid for this exercise (equipment + the user's logged ladder). */
+	snap?: WeightSnapper
+	/**
+	 * Equipment grid WITHOUT the logged ladder, used for the folded backoff.
+	 *
+	 * A backoff is stored as the working target it implies (`workingTargetsFromBackoff`), so
+	 * generating and inverting it have to round-trip exactly or the weight the user typed in timer
+	 * mode comes back as a different one. That holds on a uniform grid and not on an irregular
+	 * ladder. The backend prices the same backoff for muscle load on the grid too, so keeping it
+	 * here also stops planned volume disagreeing across surfaces. Warmups have no such constraint
+	 * — nothing reads them back — so they get the user's real rungs.
+	 */
+	gridSnap?: WeightSnapper
 }
 
 /**
@@ -181,7 +203,17 @@ export interface GeneratePlannedSetsInput {
  * Also updates warmedUpMuscles in-place to track cross-exercise warmup coverage.
  */
 export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet[] {
-	const { setMode, sets: targetSets, reps, weightKg, muscles, warmedUpMuscles, bwMultiplier = 0 } = input
+	const {
+		setMode,
+		sets: targetSets,
+		reps,
+		weightKg,
+		muscles,
+		warmedUpMuscles,
+		bwMultiplier = 0,
+		snap = defaultSnapper,
+		gridSnap = snap
+	} = input
 	const result: PlannedSet[] = []
 	let setNum = 1
 
@@ -192,7 +224,7 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 	if (hasWarmup && reps > 0 && canGenerateLoad) {
 		const skipWarmup = shouldSkipWarmup(muscles, warmedUpMuscles)
 		if (!skipWarmup) {
-			const warmups = generateWarmupSets(weightKg ?? 0, reps, bwMultiplier)
+			const warmups = generateWarmupSets(weightKg ?? 0, reps, bwMultiplier, snap)
 			for (const wu of warmups) {
 				result.push({ setNumber: setNum++, weightKg: wu.weightKg, reps: wu.reps, setType: 'warmup' })
 			}
@@ -211,7 +243,8 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 		targetSets,
 		targetReps: reps,
 		targetWeight: weightKg,
-		bwMultiplier
+		bwMultiplier,
+		snap: gridSnap
 	})
 	for (let i = 0; i < workingCount; i++) {
 		result.push({ setNumber: setNum++, weightKg, reps, setType: 'working' })

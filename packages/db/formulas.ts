@@ -275,7 +275,14 @@ export function utcDateKey(ms: number): string {
 
 export type WeightUnit = 'kg' | 'lbs'
 
-/** Pick the smallest practical plate increment for a given weight. */
+/**
+ * Pick the smallest practical plate increment for a given weight.
+ *
+ * "Practical" means loadable in a normal gym, not arithmetically smallest. Plates are used in
+ * PAIRS, so the 1.25 kg plate moves a bar by 2.5 kg — a 1.25 kg grid would prescribe weights
+ * (6.25, 13.75, 16.25) that no bar, dumbbell or stack can actually make. Below 10 kg the load is
+ * a fixed dumbbell or a light stack, which step by 1 kg; only the micro end has halves.
+ */
 export function plateIncrement(weight: number, unit: WeightUnit): number {
 	if (unit === 'lbs') {
 		if (weight <= 10) return 1
@@ -283,8 +290,8 @@ export function plateIncrement(weight: number, unit: WeightUnit): number {
 		return 5
 	}
 	// kg
-	if (weight <= 5) return 0.5
-	if (weight <= 20) return 1.25
+	if (weight <= 2.5) return 0.5
+	if (weight <= 10) return 1
 	return 2.5
 }
 
