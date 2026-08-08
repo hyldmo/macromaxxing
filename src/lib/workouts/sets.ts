@@ -28,17 +28,28 @@ export const TRAINING_DEFAULTS: Record<TrainingGoal, { targetSets: number; targe
  * component for strength work (heavier loads → longer recovery). Reps add a small
  * per-rep increment.
  *
- * Warmup sets get 50% of the working set rest (minimum 15s).
+ * Warmup sets get 50% of the working set rest.
  *
  * Evidence basis:
  * - Strength compounds (3-5 min): Grgic et al. 2018, de Salles et al. 2009
- * - Hypertrophy compounds (2-3 min): Schoenfeld et al. 2016, Singer et al. 2024
- * - Isolation exercises (60-120s): Senna et al. 2011, Longo et al. 2023
+ * - Hypertrophy compounds (2-3 min): Schoenfeld et al. 2016
+ * - Isolation exercises (90-120s): Senna et al. 2011, Grgic et al. 2017
  * - Warmup at 50% of working rest: Starting Strength, Barbell Medicine, RP
- * - <60s is consistently worse for hypertrophy: Singer et al. 2024 meta-analysis
+ *
+ * Longer rest is not itself anabolic — it preserves VOLUME LOAD across sets, which is
+ * the thing that drives growth. Short rest costs reps on sets 2+; with rest under ~60s
+ * that loss is large enough to show up as less hypertrophy (Schoenfeld 2016: 1 min vs
+ * 3 min, 8 weeks, trained men — the 3-min group gained more thickness and strength).
+ * Every tier's hypertrophy rest must therefore stay clear of the 60s floor; an earlier
+ * table put T4 isolation at exactly 60s and contradicted this comment.
+ *
+ * The strength multiplier is 1.7 rather than 2.0 so T1 strength lands at ~4.5 min
+ * instead of 5:15. The cost is that isolation-on-strength-goal rests longer than
+ * anyone really does (T4 @12 reps → 2:18) — accepted as a rare combination rather
+ * than splitting the goal knob into a per-tier offset table.
  */
-const TIER_BASE = { 1: 120, 2: 80, 3: 45, 4: 30 } as const
-const GOAL_MULTIPLIER = { hypertrophy: 1.0, strength: 2.0 } as const
+const TIER_BASE = { 1: 150, 2: 110, 3: 75, 4: 60 } as const
+const GOAL_MULTIPLIER = { hypertrophy: 1.0, strength: 1.7 } as const
 const PER_REP = 3
 
 export function calculateRest(
@@ -48,6 +59,8 @@ export function calculateRest(
 	setType: 'warmup' | 'working' | 'backoff' = 'working'
 ): number {
 	const base = Math.round(TIER_BASE[fatigueTier] * GOAL_MULTIPLIER[goal] + reps * PER_REP)
+	// The 15s floor is unreachable with the current tier bases (the smallest possible
+	// warmup is T4 hypertrophy at 0 reps → 30s). Kept as a guard on future retunes.
 	return Math.max(15, setType === 'warmup' ? Math.round(base * 0.5) : base)
 }
 

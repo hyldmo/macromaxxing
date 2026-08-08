@@ -17,143 +17,159 @@ import {
 
 describe('calculateRest', () => {
 	// Formula: TIER_BASE[tier] × GOAL_MULT[goal] + reps × 3
-	// TIER_BASE: { 1: 120, 2: 80, 3: 45, 4: 30 }
-	// GOAL_MULT: { hypertrophy: 1.0, strength: 2.0 }
-	// Warmup = base × 0.5, min 15s
+	// TIER_BASE: { 1: 150, 2: 110, 3: 75, 4: 60 }
+	// GOAL_MULT: { hypertrophy: 1.0, strength: 1.7 }
+	// Warmup = base × 0.5
 
 	// ─── Heavy compounds: Tier 1 (Squat, Deadlift) ──────────────────
 
 	describe('Tier 1 — heavy compounds (squat, deadlift)', () => {
-		it('strength 3 reps → 249s (4:09)', () => {
-			// 120 × 2.0 + 3 × 3 = 249
-			expect(calculateRest(3, 1, 'strength')).toBe(249)
+		it('strength 3 reps → 264s (4:24)', () => {
+			// 150 × 1.7 + 3 × 3 = 264
+			expect(calculateRest(3, 1, 'strength')).toBe(264)
 		})
 
-		it('strength 5 reps → 255s (4:15)', () => {
-			// 120 × 2.0 + 5 × 3 = 255
-			expect(calculateRest(5, 1, 'strength')).toBe(255)
+		it('strength 5 reps → 270s (4:30)', () => {
+			// 150 × 1.7 + 5 × 3 = 270
+			expect(calculateRest(5, 1, 'strength')).toBe(270)
 		})
 
-		it('strength 8 reps → 264s (4:24)', () => {
-			// 120 × 2.0 + 8 × 3 = 264
-			expect(calculateRest(8, 1, 'strength')).toBe(264)
+		it('strength 8 reps → 279s (4:39)', () => {
+			// 150 × 1.7 + 8 × 3 = 279
+			expect(calculateRest(8, 1, 'strength')).toBe(279)
 		})
 
-		it('hypertrophy 8 reps → 144s (2:24)', () => {
-			// 120 × 1.0 + 8 × 3 = 144
-			expect(calculateRest(8, 1, 'hypertrophy')).toBe(144)
+		it('hypertrophy 8 reps → 174s (2:54)', () => {
+			// 150 × 1.0 + 8 × 3 = 174
+			expect(calculateRest(8, 1, 'hypertrophy')).toBe(174)
 		})
 
-		it('hypertrophy 10 reps → 150s (2:30)', () => {
-			// 120 × 1.0 + 10 × 3 = 150
-			expect(calculateRest(10, 1, 'hypertrophy')).toBe(150)
+		it('hypertrophy 10 reps → 180s (3:00)', () => {
+			// 150 × 1.0 + 10 × 3 = 180
+			expect(calculateRest(10, 1, 'hypertrophy')).toBe(180)
 		})
 
-		it('warmup — strength 5 reps → 128s', () => {
-			// base=255, warmup=128
-			expect(calculateRest(5, 1, 'strength', 'warmup')).toBe(128)
+		it('warmup — strength 5 reps → 135s', () => {
+			// base=270, warmup=135
+			expect(calculateRest(5, 1, 'strength', 'warmup')).toBe(135)
 		})
 
-		it('warmup — hypertrophy 10 reps → 75s', () => {
-			// base=150, warmup=75
-			expect(calculateRest(10, 1, 'hypertrophy', 'warmup')).toBe(75)
+		it('warmup — hypertrophy 10 reps → 90s', () => {
+			// base=180, warmup=90
+			expect(calculateRest(10, 1, 'hypertrophy', 'warmup')).toBe(90)
 		})
 	})
 
 	// ─── Moderate compounds: Tier 2 (Bench, Row, OHP, Pull-Up, Lat Pulldown) ──
 
 	describe('Tier 2 — moderate compounds (bench, row, OHP, pull-up, lat pulldown)', () => {
-		it('strength 5 reps → 175s (2:55)', () => {
-			// 80 × 2.0 + 5 × 3 = 175
-			expect(calculateRest(5, 2, 'strength')).toBe(175)
+		it('strength 5 reps → 202s (3:22)', () => {
+			// 110 × 1.7 + 5 × 3 = 202
+			expect(calculateRest(5, 2, 'strength')).toBe(202)
 		})
 
-		it('hypertrophy 8 reps → 104s (1:44)', () => {
-			// 80 × 1.0 + 8 × 3 = 104
-			expect(calculateRest(8, 2, 'hypertrophy')).toBe(104)
+		it('hypertrophy 8 reps → 134s (2:14)', () => {
+			// 110 × 1.0 + 8 × 3 = 134
+			expect(calculateRest(8, 2, 'hypertrophy')).toBe(134)
 		})
 
-		it('hypertrophy 10 reps → 110s (1:50)', () => {
-			// 80 × 1.0 + 10 × 3 = 110
-			expect(calculateRest(10, 2, 'hypertrophy')).toBe(110)
+		it('hypertrophy 10 reps → 140s (2:20)', () => {
+			// 110 × 1.0 + 10 × 3 = 140
+			expect(calculateRest(10, 2, 'hypertrophy')).toBe(140)
 		})
 
-		it('hypertrophy 12 reps → 116s (1:56)', () => {
-			// 80 × 1.0 + 12 × 3 = 116
-			expect(calculateRest(12, 2, 'hypertrophy')).toBe(116)
+		it('hypertrophy 12 reps → 146s (2:26)', () => {
+			// 110 × 1.0 + 12 × 3 = 146
+			expect(calculateRest(12, 2, 'hypertrophy')).toBe(146)
 		})
 
-		it('warmup — strength 5 reps → 88s', () => {
-			// base=175, warmup=88
-			expect(calculateRest(5, 2, 'strength', 'warmup')).toBe(88)
+		it('warmup — strength 5 reps → 101s', () => {
+			// base=202, warmup=101
+			expect(calculateRest(5, 2, 'strength', 'warmup')).toBe(101)
 		})
 
-		it('warmup — hypertrophy 10 reps → 55s', () => {
-			// base=110, warmup=55
-			expect(calculateRest(10, 2, 'hypertrophy', 'warmup')).toBe(55)
+		it('warmup — hypertrophy 10 reps → 70s', () => {
+			// base=140, warmup=70
+			expect(calculateRest(10, 2, 'hypertrophy', 'warmup')).toBe(70)
 		})
 	})
 
 	// ─── Light isolation: Tier 3 (Cable Fly, Hammer Curl) ───────────
 
 	describe('Tier 3 — light isolation (cable fly, hammer curl)', () => {
-		it('hypertrophy 10 reps → 75s (1:15)', () => {
-			// 45 × 1.0 + 10 × 3 = 75
-			expect(calculateRest(10, 3, 'hypertrophy')).toBe(75)
+		it('hypertrophy 10 reps → 105s (1:45)', () => {
+			// 75 × 1.0 + 10 × 3 = 105
+			expect(calculateRest(10, 3, 'hypertrophy')).toBe(105)
 		})
 
-		it('hypertrophy 12 reps → 81s (1:21)', () => {
-			// 45 × 1.0 + 12 × 3 = 81
-			expect(calculateRest(12, 3, 'hypertrophy')).toBe(81)
+		it('hypertrophy 12 reps → 111s (1:51)', () => {
+			// 75 × 1.0 + 12 × 3 = 111
+			expect(calculateRest(12, 3, 'hypertrophy')).toBe(111)
 		})
 
-		it('hypertrophy 15 reps → 90s (1:30)', () => {
-			// 45 × 1.0 + 15 × 3 = 90
-			expect(calculateRest(15, 3, 'hypertrophy')).toBe(90)
+		it('hypertrophy 15 reps → 120s (2:00)', () => {
+			// 75 × 1.0 + 15 × 3 = 120
+			expect(calculateRest(15, 3, 'hypertrophy')).toBe(120)
+		})
+
+		it('strength 10 reps → 158s (2:38) — half-up rounding on the ×1.7 product', () => {
+			// 75 × 1.7 + 10 × 3 = 157.5 → 158
+			expect(calculateRest(10, 3, 'strength')).toBe(158)
 		})
 	})
 
 	// ─── Pure isolation: Tier 4 (Lateral Raise, Bicep Curl, Leg Extension) ──
 
 	describe('Tier 4 — pure isolation (lateral raise, bicep curl, leg extension)', () => {
-		it('hypertrophy 12 reps → 66s (1:06)', () => {
-			// 30 × 1.0 + 12 × 3 = 66
-			expect(calculateRest(12, 4, 'hypertrophy')).toBe(66)
+		it('hypertrophy 10 reps → 90s (1:30)', () => {
+			// 60 × 1.0 + 10 × 3 = 90 — the seeded Bicep Curl bottom of range (10-15 reps).
+			// Must stay clear of 60s; that floor is where short rest starts costing growth.
+			expect(calculateRest(10, 4, 'hypertrophy')).toBe(90)
 		})
 
-		it('hypertrophy 15 reps → 75s (1:15)', () => {
-			// 30 × 1.0 + 15 × 3 = 75
-			expect(calculateRest(15, 4, 'hypertrophy')).toBe(75)
+		it('hypertrophy 12 reps → 96s (1:36)', () => {
+			// 60 × 1.0 + 12 × 3 = 96
+			expect(calculateRest(12, 4, 'hypertrophy')).toBe(96)
 		})
 
-		it('hypertrophy 20 reps → 90s (1:30)', () => {
-			// 30 × 1.0 + 20 × 3 = 90
-			expect(calculateRest(20, 4, 'hypertrophy')).toBe(90)
+		it('hypertrophy 15 reps → 105s (1:45)', () => {
+			// 60 × 1.0 + 15 × 3 = 105
+			expect(calculateRest(15, 4, 'hypertrophy')).toBe(105)
+		})
+
+		it('hypertrophy 20 reps → 120s (2:00)', () => {
+			// 60 × 1.0 + 20 × 3 = 120
+			expect(calculateRest(20, 4, 'hypertrophy')).toBe(120)
+		})
+
+		it('strength 12 reps → 138s (2:18) — the accepted overshoot on isolation', () => {
+			// 60 × 1.7 + 12 × 3 = 138. Longer than anyone rests on a curl; kept because
+			// a strength goal on a T4 isolation is rare and 1.7 is set by T1's ceiling.
+			expect(calculateRest(12, 4, 'strength')).toBe(138)
 		})
 	})
 
 	// ─── Edge cases ─────────────────────────────────────────────────
 
 	describe('edge cases', () => {
-		it('minimum 15s floor on warmup', () => {
-			// 30 × 1.0 + 1 × 3 = 33, warmup = 17 → above 15
-			// Use 0 reps to test floor: base = 30, warmup = 15
-			expect(calculateRest(0, 4, 'hypertrophy', 'warmup')).toBe(15)
+		it('15s floor is unreachable — the smallest warmup is T4 hypertrophy 0 reps → 30s', () => {
+			// base = 60 × 1.0 + 0 = 60, warmup = 30. The Math.max(15, …) guard only
+			// binds if a future retune drops a tier base below 30.
+			expect(calculateRest(0, 4, 'hypertrophy', 'warmup')).toBe(30)
 		})
 
-		it('minimum 15s floor on working set', () => {
-			// All tier bases are ≥30, so floor only matters for extreme edge cases
-			expect(calculateRest(0, 4, 'hypertrophy')).toBe(30)
+		it('smallest possible working rest is T4 hypertrophy 0 reps → 60s', () => {
+			expect(calculateRest(0, 4, 'hypertrophy')).toBe(60)
 		})
 
-		it('1 rep strength T1 → 243s (4:03)', () => {
-			// 120 × 2.0 + 1 × 3 = 243
-			expect(calculateRest(1, 1, 'strength')).toBe(243)
+		it('1 rep strength T1 → 258s (4:18)', () => {
+			// 150 × 1.7 + 1 × 3 = 258
+			expect(calculateRest(1, 1, 'strength')).toBe(258)
 		})
 
-		it('very high reps (30) hypertrophy T3 → 135s', () => {
-			// 45 × 1.0 + 30 × 3 = 135
-			expect(calculateRest(30, 3, 'hypertrophy')).toBe(135)
+		it('very high reps (30) hypertrophy T3 → 165s', () => {
+			// 75 × 1.0 + 30 × 3 = 165
+			expect(calculateRest(30, 3, 'hypertrophy')).toBe(165)
 		})
 
 		it('backoff sets use same rest as working sets', () => {
@@ -672,8 +688,8 @@ describe('estimateWorkoutDurationSec', () => {
 	})
 
 	it('uses 1 min per set + calculated inter-set rest for a single exercise (no switch)', () => {
-		// Hypertrophy, tier 2, 3×10: rest = 80×1.0 + 10×3 = 110s
-		// total = 3×60 + 2×110 = 400s
+		// Hypertrophy, tier 2, 3×10: rest = 110×1.0 + 10×3 = 140s
+		// total = 3×60 + 2×140 = 460s
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'hypertrophy',
 			exercises: [
@@ -685,12 +701,12 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(400)
+		expect(sec).toBe(460)
 	})
 
 	it('falls back to TRAINING_DEFAULTS when targetSets/targetReps are null', () => {
-		// Strength defaults 5×5, tier 1: rest = 120×2.0 + 5×3 = 255s
-		// total = 5×60 + 4×255 = 1320s
+		// Strength defaults 5×5, tier 1: rest = 150×1.7 + 5×3 = 270s
+		// total = 5×60 + 4×270 = 1380s
 		const sec = estimateWorkoutDurationSec({
 			trainingGoal: 'strength',
 			exercises: [
@@ -702,7 +718,7 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(1320)
+		expect(sec).toBe(1380)
 	})
 
 	it('respects per-exercise trainingGoal override', () => {
@@ -718,7 +734,7 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(sec).toBe(1320)
+		expect(sec).toBe(1380)
 	})
 
 	it('adds 3 min switching between exercises on top of per-exercise rest', () => {
@@ -750,7 +766,7 @@ describe('estimateWorkoutDurationSec', () => {
 				}
 			]
 		})
-		expect(one).toBe(400)
+		expect(one).toBe(460)
 		expect(two).toBe(one * 2 + 180)
 	})
 })
