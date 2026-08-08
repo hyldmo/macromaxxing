@@ -700,27 +700,18 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **CSS**
 - `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
 - In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
-- **The app is an app shell: the DOCUMENT never scrolls, an inner `<main>` does.** `html, body, #root` are
-  `height: 100%` with `body { overflow: hidden }` (`src/index.css`), and `RootLayout` is a flex column whose
-  middle row (`#app-scroller`, id from `APP_SCROLLER_ID`) is the only scroller. This is load-bearing on iOS, not
-  cosmetic: iOS resolves `position: fixed` against the LAYOUT viewport and only re-resolves it when a scroll
-  gesture *ends*, so a bottom bar pinned over a scrolling `<body>` detaches and floats mid-screen for the whole
-  gesture while the browser chrome collapses — the bug every mobile web app has (LinkedIn included). A document
-  that never scrolls has no such gesture, so the tab bar is just a flex child on the bottom edge. Consequences:
-  - **Don't reintroduce `position: fixed` for bottom-anchored chrome** — anchor it `absolute` against the
-    shell (which is `relative`), whose geometry is stable. Full-viewport `fixed inset-0` overlays (Modal,
-    drawers, timer mode) are fine and unaffected.
-  - The tab bar overlays the bottom of the scroller, so content reserves `pb-20` for it (the bar measures
-    ~71px). It slides away on scroll-down via `useHideOnScroll` and returns on scroll-up and at both ends
-    of the scroll — that reclaims ~71px, which is how the shell pays back the browser chrome below.
-  - **Don't use `100vh`/`min-h-screen` for full-height boxes** — use `h-full`. On iOS `100vh` is the *larger*
-    toolbar-hidden viewport, so it overflows a document clipped to 100%.
-  - **`window.scrollY`/`scrollTo` do nothing.** `useScrollLock` toggles `overflow` on the scroller, and
-    `useScrollRestoration` (`src/lib/`) replaces react-router's `<ScrollRestoration />`, which drives
-    `window.scrollTo` and would silently no-op. Same contract: POP restores, everything else goes to top.
-  - Trade-off: because the document doesn't scroll, mobile browsers no longer auto-collapse their own chrome
-    (~44px). The app collapses its own chrome instead — see `useHideOnScroll` above — which gives back more
-    than was lost. Standalone/installed PWA has no browser chrome, so it's pure win there.
+- **Bottom-anchored `position: fixed` chrome needs `transform-gpu` on iOS 26.** Safari 26 lays such an element
+  out correctly but PAINTS it in the wrong place — Web Inspector reports the right frame while the bar renders
+  partway up the screen and drifts with the scroll. It's a compositing desync, not a layout bug, and it hits
+  many sites (the [Mastodon report](https://github.com/mastodon/mastodon/issues/36144) names LinkedIn). Forcing
+  the element onto its own compositing layer hands positioning to the compositor and dodges the broken paint
+  path; `transform: translateZ(0)` (Tailwind `transform-gpu`) is the confirmed fix, and `will-change: transform`
+  or `z-index: 0` work too. Applied to the mobile tab bar in `Nav.tsx` — don't strip it as dead styling.
+  - **Fix this at the compositing layer, not the layout layer.** Converting the app to a non-scrolling shell
+    (`body { overflow: hidden }` + an inner scroller) also hides the symptom, but it stops mobile browsers
+    auto-collapsing their own chrome — they only do that when the DOCUMENT scrolls — so it trades ~44px of
+    screen height and a `window.scrollY`/`ScrollRestoration` rewrite for a one-line CSS problem. That was
+    tried and reverted; don't reach for it again.
 - `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes

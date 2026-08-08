@@ -74,23 +74,7 @@
 	}
 }
 
-/*
- * App-shell scrolling: the document is a fixed-height box and the content scrolls INSIDE it
- * (see RootLayout). iOS resolves `position: fixed` against the layout viewport and only
- * re-resolves it once a scroll gesture ends, so a bottom bar pinned over a scrolling <body>
- * detaches and floats mid-screen for the whole gesture while the browser chrome collapses.
- * A document that never scrolls has no such gesture and no collapsing chrome, so the bar is
- * just a flex child sitting on the bottom edge. Do NOT restore scrolling here.
- */
-html,
-body,
-#root {
-	height: 100%;
-}
-
 body {
-	overflow: hidden;
-	overscroll-behavior: none;
 	background-color: var(--color-surface-0);
 	color: var(--color-ink);
 	font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -99,6 +83,11 @@ body {
 /* Tabular numbers for aligned data */
 .tabular-nums {
 	font-variant-numeric: tabular-nums;
+}
+
+/* Scroll lock — used by useScrollLock hook */
+.scroll-locked {
+	overflow: hidden;
 }
 
 .mdxeditor-root {
