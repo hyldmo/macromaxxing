@@ -268,13 +268,13 @@ describe('generateWarmupSets', () => {
 		})
 
 		it('10kg → single set at ~60%', () => {
-			// 10 * 0.6 = 6 → roundWeight(6, kg) = 6.25 (nearest 1.25)
+			// 10 * 0.6 = 6 → roundWeight(6, kg) = 6 (nearest 1kg — 6.25 is not a loadable weight)
 			const sets = generateWarmupSets(10, 15)
-			expect(sets).toEqual([{ weightKg: 6.25, reps: 15, setType: 'warmup' }])
+			expect(sets).toEqual([{ weightKg: 6, reps: 15, setType: 'warmup' }])
 		})
 
 		it('5kg → single set at ~60%', () => {
-			// 5 * 0.6 = 3 → roundWeight(3, kg) = 3 (nearest 0.5)
+			// 5 * 0.6 = 3 → roundWeight(3, kg) = 3 (nearest 1kg)
 			const sets = generateWarmupSets(5, 15)
 			expect(sets).toEqual([{ weightKg: 3, reps: 15, setType: 'warmup' }])
 		})
@@ -306,10 +306,10 @@ describe('generateBackoffSets', () => {
 
 	it('light weight backoff from 20kg × 10', () => {
 		const sets = generateBackoffSets(20, 10)
-		// Set 1: 80% = 16 → roundWeight(16, kg, up) = 16.25, reps = 12
+		// Set 1: 80% = 16 → roundWeight(16, kg, up) = 17.5, reps = 12
 		// Set 2: 70% = 14 → roundWeight(14, kg, up) = 15, reps = 14
 		expect(sets).toEqual([
-			{ weightKg: 16.25, reps: 12, setType: 'backoff' },
+			{ weightKg: 17.5, reps: 12, setType: 'backoff' },
 			{ weightKg: 15, reps: 14, setType: 'backoff' }
 		])
 	})

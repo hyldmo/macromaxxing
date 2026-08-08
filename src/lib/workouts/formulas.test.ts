@@ -100,19 +100,23 @@ describe('weightForReps', () => {
 
 describe('roundWeight', () => {
 	describe('kg increments', () => {
-		it('heavy weight (>20kg) rounds to 2.5kg', () => {
+		it('above 10kg rounds to 2.5kg — plates load in pairs, so 1.25kg steps do not exist', () => {
 			expect(roundWeight(81)).toBe(80)
 			expect(roundWeight(82)).toBe(82.5)
+			expect(roundWeight(14)).toBe(15)
+			expect(roundWeight(11)).toBe(10)
 		})
 
-		it('medium weight (5-20kg) rounds to 1.25kg', () => {
-			expect(roundWeight(14)).toBe(13.75)
-			expect(roundWeight(15)).toBe(15)
+		it('light weight (2.5-10kg) rounds to 1kg', () => {
+			expect(roundWeight(6)).toBe(6)
+			expect(roundWeight(6.4)).toBe(6)
+			expect(roundWeight(6.6)).toBe(7)
+			expect(roundWeight(3.3)).toBe(3)
 		})
 
-		it('light weight (≤5kg) rounds to 0.5kg', () => {
-			expect(roundWeight(3.3)).toBe(3.5)
-			expect(roundWeight(3.1)).toBe(3)
+		it('micro weight (≤2.5kg) rounds to 0.5kg', () => {
+			expect(roundWeight(2.3)).toBe(2.5)
+			expect(roundWeight(2.1)).toBe(2)
 		})
 	})
 

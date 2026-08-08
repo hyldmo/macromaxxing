@@ -61,6 +61,33 @@ describe('buildSessionPlan', () => {
 		expect(plan.goals.get(exc('exc_a'))).toBe('hypertrophy')
 	})
 
+	it('warms up on a weight the gym actually has, and keeps the backoff on the plate grid', () => {
+		const dumbbell = {
+			...makeExercise(exc('exc_db'), 'DB Press'),
+			equipment: [{ equipment: 'dumbbell' as const }]
+		}
+		const plan = buildSessionPlan({
+			plannedExercises: [
+				{
+					...makeRow({ exerciseId: exc('exc_db'), targetSets: 3, targetReps: 10, targetWeight: 10 }),
+					setMode: 'full',
+					exercise: dumbbell
+				}
+			],
+			logs: [],
+			workoutGoal: 'hypertrophy',
+			// Their rack: nothing between 5 and 6.5.
+			ladders: { dumbbell: [5, 6.5, 8, 11.5, 12.5] }
+		})
+
+		const item = plan.exerciseGroups[0]
+		if (item.type !== 'standalone') throw new Error('expected standalone')
+		// 10kg × 0.6 = 6.0 → the rung they own, not the 6.0/6.25 that no rack holds.
+		expect(item.planned[0]).toMatchObject({ setType: 'warmup', weightKg: 6.5 })
+		// The folded backoff is invertible, so it stays on the grid: 10 × 0.8 = 8.
+		expect(item.planned.at(-1)).toMatchObject({ setType: 'backoff', weightKg: 8 })
+	})
+
 	it('per-exercise trainingGoal overrides the workout goal and drives defaults', () => {
 		const plan = buildSessionPlan({
 			plannedExercises: [

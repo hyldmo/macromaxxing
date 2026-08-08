@@ -7,7 +7,7 @@
  */
 
 import type { SetMode, SetType } from './custom-types'
-import { roundWeight } from './formulas'
+import { defaultSnapper, type WeightSnapper } from './weights'
 
 export interface GeneratedSet {
 	weightKg: number
@@ -20,13 +20,15 @@ export interface GeneratedSet {
  * (`bwMultiplier > 0`) can't shed load, so they take the rep increase alone at +0 added kg.
  *
  * `workingWeight` is added kg (the same units as `workoutExercises.targetWeight`), not the
- * effective load.
+ * effective load. `snap` is how the percentage becomes a loadable weight — pass the exercise's
+ * snapper (equipment + logged ladder) so the number matches the lifter's own gym.
  */
 export function generateBackoffSets(
 	workingWeight: number,
 	workingReps: number,
 	count = 2,
-	bwMultiplier = 0
+	bwMultiplier = 0,
+	snap: WeightSnapper = defaultSnapper
 ): GeneratedSet[] {
 	const sets: GeneratedSet[] = []
 	for (let i = 0; i < count; i++) {
@@ -35,7 +37,7 @@ export function generateBackoffSets(
 			sets.push({ weightKg: 0, reps, setType: 'backoff' })
 			continue
 		}
-		sets.push({ weightKg: roundWeight(workingWeight * (0.8 - i * 0.1), 'kg', 'up'), reps, setType: 'backoff' })
+		sets.push({ weightKg: snap(workingWeight * (0.8 - i * 0.1), 'up'), reps, setType: 'backoff' })
 	}
 	return sets
 }
@@ -54,16 +56,17 @@ export function generateBackoffSets(
 export function workingTargetsFromBackoff(
 	backoffWeightKg: number | null,
 	backoffReps: number,
-	bwMultiplier = 0
+	bwMultiplier = 0,
+	snap: WeightSnapper = defaultSnapper
 ): { weightKg: number | null; reps: number } | null {
 	const reps = backoffReps - 2
 	if (reps < 1) return null
 	if (bwMultiplier > 0 || backoffWeightKg == null || backoffWeightKg <= 0) {
 		return { weightKg: backoffWeightKg, reps }
 	}
-	// generateBackoffSets is ceil(0.8W / plate) * plate, so the largest grid weight
-	// whose 80% still fits under the backoff inverts it exactly.
-	return { weightKg: roundWeight(backoffWeightKg / 0.8, 'kg', 'down'), reps }
+	// generateBackoffSets snaps 0.8W upward, so the largest loadable weight whose 80%
+	// still fits under the backoff inverts it — snapping down is exactly that weight.
+	return { weightKg: snap(backoffWeightKg / 0.8, 'down'), reps }
 }
 
 export interface TargetSetSplitInput {
@@ -73,6 +76,8 @@ export interface TargetSetSplitInput {
 	/** Added kg, or null when the row has no working weight yet. */
 	targetWeight: number | null
 	bwMultiplier?: number
+	/** How the folded backoff's load becomes a loadable weight. Defaults to the generic plate grid. */
+	snap?: WeightSnapper
 }
 
 export interface TargetSetSplit {
@@ -97,13 +102,14 @@ export function splitTargetSets({
 	targetSets,
 	targetReps,
 	targetWeight,
-	bwMultiplier = 0
+	bwMultiplier = 0,
+	snap = defaultSnapper
 }: TargetSetSplitInput): TargetSetSplit {
 	const hasBackoff = setMode === 'backoff' || setMode === 'full'
 	const canGenerateLoad = bwMultiplier > 0 || (targetWeight != null && targetWeight > 0)
 	if (!hasBackoff || targetReps <= 0 || !canGenerateLoad) {
 		return { workingCount: targetSets, backoff: null }
 	}
-	const [backoff] = generateBackoffSets(targetWeight ?? 0, targetReps, 1, bwMultiplier)
+	const [backoff] = generateBackoffSets(targetWeight ?? 0, targetReps, 1, bwMultiplier, snap)
 	return { workingCount: Math.max(1, targetSets - 1), backoff: backoff ?? null }
 }
