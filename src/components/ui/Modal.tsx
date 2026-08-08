@@ -10,7 +10,7 @@ export const Modal: FC<ModalProps> = ({ children, onClose, className, ...props }
 	createPortal(
 		// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard close handled by consumers
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
 			role="dialog"
 			aria-modal="true"
 			onClick={onClose}
