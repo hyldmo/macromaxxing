@@ -700,6 +700,29 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **CSS**
 - `field-sizing: content` for auto-sizing inputs to their content (no JS sizing or fixed widths)
 - In `table-layout: auto`, changing column width on hover (even via `min-w`) recalculates every row. Hover styles in table cells should be opacity/color only.
+- **Bottom-anchored `position: fixed` chrome needs `transform-gpu` on iOS 26.** Safari 26 lays such an element
+  out correctly but PAINTS it in the wrong place — Web Inspector reports the right frame while the bar renders
+  partway up the screen and drifts with the scroll. It's a compositing desync, not a layout bug, and it hits
+  many sites (the [Mastodon report](https://github.com/mastodon/mastodon/issues/36144) names LinkedIn). Forcing
+  the element onto its own compositing layer hands positioning to the compositor and dodges the broken paint
+  path; `transform: translateZ(0)` (Tailwind `transform-gpu`) is the confirmed fix, and `will-change: transform`
+  or `z-index: 0` work too. Applied to the mobile tab bar in `Nav.tsx` — don't strip it as dead styling.
+  - **`viewport-fit=cover` is set in-browser and deliberately NOT in standalone — the two surfaces have
+    different bugs.** In-browser, Safari renders page content full-bleed to the screen edge while clamping a
+    `bottom: 0` fixed bar above it, so page content shows through the strip below the tab bar; cover (and the
+    `env(safe-area-inset-*)` values it unlocks, which are 0 without it) is what closes that. Installed, iOS
+    already insets the viewport and the OS paints the strip below the bar — it is correct as-is, and enabling
+    cover there only makes the bar a home-indicator taller for nothing. `src/root.tsx` sets the flag;
+    `public/standalone-viewport.js` rewrites the meta without it when installed. **They must differ** — don't
+    "fix" the inconsistency. Because in-browser content extends under the notch and home indicator, every
+    edge-touching surface pads itself with the insets — top nav (`inset-top`), mobile tab bar
+    (`inset-bottom`), content reserve (`calc(5rem + inset-bottom)`), and the full-screen overlays
+    (TimerModeView, MobileMenuDrawer, Modal). Those all collapse to 0 in standalone automatically.
+  - **Fix this at the compositing layer, not the layout layer.** Converting the app to a non-scrolling shell
+    (`body { overflow: hidden }` + an inner scroller) also hides the symptom, but it stops mobile browsers
+    auto-collapsing their own chrome — they only do that when the DOCUMENT scrolls — so it trades ~44px of
+    screen height and a `window.scrollY`/`ScrollRestoration` rewrite for a one-line CSS problem. That was
+    tried and reverted; don't reach for it again.
 - `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes

@@ -45,7 +45,7 @@ const DrawerBody: FC<Omit<MobileMenuDrawerProps, 'open'>> = ({ onClose, isFavori
 			aria-label="Menu"
 		>
 			<button type="button" className="absolute inset-0 bg-black/50" aria-label="Close menu" onClick={onClose} />
-			<div className="absolute top-0 right-0 flex h-full w-[85%] max-w-sm flex-col border-edge border-l bg-surface-1">
+			<div className="absolute top-0 right-0 flex h-full w-[85%] max-w-sm flex-col border-edge border-l bg-surface-1 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
 				<header className="flex items-center justify-between border-edge border-b px-4 py-3">
 					<div className="flex items-center gap-2 font-semibold text-accent">
 						<ChefHat className="size-5" />
