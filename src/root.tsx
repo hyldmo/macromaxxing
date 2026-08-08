@@ -24,12 +24,7 @@ export const Layout: FC<LayoutProps> = ({ children }) => {
 				<meta charSet="UTF-8" />
 				<meta
 					name="viewport"
-					// viewport-fit=cover is what makes env(safe-area-inset-*) resolve to anything but
-					// 0. In-browser Safari renders page content full-bleed to the screen edge while
-					// clamping a `bottom: 0` fixed bar above it, so the tab bar needs cover to reach
-					// the bottom. standalone-viewport.js deliberately drops it again when installed —
-					// iOS insets that viewport already and the bar is correct without it.
-					content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+					content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
 				/>
 				<meta name="theme-color" content="#1f1d1b" />
 				<Meta />

@@ -20,8 +20,7 @@ export function RootLayout() {
 	return (
 		<div className="min-h-screen bg-surface-0">
 			<Nav />
-			{/* Bottom reserve clears the fixed tab bar, which is now taller by the home-indicator inset. */}
-			<main className="mx-auto max-w-lvw px-3 py-4 pb-[calc(5rem+env(safe-area-inset-bottom))] md:max-w-7xl md:px-4 md:pb-4">
+			<main className="mx-auto max-w-lvw px-3 py-4 pb-20 md:max-w-7xl md:px-4 md:pb-4">
 				<Outlet />
 			</main>
 			<ReloadPrompt />

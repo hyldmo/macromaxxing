@@ -707,22 +707,20 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
   the element onto its own compositing layer hands positioning to the compositor and dodges the broken paint
   path; `transform: translateZ(0)` (Tailwind `transform-gpu`) is the confirmed fix, and `will-change: transform`
   or `z-index: 0` work too. Applied to the mobile tab bar in `Nav.tsx` — don't strip it as dead styling.
-  - **`viewport-fit=cover` is set in-browser and deliberately NOT in standalone — the two surfaces have
-    different bugs.** In-browser, Safari renders page content full-bleed to the screen edge while clamping a
-    `bottom: 0` fixed bar above it, so page content shows through the strip below the tab bar; cover (and the
-    `env(safe-area-inset-*)` values it unlocks, which are 0 without it) is what closes that. Installed, iOS
-    already insets the viewport and the OS paints the strip below the bar — it is correct as-is, and enabling
-    cover there only makes the bar a home-indicator taller for nothing. `src/root.tsx` sets the flag;
-    `public/standalone-viewport.js` rewrites the meta without it when installed. **They must differ** — don't
-    "fix" the inconsistency. Because in-browser content extends under the notch and home indicator, every
-    edge-touching surface pads itself with the insets — top nav (`inset-top`), mobile tab bar
-    (`inset-bottom`), content reserve (`calc(5rem + inset-bottom)`), and the full-screen overlays
-    (TimerModeView, MobileMenuDrawer, Modal). Those all collapse to 0 in standalone automatically.
   - **Fix this at the compositing layer, not the layout layer.** Converting the app to a non-scrolling shell
     (`body { overflow: hidden }` + an inner scroller) also hides the symptom, but it stops mobile browsers
     auto-collapsing their own chrome — they only do that when the DOCUMENT scrolls — so it trades ~44px of
     screen height and a `window.scrollY`/`ScrollRestoration` rewrite for a one-line CSS problem. That was
     tried and reverted; don't reach for it again.
+  - **`viewport-fit=cover` + `env(safe-area-inset-*)` padding was also tried and reverted — it moves the tab
+    bar UP.** The reasoning looks sound (cover makes the viewport full-bleed, so `pb-[env(...)]` lands the
+    icons in the same absolute spot while the bar's background fills the strip below) but it only holds if
+    the viewport really does become full-bleed. On iOS it didn't, so the padding was pure added height and
+    the icons rose by one home-indicator — on BOTH surfaces, including the installed PWA whose footer was
+    already correct. In-browser there is a strip below the bar where page content shows through; that is a
+    separate Safari 26 issue and is NOT worth trading the bar's position for. Nothing in the app reads
+    safe-area insets, deliberately. Verify any change here on a real device before shipping — the geometry
+    that matters is not reproducible in a headless browser.
 - `grid` without an explicit `grid-cols-*` falls back to `grid-auto-columns: auto`, which sizes columns to **max-content**. A child card with `min-w-0 flex-1` + `truncate` won't engage truncation because the column already grew to fit un-truncated text — overflowing the viewport. For vertical card lists, always use `grid grid-cols-1 gap-*` (= `minmax(0, 1fr)`) so the column can shrink to container width.
 
 ## After Making Changes

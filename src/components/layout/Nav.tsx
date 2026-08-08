@@ -62,8 +62,7 @@ export function Nav() {
 	return (
 		<>
 			{/* Top nav (desktop full, mobile collapsed to brand + status + hamburger) */}
-			{/* pt safe-area: viewport-fit=cover puts content under the status bar in standalone. */}
-			<nav className="sticky top-0 z-50 border-edge border-b bg-surface-1 pt-[env(safe-area-inset-top)]">
+			<nav className="sticky top-0 z-50 border-edge border-b bg-surface-1">
 				<div className="mx-auto flex h-12 max-w-7xl items-center gap-6 px-3 md:px-4">
 					<NavLink to="/" className="flex items-center gap-2 font-semibold text-accent">
 						<ChefHat className="size-5" />
@@ -137,7 +136,7 @@ export function Nav() {
 			    up the screen and drifts with the scroll. Promoting it to its own compositing
 			    layer hands positioning to the compositor and sidesteps the broken paint path.
 			    Don't remove it without testing a long scroll on a real iOS device. */}
-			<nav className="fixed right-0 bottom-0 left-0 z-50 transform-gpu border-edge border-t bg-surface-1 pb-[env(safe-area-inset-bottom)] md:hidden">
+			<nav className="fixed right-0 bottom-0 left-0 z-50 transform-gpu border-edge border-t bg-surface-1 md:hidden">
 				<div className="grid auto-cols-fr grid-flow-col justify-center px-3 2xs:py-1">
 					<SignedIn>
 						<AppLinks links={mobileFavLinks} />

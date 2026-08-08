@@ -139,7 +139,7 @@ export const TimerModeView: FC<TimerModeViewProps> = ({
 	// Reset to the app's default sans font so the view looks identical when mounted
 	// on surfaces that set a different font (e.g. landing page uses font-display).
 	const wrapperClass = fixed
-		? 'fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] font-sans'
+		? 'fixed inset-0 z-60 flex flex-col overflow-hidden overscroll-contain bg-surface-0 font-sans'
 		: 'relative flex flex-col overflow-hidden border border-edge bg-surface-0 font-sans'
 
 	return (
