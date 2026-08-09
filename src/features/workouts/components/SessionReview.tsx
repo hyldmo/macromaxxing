@@ -69,12 +69,8 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 
 	const workoutGoal = template.trainingGoal ?? 'hypertrophy'
 
-	// "Go heavier next time" has to land on a weight this gym owns, so the suggestion reads the
-	// same ladder the session's warmups did.
-	const ladders = trpc.workout.weightLadders.useQuery({ locationId: session.locationId ?? null }).data
-
 	const reviewExercises = useMemo(() => {
-		const divergences = computeDivergences(session.logs, template.exercises, workoutGoal, bodyWeightKg, ladders)
+		const divergences = computeDivergences(session.logs, template.exercises, workoutGoal, bodyWeightKg)
 		const divergenceIds = new Set(divergences.map(d => d.exerciseId))
 		const matched = computeMatchedExercises(
 			session.logs,
@@ -84,7 +80,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 			divergenceIds
 		)
 		return [...divergences, ...matched]
-	}, [session.logs, template.exercises, workoutGoal, bodyWeightKg, ladders])
+	}, [session.logs, template.exercises, workoutGoal, bodyWeightKg])
 
 	const exerciseStats = useMemo(() => exerciseE1rmStats(withImplementCount(session.logs)), [session.logs])
 

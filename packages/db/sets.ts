@@ -20,8 +20,8 @@ export interface GeneratedSet {
  * (`bwMultiplier > 0`) can't shed load, so they take the rep increase alone at +0 added kg.
  *
  * `workingWeight` is added kg (the same units as `workoutExercises.targetWeight`), not the
- * effective load. `snap` is how the percentage becomes a loadable weight — pass the exercise's
- * snapper (equipment + logged ladder) so the number matches the lifter's own gym.
+ * effective load. `snap` is how the percentage becomes a loadable weight — pass the snapper built
+ * from the exercise's equipment, so the number lands on a step that equipment can take.
  */
 export function generateBackoffSets(
 	workingWeight: number,

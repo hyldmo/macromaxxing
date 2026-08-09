@@ -63,7 +63,7 @@ describe('buildSessionPlan', () => {
 		expect(plan.goals.get(exc('exc_a'))).toBe('hypertrophy')
 	})
 
-	it('warms up on a weight the gym actually has, and keeps the backoff on the plate grid', () => {
+	it('warms up and backs off on what the equipment can load', () => {
 		const dumbbell = makeExercise(exc('exc_db'), 'DB Press', [], [{ equipment: 'dumbbell' }])
 		const plan = buildSessionPlan({
 			plannedExercises: [
@@ -74,16 +74,13 @@ describe('buildSessionPlan', () => {
 				}
 			],
 			logs: [],
-			workoutGoal: 'hypertrophy',
-			// Their rack: nothing between 5 and 6.5.
-			ladders: { dumbbell: [5, 6.5, 8, 11.5, 12.5] }
+			workoutGoal: 'hypertrophy'
 		})
 
 		const item = plan.exerciseGroups[0]
 		if (item.type !== 'standalone') throw new Error('expected standalone')
-		// 10kg × 0.6 = 6.0 → the rung they own, not the 6.0/6.25 that no rack holds.
-		expect(item.planned[0]).toMatchObject({ setType: 'warmup', weightKg: 6.5 })
-		// The backend prices this backoff on the grid, so the plan does too: 10 × 0.8 = 8.
+		// Dumbbells step by 1kg under 10, so 10 × 0.6 = 6 stands and 10 × 0.8 = 8 stands.
+		expect(item.planned[0]).toMatchObject({ setType: 'warmup', weightKg: 6 })
 		expect(item.planned.at(-1)).toMatchObject({ setType: 'backoff', weightKg: 8 })
 	})
 
