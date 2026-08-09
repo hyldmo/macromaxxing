@@ -37,7 +37,7 @@ describe('computeProgramRest', () => {
 	})
 
 	it('produces expected hours for a known stimulus on an overlapping muscle', () => {
-		// W0: 4 sets × intensity 1 × tier 1 (weight 1.0) = 4 fatigue units → 24 + 24 = 48h.
+		// W0: 4 sets × intensity 1 × tier 1 (weight 1.0) = 4 fatigue units → 48h (low anchor).
 		const w0 = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: 4 }])
 		const w1 = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: 4 }])
 		const t = computeProgramRest([w0, w1])
@@ -89,7 +89,7 @@ describe('computeProgramRest', () => {
 	})
 
 	it('saturates at the 96h cap when stimulus is very large', () => {
-		// 20 sets × tier 1 × 1.0 intensity = 20 fatigue → 24 + 120 = 144 → clamped to 96.
+		// 20 sets × tier 1 × 1.0 intensity = 20 fatigue → ~130h → clamped to 96.
 		const heavy = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: 20 }])
 		const next = w([{ muscles: [['chest', 1]] }])
 		const t = computeProgramRest([heavy, next])
@@ -97,15 +97,15 @@ describe('computeProgramRest', () => {
 	})
 
 	it('falls back to the per-goal default targetSets when null (strength=5, hypertrophy=3)', () => {
-		// Strength fallback: 5 sets × tier 1 × 1 = 5 fatigue → 24 + 30 = 54h.
+		// Strength fallback: 5 sets × tier 1 × 1 = 5 fatigue → 54h.
 		const wsA = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: null }], 'strength')
 		const wsB = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: null }], 'strength')
 		expect(computeProgramRest([wsA, wsB])[0].bottleneckHours).toBe(54)
 
-		// Hypertrophy fallback: 3 sets × tier 1 × 1 = 3 fatigue → 24 + 18 = 42h.
+		// Hypertrophy fallback: 3 sets × tier 1 × 1 = 3 fatigue → 41h.
 		const whA = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: null }], 'hypertrophy')
 		const whB = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: null }], 'hypertrophy')
-		expect(computeProgramRest([whA, whB])[0].bottleneckHours).toBe(42)
+		expect(computeProgramRest([whA, whB])[0].bottleneckHours).toBe(41)
 	})
 
 	it('per-exercise trainingGoal overrides the workout-level goal for fallback', () => {
@@ -119,16 +119,16 @@ describe('computeProgramRest', () => {
 	})
 
 	it('uses fatigue-tier weight when scaling stimulus', () => {
-		// Tier 4 (weight 0.25): 4 sets × 1 × 0.25 = 1 fatigue → 24 + 6 = 30h.
+		// Tier 4 (weight 0.25): 4 sets × 1 × 0.25 = 1 fatigue → 25h.
 		const w0 = w([{ muscles: [['chest', 1]], fatigueTier: 4, targetSets: 4 }])
 		const w1 = w([{ muscles: [['chest', 1]] }])
-		expect(computeProgramRest([w0, w1])[0].bottleneckHours).toBe(30)
+		expect(computeProgramRest([w0, w1])[0].bottleneckHours).toBe(25)
 	})
 
 	it('sorts constraint muscles by recoveryHours descending', () => {
 		const w0 = w([
-			{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: 8 }, // 48 → 72h
-			{ muscles: [['triceps', 1]], fatigueTier: 4, targetSets: 4 } // 1 fatigue → 30h
+			{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: 8 }, // 8 fatigue → 72h
+			{ muscles: [['triceps', 1]], fatigueTier: 4, targetSets: 4 } // 1 fatigue → 25h
 		])
 		const w1 = w([{ muscles: [['chest', 1]] }, { muscles: [['triceps', 1]] }])
 		const t = computeProgramRest([w0, w1])
@@ -138,9 +138,9 @@ describe('computeProgramRest', () => {
 })
 
 describe('recoveryHoursFromFatigue', () => {
-	it('floors at 24h for zero or negative stimulus', () => {
-		expect(recoveryHoursFromFatigue(0)).toBe(24)
-		expect(recoveryHoursFromFatigue(-5)).toBe(24)
+	it('floors at 12h for zero or negative stimulus', () => {
+		expect(recoveryHoursFromFatigue(0)).toBe(12)
+		expect(recoveryHoursFromFatigue(-5)).toBe(12)
 	})
 
 	it('caps at 96h for large stimulus', () => {
@@ -148,9 +148,25 @@ describe('recoveryHoursFromFatigue', () => {
 		expect(recoveryHoursFromFatigue(1000)).toBe(96)
 	})
 
-	it('scales linearly between 24 and 96', () => {
+	it('passes through both calibration anchors', () => {
 		expect(recoveryHoursFromFatigue(4)).toBe(48)
 		expect(recoveryHoursFromFatigue(8)).toBe(72)
+	})
+
+	it('resolves light stimulus below a full day instead of flooring at 24h', () => {
+		// 3 sets of a tier-4 isolation at the 0.3 intensity threshold = 0.225 units.
+		expect(recoveryHoursFromFatigue(0.225)).toBe(16)
+		expect(recoveryHoursFromFatigue(0.5)).toBe(20)
+		expect(recoveryHoursFromFatigue(1)).toBe(25)
+	})
+
+	it('rises monotonically across the whole range', () => {
+		let prev = 0
+		for (let f = 0; f <= 15; f += 0.25) {
+			const hours = recoveryHoursFromFatigue(f)
+			expect(hours).toBeGreaterThanOrEqual(prev)
+			prev = hours
+		}
 	})
 })
 
@@ -219,15 +235,12 @@ describe('programCycleDays', () => {
 		expect(days).toBe(5)
 	})
 
-	it('rounds the sum up to the next day (40h → 2, 60h → 3)', () => {
-		// 16h + 24h = 40h (one transition floored at 24h, one at 16h pre-floor → also 24h).
-		// Simpler: construct exact totals via the recoveryHours formula.
-		// 4 sets tier 1 = 4 fatigue → 48h. Plus one no-overlap (24h floor). Total = 72h.
-		// 72/24 = 3 days.
+	it('rounds the summed transition hours up to the next day', () => {
+		// 2-workout cycle, both hit chest, so both transitions are priced from the prior workout:
+		// heavy→light is 4 fatigue → 48h, and the light→heavy wrap is 3 fatigue → 41h.
+		// 89h / 24 → 4 days.
 		const chestHeavy = w([{ muscles: [['chest', 1]], fatigueTier: 1, targetSets: 4 }])
 		const chestLight = w([{ muscles: [['chest', 1]] }])
-		// 2-workout cycle: chest→chest (48h overlap) + chest→chest (wrap, also 48h since both hit chest)
-		// Actually both transitions are between workouts that overlap → both 48h. Total = 96h → 4 days.
 		expect(programCycleDays([chestHeavy, chestLight])).toBe(4)
 	})
 

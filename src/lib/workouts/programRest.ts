@@ -4,11 +4,22 @@ import { FATIGUE_TIER_WEIGHTS, type FatigueTier, type MuscleGroup, type Training
  * Below 0.3 = incidental (per classifyIntensity bucket in @macromaxxing/db). */
 export const REST_INTENSITY_THRESHOLD = 0.3
 
-const RECOVERY_BASE_HOURS = 24
+const RECOVERY_MIN_HOURS = 12
 const RECOVERY_MAX_HOURS = 96
-/** Heuristic: 1 fatigue unit ≈ 6h of additional recovery. Calibrated so 4 sets heavy
- * bench (tier 1, intensity 1) → 48h and 8 sets → 72h. */
-const RECOVERY_HOURS_PER_FATIGUE_UNIT = 6
+/**
+ * Two points the curve passes through exactly: 4 sets heavy bench (tier 1, intensity 1) → 48h,
+ * 8 sets → 72h. Doubling the stimulus costs less than double the recovery, so the map is a power
+ * law through those anchors, not a line. A line through both has to cross zero fatigue at 24h,
+ * which floored every light overlap at a full day — a few sets of a tier-4 isolation read the
+ * same 24h as a heavy compound, so the number carried no information at the low end.
+ */
+const RECOVERY_ANCHOR_LOW = { fatigueUnits: 4, hours: 48 }
+const RECOVERY_ANCHOR_HIGH = { fatigueUnits: 8, hours: 72 }
+const RECOVERY_EXPONENT =
+	Math.log((RECOVERY_ANCHOR_HIGH.hours - RECOVERY_MIN_HOURS) / (RECOVERY_ANCHOR_LOW.hours - RECOVERY_MIN_HOURS)) /
+	Math.log(RECOVERY_ANCHOR_HIGH.fatigueUnits / RECOVERY_ANCHOR_LOW.fatigueUnits)
+const RECOVERY_COEFFICIENT =
+	(RECOVERY_ANCHOR_LOW.hours - RECOVERY_MIN_HOURS) / RECOVERY_ANCHOR_LOW.fatigueUnits ** RECOVERY_EXPONENT
 
 /** Minimal workout shape needed for rest computation — structurally compatible with
  * `RouterOutput['workout']['listWorkouts'][number]` but narrowed to fields actually used. */
@@ -67,10 +78,10 @@ export function collectWorkoutMuscles(workout: RestWorkoutInput): WorkoutMuscleH
 	return Array.from(byMuscle.values()).sort((a, b) => b.effectiveSets - a.effectiveSets)
 }
 
-/** Map fatigue units to required recovery hours, clamped to [24, 96]. */
+/** Map fatigue units to required recovery hours, clamped to [12, 96]. */
 export function recoveryHoursFromFatigue(fatigueUnits: number): number {
-	const raw = RECOVERY_BASE_HOURS + RECOVERY_HOURS_PER_FATIGUE_UNIT * Math.max(0, fatigueUnits)
-	return Math.min(RECOVERY_MAX_HOURS, Math.max(RECOVERY_BASE_HOURS, Math.round(raw)))
+	const raw = RECOVERY_MIN_HOURS + RECOVERY_COEFFICIENT * Math.max(0, fatigueUnits) ** RECOVERY_EXPONENT
+	return Math.min(RECOVERY_MAX_HOURS, Math.max(RECOVERY_MIN_HOURS, Math.round(raw)))
 }
 
 export interface RestMuscle {
