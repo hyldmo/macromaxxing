@@ -42,7 +42,7 @@ function template(muscles: Array<[MuscleGroup, number]>[]): ReadinessTemplateInp
 
 describe('computeMuscleReadiness', () => {
 	it('accumulates intensity × tierWeight per working set', () => {
-		// 2 curls (tier 4, 1.0) + 2 hammers (tier 4, 0.7) → 2×0.25 + 2×0.7×0.25 = 0.85 units → 29h.
+		// 2 curls (tier 4, 1.0) + 2 hammers (tier 4, 0.7) → 2×0.25 + 2×0.7×0.25 = 0.85 units → 23h.
 		const s = session(
 			[
 				{ muscles: [['biceps', 1]] },
@@ -53,9 +53,9 @@ describe('computeMuscleReadiness', () => {
 			T0
 		)
 		const r = computeMuscleReadiness([s]).get('biceps')
-		expect(r).toMatchObject({ requiredHours: 29, trainedAt: T0 })
+		expect(r).toMatchObject({ requiredHours: 23, trainedAt: T0 })
 		expect(r?.fatigueUnits).toBeCloseTo(0.85)
-		expect(r?.readyAt).toBe(T0 + 29 * HOUR_MS)
+		expect(r?.readyAt).toBe(T0 + 23 * HOUR_MS)
 	})
 
 	it('ignores warmup and backoff sets', () => {
@@ -121,7 +121,8 @@ describe('pendingRecoveryFromPriorSession', () => {
 				['rear_delts', 1]
 			]
 		])
-		const pending = pendingRecoveryFromPriorSession(prior, pull, T0 + 23 * HOUR_MS)
+		// biceps 0.5 units → 20h, rear delts 0.25 → 17h; both still pending at +16h.
+		const pending = pendingRecoveryFromPriorSession(prior, pull, T0 + 16 * HOUR_MS)
 		expect(pending.map(p => p.muscleGroup).sort()).toEqual(['biceps', 'rear_delts'])
 		expect(pending.find(p => p.muscleGroup === 'lats')).toBeUndefined()
 	})
@@ -163,7 +164,7 @@ describe('pendingRecovery', () => {
 			T0
 		)
 	])
-	// 2 working sets × tier 4 → 0.5 units → 27h for each muscle.
+	// 2 working sets × tier 4 → 0.5 units → 20h for each muscle.
 
 	it('surfaces only template muscles still inside their window', () => {
 		const pullB = template([
@@ -173,7 +174,7 @@ describe('pendingRecovery', () => {
 			],
 			[['rear_delts', 1]]
 		])
-		const pending = pendingRecovery(pullB, readiness, T0 + 23 * HOUR_MS)
+		const pending = pendingRecovery(pullB, readiness, T0 + 16 * HOUR_MS)
 		expect(pending.map(p => p.muscleGroup).sort()).toEqual(['biceps', 'rear_delts'])
 		expect(pending[0].remainingHours).toBe(4)
 	})
@@ -184,14 +185,14 @@ describe('pendingRecovery', () => {
 	})
 
 	it('returns empty once the window has passed', () => {
-		const pending = pendingRecovery(template([[['biceps', 1]]]), readiness, T0 + 28 * HOUR_MS)
+		const pending = pendingRecovery(template([[['biceps', 1]]]), readiness, T0 + 21 * HOUR_MS)
 		expect(pending).toEqual([])
 	})
 
 	it('sorts most-binding first', () => {
 		const mixed = computeMuscleReadiness([
-			session([{ muscles: [['biceps', 1]], fatigueTier: 1 }], T0), // 1 unit → 30h
-			session([{ muscles: [['quads', 1]] }], T0 - 3 * HOUR_MS) // 0.25 units → 26h, earlier
+			session([{ muscles: [['biceps', 1]], fatigueTier: 1 }], T0), // 1 unit → 25h
+			session([{ muscles: [['quads', 1]] }], T0 - 3 * HOUR_MS) // 0.25 units → 17h, earlier
 		])
 		const pending = pendingRecovery(
 			template([

@@ -270,7 +270,7 @@ describe('projectUpcomingWorkouts recovery spacing', () => {
 	}
 
 	it('leaves rest days between workouts that share a muscle', () => {
-		// 6 sets x tier-1 chest -> 24 + 6*6 = 60h -> 3 days between starts.
+		// 6 sets x tier-1 chest -> 6 fatigue units -> 61h -> 3 days between starts.
 		const templates = [pressWorkout('wkt_a', 'Push A', 6), pressWorkout('wkt_b', 'Push B', 6)]
 		const days = buildWeekDays({ plans: [], sessions: [], now: NOW })
 
@@ -354,8 +354,8 @@ describe('projectUpcomingWorkouts recovery from logged sets', () => {
 	}
 
 	it('prices rest from the session that was logged, not the plan', () => {
-		// 6 working sets -> 6 fatigue units -> 24 + 36 = 60h -> Mon + 3 = Thu, then the
-		// template-priced B->A transition (also 60h) lands the second ghost on Sun.
+		// 6 working sets -> 6 fatigue units -> 61h -> Mon + 3 = Thu, then the
+		// template-priced B->A transition (also 61h) lands the second ghost on Sun.
 		expect(projectAfterLoggedSets(6)).toEqual([
 			[3, 'Push B'],
 			[6, 'Push A']
@@ -363,7 +363,7 @@ describe('projectUpcomingWorkouts recovery from logged sets', () => {
 	})
 
 	it('frees the next workout sooner when the session was cut short', () => {
-		// 1 working set -> 24 + 6 = 30h -> Mon + 2 = Wed, even though the template planned 6 sets.
+		// 1 working set -> 1 fatigue unit -> 25h -> Mon + 2 = Wed, even though the template planned 6 sets.
 		expect(projectAfterLoggedSets(1)).toEqual([
 			[2, 'Push B'],
 			[5, 'Push A']
