@@ -17,6 +17,8 @@ export interface ExerciseSearchProps {
 	exercises: Exercise[]
 	/** Per-exercise missing equipment at the active location. Unavailable exercises stay listed but get a warning badge. */
 	unavailable?: ReadonlyMap<Exercise['id'], Equipment[]>
+	/** Ranks what an empty query offers, lowest score first, under `label`. Omitted = an empty query shows nothing. */
+	suggestions?: { label: string; score: (exercise: Exercise) => number }
 	onSelect: (exercise: Exercise) => void
 }
 
@@ -27,7 +29,7 @@ const TYPE_BADGE = {
 
 const RESULT_CAP = 12
 
-export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, unavailable, onSelect }) => {
+export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, unavailable, suggestions, onSelect }) => {
 	const [search, setSearch] = useState('')
 	const [showDropdown, setShowDropdown] = useState(false)
 
@@ -38,7 +40,9 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, unavailable
 				.toSorted((a, b) => b.match.score - a.match.score)
 				.slice(0, RESULT_CAP)
 				.map(r => r.exercise)
-		: []
+		: suggestions
+			? exercises.toSorted((a, b) => suggestions.score(a) - suggestions.score(b)).slice(0, RESULT_CAP)
+			: []
 
 	const renderRow = (exercise: Exercise) => (
 		<button
@@ -82,8 +86,13 @@ export const ExerciseSearch: FC<ExerciseSearchProps> = ({ exercises, unavailable
 					className="pl-8"
 				/>
 			</div>
-			{showDropdown && search.length > 0 && (
+			{showDropdown && (search.length > 0 || suggestions) && (
 				<Card className="absolute top-full z-10 mt-1 w-full">
+					{!search && suggestions && (
+						<div className="px-3 pt-2 pb-1 font-mono text-[10px] text-ink-faint uppercase tracking-wide">
+							{suggestions.label}
+						</div>
+					)}
 					{filtered.map(renderRow)}
 					{filtered.length === 0 && (
 						<div className="px-3 py-2 text-ink-faint text-sm">No exercises found</div>

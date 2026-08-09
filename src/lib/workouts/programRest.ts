@@ -144,6 +144,43 @@ export function computeProgramRest(workouts: readonly RestWorkoutInput[]): RestT
 	})
 }
 
+/**
+ * Effective sets already carried per muscle by the workout at `index` AND its two cycle
+ * neighbours. Those are the three sessions an added exercise can collide with: work stacked
+ * inside the session itself, and work that extends the recovery debt `computeProgramRest`
+ * charges on the way in and on the way out. Neighbours dedupe, so a 1- or 2-workout cycle
+ * counts each workout once.
+ */
+export function cycleOverlapLoad(workouts: readonly RestWorkoutInput[], index: number): Map<MuscleGroup, number> {
+	const load = new Map<MuscleGroup, number>()
+	const cycleLength = workouts.length
+	if (cycleLength === 0 || index < 0 || index >= cycleLength) return load
+	const neighbourhood = new Set([index, (index - 1 + cycleLength) % cycleLength, (index + 1) % cycleLength])
+	for (const i of neighbourhood) {
+		for (const hit of collectWorkoutMuscles(workouts[i])) {
+			load.set(hit.muscleGroup, (load.get(hit.muscleGroup) ?? 0) + hit.effectiveSets)
+		}
+	}
+	return load
+}
+
+/**
+ * How much of an exercise lands on tissue that is already loaded — Σ(intensity × existing sets)
+ * over the muscles it hits. 0 = nothing around it trains those muscles. Sort ascending to
+ * suggest the exercises that add the least overlap.
+ */
+export function exerciseOverlapScore(
+	muscles: ReadonlyArray<{ muscleGroup: MuscleGroup; intensity: number }>,
+	load: ReadonlyMap<MuscleGroup, number>
+): number {
+	let score = 0
+	for (const m of muscles) {
+		if (m.intensity < REST_INTENSITY_THRESHOLD) continue
+		score += m.intensity * (load.get(m.muscleGroup) ?? 0)
+	}
+	return score
+}
+
 export type RecoveryBucket = 'fresh' | 'moderate' | 'heavy'
 
 /** Bucket recovery hours into a color band. ≤24h fresh, 25–48h moderate, >48h heavy. */
