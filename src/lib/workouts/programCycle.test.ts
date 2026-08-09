@@ -1,6 +1,6 @@
 import type { TypeIDString } from '@macromaxxing/db'
 import { describe, expect, it } from 'vitest'
-import { type ActiveProgramRef, type ProgramCycleSession, pickNextWorkout } from './programCycle'
+import { type ActiveProgramRef, type ProgramCycleSession, type ProgramSkip, pickNextWorkout } from './programCycle'
 
 const wkt = (n: string): TypeIDString<'wkt'> => `wkt_${n}` as TypeIDString<'wkt'>
 const wpr = (n: string): TypeIDString<'wpr'> => `wpr_${n}` as TypeIDString<'wpr'>
@@ -10,6 +10,7 @@ const completed = (workoutId: string, completedAt: number): ProgramCycleSession 
 	workoutId: wkt(workoutId),
 	completedAt
 })
+const skipped = (workoutId: string, skippedAt: number): ProgramSkip => ({ workoutId: wkt(workoutId), skippedAt })
 
 describe('pickNextWorkout', () => {
 	describe('legacy mode (no active program)', () => {
@@ -69,7 +70,8 @@ describe('pickNextWorkout', () => {
 				programName: 'PPL',
 				programId: wpr('p'),
 				day: 1,
-				total: 3
+				total: 3,
+				skippedWorkoutId: null
 			})
 		})
 
@@ -141,6 +143,51 @@ describe('pickNextWorkout', () => {
 			// Caller passes sessions ordered desc by completedAt; we re-sort defensively.
 			const sessions = [completed('a', 1000), completed('b', 5000)]
 			expect(pickNextWorkout(templates, sessions, program)).toMatchObject({ template: tpl('c'), day: 3 })
+		})
+	})
+
+	describe('skips', () => {
+		const templates = [tpl('a'), tpl('b'), tpl('c')]
+		const program: ActiveProgramRef = {
+			id: wpr('p'),
+			name: 'PPL',
+			workoutIds: [wkt('a'), wkt('b'), wkt('c')]
+		}
+
+		it('moves past the skipped workout and names it for undo', () => {
+			const result = pickNextWorkout(templates, [completed('a', 1000)], program, [skipped('b', 2000)])
+			expect(result).toMatchObject({ template: tpl('c'), day: 3, skippedWorkoutId: wkt('b') })
+		})
+
+		it('a later completion supersedes the skip', () => {
+			const result = pickNextWorkout(templates, [completed('b', 3000)], program, [skipped('b', 2000)])
+			expect(result).toMatchObject({ template: tpl('c'), day: 3, skippedWorkoutId: null })
+		})
+
+		it('a skip after a completion of the same workout still advances', () => {
+			// Trained 'a', then skipped 'b' — the skip is the later event, so 'c' is up.
+			const result = pickNextWorkout(templates, [completed('a', 1000)], program, [skipped('b', 1500)])
+			expect(result).toMatchObject({ template: tpl('c'), day: 3 })
+		})
+
+		it('consecutive skips each advance one step', () => {
+			const skips = [skipped('b', 2000), skipped('c', 3000)]
+			expect(pickNextWorkout(templates, [completed('a', 1000)], program, skips)).toMatchObject({
+				template: tpl('a'),
+				day: 1,
+				skippedWorkoutId: wkt('c')
+			})
+		})
+
+		it('ignores skips of workouts outside the active program', () => {
+			const off: ActiveProgramRef = { ...program, workoutIds: [wkt('a'), wkt('b')] }
+			const result = pickNextWorkout(templates, [completed('a', 1000)], off, [skipped('c', 5000)])
+			expect(result).toMatchObject({ template: tpl('b'), day: 2, skippedWorkoutId: null })
+		})
+
+		it('a skip with no prior completion anchors from day 1', () => {
+			const result = pickNextWorkout(templates, [], program, [skipped('a', 1000)])
+			expect(result).toMatchObject({ template: tpl('b'), day: 2, skippedWorkoutId: wkt('a') })
 		})
 	})
 })

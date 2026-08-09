@@ -25,6 +25,7 @@ import type {
 	workoutProgramItems,
 	workoutPrograms,
 	workoutSessions,
+	workoutSkips,
 	workouts
 } from './schema'
 
@@ -49,6 +50,7 @@ export type Workout = InferSelectModel<typeof workouts>
 export type WorkoutExercise = InferSelectModel<typeof workoutExercises>
 export type WorkoutProgram = InferSelectModel<typeof workoutPrograms>
 export type WorkoutProgramItem = InferSelectModel<typeof workoutProgramItems>
+export type WorkoutSkip = InferSelectModel<typeof workoutSkips>
 export type WorkoutSession = InferSelectModel<typeof workoutSessions>
 export type SessionPlannedExercise = InferSelectModel<typeof sessionPlannedExercises>
 export type WorkoutLog = InferSelectModel<typeof workoutLogs>

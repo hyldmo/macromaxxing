@@ -40,6 +40,7 @@ import {
 	workoutProgramItems,
 	workoutPrograms,
 	workoutSessions,
+	workoutSkips,
 	workouts,
 	zodTypeID
 } from '@macromaxxing/db'
@@ -2984,6 +2985,28 @@ export const workoutsRouter = router({
 					.set({ sortOrder: i, updatedAt: now })
 					.where(and(eq(workoutPrograms.id, input.ids[i]), eq(workoutPrograms.userId, ctx.user.id)))
 			}
+		}),
+
+	skipWorkout: protectedProcedure
+		.meta({
+			description:
+				'Record that a workout in the rotation was skipped, so Dashboard "Up next" moves past it to the following one. The skip anchors the cycle the way a completed session does, and the next completed in-program session supersedes it automatically.'
+		})
+		.input(z.object({ workoutId: zodTypeID('wkt') }))
+		.mutation(async ({ ctx, input }) => {
+			await assertWorkoutsOwned(ctx.db, ctx.user.id, [input.workoutId])
+			const skip = { id: newId('wsk'), userId: ctx.user.id, workoutId: input.workoutId, skippedAt: Date.now() }
+			await ctx.db.insert(workoutSkips).values(skip)
+			return skip
+		}),
+
+	unskipWorkout: protectedProcedure
+		.meta({ description: 'Undo a skip, putting the workout back as "Up next".' })
+		.input(z.object({ id: zodTypeID('wsk') }))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
+				.delete(workoutSkips)
+				.where(and(eq(workoutSkips.id, input.id), eq(workoutSkips.userId, ctx.user.id)))
 		}),
 
 	programMuscleLoad: protectedProcedure

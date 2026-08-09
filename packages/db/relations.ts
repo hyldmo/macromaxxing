@@ -14,6 +14,7 @@ export const relations = defineRelations(schema, r => ({
 		workouts: r.many.workouts(),
 		workoutSessions: r.many.workoutSessions(),
 		workoutPrograms: r.many.workoutPrograms(),
+		workoutSkips: r.many.workoutSkips(),
 		locations: r.many.locations(),
 		apiTokens: r.many.apiTokens()
 	},
@@ -186,6 +187,7 @@ export const relations = defineRelations(schema, r => ({
 		exercises: r.many.workoutExercises(),
 		sessions: r.many.workoutSessions(),
 		programItems: r.many.workoutProgramItems(),
+		skips: r.many.workoutSkips(),
 		// locationId is nullable (null = no location set)
 		location: r.one.locations({
 			from: r.workouts.locationId,
@@ -210,6 +212,19 @@ export const relations = defineRelations(schema, r => ({
 		}),
 		workout: r.one.workouts({
 			from: r.workoutProgramItems.workoutId,
+			to: r.workouts.id,
+			optional: false
+		})
+	},
+
+	workoutSkips: {
+		user: r.one.users({
+			from: r.workoutSkips.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		workout: r.one.workouts({
+			from: r.workoutSkips.workoutId,
 			to: r.workouts.id,
 			optional: false
 		})

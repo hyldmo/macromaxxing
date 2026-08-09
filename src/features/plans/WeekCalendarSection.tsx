@@ -60,9 +60,10 @@ export const WeekCalendarSection: FC = () => {
 				days,
 				templates: data?.templates ?? [],
 				sessions: data?.sessions ?? [],
-				activeProgram: data?.activeProgram ?? null
+				activeProgram: data?.activeProgram ?? null,
+				skips: data?.skips
 			}),
-		[days, data?.templates, data?.sessions, data?.activeProgram]
+		[days, data?.templates, data?.sessions, data?.activeProgram, data?.skips]
 	)
 	const nextDay = Math.min(...upcoming.keys())
 
