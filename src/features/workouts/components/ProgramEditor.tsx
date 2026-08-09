@@ -2,17 +2,23 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { TypeIDString } from '@macromaxxing/db'
-import { GripVertical, MapPin, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { GripVertical, MapPin, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { type FC, Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button, Card, CopyButton, Input, Select, Spinner, TRPCError } from '~/components/ui'
 import { cn, formatProgram, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
-import { collectWorkoutMuscles, computeProgramRest, findOptimalOrder } from '~/lib/workouts/programRest'
+import {
+	collectWorkoutMuscles,
+	computeProgramRest,
+	cycleOverlapLoad,
+	findOptimalOrder
+} from '~/lib/workouts/programRest'
 import { MuscleVolumeChip } from './MuscleChip'
 import { ProgramCyclePreview } from './ProgramCyclePreview'
 import { BelowMevWarning, ProgramMuscleSidebar } from './ProgramMuscleSidebar'
 import { ProgramRestTransition } from './ProgramRestTransition'
+import { ProgramWorkoutEditor } from './ProgramWorkoutEditor'
 
 type WorkoutTemplate = RouterOutput['workout']['listWorkouts'][number]
 
@@ -36,6 +42,8 @@ export const ProgramEditor: FC = () => {
 	const [name, setName] = useState('')
 	const [items, setItems] = useState<DraftItem[]>([])
 	const [pickerValue, setPickerValue] = useState<string>('')
+	const [editingId, setEditingId] = useState<WorkoutId | null>(null)
+	const [editorDirty, setEditorDirty] = useState(false)
 
 	useEffect(() => {
 		if (!isNew && programQuery.data) {
@@ -83,21 +91,23 @@ export const ProgramEditor: FC = () => {
 		updateMutation.isSuccess ||
 		deleteMutation.isPending ||
 		deleteMutation.isSuccess
-	useUnsavedChanges(dirty && !isMutating)
+	useUnsavedChanges((dirty || editorDirty) && !isMutating)
 
 	const availableWorkouts = useMemo(() => {
 		const used = new Set(items.map(i => i.workoutId))
 		return workoutsQuery.data?.filter(w => !used.has(w.id)) ?? []
 	}, [workoutsQuery.data, items])
 
-	const resolvedItems = useMemo(() => {
-		if (!workoutsQuery.data) return []
-		const byId = new Map(workoutsQuery.data.map(w => [w.id, w]))
-		return items.flatMap(i => {
-			const w = byId.get(i.workoutId)
-			return w ? [w] : []
-		})
-	}, [items, workoutsQuery.data])
+	const workoutsById = useMemo(() => new Map((workoutsQuery.data ?? []).map(w => [w.id, w])), [workoutsQuery.data])
+
+	const resolvedItems = useMemo(
+		() =>
+			items.flatMap(i => {
+				const w = workoutsById.get(i.workoutId)
+				return w ? [w] : []
+			}),
+		[items, workoutsById]
+	)
 
 	const restTransitions = useMemo(() => computeProgramRest(resolvedItems), [resolvedItems])
 
@@ -214,17 +224,45 @@ export const ProgramEditor: FC = () => {
 								>
 									<div className="space-y-1">
 										{items.map((item, i) => {
-											const workout = resolvedItems[i]
+											const workout = workoutsById.get(item.workoutId)
 											const transition = restTransitions[i]
 											const isWrap = i === items.length - 1
+											const isEditing = editingId === item.workoutId
 											return (
 												<Fragment key={item.workoutId}>
 													<DraggableItemRow
 														index={i}
 														item={item}
 														workout={workout}
+														isEditing={isEditing}
+														onEdit={
+															workout
+																? () => setEditingId(isEditing ? null : workout.id)
+																: undefined
+														}
 														onRemove={() => removeWorkout(item.workoutId)}
 													/>
+													{isEditing && workout && (
+														<ProgramWorkoutEditor
+															key={workout.id}
+															workout={workout}
+															overlapLoad={cycleOverlapLoad(
+																resolvedItems,
+																resolvedItems.findIndex(w => w.id === workout.id)
+															)}
+															onDirtyChange={setEditorDirty}
+															onSaved={savedName =>
+																setItems(prev =>
+																	prev.map(it =>
+																		it.workoutId === workout.id
+																			? { ...it, name: savedName }
+																			: it
+																	)
+																)
+															}
+															onClose={() => setEditingId(null)}
+														/>
+													)}
 													{transition && items.length > 1 && (
 														<ProgramRestTransition
 															transition={transition}
@@ -252,7 +290,10 @@ export const ProgramEditor: FC = () => {
 										className="flex-1"
 										options={[
 											{ value: '', label: 'Add a workout…' },
-											...availableWorkouts.map(w => ({ value: w.id, label: w.name }))
+											...availableWorkouts.map(w => ({
+												value: w.id,
+												label: w.location ? `${w.name} @ ${w.location.name}` : w.name
+											}))
 										]}
 									/>
 									<Button
@@ -316,10 +357,13 @@ interface DraggableItemRowProps {
 	index: number
 	item: DraftItem
 	workout: WorkoutTemplate | undefined
+	isEditing: boolean
+	/** Undefined until the template resolves from the cache — nothing to edit before then. */
+	onEdit?: () => void
 	onRemove: () => void
 }
 
-const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, onRemove }) => {
+const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, isEditing, onEdit, onRemove }) => {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.workoutId })
 	const style = { transform: CSS.Translate.toString(transform), transition }
 
@@ -387,6 +431,18 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, onR
 					</div>
 				)}
 			</div>
+			{onEdit && (
+				<Button
+					variant="ghost"
+					size="icon"
+					onClick={onEdit}
+					aria-label={`Edit ${item.name}`}
+					title="Edit exercises inline"
+					className={cn('self-start', isEditing && 'text-accent')}
+				>
+					<Pencil className="size-4" />
+				</Button>
+			)}
 			{workout && (
 				<CopyButton
 					variant="ghost"

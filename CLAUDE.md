@@ -196,6 +196,11 @@ src/
         ProgramCard.tsx                     # Program row: star toggle for active + N sets/cycle stat
         ProgramsSection.tsx                 # Programs list + "New program" CTA, embedded into /plans
         ProgramEditor.tsx                   # Shared by /plans/programs/new and /plans/programs/:id (drag-reorder workouts + sidebar)
+        ProgramWorkoutEditor.tsx            # Inline panel under a program row: workout name + which exercises and in
+                                            #   what order. Adds via ExerciseSearch, whose empty-query suggestions rank
+                                            #   by cycleOverlapLoad (this workout + both cycle neighbours). Saves with
+                                            #   updateWorkout sending only id+exerciseId per row, so targets/modes/
+                                            #   supersets set on /workouts/:id survive
         ProgramCyclePreview.tsx             # Numbered cycle: "1. Push → 2. Pull → wraps to 1"
         ProgramMuscleSidebar.tsx            # Stats + BodyMap + balance bars; exports BelowMevWarning
         LastSessionHint.tsx                 # Inline "last time: 80kg × 8" hint above set rows

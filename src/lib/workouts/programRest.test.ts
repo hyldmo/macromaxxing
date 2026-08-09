@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
 	classifyRecovery,
 	computeProgramRest,
+	cycleOverlapLoad,
+	exerciseOverlapScore,
 	findOptimalOrder,
 	programCycleDays,
 	type RestWorkoutInput,
@@ -250,6 +252,65 @@ describe('programCycleDays', () => {
 		const b = w([{ muscles: [['lats', 1]] }])
 		const c = w([{ muscles: [['quads', 1]] }])
 		expect(programCycleDays([a, b, c])).toBe(3)
+	})
+})
+
+describe('cycleOverlapLoad', () => {
+	it('sums the workout and both cycle neighbours, skipping the rest of the cycle', () => {
+		const push = w([{ muscles: [['chest', 1]] }])
+		const pull = w([{ muscles: [['lats', 1]] }])
+		const legs = w([{ muscles: [['quads', 1]] }])
+		const arms = w([{ muscles: [['biceps', 1]] }])
+		// Cycle push → pull → legs → arms. Editing legs sees pull, legs, arms — never push.
+		const load = cycleOverlapLoad([push, pull, legs, arms], 2)
+		expect(load.get('lats')).toBe(3)
+		expect(load.get('quads')).toBe(3)
+		expect(load.get('biceps')).toBe(3)
+		expect(load.has('chest')).toBe(false)
+	})
+
+	it('counts a workout once when it is its own neighbour', () => {
+		const chest = w([{ muscles: [['chest', 1]], targetSets: 4 }])
+		expect(cycleOverlapLoad([chest], 0).get('chest')).toBe(4)
+		expect(cycleOverlapLoad([chest, w([{ muscles: [['lats', 1]] }])], 0).get('chest')).toBe(4)
+	})
+
+	it('returns empty for an out-of-range index', () => {
+		expect(cycleOverlapLoad([w([{ muscles: [['chest', 1]] }])], 1).size).toBe(0)
+		expect(cycleOverlapLoad([], 0).size).toBe(0)
+	})
+})
+
+describe('exerciseOverlapScore', () => {
+	const load = new Map<MuscleGroup, number>([
+		['chest', 6],
+		['triceps', 2]
+	])
+
+	it('scores untouched muscles at zero', () => {
+		expect(exerciseOverlapScore([{ muscleGroup: 'calves', intensity: 1 }], load)).toBe(0)
+	})
+
+	it('weights each hit muscle by intensity × sets already on it', () => {
+		const score = exerciseOverlapScore(
+			[
+				{ muscleGroup: 'chest', intensity: 1 },
+				{ muscleGroup: 'triceps', intensity: 0.5 }
+			],
+			load
+		)
+		expect(score).toBe(7)
+	})
+
+	it('ignores incidental involvement below the rest threshold', () => {
+		expect(exerciseOverlapScore([{ muscleGroup: 'chest', intensity: 0.2 }], load)).toBe(0)
+	})
+
+	it('ranks the freshest tissue first when sorted ascending', () => {
+		const bench = [{ muscleGroup: 'chest' as const, intensity: 1 }]
+		const curl = [{ muscleGroup: 'biceps' as const, intensity: 1 }]
+		const ranked = [bench, curl].toSorted((a, b) => exerciseOverlapScore(a, load) - exerciseOverlapScore(b, load))
+		expect(ranked[0]).toBe(curl)
 	})
 })
 
