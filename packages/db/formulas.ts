@@ -41,9 +41,26 @@ export function addedWeightKg(bwMultiplier: number, bodyWeightKg: number | null,
 	return Math.max(0, effectiveKg - bodyWeightKg * bwMultiplier)
 }
 
-/** Total volume = Σ(weight * reps) */
-export function totalVolume(logs: Array<{ weightKg: number; reps: number; sets?: number }>): number {
-	return logs.reduce((sum, { weightKg, reps, sets = 1 }) => sum + weightKg * reps * sets, 0)
+/**
+ * A set's weight is per implement, so its volume is `weight × reps × implements`: a pair of 30 kg
+ * dumbbells for 10 moves 600 kg, not 300. Callers derive the count with `implementCount` from
+ * ./weights; it is optional here (defaulting to one implement) so this file stays free of equipment
+ * knowledge and out of an import cycle with weights.ts.
+ */
+export interface VolumeSet {
+	weightKg: number
+	reps: number
+	sets?: number
+	/** Implements carrying the load — 2 for a pair of bells. Defaults to 1. */
+	implementCount?: number
+}
+
+/** Total volume = Σ(weight * reps * implements) */
+export function totalVolume(logs: readonly VolumeSet[]): number {
+	return logs.reduce(
+		(sum, { weightKg, reps, sets = 1, implementCount = 1 }) => sum + weightKg * reps * sets * implementCount,
+		0
+	)
 }
 
 /**
@@ -88,6 +105,8 @@ export function summarizeSessionLogs(
 		setType: SetType
 		weightKg: number
 		reps: number
+		/** Implements carrying the load — see `implementCount` in ./weights. Defaults to 1. */
+		implementCount?: number
 		exercise: { name: string }
 	}>
 ): SessionSummary {
@@ -112,7 +131,7 @@ export function summarizeSessionLogs(
 		if (!isHardSet(log)) continue
 
 		entry.hardSets += 1
-		entry.volumeKg += log.weightKg * log.reps
+		entry.volumeKg += log.weightKg * log.reps * (log.implementCount ?? 1)
 
 		if (log.weightKg <= 0 || log.reps <= 0) continue
 		const e1rm = estimated1RM(log.weightKg, log.reps)
@@ -140,11 +159,22 @@ export interface E1rmStat {
 	volume: number
 }
 
-/** Per-exercise estimated 1RM stats from a list of logs, sorted by highest e1RM */
+/**
+ * Per-exercise estimated 1RM stats from a list of logs, sorted by highest e1RM.
+ *
+ * `implementCount` reaches `volume` only. e1RM stays per implement — a 30 kg dumbbell press is a
+ * 30 kg press, and comparing it against a 60 kg barbell would be comparing two different lifts.
+ */
 export function exerciseE1rmStats(
-	logs: ReadonlyArray<{ exerciseId: string; weightKg: number; reps: number; exercise: { name: string } }>
+	logs: ReadonlyArray<{
+		exerciseId: string
+		weightKg: number
+		reps: number
+		implementCount?: number
+		exercise: { name: string }
+	}>
 ): E1rmStat[] {
-	const byExercise = new Map<string, { name: string; logs: Array<{ weightKg: number; reps: number }> }>()
+	const byExercise = new Map<string, { name: string; logs: VolumeSet[] }>()
 
 	for (const log of logs) {
 		const existing = byExercise.get(log.exerciseId)

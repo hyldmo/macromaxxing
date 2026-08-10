@@ -3,7 +3,14 @@ import { MapPin, Pencil, Play } from 'lucide-react'
 import { forwardRef, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button, Card } from '~/components/ui'
-import { cn, effectiveSetWeightKg, generatePlannedSets, resolveExerciseTargets, totalVolume } from '~/lib'
+import {
+	cn,
+	effectiveSetWeightKg,
+	generatePlannedSets,
+	implementCount,
+	resolveExerciseTargets,
+	totalVolume
+} from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
 
@@ -23,10 +30,12 @@ function workoutVolume(workout: Workout, bodyWeightKg: number | null): number {
 			warmedUpMuscles,
 			bwMultiplier: we.exercise.bwMultiplier
 		})
+		const implementsPerSet = implementCount(we.exercise.equipment)
 		vol += totalVolume(
 			planned.map(s => ({
 				weightKg: effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, s.weightKg ?? 0),
-				reps: s.reps
+				reps: s.reps,
+				implementCount: implementsPerSet
 			}))
 		)
 	}

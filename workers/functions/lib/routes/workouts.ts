@@ -13,6 +13,7 @@ import {
 	exerciseType,
 	type FatigueTier,
 	generateBackoffSets,
+	implementCount,
 	type LoadClass,
 	loadClass,
 	locationEquipment,
@@ -1113,7 +1114,7 @@ export const workoutsRouter = router({
 					workout: true,
 					location: true,
 					logs: {
-						with: { exercise: { with: { muscles: true } } },
+						with: { exercise: { with: { muscles: true, equipment: true } } },
 						orderBy: { createdAt: 'asc' }
 					}
 				},
@@ -1138,7 +1139,7 @@ export const workoutsRouter = router({
 					},
 					location: { with: { equipment: true } },
 					logs: {
-						with: { exercise: { with: { muscles: true } } },
+						with: { exercise: { with: { muscles: true, equipment: true } } },
 						orderBy: { createdAt: 'asc' }
 					},
 					plannedExercises: {
@@ -1640,16 +1641,22 @@ export const workoutsRouter = router({
 			const cutoffMs = WINDOW_CUTOFF_MS[input.window]
 			const since = Date.now() - cutoffMs
 
-			const sessions = await ctx.db.query.workoutSessions.findMany({
-				where: { userId: ctx.user.id, startedAt: { gte: since } },
-				with: {
-					logs: {
-						where: { exerciseId: input.exerciseId, setType: 'working' },
-						orderBy: { createdAt: 'asc' }
-					}
-				},
-				orderBy: { startedAt: 'asc' }
-			})
+			// One exercise for the whole series, so its implement count is fetched once rather than
+			// joined onto every log row.
+			const [sessions, equipment] = await Promise.all([
+				ctx.db.query.workoutSessions.findMany({
+					where: { userId: ctx.user.id, startedAt: { gte: since } },
+					with: {
+						logs: {
+							where: { exerciseId: input.exerciseId, setType: 'working' },
+							orderBy: { createdAt: 'asc' }
+						}
+					},
+					orderBy: { startedAt: 'asc' }
+				}),
+				ctx.db.query.exerciseEquipment.findMany({ where: { exerciseId: input.exerciseId } })
+			])
+			const implementsPerSet = implementCount(equipment)
 
 			const out: Array<{
 				sessionId: TypeIDString<'wks'>
@@ -1673,7 +1680,7 @@ export const workoutsRouter = router({
 				let weightedCount = 0
 
 				for (const log of session.logs) {
-					volume += log.weightKg * log.reps
+					volume += log.weightKg * log.reps * implementsPerSet
 					// Skip invalid sets for e1RM but still count them for volume/setCount.
 					if (log.weightKg <= 0 || log.reps <= 0) continue
 					weightedCount += 1
@@ -1900,7 +1907,7 @@ export const workoutsRouter = router({
 
 			const sessions = await ctx.db.query.workoutSessions.findMany({
 				where: { userId: ctx.user.id, startedAt: { gte: since } },
-				with: { logs: { with: { exercise: { with: { muscles: true } } } } }
+				with: { logs: { with: { exercise: { with: { muscles: true, equipment: true } } } } }
 			})
 
 			const contributions: MuscleContribution[] = []
@@ -1911,6 +1918,7 @@ export const workoutsRouter = router({
 				const sessionMuscles = new Set<MuscleGroup>()
 				for (const log of session.logs) {
 					if (log.setType === 'warmup') continue
+					const implementsPerSet = implementCount(log.exercise.equipment)
 					for (const m of log.exercise.muscles) {
 						contributions.push({
 							muscleGroup: m.muscleGroup,
@@ -1918,6 +1926,7 @@ export const workoutsRouter = router({
 							sets: 1,
 							reps: log.reps,
 							weightKg: log.weightKg,
+							implementCount: implementsPerSet,
 							exerciseType: log.exercise.type,
 							fatigueTier: log.exercise.fatigueTier,
 							trainingGoal: 'hypertrophy'
@@ -1985,7 +1994,7 @@ export const workoutsRouter = router({
 					userId: ctx.user.id,
 					...(input.days ? { startedAt: { gte: Date.now() - input.days * 24 * 60 * 60 * 1000 } } : {})
 				},
-				with: { workout: true, logs: { with: { exercise: { with: { muscles: true } } } } },
+				with: { workout: true, logs: { with: { exercise: { with: { muscles: true, equipment: true } } } } },
 				orderBy: { startedAt: 'desc' }
 			})
 
@@ -2011,6 +2020,7 @@ export const workoutsRouter = router({
 						sets: 1,
 						reps: log.reps,
 						weightKg: log.weightKg,
+						implementCount: implementCount(log.exercise.equipment),
 						exerciseType: log.exercise.type,
 						fatigueTier: log.exercise.fatigueTier,
 						trainingGoal: 'hypertrophy'
@@ -2052,6 +2062,7 @@ export const workoutsRouter = router({
 	coverageStats: protectedProcedure
 		.meta({ description: 'Weekly-volume muscle coverage (sets per group assuming each template is done once)' })
 		.query(async ({ ctx }) => {
+			// Sets only, no volume — so no equipment join and no implement counts here.
 			const userWorkouts = await ctx.db.query.workouts.findMany({
 				where: { userId: ctx.user.id },
 				with: {
@@ -2108,7 +2119,7 @@ export const workoutsRouter = router({
 					id: input.exerciseId,
 					OR: [{ userId: { isNull: true } }, { userId: ctx.user.id }]
 				},
-				with: { muscles: true }
+				with: { muscles: true, equipment: true }
 			})
 			if (!exercise) throw new TRPCError({ code: 'NOT_FOUND', message: 'Exercise not found' })
 
@@ -2118,6 +2129,7 @@ export const workoutsRouter = router({
 				sets: input.sets,
 				reps: input.reps,
 				weightKg: input.weightKg,
+				implementCount: implementCount(exercise.equipment),
 				exerciseType: exercise.type,
 				fatigueTier: exercise.fatigueTier,
 				trainingGoal: input.trainingGoal
@@ -2188,7 +2200,7 @@ export const workoutsRouter = router({
 				where: { id: input.sessionId, userId: ctx.user.id },
 				with: {
 					workout: true,
-					logs: { with: { exercise: { with: { muscles: true } } } },
+					logs: { with: { exercise: { with: { muscles: true, equipment: true } } } },
 					plannedExercises: true
 				}
 			})
@@ -2206,6 +2218,7 @@ export const workoutsRouter = router({
 				if (log.setType === 'warmup') continue
 				workingSetCount += 1
 				const goal = plannedGoalByExercise.get(log.exerciseId) ?? workoutGoal
+				const implementsPerSet = implementCount(log.exercise.equipment)
 				for (const m of log.exercise.muscles) {
 					contributions.push({
 						muscleGroup: m.muscleGroup,
@@ -2213,6 +2226,7 @@ export const workoutsRouter = router({
 						sets: 1,
 						reps: log.reps,
 						weightKg: log.weightKg,
+						implementCount: implementsPerSet,
 						exerciseType: log.exercise.type,
 						fatigueTier: log.exercise.fatigueTier,
 						trainingGoal: goal
@@ -2259,7 +2273,7 @@ export const workoutsRouter = router({
 
 			const sessions = await ctx.db.query.workoutSessions.findMany({
 				where: { userId: ctx.user.id, startedAt: { gte: since } },
-				with: { logs: { with: { exercise: { with: { muscles: true } } } } }
+				with: { logs: { with: { exercise: { with: { muscles: true, equipment: true } } } } }
 			})
 
 			type Window = { workingSets: number; volumeKg: number }
@@ -2275,10 +2289,11 @@ export const workoutsRouter = router({
 				if (windowIndex < 0 || windowIndex > lookbackWindows) continue
 				for (const log of s.logs) {
 					if (log.setType === 'warmup') continue
+					const setVolume = log.weightKg * log.reps * implementCount(log.exercise.equipment)
 					for (const m of log.exercise.muscles) {
 						const bucket = windowsByMuscle.get(m.muscleGroup)![windowIndex]
 						bucket.workingSets += m.intensity
-						bucket.volumeKg += log.weightKg * log.reps * m.intensity
+						bucket.volumeKg += setVolume * m.intensity
 					}
 				}
 			}

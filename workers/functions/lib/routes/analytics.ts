@@ -8,6 +8,7 @@
  */
 import {
 	estimated1RM,
+	implementCount,
 	isE1rmPR,
 	isStalledExercise,
 	MUSCLE_GROUPS,
@@ -252,7 +253,7 @@ export const analyticsRouter = router({
 				with: {
 					logs: {
 						where: hardSets,
-						with: { exercise: { with: { muscles: true } } }
+						with: { exercise: { with: { muscles: true, equipment: true } } }
 					}
 				}
 			})
@@ -274,10 +275,11 @@ export const analyticsRouter = router({
 				// Sessions older than priorStart are already filtered by the `gte: priorStart` query.
 				const isCurrent = session.startedAt >= currentStart
 				for (const log of session.logs) {
+					const setVolume = log.weightKg * log.reps * implementCount(log.exercise.equipment)
 					for (const m of log.exercise.muscles) {
 						const bucket = isCurrent ? get(m.muscleGroup).current : get(m.muscleGroup).prior
 						bucket.sets += m.intensity
-						bucket.volume += log.weightKg * log.reps * m.intensity
+						bucket.volume += setVolume * m.intensity
 					}
 				}
 			}
@@ -371,7 +373,7 @@ export const analyticsRouter = router({
 				with: {
 					logs: {
 						where: hardSets,
-						with: { exercise: { with: { muscles: true } } }
+						with: { exercise: { with: { muscles: true, equipment: true } } }
 					}
 				}
 			})
@@ -397,7 +399,7 @@ export const analyticsRouter = router({
 				const bucket = perWeek.get(key)
 				if (!bucket) continue
 				for (const log of session.logs) {
-					const setVolume = log.weightKg * log.reps
+					const setVolume = log.weightKg * log.reps * implementCount(log.exercise.equipment)
 					if (setVolume <= 0) continue
 					for (const m of log.exercise.muscles) {
 						bucket[m.muscleGroup] = (bucket[m.muscleGroup] ?? 0) + setVolume * m.intensity

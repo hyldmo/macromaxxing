@@ -10,6 +10,7 @@ export {
 	effectiveSetWeightKg,
 	estimated1RM,
 	exerciseE1rmStats,
+	implementCount,
 	isE1rmPR,
 	isHardSet,
 	isStalledExercise,
@@ -21,6 +22,7 @@ export {
 	type SessionSummary,
 	summarizeSessionLogs,
 	totalVolume,
+	type VolumeSet,
 	type WeightUnit,
 	weightForReps,
 	weightStepKg
@@ -30,12 +32,41 @@ import {
 	addedWeightKg,
 	type EquipmentRequirement,
 	estimated1RM,
+	implementCount,
 	nextLoadableWeight,
 	roundWeight,
 	snapperInputFor,
+	totalVolume,
 	type WeightLadders,
 	weightForReps
 } from '@macromaxxing/db'
+
+/** A logged set carrying enough of its exercise to price the load it moved. */
+interface VolumeLog {
+	weightKg: number
+	reps: number
+	exercise: { equipment: readonly EquipmentRequirement[] }
+}
+
+/**
+ * Resolve each log's implement count off its exercise's equipment, so volume counts both bells of
+ * a dumbbell lift. The mirror of `withImplementCount` in workers/lib/workout-response, kept out of
+ * `@macromaxxing/db/formulas` so that module needs no equipment knowledge (and no import cycle
+ * with weights.ts, which already reads from it).
+ */
+export function withImplementCount<L extends VolumeLog>(logs: readonly L[]): Array<L & { implementCount: number }> {
+	return logs.map(log => ({ ...log, implementCount: implementCount(log.exercise.equipment) }))
+}
+
+/**
+ * kg·reps over logged sets, counting both bells of a dumbbell lift.
+ *
+ * Every UI volume readout goes through this rather than `totalVolume` directly, so a session's
+ * header total keeps matching the sum of its per-exercise cards and the server's `summary`.
+ */
+export function loggedVolume(logs: readonly VolumeLog[]): number {
+	return totalVolume(withImplementCount(logs))
+}
 
 // ─── Rep Range Resolution ───────────────────────────────────────────
 

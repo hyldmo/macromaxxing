@@ -2,7 +2,7 @@ import type { SetMode, SetType, TrainingGoal } from '@macromaxxing/db'
 import { ArrowLeftRight, ChevronDown, ChevronRight, Plus } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, NumberInput } from '~/components/ui'
-import { isHardSet, type PlannedSet, totalVolume, weightStepKg } from '~/lib'
+import { isHardSet, loggedVolume, type PlannedSet, weightStepKg } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { TrainingGoalToggle } from '../TrainingGoalToggle'
 import { WorkoutModes } from '../WorkoutMode'
@@ -57,7 +57,7 @@ export const ExerciseSetForm: FC<ExerciseSetFormProps> = ({
 	)
 	const [uncheckedIds, setUncheckedIds] = useState<Set<string>>(new Set())
 
-	const vol = totalVolume(logs.filter(l => isHardSet(l) && !uncheckedIds.has(l.id)))
+	const vol = loggedVolume(logs.filter(l => isHardSet(l) && !uncheckedIds.has(l.id)))
 
 	// Track fulfillment per set type
 	const warmupLogs = logs.filter(l => l.setType === 'warmup')

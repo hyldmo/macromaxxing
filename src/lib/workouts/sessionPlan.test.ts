@@ -7,14 +7,16 @@ type SessionExercise = SessionLog['exercise']
 
 const exc = (id: string) => id as Exercise['id']
 
-// Fixtures cast at the boundary — buildSessionPlan reads name/muscles/bwMultiplier
-// from the exercise; logs only need exerciseId/setType linkage.
+// Fixtures cast at the boundary — buildSessionPlan reads name/muscles/bwMultiplier/equipment
+// from the exercise; logs only need exerciseId/setType linkage. `equipment` carries just the
+// value, not the join row's ids, which is all `loadClass`/`implementCount` read.
 function makeExercise(
 	id: string,
 	name: string,
-	muscles: Array<{ muscleGroup: string; intensity: number }> = []
+	muscles: Array<{ muscleGroup: string; intensity: number }> = [],
+	equipment: Array<{ equipment: string }> = []
 ): SessionExercise {
-	return { id, name, muscles, bwMultiplier: 0, fatigueTier: 2 } as unknown as SessionExercise
+	return { id, name, muscles, equipment, bwMultiplier: 0, fatigueTier: 2 } as unknown as SessionExercise
 }
 
 function makeRow(overrides: Partial<PlannedExerciseRow> & { exerciseId: Exercise['id'] }): PlannedExerciseRow {
@@ -62,10 +64,7 @@ describe('buildSessionPlan', () => {
 	})
 
 	it('warms up on a weight the gym actually has, and keeps the backoff on the plate grid', () => {
-		const dumbbell = {
-			...makeExercise(exc('exc_db'), 'DB Press'),
-			equipment: [{ equipment: 'dumbbell' as const }]
-		}
+		const dumbbell = makeExercise(exc('exc_db'), 'DB Press', [], [{ equipment: 'dumbbell' }])
 		const plan = buildSessionPlan({
 			plannedExercises: [
 				{

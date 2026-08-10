@@ -240,7 +240,8 @@ packages/db/                                # Shared package @macromaxxing/db
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
   weights.ts                                # The ONE place a computed load (warmup %, backoff %, estimate) becomes a
                                             #   weight someone can lift: LOAD_CLASSES/loadClass (which equipment carries
-                                            #   the weight) + weightSnapper/snapperFor. See Loadable weights below
+                                            #   the weight) + weightSnapper/snapperFor. See Loadable weights below.
+                                            #   Also implementCount: how many bells the load sits on — VOLUME ONLY
 workers/functions/
   [[catchall]].ts                            # Root catchall: turns CF Pages SPA-fallback HTML into 404 for asset-shaped paths
   api/[[route]].ts                          # Hono entry: Clerk auth middleware → image upload/delete routes → tRPC handler
@@ -585,6 +586,24 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   `isHardSet` in `packages/db/formulas.ts` is the named predicate — use it instead of re-spelling
   `setType !== 'warmup'` inline, so the rule can't drift again. UI volume readouts count hard sets too: a session's
   header total must equal the sum of its per-exercise cards.
+- **A weight is per implement; tonnage counts them all.** A pair of 30 kg dumbbells is logged as 30 — that is the
+  bell on the rack, and the only number a snapper, a ladder rung, or a set row can mean. Volume asks what left the
+  floor, so every `volumeKg` / kg·reps surface multiplies by `implementCount` (`packages/db/weights.ts`): 2 for the
+  `dumbbell` and `kettlebell` load classes, 1 for every other. Derived off `exerciseEquipment` rather than stored, so
+  there is no column and no backfill — the cost is that a unilateral dumbbell lift counts 2 and there is nothing in
+  the schema to tell it apart. Two rules keep this from spreading:
+  - **It reaches volume and nothing else.** Never past an e1RM, a warmup/backoff generation, a snap, a ladder, or a
+    rendered weight. Double there and every dumbbell PR restates overnight, `isStalledExercise` fires on the
+    discontinuity, and the planner prescribes bells that don't exist.
+  - **It is resolved where the equipment rows are, not inside the math.** `totalVolume` /
+    `summarizeSessionLogs` / `MuscleContribution` take a plain optional `implementCount` (default 1) so
+    `packages/db/formulas.ts` stays free of equipment knowledge — it can't import `weights.ts`, which already imports
+    it. Callers decorate: `withImplementCount` in `workers/lib/workout-response.ts` (server) and
+    `src/lib/workouts/formulas.ts` (client, plus `loggedVolume` for the UI readouts). `plannedRowContributions` is the
+    exception and resolves it internally, which is why `PlannedRow.exercise.equipment` is required — a forgotten join
+    would silently halve dumbbell volume instead of failing.
+  - Every query feeding a volume surface therefore joins `equipment: true` alongside `muscles: true`. In
+    `toSessionListItem` the rollup is computed BEFORE `verbose:false` stripping empties that list.
 - **Session rollups**: `summarizeSessionLogs` (`packages/db/formulas.ts`) turns per-set logs into
   `{ setCount, hardSetCount, volumeKg, exercises[{ sets, hardSets, volumeKg, topSet }] }`. Both `listSessions` and
   `dashboard.summary` attach it as `summary`, so `SessionCard` renders from either query without re-deriving totals.

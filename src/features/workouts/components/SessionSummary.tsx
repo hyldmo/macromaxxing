@@ -9,7 +9,8 @@ import {
 	exerciseE1rmStats,
 	formatAdjustTargetsPrompt,
 	isHardSet,
-	totalVolume
+	loggedVolume,
+	withImplementCount
 } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { METRIC_LABEL, METRIC_UNIT } from '~/lib/workouts/constants'
@@ -54,8 +55,8 @@ const DivergenceRow: FC<{ d: Divergence }> = ({ d }) => {
 }
 
 export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExercises, bodyWeightKg }) => {
-	const vol = totalVolume(session.logs.filter(isHardSet))
-	const e1rmStats = exerciseE1rmStats(session.logs)
+	const vol = loggedVolume(session.logs.filter(isHardSet))
+	const e1rmStats = exerciseE1rmStats(withImplementCount(session.logs))
 	const workoutGoal = session.workout?.trainingGoal ?? 'hypertrophy'
 
 	// Same ladder the review screen uses — a suggested weight must exist in this gym.

@@ -10,6 +10,7 @@ import {
 import { eq, inArray } from 'drizzle-orm'
 import { trainingSessionsPerWeek } from '../training-frequency'
 import { protectedProcedure, router } from '../trpc'
+import { withImplementCount } from '../workout-response'
 
 export const dashboardRouter = router({
 	summary: protectedProcedure
@@ -24,7 +25,7 @@ export const dashboardRouter = router({
 							workout: true,
 							location: true,
 							logs: {
-								with: { exercise: { with: { muscles: true } } },
+								with: { exercise: { with: { muscles: true, equipment: true } } },
 								orderBy: { createdAt: 'asc' }
 							}
 						},
@@ -144,7 +145,7 @@ export const dashboardRouter = router({
 				plans,
 				// Same per-exercise rollup workout.listSessions ships, so SessionCard renders from
 				// either query without re-deriving totals from the raw set rows.
-				sessions: sessions.map(s => ({ ...s, summary: summarizeSessionLogs(s.logs) })),
+				sessions: sessions.map(s => ({ ...s, summary: summarizeSessionLogs(withImplementCount(s.logs)) })),
 				templates,
 				activeProgram,
 				// Skips anchor the program cycle alongside completed sessions — see pickNextWorkout.

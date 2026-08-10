@@ -4,6 +4,7 @@ import {
 	effectiveSetWeightKg,
 	isHardSet,
 	summarizeSessionLogs,
+	totalVolume,
 	utcDateKey,
 	WINDOW_CUTOFF_MS,
 	windowSinceMs
@@ -131,6 +132,28 @@ describe('isHardSet', () => {
 	})
 })
 
+describe('totalVolume', () => {
+	it('multiplies weight, reps and sets', () => {
+		expect(
+			totalVolume([
+				{ weightKg: 100, reps: 5 },
+				{ weightKg: 60, reps: 10, sets: 3 }
+			])
+		).toBe(2300)
+	})
+
+	it('prices a pair of bells as both, so a 30kg DB press matches a 60kg barbell press', () => {
+		expect(totalVolume([{ weightKg: 30, reps: 10, implementCount: 2 }])).toBe(600)
+		expect(totalVolume([{ weightKg: 60, reps: 10 }])).toBe(600)
+	})
+
+	it('treats a missing implement count as one, so bars and stacks need not declare it', () => {
+		expect(totalVolume([{ weightKg: 80, reps: 8 }])).toBe(
+			totalVolume([{ weightKg: 80, reps: 8, implementCount: 1 }])
+		)
+	})
+})
+
 describe('summarizeSessionLogs', () => {
 	const log = (
 		exerciseId: string,
@@ -166,6 +189,17 @@ describe('summarizeSessionLogs', () => {
 		])
 		expect(summary.volumeKg).toBe(1060)
 		expect(summary.exercises[0].volumeKg).toBe(1060)
+	})
+
+	it('counts both bells when a set was loaded on a pair of dumbbells', () => {
+		const summary = summarizeSessionLogs([
+			{ ...log('exc_1', 'DB Press', 'working', 30, 10), implementCount: 2 },
+			log('exc_2', 'Bench Press', 'working', 60, 10)
+		])
+		// Same load leaves the floor either way, so the same tonnage lands in the total.
+		expect(summary.exercises[0].volumeKg).toBe(600)
+		expect(summary.exercises[1].volumeKg).toBe(600)
+		expect(summary.volumeKg).toBe(1200)
 	})
 
 	it('picks the top set by e1RM, never a warmup', () => {
