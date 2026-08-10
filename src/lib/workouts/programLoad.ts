@@ -3,6 +3,7 @@ import {
 	computeBalances,
 	computeMuscleLoad,
 	effectiveSetWeightKg,
+	implementCount,
 	type MuscleContribution,
 	type MuscleLoadTotals,
 	type MuscleLoadWithZone,
@@ -43,6 +44,7 @@ export function computeProgramLoad(
 				targetWeight != null
 					? effectiveSetWeightKg(we.exercise.bwMultiplier, bodyWeightKg, targetWeight)
 					: undefined
+			const implementsPerSet = implementCount(we.exercise.equipment)
 			for (const m of we.exercise.muscles) {
 				contributions.push({
 					muscleGroup: m.muscleGroup,
@@ -50,6 +52,7 @@ export function computeProgramLoad(
 					sets,
 					reps: we.targetReps ?? undefined,
 					weightKg,
+					implementCount: implementsPerSet,
 					exerciseType: we.exercise.type,
 					fatigueTier: we.exercise.fatigueTier,
 					trainingGoal: goal

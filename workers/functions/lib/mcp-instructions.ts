@@ -57,6 +57,8 @@ Stable conventions for designing exercises, templates, and programs. Live traini
 
 **Muscle intensity** (0-1 scale): 1.0 primary driver, 0.5-0.8 secondary, 0.3 incidental. Match seed patterns — e.g. a flat press is chest 1.0 / triceps 0.5 / front_delts 0.3.
 
+**Weight is always PER IMPLEMENT; volume counts them all.** A pair of 30 kg dumbbells is logged and read back as \`weightKg: 30\` — that is the bell the lifter picks up, and it is what warmups, backoffs, e1RM, PRs, and stall detection are computed on. Tonnage asks a different question, so every \`volumeKg\` / \`kg·reps\` number (session summaries, all \`*MuscleLoad\` tools, \`analytics_weeklyVolumeByMuscle\`, \`workout_exerciseHistory\`) counts BOTH bells: that set contributes 600, the same as a 60 kg barbell press for 10. Derived from the exercise's equipment (dumbbell and kettlebell count 2, every other load class 1), so a unilateral dumbbell movement is over-counted — read its volume with that in mind and compare sets rather than tonnage. Never double a weight yourself before writing it back.
+
 **Bodyweight multiplier (\`bwMultiplier\`)** — on every exercise; default 0:
 - \`0\` — barbell/dumbbell/cable: all weight fields are absolute kg on the bar or stack.
 - \`> 0\` — bodyweight exercise: weight fields are **added load only** (weight belt, vest, dip belt). The server expands to effective kg at log time: \`userWeightKg × bwMultiplier + addedKg\`, using the user's current \`weightKg\` from settings (settings_get / saveProfile). Stored \`workout_logs.weight_kg\` is always this collapsed effective total.

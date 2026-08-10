@@ -198,7 +198,8 @@ function plannedRow(overrides: Partial<PlannedRow> = {}): PlannedRow {
 			type: 'compound',
 			fatigueTier: 2,
 			bwMultiplier: 0,
-			muscles: [{ muscleGroup: 'chest', intensity: 1.0 }]
+			muscles: [{ muscleGroup: 'chest', intensity: 1.0 }],
+			equipment: [{ equipment: 'barbell' }]
 		},
 		...overrides
 	}
@@ -233,7 +234,8 @@ describe('plannedRowContributions', () => {
 				muscles: [
 					{ muscleGroup: 'chest', intensity: 1.0 },
 					{ muscleGroup: 'triceps', intensity: 0.5 }
-				]
+				],
+				equipment: [{ equipment: 'barbell' }]
 			}
 		})
 		const loads = computeMuscleLoad(plannedRowContributions(row, 'hypertrophy', null))
@@ -249,7 +251,8 @@ describe('plannedRowContributions', () => {
 				type: 'compound',
 				fatigueTier: 2,
 				bwMultiplier: 1,
-				muscles: [{ muscleGroup: 'lats', intensity: 1.0 }]
+				muscles: [{ muscleGroup: 'lats', intensity: 1.0 }],
+				equipment: [{ equipment: 'pullup_bar' }]
 			}
 		})
 		const loads = computeMuscleLoad(plannedRowContributions(row, 'hypertrophy', 80))
@@ -271,6 +274,28 @@ describe('plannedRowContributions', () => {
 			plannedRowContributions(plannedRow({ trainingGoal: 'strength' }), 'hypertrophy', null)
 		)
 		expect(loads.find(l => l.muscleGroup === 'chest')!.strengthSets).toBe(3)
+	})
+
+	it('doubles a dumbbell row’s volume without touching its set count', () => {
+		const bells = plannedRow({
+			setMode: 'working',
+			targetSets: 3,
+			targetReps: 10,
+			targetWeight: 30,
+			exercise: {
+				type: 'isolation',
+				fatigueTier: 4,
+				bwMultiplier: 0,
+				muscles: [{ muscleGroup: 'side_delts', intensity: 1.0 }],
+				equipment: [{ equipment: 'dumbbell' }]
+			}
+		})
+		const delts = computeMuscleLoad(plannedRowContributions(bells, 'hypertrophy', null)).find(
+			l => l.muscleGroup === 'side_delts'
+		)!
+		expect(delts.volumeKg).toBe(3 * 30 * 10 * 2)
+		// MEV/MAV/MRV counts sets, and a lateral raise is still three sets.
+		expect(delts.workingSets).toBe(3)
 	})
 
 	it('contributes no volume when the row has no target weight yet', () => {

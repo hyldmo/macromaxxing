@@ -6,8 +6,10 @@ import {
 	type SetMode,
 	type TrainingGoal
 } from './custom-types'
+import type { EquipmentRequirement } from './equipment'
 import { effectiveSetWeightKg } from './formulas'
 import { splitTargetSets } from './sets'
+import { implementCount } from './weights'
 
 /**
  * Relative CNS/systemic drain per fatigue tier. Tier 1 (heavy barbell compounds)
@@ -82,6 +84,12 @@ export interface MuscleContribution {
 	reps?: number
 	/** Working weight per set in kg; omit for template-only. */
 	weightKg?: number
+	/**
+	 * Implements carrying `weightKg` — 2 for a pair of bells, see `implementCount` in ./weights.
+	 * Defaults to 1. Only reaches `volumeKg`; set counts and fatigue load never scale with it.
+	 * Contributions that omit `reps`/`weightKg` can omit this too, since they add no volume.
+	 */
+	implementCount?: number
 	exerciseType: ExerciseType
 	fatigueTier: FatigueTier
 	/** Per-exercise training goal if overridden, else parent (workout/session) goal. */
@@ -105,6 +113,8 @@ export interface PlannedRow {
 		fatigueTier: FatigueTier
 		bwMultiplier: number
 		muscles: ReadonlyArray<{ muscleGroup: MuscleGroup; intensity: number }>
+		/** Required, not optional: a forgotten join would silently halve dumbbell volume. */
+		equipment: readonly EquipmentRequirement[]
 	}
 }
 
@@ -127,7 +137,8 @@ export function plannedRowContributions(
 	const trainingGoal: TrainingGoal = row.trainingGoal ?? parentGoal
 	const targetSets = row.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
 	const targetReps = row.targetReps ?? 0
-	const { type: exerciseType, fatigueTier, bwMultiplier, muscles } = row.exercise
+	const { type: exerciseType, fatigueTier, bwMultiplier, muscles, equipment } = row.exercise
+	const implementsPerSet = implementCount(equipment)
 
 	const { workingCount, backoff } = splitTargetSets({
 		setMode: row.setMode,
@@ -150,6 +161,7 @@ export function plannedRowContributions(
 			sets,
 			reps,
 			weightKg,
+			implementCount: implementsPerSet,
 			exerciseType,
 			fatigueTier,
 			trainingGoal
@@ -161,7 +173,7 @@ export interface MuscleLoad {
 	muscleGroup: MuscleGroup
 	/** Σ(sets × intensity). The canonical "effective sets" number. */
 	workingSets: number
-	/** Σ(weight × reps × sets × intensity) in kg·reps. Zero if no weight data. */
+	/** Σ(weight × reps × sets × intensity × implements) in kg·reps. Zero if no weight data. */
 	volumeKg: number
 	/** Σ(sets × intensity × tierWeight). Proxy for CNS / systemic drain. */
 	fatigueLoad: number
@@ -206,7 +218,7 @@ export function computeMuscleLoad(contributions: readonly MuscleContribution[]):
 		load.workingSets += effectiveSets
 		load.fatigueLoad += effectiveSets * FATIGUE_TIER_WEIGHTS[c.fatigueTier]
 		if (c.reps != null && c.weightKg != null) {
-			load.volumeKg += c.weightKg * c.reps * c.sets * c.intensity
+			load.volumeKg += c.weightKg * c.reps * c.sets * c.intensity * (c.implementCount ?? 1)
 		}
 		if (c.exerciseType === 'compound') load.compoundSets += effectiveSets
 		else load.isolationSets += effectiveSets

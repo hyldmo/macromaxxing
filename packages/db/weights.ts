@@ -63,6 +63,28 @@ export function loadClass(required: readonly EquipmentRequirement[]): LoadClass 
 }
 
 /**
+ * How many of the load-bearing implement the lifter holds, for VOLUME accounting only.
+ *
+ * A weight is always logged per implement, because that is what the lifter picks off the rack and
+ * what the snapper has to land on: a pair of 30 kg dumbbells is entered as 30. Tonnage asks a
+ * different question — how much left the floor — and the answer there is 60. Every other load class
+ * is one bar, stack, or sled, so only bells count double.
+ *
+ * NEVER multiply a weight by this before an e1RM, a warmup/backoff generation, a snap, a ladder
+ * lookup, or anything rendered on a set row. All of those are per-implement and correct as they
+ * stand. Doubling there would restate every dumbbell PR overnight, trip `isStalledExercise` on the
+ * discontinuity, and make the planner prescribe bells that don't exist.
+ *
+ * Derived rather than stored, so it needs no column and no backfill. The known cost is unilateral
+ * work: a one-arm row requires `dumbbell` like any two-bell lift and comes out 2. An exercise with
+ * no equipment rows comes out 1, which is the volume it already had.
+ */
+export function implementCount(required: readonly EquipmentRequirement[]): 1 | 2 {
+	const cls = loadClass(required)
+	return cls === 'dumbbell' || cls === 'kettlebell' ? 2 : 1
+}
+
+/**
  * Smallest step this load class moves in, in kg. Not "the smallest plate" — the smallest change a
  * lifter can make to the load:
  * - Bars take plates in pairs, so the 1.25 kg plate is a 2.5 kg step.

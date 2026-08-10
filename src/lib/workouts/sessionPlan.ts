@@ -1,11 +1,4 @@
-import type {
-	EquipmentRequirement,
-	Exercise,
-	SessionPlannedExercise,
-	SetMode,
-	TrainingGoal,
-	WeightLadders
-} from '@macromaxxing/db'
+import type { Exercise, SessionPlannedExercise, SetMode, TrainingGoal, WeightLadders } from '@macromaxxing/db'
 import { snapperFor } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 import { generatePlannedSets, type PlannedSet, type RenderItem, type SessionLog, TRAINING_DEFAULTS } from './sets'
@@ -27,7 +20,7 @@ export type PlannedExerciseRow = Pick<
 	| 'supersetGroup'
 > & {
 	/** Plan rows load the exercise's equipment too — it decides what weights the ramp can use. */
-	exercise: SessionExercise & { equipment?: readonly EquipmentRequirement[] }
+	exercise: SessionExercise
 }
 
 export interface SessionPlanInput {

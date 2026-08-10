@@ -10,7 +10,8 @@ import {
 	type Divergence,
 	exerciseE1rmStats,
 	formatAdjustTargetsPrompt,
-	weightStepKg
+	weightStepKg,
+	withImplementCount
 } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { trpc } from '~/lib/trpc'
@@ -85,7 +86,7 @@ export const SessionReview: FC<SessionReviewProps> = ({ session, template, extra
 		return [...divergences, ...matched]
 	}, [session.logs, template.exercises, workoutGoal, bodyWeightKg, ladders])
 
-	const exerciseStats = useMemo(() => exerciseE1rmStats(session.logs), [session.logs])
+	const exerciseStats = useMemo(() => exerciseE1rmStats(withImplementCount(session.logs)), [session.logs])
 
 	// Toggle states: on for improvements, off for decreases and matched exercises
 	const [updates, setUpdates] = useState<Map<string, boolean>>(

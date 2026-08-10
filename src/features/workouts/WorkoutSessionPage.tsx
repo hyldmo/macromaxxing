@@ -20,10 +20,10 @@ import {
 	estimateReplacementWeight,
 	formatSession,
 	isHardSet,
+	loggedVolume,
 	type RenderItem,
 	sessionPlanRows,
 	TRAINING_DEFAULTS,
-	totalVolume,
 	useDocumentTitle
 } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -434,7 +434,7 @@ export function WorkoutSessionPage() {
 
 	useDocumentTitle(session?.name ?? 'Workout Session')
 	// Hard sets only — otherwise the header total wouldn't match the sum of the per-exercise cards.
-	const vol = session ? totalVolume(session.logs.filter(isHardSet)) : 0
+	const vol = session ? loggedVolume(session.logs.filter(isHardSet)) : 0
 	const isCompleted = !!session?.completedAt
 
 	if (isCreating || sessionQuery.isLoading) {

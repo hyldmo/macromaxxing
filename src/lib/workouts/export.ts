@@ -1,4 +1,5 @@
 import type { RouterOutput } from '~/lib/trpc'
+import { loggedVolume } from './formulas'
 
 type Session = RouterOutput['workout']['getSession']
 type SessionLog = Session['logs'][number]
@@ -17,7 +18,7 @@ export function formatSession(session: Session): string {
 		lines.push(`Duration: ${mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`}`)
 	}
 
-	const vol = session.logs.reduce((s, l) => s + l.weightKg * l.reps, 0)
+	const vol = loggedVolume(session.logs)
 	lines.push(`Sets: ${session.logs.length} | Volume: ${(vol / 1000).toFixed(1)}k kg`)
 	if (session.notes) lines.push(`Notes: ${session.notes}`)
 	lines.push('')
