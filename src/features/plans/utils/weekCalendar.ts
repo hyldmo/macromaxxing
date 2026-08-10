@@ -14,6 +14,7 @@ import {
 	getWeekStart,
 	getWeekStartDate,
 	mealPlanLabel,
+	type ProgramSkip,
 	pickNextWorkout
 } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
@@ -125,6 +126,7 @@ export interface ProjectUpcomingInput {
 	templates: readonly CalendarTemplate[]
 	sessions: readonly CalendarSession[]
 	activeProgram: ActiveProgramRef | null
+	skips?: readonly ProgramSkip[]
 }
 
 /** The rotation, in cycle order: the active program's members, or every template as legacy fallback. */
@@ -157,13 +159,14 @@ export function projectUpcomingWorkouts({
 	days,
 	templates,
 	sessions,
-	activeProgram
+	activeProgram,
+	skips
 }: ProjectUpcomingInput): Map<number, CalendarTemplate> {
 	const upcoming = new Map<number, CalendarTemplate>()
 	const cycle = cycleTemplates(templates, activeProgram)
 	if (cycle.length === 0) return upcoming
 
-	const next = pickNextWorkout(templates, sessions, activeProgram)
+	const next = pickNextWorkout(templates, sessions, activeProgram, skips)
 	const nextTemplate = next.kind === 'emptyActiveProgram' ? null : next.template
 	if (!nextTemplate) return upcoming
 

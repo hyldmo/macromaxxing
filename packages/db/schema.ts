@@ -481,6 +481,28 @@ export const workoutProgramItems = sqliteTable(
 	]
 )
 
+/**
+ * "I did not do this one" — an event, on the same timeline as a completed session.
+ * The program cycle anchors on whichever came last, so a skip moves "Up next" forward
+ * and the next real session takes the anchor back with no cleanup.
+ */
+export const workoutSkips = sqliteTable(
+	'workout_skips',
+	{
+		id: typeidCol('wsk')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('wsk')),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		workoutId: typeidCol('wkt')('workout_id')
+			.notNull()
+			.references(() => workouts.id, { onDelete: 'cascade' }),
+		skippedAt: integer('skipped_at').notNull()
+	},
+	t => [index('workout_skips_user_id_idx').on(t.userId), index('workout_skips_workout_id_idx').on(t.workoutId)]
+)
+
 // ─── USDA Local Data ────────────────────────────────────────────────
 
 export const usdaFoods = sqliteTable(

@@ -148,6 +148,12 @@ const DashboardContent: FC = () => {
 		}
 	})
 
+	const invalidateSummary = () => {
+		utils.dashboard.summary.invalidate()
+	}
+	const skipMutation = trpc.workout.skipWorkout.useMutation({ onSuccess: invalidateSummary })
+	const unskipMutation = trpc.workout.unskipWorkout.useMutation({ onSuccess: invalidateSummary })
+
 	const todayMeals = useMemo(
 		() => (summaryQuery.data ? computeTodayMeals(summaryQuery.data.plans) : []),
 		[summaryQuery.data]
@@ -158,7 +164,7 @@ const DashboardContent: FC = () => {
 	const cycleResult = useMemo<ProgramCycleResult<Template> | null>(() => {
 		const data = summaryQuery.data
 		if (!data) return null
-		return pickNextWorkout(data.templates, data.sessions, data.activeProgram ?? null)
+		return pickNextWorkout(data.templates, data.sessions, data.activeProgram ?? null, data.skips)
 	}, [summaryQuery.data])
 
 	// When an active program is set, scope the template list to program members in cycle order.
@@ -219,7 +225,13 @@ const DashboardContent: FC = () => {
 						sessions={sessions}
 						cycleResult={cycleForDisplay}
 						onStartSession={id => createSessionMutation.mutate({ workoutId: id })}
+						onSkip={id => skipMutation.mutate({ workoutId: id })}
+						onUndoSkip={workoutId => {
+							const skip = summaryQuery.data?.skips.find(s => s.workoutId === workoutId)
+							if (skip) unskipMutation.mutate({ id: skip.id })
+						}}
 						isPending={createSessionMutation.isPending}
+						isSkipPending={skipMutation.isPending || unskipMutation.isPending}
 					/>
 					{recentCompleted.length > 0 && <RecentSessionsSection sessions={recentCompleted} />}
 				</div>
@@ -335,8 +347,11 @@ interface WorkoutTemplatesSectionProps {
 	templates: RouterOutput['dashboard']['summary']['templates']
 	sessions: RouterOutput['dashboard']['summary']['sessions']
 	cycleResult: ProgramCycleResult<Template> | null
-	onStartSession: (workoutId: RouterOutput['dashboard']['summary']['templates'][number]['id']) => void
+	onStartSession: (workoutId: Template['id']) => void
+	onSkip: (workoutId: Template['id']) => void
+	onUndoSkip: (workoutId: Template['id']) => void
 	isPending: boolean
+	isSkipPending: boolean
 }
 
 const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
@@ -344,7 +359,10 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	sessions,
 	cycleResult,
 	onStartSession,
-	isPending
+	onSkip,
+	onUndoSkip,
+	isPending,
+	isSkipPending
 }) => {
 	// Find last session per template to determine staleness
 	const lastSessionByTemplate = useMemo(() => {
@@ -362,6 +380,12 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 
 	const nextTemplate = cycleResult && cycleResult.kind !== 'emptyActiveProgram' ? cycleResult.template : null
 	const nextWorkoutId = nextTemplate?.id ?? null
+	// The workout a skip is currently holding down. Rendered as an undo, not as a status —
+	// it stops being true the moment any in-program session completes.
+	const skippedWorkoutId = cycleResult?.kind === 'program' ? cycleResult.skippedWorkoutId : null
+	// Skips only anchor the program cycle. Legacy rotation (no active program) ignores them,
+	// so offering Skip there would write a row and move nothing.
+	const canSkip = cycleResult?.kind === 'program'
 	const programLink =
 		cycleResult?.kind === 'program' ? { name: cycleResult.programName, id: cycleResult.programId } : null
 
@@ -414,6 +438,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 				) : (
 					orderedTemplates.map(template => {
 						const isUpNext = template.id === nextWorkoutId
+						const isSkipped = template.id === skippedWorkoutId
 						const lastDone = lastSessionByTemplate.get(template.id)
 						const durationMin = Math.round(estimateWorkoutDurationSec(template) / 60)
 						return (
@@ -440,6 +465,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 											</span>
 										)}
 										{isUpNext && <span className="shrink-0 text-accent text-xs">Up next</span>}
+										{isSkipped && <span className="shrink-0 text-ink-faint text-xs">Skipped</span>}
 									</div>
 									<div className="font-mono text-ink-faint text-xs tabular-nums">
 										{template.exercises.length} exercises
@@ -459,6 +485,28 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 										</div>
 									)}
 								</div>
+								{isSkipped && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => onUndoSkip(template.id)}
+										disabled={isSkipPending}
+									>
+										Undo
+									</Button>
+								)}
+								{isUpNext && canSkip && (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => onSkip(template.id)}
+										disabled={isSkipPending}
+										title="Not doing this one — move Up next along"
+									>
+										<SkipForward className="size-3.5" />
+										Skip
+									</Button>
+								)}
 								<Button size="sm" onClick={() => onStartSession(template.id)} disabled={isPending}>
 									<Play className="size-3.5" />
 									Start

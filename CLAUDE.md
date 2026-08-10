@@ -350,6 +350,8 @@ workoutPrograms(id typeid:wpr, userId, name, sortOrder, UNIQUE(userId, name))
   → workoutProgramItems(id typeid:wpi, programId, workoutId, sortOrder)  -- both FKs ON DELETE CASCADE
 userSettings += activeProgramId? typeid:wpr  -- nullable, ON DELETE SET NULL
 
+workoutSkips(id typeid:wsk, userId, workoutId ON DELETE CASCADE, skippedAt)  -- "didn't do this one"
+
 usda_foods(fdc_id PK integer, description, data_type: foundation|sr_legacy, protein/carbs/fat/kcal/fiber per 100g, density?)
   → usda_portions(id autoincrement PK, fdc_id FK, name, grams, is_volume)
 
@@ -429,6 +431,7 @@ trpc.workout.listLocations/createLocation/updateLocation/deleteLocation   # Trai
 trpc.workout.listWorkouts/getWorkout/createWorkout/updateWorkout/reorderWorkouts/deleteWorkout   # Templates carry optional locationId; updateWorkout.exercises merges by wke_ id (undefined=leave, null=clear; no id=insert; orphans deleted); get/list accept verbose:false to omit nested muscle/equipment lists; listWorkouts also: search?, trainingGoal?, locationId?
 trpc.workout.listPrograms/getProgram/createProgram/updateProgram/deleteProgram/reorderPrograms
 trpc.workout.setActiveProgram               # Set/clear active program (drives Dashboard "Up next" cycle)
+trpc.workout.skipWorkout/unskipWorkout      # Record/undo "didn't do this one" — moves "Up next" past it
 trpc.workout.programMuscleLoad              # Per-muscle aggregate across the program cycle (zones, balances, below-MEV)
 trpc.workout.listSessions/getSession/createSession/completeSession/updateSessionNotes/deleteSession  # get/list accept verbose:false (omit nested muscle/equipment; on listSessions also drops logs[] in favour of its summary rollup); listSessions also: window?, completed?, workoutId?, exerciseId?, limit
 trpc.workout.updateExerciseNote             # Set a template exercise's per-exercise note (workoutExercises.note, shown in timer mode)
@@ -625,6 +628,18 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - One program can be marked active via `userSettings.activeProgramId` (FK ON DELETE SET NULL)
 - Dashboard "Up next" cycles within the active program; off-program completions are ignored
 - `pickNextWorkout` (src/lib/workouts/programCycle.ts) returns a discriminated `legacy | program | emptyActiveProgram` so the dashboard can render the cycle subtitle ("Day N of M") or an empty-program banner without `if/else` contradictions
+- **A skip is an anchor event on the same timeline as a completed session, and the later one wins.** A
+  `workout_skips` row moves "Up next" past a workout the user isn't doing; the next completed in-program
+  session outranks it by timestamp, so nothing expires the row and nothing has to clear it. Modelling a
+  skip as a zero-log session would have been the shortcut, and it would have leaked into every volume,
+  PR, and history surface that reads `workoutSessions`. Skips ride along on `dashboard.summary`, so every
+  `pickNextWorkout` caller (dashboard, /workouts, the week calendar projection) sees the same cursor.
+  `dashboard.summary` scopes them to the ACTIVE PROGRAM'S MEMBERS in SQL, because only those can anchor
+  the cycle and `workout_skipWorkout` (MCP) accepts any owned workout — an unscoped `limit 10` would let
+  off-program skips push the one that matters out of the payload. **A skip is a program-cycle concept
+  only.** Legacy rotation (no active program) has no cursor to hold, so `pickNextWorkout` ignores skips
+  there and the dashboard hides the Skip button (`kind === 'program'`) rather than offering one that
+  writes a row and moves nothing.
 - Editor (`/plans/programs/:id`) drag-reorders draft items and resolves them against the cached `listWorkouts` data each render — sidebar muscle load updates live before save
 - Muscle aggregation has two paths:
   - **Client-side** `computeProgramLoad` (src/lib/workouts/programLoad.ts) for the live editor (no round-trip; uses cached `listWorkouts.exercises.muscles`)

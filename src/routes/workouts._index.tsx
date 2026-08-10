@@ -36,6 +36,7 @@ export default function WorkoutListPage() {
 	const summaryQuery = trpc.dashboard.summary.useQuery()
 	const utils = trpc.useUtils()
 	const activeProgram = summaryQuery.data?.activeProgram ?? null
+	const skips = summaryQuery.data?.skips
 
 	const createSession = trpc.workout.createSession.useMutation({
 		onSuccess: session => {
@@ -93,10 +94,11 @@ export default function WorkoutListPage() {
 		const result = pickNextWorkout(
 			activeGroup.workouts.map(w => ({ id: w.id })),
 			sessions.map(s => ({ workoutId: s.workoutId, completedAt: s.completedAt })),
-			activeProgram
+			activeProgram,
+			skips
 		)
 		return result.kind === 'program' ? { id: result.template.id, day: result.day, total: result.total } : null
-	}, [activeGroup, activeProgram, sessions])
+	}, [activeGroup, activeProgram, sessions, skips])
 
 	function handleDragEnd(event: DragEndEvent) {
 		const { active, over } = event
