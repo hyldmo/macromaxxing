@@ -383,6 +383,9 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 	// The workout a skip is currently holding down. Rendered as an undo, not as a status —
 	// it stops being true the moment any in-program session completes.
 	const skippedWorkoutId = cycleResult?.kind === 'program' ? cycleResult.skippedWorkoutId : null
+	// Skips only anchor the program cycle. Legacy rotation (no active program) ignores them,
+	// so offering Skip there would write a row and move nothing.
+	const canSkip = cycleResult?.kind === 'program'
 	const programLink =
 		cycleResult?.kind === 'program' ? { name: cycleResult.programName, id: cycleResult.programId } : null
 
@@ -492,7 +495,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 										Undo
 									</Button>
 								)}
-								{isUpNext && (
+								{isUpNext && canSkip && (
 									<Button
 										variant="ghost"
 										size="sm"

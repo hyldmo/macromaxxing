@@ -634,6 +634,12 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   skip as a zero-log session would have been the shortcut, and it would have leaked into every volume,
   PR, and history surface that reads `workoutSessions`. Skips ride along on `dashboard.summary`, so every
   `pickNextWorkout` caller (dashboard, /workouts, the week calendar projection) sees the same cursor.
+  `dashboard.summary` scopes them to the ACTIVE PROGRAM'S MEMBERS in SQL, because only those can anchor
+  the cycle and `workout_skipWorkout` (MCP) accepts any owned workout — an unscoped `limit 10` would let
+  off-program skips push the one that matters out of the payload. **A skip is a program-cycle concept
+  only.** Legacy rotation (no active program) has no cursor to hold, so `pickNextWorkout` ignores skips
+  there and the dashboard hides the Skip button (`kind === 'program'`) rather than offering one that
+  writes a row and moves nothing.
 - Editor (`/plans/programs/:id`) drag-reorders draft items and resolves them against the cached `listWorkouts` data each render — sidebar muscle load updates live before save
 - Muscle aggregation has two paths:
   - **Client-side** `computeProgramLoad` (src/lib/workouts/programLoad.ts) for the live editor (no round-trip; uses cached `listWorkouts.exercises.muscles`)

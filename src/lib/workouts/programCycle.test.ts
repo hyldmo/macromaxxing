@@ -189,5 +189,12 @@ describe('pickNextWorkout', () => {
 			const result = pickNextWorkout(templates, [], program, [skipped('a', 1000)])
 			expect(result).toMatchObject({ template: tpl('b'), day: 2, skippedWorkoutId: wkt('a') })
 		})
+
+		it('legacy mode ignores skips — there is no cursor for one to hold', () => {
+			// Deliberate: the dashboard hides Skip when no program is active, because a skip
+			// here would write a row and move nothing. Keep the two in step.
+			const result = pickNextWorkout(templates, [completed('a', 1000)], null, [skipped('b', 2000)])
+			expect(result).toEqual({ kind: 'legacy', template: tpl('b') })
+		})
 	})
 })

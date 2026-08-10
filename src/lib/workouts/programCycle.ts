@@ -62,6 +62,10 @@ function legacyNext<T extends ProgramCycleTemplate>(
  * train anything in the program afterwards and the skip stops mattering, with no
  * row to expire or clean up.
  *
+ * `skips` apply to the program cycle ONLY — legacy mode ignores them, and callers must
+ * not offer a Skip control there (the dashboard gates on `kind === 'program'`). Legacy
+ * rotation has no cursor to hold, so a skip would write a row and move nothing.
+ *
  * `sessions` is expected to be ordered by completedAt desc (the dashboard query
  * already orders this way), but the function only relies on filter/find — it
  * re-sorts in-program completions defensively.
