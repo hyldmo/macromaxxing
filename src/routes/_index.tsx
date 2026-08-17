@@ -449,7 +449,6 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 									isUpNext && 'border border-accent bg-accent/5'
 								)}
 							>
-								{isUpNext && <SkipForward className="size-3.5 shrink-0 text-accent" />}
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-2">
 										<Link
@@ -499,6 +498,7 @@ const WorkoutTemplatesSection: FC<WorkoutTemplatesSectionProps> = ({
 									<Button
 										variant="ghost"
 										size="sm"
+										className="px-0"
 										onClick={() => onSkip(template.id)}
 										disabled={isSkipPending}
 										title="Not doing this one — move Up next along"
