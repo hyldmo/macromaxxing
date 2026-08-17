@@ -254,8 +254,6 @@ workers/functions/
     crypto.ts                               # AES-GCM encrypt/decrypt for API keys
     constants.ts                            # Shared constants + Zod schemas
     utils.ts                                # Shared backend helpers (toStartCase, etc.)
-    weight-ladders.ts                       # loadWeightLadders: the rungs a user has actually loaded per load class,
-                                            #   from their own workout_logs (see Loadable weights below)
     routes/
       dashboard.ts                          # dashboard.* endpoints
       recipes.ts                            # recipe.* endpoints
@@ -453,10 +451,8 @@ trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown 
 trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual hard sets + balance ratios
 trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
 trpc.workout.exerciseHistory                # Per-exercise time series (top set, e1RM, volume per session) over 4w/12w/1y
-trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets (snapped to loadable weights; both
-                                            #   take an optional locationId to pick that gym's ladder)
-trpc.workout.weightLadders                  # Weights the user has actually loaded, per load class (dumbbell, barbell,
-                                            #   lat_pulldown…), optionally scoped to a location — see Loadable weights
+trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets, snapped to what the exercise's
+                                            #   equipment can load
 trpc.workout.importWorkouts                 # Import workout templates from spreadsheet text
 trpc.workout.importSets                     # Import sets from CSV/spreadsheet text
 trpc.workout.listStandards                  # Compound-to-isolation strength ratio standards
@@ -610,18 +606,18 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   `listSessions` with `verbose:false` returns `logs: []` and leans on the summary — that's an 85% payload cut on real
   data, since every set row otherwise nests a duplicate exercise record. Per-set detail comes from `getSession`.
 - **Loadable weights**: every generated load (warmup %, backoff %, strength-standard estimate) goes through a
-  `WeightSnapper` (`packages/db/weights.ts`) — never `roundWeight` directly, which is now only its fallback. Two layers:
-  - **The equipment tells you the step.** `loadClass` picks the one item that carries the weight (a dumbbell press
-    needs a bench, but the bench has no grid). Plates go on a bar in PAIRS → 2.5 kg steps, but on a dip belt SINGLY →
-    1.25 kg. There is deliberately no 1.25 kg band for bars: 6.25/13.75/16.25 kg cannot be loaded on anything.
-  - **The user's own logs tell you the rungs.** A rack is a discrete list, not an increment — adjustable dumbbells land
-    on 6.5/11.5/13.5, a pin stack on 65/70/73 — so `workout.weightLadders` reads back the weights they have actually
-    logged on that load class at that location (≥2 uses, so a typo never becomes a prescription). The ladder is a
-    SAMPLE, not an inventory: it only overrides the grid inside a gap between two rungs no wider than 2 increments
-    (consecutive notches), never outside its range. Otherwise one logged 24 kg drags a 40 kg target down to it.
-  - **Warmups snap to the ladder; the folded backoff does NOT.** The backend prices the same backoff for muscle load
-    on the grid, so planning it on the ladder would make planned volume disagree across surfaces. Hence `gridSnap` in
-    `GeneratePlannedSetsInput`. Nothing reads a warmup back, so it gets the real rungs.
+  `WeightSnapper` (`packages/db/weights.ts`) — never `roundWeight` directly, which is now only its fallback.
+  - **The equipment tells you the step, and nothing else does.** `loadClass` picks the one item that carries the weight
+    (a dumbbell press needs a bench, but the bench has no grid). Plates go on a bar in PAIRS → 2.5 kg steps, but on a
+    dip belt SINGLY → 1.25 kg. There is deliberately no 1.25 kg band for bars: 6.25/13.75/16.25 kg cannot be loaded on
+    anything.
+  - **A generated weight is NEVER derived from workout_logs.** There was a second layer that read back the weights a
+    user had logged per load class ("their gym's real rungs") and snapped warmups to those. It fed on its own output:
+    a warmup this app prescribed, then confirmed, became evidence the rack holds that weight — so when a 1.25 kg
+    increment briefly shipped, 6.25/8.75/11.25 kg dumbbells were prescribed forever after, long after the increment
+    was fixed. Ripped out (`loadWeightLadders`, `workout.weightLadders`, the `ladder` arm of `weightSnapper`). A warmup
+    is 60% of the working set rounded to what the equipment steps by; a lifter reading "6 kg" picks up the 6.3 they
+    own. Don't reintroduce a feedback loop from logs into prescriptions.
   - **A snapper only ever prices a DERIVED load. A typed one is final** — never snapped, rounded, or round-tripped
     through a derivation, not even onto a weight the gym can load. A logged set is a typed number; so is a target the
     user entered. Only generated warmups, folded backoffs, and estimates go through a snapper.

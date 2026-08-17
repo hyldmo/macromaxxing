@@ -59,12 +59,8 @@ export const SessionSummary: FC<SessionSummaryProps> = ({ session, plannedExerci
 	const e1rmStats = exerciseE1rmStats(withImplementCount(session.logs))
 	const workoutGoal = session.workout?.trainingGoal ?? 'hypertrophy'
 
-	// Same ladder the review screen uses — a suggested weight must exist in this gym.
-	const ladders = trpc.workout.weightLadders.useQuery({ locationId: session.locationId ?? null }).data
 	const divergences =
-		plannedExercises.length > 0
-			? computeDivergences(session.logs, plannedExercises, workoutGoal, bodyWeightKg, ladders)
-			: []
+		plannedExercises.length > 0 ? computeDivergences(session.logs, plannedExercises, workoutGoal, bodyWeightKg) : []
 
 	// Prior best e1RM per exercise — uses most-recent prior session (not all-time max).
 	// Same Option A trade-off as the inline SetRow PR: simple, batched, false-positives
