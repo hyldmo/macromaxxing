@@ -14,7 +14,7 @@ import {
 	type IngredientWithAmount,
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
-import { cn, prefetchRoute, useDocumentTitle, useUser } from '~/lib'
+import { cn, prefetchRoute, useDocumentTitle, usePersistentState, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
 export const clientLoader = () => prefetchRoute(utils => [utils.recipe.list.ensureData()])
@@ -24,10 +24,13 @@ type Filter = 'all' | 'mine' | 'premade'
 type Sort = 'recent' | keyof AbsoluteMacros | keyof Recipe
 const sortOptions: Sort[] = ['recent', 'protein', 'carbs', 'fat', 'kcal', 'fiber', 'name']
 
+const SORT_STORAGE_KEY = 'macromaxxing:recipeSort'
+const isSort = (v: unknown): v is Sort => typeof v === 'string' && (sortOptions as string[]).includes(v)
+
 export default function RecipeListPage() {
 	useDocumentTitle('Recipes')
 	const [filter, setFilter] = useState<Filter>('all')
-	const [sort, setSort] = useState<Sort>('recent')
+	const [sort, setSort] = usePersistentState<Sort>(SORT_STORAGE_KEY, isSort, 'recent')
 	const [showImport, setShowImport] = useState(false)
 	const [showPremade, setShowPremade] = useState(false)
 	const navigate = useNavigate()
@@ -41,7 +44,7 @@ export default function RecipeListPage() {
 			const totals = calculateRecipeTotals(items)
 			const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 			const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-			return { recipe, portion, isMine: recipe.userId === user?.id }
+			return { recipe, portion, cookedWeight, isMine: recipe.userId === user?.id }
 		})
 	}, [recipesQuery.data, user?.id])
 
@@ -151,8 +154,14 @@ export default function RecipeListPage() {
 			)}
 
 			<div className="grid gap-2">
-				{sortedRecipes.map(({ recipe, portion, isMine }) => (
-					<RecipeCard key={recipe.id} recipe={recipe} portion={portion} isMine={isMine} />
+				{sortedRecipes.map(({ recipe, portion, cookedWeight, isMine }) => (
+					<RecipeCard
+						key={recipe.id}
+						recipe={recipe}
+						portion={portion}
+						totalWeight={cookedWeight}
+						isMine={isMine}
+					/>
 				))}
 			</div>
 			<RecipeImportDialog open={showImport} onClose={() => setShowImport(false)} />
