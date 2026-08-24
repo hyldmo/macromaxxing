@@ -8,7 +8,7 @@ import {
 	workoutProgramItems
 } from '@macromaxxing/db'
 import { eq, inArray } from 'drizzle-orm'
-import { trainingSessionsPerWeek } from '../training-frequency'
+import { trainingHardSetsPerWeek, trainingSessionsPerWeek } from '../training-frequency'
 import { protectedProcedure, router } from '../trpc'
 import { withImplementCount } from '../workout-response'
 
@@ -16,7 +16,7 @@ export const dashboardRouter = router({
 	summary: protectedProcedure
 		.meta({ description: "Get today's meals, recent workout sessions, and macro progress" })
 		.query(async ({ ctx }) => {
-			const [sessions, templates, plansShallow, planRecipes, settings, sessionsPerWeek, skips] =
+			const [sessions, templates, plansShallow, planRecipes, settings, sessionsPerWeek, hardSetsPerWeek, skips] =
 				await Promise.all([
 					// Recent workout sessions (3 levels — acceptable)
 					ctx.db.query.workoutSessions.findMany({
@@ -91,6 +91,11 @@ export const dashboardRouter = router({
 					// Q6: Training frequency — what an `auto` activity level resolves against.
 					trainingSessionsPerWeek(ctx.db, ctx.user.id),
 
+					// Q6b: Hard sets over the same window — what the carbohydrate floor scales on.
+					// Separate from Q6 on purpose: sessions measure activity, hard sets measure
+					// glycogen spend, and one session can be 5 sets or 15.
+					trainingHardSetsPerWeek(ctx.db, ctx.user.id),
+
 					// Q7: Recent skips, scoped to the active program in SQL. Only skips of program
 					// members can anchor the cycle, so an unscoped `limit` would let skips of
 					// off-program workouts (MCP can skip any owned one) push the anchor out of the
@@ -153,7 +158,11 @@ export const dashboardRouter = router({
 				// Derived from the same settings row the active program comes from, so the week
 				// calendar can price day totals against the user's goal without a second query.
 				macroTargets: settings
-					? resolveMacroTargets({ ...settings, trainingSessionsPerWeek: sessionsPerWeek })
+					? resolveMacroTargets({
+							...settings,
+							trainingSessionsPerWeek: sessionsPerWeek,
+							trainingHardSetsPerWeek: hardSetsPerWeek
+						})
 					: null
 			}
 		})

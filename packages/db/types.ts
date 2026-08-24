@@ -66,7 +66,15 @@ export interface AbsoluteMacros {
 	weight: number
 }
 
-/** Daily nutrition goals — the target counterpart to `AbsoluteMacros` (grams, kcal excepted). */
+/**
+ * Daily nutrition goals — the target counterpart to `AbsoluteMacros` (grams, kcal excepted).
+ *
+ * `kcal` is a BUDGET: over and under both matter. The four macros are FLOORS: hitting one is
+ * enough and exceeding it is fine, because the calories left after every floor is met belong to
+ * no macro in particular. `MACRO_TARGET_KIND` (src/features/nutrition/utils/targets.ts) is where
+ * that distinction turns into a rendered status, so the fields do NOT sum to `kcal` — see
+ * `deriveMacroTargets`.
+ */
 export interface MacroTargets {
 	kcal: number
 	protein: number

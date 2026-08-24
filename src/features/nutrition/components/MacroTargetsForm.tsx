@@ -2,6 +2,7 @@ import {
 	ACTIVITY_MULTIPLIER,
 	type ActivitySetting,
 	activitySetting,
+	carbFloorPerKg,
 	DEFAULT_ACTIVITY_LEVEL,
 	deriveProfileTargets,
 	estimateProfileTDEE,
@@ -163,6 +164,19 @@ export const MacroTargetsForm: FC = () => {
 						{startCase(resolvedActivity)} ({ACTIVITY_MULTIPLIER[resolvedActivity]})
 					</span>
 					. Pick a level by hand if you also train outside Macromaxxing.
+				</p>
+			)}
+
+			{!isCustom && saved && (
+				<p className="text-ink-faint text-xs">
+					<span className="font-mono tabular-nums">{saved.trainingHardSetsPerWeek.toFixed(0)}</span> hard
+					sets/wk logged over the last 4 weeks →{' '}
+					<span className="text-ink-muted">
+						<span className="font-mono tabular-nums">{carbFloorPerKg(saved.trainingHardSetsPerWeek)}</span>{' '}
+						g/kg carbs
+					</span>{' '}
+					for glycogen. Calories are a budget; the four macros are floors, so they add up to less than the
+					budget on purpose and the rest is yours to spend.
 				</p>
 			)}
 
