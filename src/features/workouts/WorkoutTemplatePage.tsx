@@ -1,10 +1,13 @@
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import {
+	computeExerciseBreakdown,
+	computeMuscleLoad,
 	type Equipment,
 	type ExerciseType,
 	equipmentSet,
 	type Location,
+	type MuscleContribution,
 	type MuscleGroup,
 	missingEquipment,
 	type SetMode,
@@ -20,6 +23,7 @@ import { cn, formatAdjustTargetsPrompt, formatTemplate, useDocumentTitle, useUns
 import { trpc } from '~/lib/trpc'
 import { BodyMap } from './components/BodyMap'
 import { ExerciseSearch } from './components/ExerciseSearch'
+import { MuscleContributionList } from './components/MuscleContributionList'
 import { TemplateExerciseRow } from './components/TemplateExerciseRow'
 
 export interface TemplateExercise {
@@ -131,21 +135,41 @@ export function WorkoutTemplatePage() {
 		})
 	}, [isEditing, name, trainingGoal, locationId, exercises, workoutQuery.data])
 
-	const muscleVolumes = useMemo(() => {
+	const muscleContributions = useMemo(() => {
 		const allExercises = exercisesQuery.data
-		if (!allExercises || exercises.length === 0) return new Map<MuscleGroup, number>()
+		if (!allExercises) return []
 
-		const volumes = new Map<MuscleGroup, number>()
+		const contributions: MuscleContribution[] = []
 		for (const te of exercises) {
 			const exercise = allExercises.find(e => e.id === te.exerciseId)
 			if (!exercise) continue
-			const sets = te.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
+			const goal = te.trainingGoal ?? trainingGoal
+			const sets = te.targetSets ?? (goal === 'strength' ? 5 : 3)
 			for (const m of exercise.muscles) {
-				volumes.set(m.muscleGroup, (volumes.get(m.muscleGroup) ?? 0) + sets * m.intensity)
+				contributions.push({
+					muscleGroup: m.muscleGroup,
+					intensity: m.intensity,
+					sets,
+					exerciseType: exercise.type,
+					fatigueTier: exercise.fatigueTier,
+					trainingGoal: goal,
+					exerciseName: exercise.name
+				})
 			}
 		}
-		return volumes
+		return contributions
 	}, [exercises, exercisesQuery.data, trainingGoal])
+
+	const muscleVolumes = useMemo(() => {
+		const volumes = new Map<MuscleGroup, number>()
+		for (const load of computeMuscleLoad(muscleContributions)) {
+			if (load.workingSets > 0) volumes.set(load.muscleGroup, load.workingSets)
+		}
+		return volumes
+	}, [muscleContributions])
+
+	// Which exercises put the sets on each muscle — the body-map tooltip's breakdown.
+	const muscleBreakdown = useMemo(() => computeExerciseBreakdown(muscleContributions), [muscleContributions])
 
 	// Equipment availability at the selected location. Null = no location selected = no warnings.
 	const availableEquipment = useMemo(() => {
@@ -387,6 +411,7 @@ export function WorkoutTemplatePage() {
 							return (
 								<div className="font-mono text-[10px] text-ink-muted tabular-nums">
 									{volume.toFixed(1)} effective sets
+									<MuscleContributionList exercises={muscleBreakdown[muscle] ?? []} />
 								</div>
 							)
 						}}

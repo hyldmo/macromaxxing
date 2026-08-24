@@ -97,7 +97,7 @@ export const BodyMap: FC<BodyMapProps> = ({ muscleVolumes, sex, renderTooltip, o
 			</div>
 			{hoveredMuscle && (
 				<div
-					className="pointer-events-none absolute z-90 w-36 rounded-sm border border-edge bg-surface-1 p-2"
+					className="pointer-events-none absolute z-90 w-max min-w-36 max-w-56 rounded-sm border border-edge bg-surface-1 p-2"
 					ref={tooltipRef}
 					style={{
 						left: clamp(mousePos.x - tooltipWidth, 0, window.innerWidth - tooltipWidth),

@@ -1,5 +1,6 @@
 import {
 	computeBalances,
+	computeExerciseBreakdown,
 	computeMuscleLoad,
 	defaultSnapper,
 	EQUIPMENT,
@@ -2185,7 +2186,8 @@ export const workoutsRouter = router({
 				sex: settings?.sex ?? 'male',
 				muscles,
 				totals: sumTotals(loads),
-				balances: computeBalances(loads)
+				balances: computeBalances(loads),
+				breakdown: computeExerciseBreakdown(contributions)
 			}
 		}),
 
@@ -2229,7 +2231,8 @@ export const workoutsRouter = router({
 						implementCount: implementsPerSet,
 						exerciseType: log.exercise.type,
 						fatigueTier: log.exercise.fatigueTier,
-						trainingGoal: goal
+						trainingGoal: goal,
+						exerciseName: log.exercise.name
 					})
 				}
 			}
@@ -2247,7 +2250,8 @@ export const workoutsRouter = router({
 				workingSetCount,
 				muscles,
 				totals: sumTotals(muscles),
-				balances: computeBalances(muscles)
+				balances: computeBalances(muscles),
+				breakdown: computeExerciseBreakdown(contributions)
 			}
 		}),
 
@@ -3072,7 +3076,8 @@ export const workoutsRouter = router({
 				muscles,
 				totals: sumTotals(loads),
 				balances: computeBalances(loads),
-				belowMev: muscles.filter(m => m.zone === 'below_mev' && m.workingSets > 0)
+				belowMev: muscles.filter(m => m.zone === 'below_mev' && m.workingSets > 0),
+				breakdown: computeExerciseBreakdown(contributions)
 			}
 		}),
 

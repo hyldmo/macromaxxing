@@ -1,8 +1,9 @@
-import type { BalanceRatio, MuscleGroup, MuscleLoadWithZone, Sex } from '@macromaxxing/db'
+import type { BalanceRatio, ExerciseContribution, MuscleGroup, MuscleLoadWithZone, Sex } from '@macromaxxing/db'
 import { type FC, useMemo } from 'react'
 import { Card } from '~/components/ui/Card'
 import { cn } from '~/lib/cn'
 import { BodyMap } from './BodyMap'
+import { MuscleContributionList } from './MuscleContributionList'
 
 interface BalanceLabel {
 	title: string
@@ -24,6 +25,8 @@ export interface MuscleLoadPanelProps {
 	sex: Sex
 	/** Volume unit shown in the body-map tooltip — 'sets/cycle' for a program, 'sets/wk' for one template. */
 	unitLabel?: string
+	/** Per-muscle exercise attribution (`computeExerciseBreakdown`); omit to show the totals alone. */
+	breakdown?: Partial<Record<MuscleGroup, readonly ExerciseContribution[]>>
 }
 
 /**
@@ -33,7 +36,13 @@ export interface MuscleLoadPanelProps {
  * `ProgramMuscleSidebar`) or a muscle-load tRPC tool result (the MCP Apps widget). No data fetching,
  * no router, no store — that's what lets it mount inside the sandboxed widget iframe unchanged.
  */
-export const MuscleLoadPanel: FC<MuscleLoadPanelProps> = ({ muscles, balances, sex, unitLabel = 'sets' }) => {
+export const MuscleLoadPanel: FC<MuscleLoadPanelProps> = ({
+	muscles,
+	balances,
+	sex,
+	unitLabel = 'sets',
+	breakdown
+}) => {
 	const muscleVolumes = useMemo(() => {
 		const volumes = new Map<MuscleGroup, number>()
 		for (const m of muscles) {
@@ -59,6 +68,7 @@ export const MuscleLoadPanel: FC<MuscleLoadPanelProps> = ({ muscles, balances, s
 								<div className="text-ink-faint">
 									zone: {m.zone.replace('_', ' ')} · MEV {m.landmark.mev}
 								</div>
+								<MuscleContributionList exercises={breakdown?.[muscle] ?? []} />
 							</div>
 						)
 					}}

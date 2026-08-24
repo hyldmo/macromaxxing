@@ -1,10 +1,13 @@
 import {
 	type BalanceRatio,
 	computeBalances,
+	computeExerciseBreakdown,
 	computeMuscleLoad,
+	type ExerciseContribution,
 	effectiveSetWeightKg,
 	implementCount,
 	type MuscleContribution,
+	type MuscleGroup,
 	type MuscleLoadTotals,
 	type MuscleLoadWithZone,
 	sumTotals,
@@ -21,6 +24,8 @@ export interface ProgramLoad {
 	balances: BalanceRatio[]
 	belowMev: MuscleLoadWithZone[]
 	exerciseCount: number
+	/** Which exercises put the sets on each muscle — the body-map tooltip's breakdown. */
+	breakdown: Partial<Record<MuscleGroup, ExerciseContribution[]>>
 }
 
 /**
@@ -55,7 +60,8 @@ export function computeProgramLoad(
 					implementCount: implementsPerSet,
 					exerciseType: we.exercise.type,
 					fatigueTier: we.exercise.fatigueTier,
-					trainingGoal: goal
+					trainingGoal: goal,
+					exerciseName: we.exercise.name
 				})
 			}
 		}
@@ -67,6 +73,7 @@ export function computeProgramLoad(
 		totals: sumTotals(loads),
 		balances: computeBalances(loads),
 		belowMev: muscles.filter(m => m.zone === 'below_mev' && m.workingSets > 0),
-		exerciseCount
+		exerciseCount,
+		breakdown: computeExerciseBreakdown(contributions)
 	}
 }

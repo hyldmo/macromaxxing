@@ -3,6 +3,7 @@ import {
 	classifyIntensity,
 	classifyZone,
 	computeBalances,
+	computeExerciseBreakdown,
 	computeMuscleLoad,
 	FATIGUE_TIER_WEIGHTS,
 	type MuscleContribution,
@@ -195,6 +196,7 @@ function plannedRow(overrides: Partial<PlannedRow> = {}): PlannedRow {
 		targetWeight: 80,
 		trainingGoal: null,
 		exercise: {
+			name: 'Bench Press',
 			type: 'compound',
 			fatigueTier: 2,
 			bwMultiplier: 0,
@@ -305,5 +307,45 @@ describe('plannedRowContributions', () => {
 		const chest = loads.find(l => l.muscleGroup === 'chest')!
 		expect(chest.workingSets).toBe(3)
 		expect(chest.volumeKg).toBe(0)
+	})
+})
+
+describe('computeExerciseBreakdown', () => {
+	it('attributes effective sets per exercise, sorted heaviest first', () => {
+		const breakdown = computeExerciseBreakdown([
+			contribution({ exerciseName: 'Lateral Raise', sets: 3, intensity: 1.0, muscleGroup: 'side_delts' }),
+			contribution({ exerciseName: 'Overhead Press', sets: 4, intensity: 0.5, muscleGroup: 'side_delts' })
+		])
+		expect(breakdown.side_delts).toEqual([
+			{ name: 'Lateral Raise', sets: 3 },
+			{ name: 'Overhead Press', sets: 2 }
+		])
+	})
+
+	it('sums to the muscle load it explains', () => {
+		const contributions = [
+			contribution({ exerciseName: 'Bench Press', sets: 3, intensity: 1.0 }),
+			contribution({ exerciseName: 'Dips', sets: 2, intensity: 0.7 })
+		]
+		const chest = computeMuscleLoad(contributions).find(l => l.muscleGroup === 'chest')!
+		const attributed = computeExerciseBreakdown(contributions).chest!.reduce((n, e) => n + e.sets, 0)
+		expect(attributed).toBeCloseTo(chest.workingSets)
+	})
+
+	it('merges an exercise that appears twice — a folded backoff, or two workouts of a cycle', () => {
+		const breakdown = computeExerciseBreakdown([
+			contribution({ exerciseName: 'Bench Press', sets: 2 }),
+			contribution({ exerciseName: 'Bench Press', sets: 1 })
+		])
+		expect(breakdown.chest).toEqual([{ name: 'Bench Press', sets: 3 }])
+	})
+
+	it('skips unnamed contributions and muscles nothing names', () => {
+		expect(computeExerciseBreakdown([contribution()])).toEqual({})
+	})
+
+	it('names the exercise a template row came from', () => {
+		const breakdown = computeExerciseBreakdown(plannedRowContributions(plannedRow(), 'hypertrophy', null))
+		expect(breakdown.chest).toEqual([{ name: 'Bench Press', sets: 3 }])
 	})
 })
