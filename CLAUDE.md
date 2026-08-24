@@ -145,8 +145,10 @@ src/
                                             #   it lands in; TDEE + macros preview the PENDING selection, not the saved one
       components/KcalReadout.tsx            # `1850/2400` — status-colored actual, faint target
       components/MacroDelta.tsx             # `P180 -12` — macro value + signed distance from its target
-      components/MacroTargetBars.tsx        # Four hairline P/C/F/Fi progress bars
-      utils/targets.ts                      # targetStatus (±5% band → under/on/over), targetDelta
+      components/MacroTargetBars.tsx        # Four hairline P/C/F/Fi progress bars (floors, so no overshoot state)
+      utils/targets.ts                      # targetStatus/targetDelta + MACRO_TARGET_KIND — kcal is a `budget`
+                                            #   (±5% band → under/on/over), every macro is a `floor` (cleared reads
+                                            #   `on` at any surplus, and targetDelta prints nothing). See Macro targets
     plans/                                  # Cross-domain (meals + workouts) surfaces for /plans
       WeekCalendarSection.tsx               # Mon–Sun view of the current week (top of /plans), fed by dashboard.summary,
                                             #   and the surface you LOG onto: each day has a + that opens
@@ -230,7 +232,8 @@ packages/db/                                # Shared package @macromaxxing/db
                                             #   and resolveMacroTargets — the ONE place a userSettings row turns
                                             #   into MacroTargets (server + client both call it). resolveActivityLevel
                                             #   turns the stored ActivitySetting into a real bracket: 'auto' maps
-                                            #   trainingSessionsPerWeek through activityFromTrainingFrequency
+                                            #   trainingSessionsPerWeek through activityFromTrainingFrequency.
+                                            #   carbFloorPerKg maps trainingHardSetsPerWeek → g/kg. See Macro targets
   units.ts                                  # Ingredient measurement units: VOLUME_UNITS, isVolumeUnit, getAllUnits
                                             #   (stored rows + the volume units density implies) and resolveUnitGrams —
                                             #   the ONE place an {amount, unit} pair becomes grams (server + client).
@@ -496,6 +499,27 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 **Per-user AI settings** (both off by default):
 - `batchLookups` — batch N ingredient AI calls into 1 (fewer requests, may reduce accuracy)
 - `modelFallback` — retry with cheaper models on 429 (Gemini fallback chain: gemini-2.5-flash → gemini-2.5-flash-lite-preview → gemma-3-27b-it)
+
+**Macro targets** — one budget and four floors, which deliberately do NOT sum:
+- **`kcal` is a budget; protein/carbs/fat/fiber are floors.** Calories are the only number where
+  overshooting means anything. Clearing a macro floor is the whole ask, so the calories left once
+  every floor is paid for belong to no macro. `MACRO_TARGET_KIND` (features/nutrition/utils/targets)
+  carries the distinction; `targetStatus` never returns `over` for a floor and `targetDelta` prints
+  nothing once one is cleared. **`protein*4 + carbs*4 + fat*9 < kcal` is correct, not a rounding bug** —
+  do not "fix" `deriveMacroTargets` to make them add up.
+- Carbs used to BE the leftover (`kcal - protein - 25% fat`), which produced a 363 g "target" for a
+  104 kg user and turned every fat-heavy day into a false miss. Fat was a share of calories, so a cut
+  moved it for no physiological reason. Both are now per-kg floors.
+- **The carb floor scales on HARD SETS, not sessions.** `trainingHardSetsPerWeek` is a separate query
+  from `trainingSessionsPerWeek` over the same 28d window (both in workers/lib/training-frequency.ts).
+  Sessions drive the TDEE bracket; hard sets drive glycogen, and a 5-set arm day and a 15-set leg day
+  are one session each. Never reuse one for the other.
+- Floors can outrun the budget on an aggressive cut at high volume. The priority order is protein ->
+  essential fat -> carbs, squeezed down to `CARB_RDA_GRAMS` (130 g) and no further. `kcal` is never
+  adjusted to accommodate a floor, and a budget too small even for the RDA leaves the floors visibly
+  summing past it, which is the honest reading of that deficit.
+- A `null` hard-set count falls to the LOWEST bracket, unlike `auto` activity which stays neutral: a
+  carb floor guessed high prescribes carbs the user has no training reason to eat.
 
 **Meal Plans** - A Mon–Sun grid of meals, used both as a plan and as a log:
 - **Log vs plan is tense, not a mode.** The same rows serve both: a plan whose `weekStart` is ahead is

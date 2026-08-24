@@ -16,7 +16,7 @@ import { z } from 'zod'
 import { MODELS } from '../constants'
 import { decrypt, encrypt } from '../crypto'
 import { generateToken, hashToken } from '../mcp-auth'
-import { trainingSessionsPerWeek } from '../training-frequency'
+import { trainingHardSetsPerWeek, trainingSessionsPerWeek } from '../training-frequency'
 import { protectedProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
 
@@ -107,11 +107,16 @@ export const settingsRouter = router({
 	getTargets: protectedProcedure
 		.meta({ description: "Get the user's daily macro targets (kcal/protein/carbs/fat/fiber) and TDEE" })
 		.query(async ({ ctx }) => {
-			const [settings, sessionsPerWeek] = await Promise.all([
+			const [settings, sessionsPerWeek, hardSetsPerWeek] = await Promise.all([
 				ctx.db.query.userSettings.findFirst({ where: { userId: ctx.user.id } }),
-				trainingSessionsPerWeek(ctx.db, ctx.user.id)
+				trainingSessionsPerWeek(ctx.db, ctx.user.id),
+				trainingHardSetsPerWeek(ctx.db, ctx.user.id)
 			])
-			const profile = settings && { ...settings, trainingSessionsPerWeek: sessionsPerWeek }
+			const profile = settings && {
+				...settings,
+				trainingSessionsPerWeek: sessionsPerWeek,
+				trainingHardSetsPerWeek: hardSetsPerWeek
+			}
 			return {
 				nutritionGoal: settings?.nutritionGoal ?? null,
 				activityLevel: settings?.activityLevel ?? null,
@@ -123,6 +128,8 @@ export const settingsRouter = router({
 				sex: settings?.sex ?? 'male',
 				/** Drives the `auto` bracket — echoed so the form can preview it without a second query. */
 				trainingSessionsPerWeek: sessionsPerWeek,
+				/** Drives the carbohydrate floor — echoed for the same reason. */
+				trainingHardSetsPerWeek: hardSetsPerWeek,
 				/** What `auto` currently resolves to; equal to `activityLevel` for the fixed brackets. */
 				resolvedActivityLevel: profile ? resolveActivityLevel(profile) : null,
 				tdee: profile ? estimateProfileTDEE(profile) : null,

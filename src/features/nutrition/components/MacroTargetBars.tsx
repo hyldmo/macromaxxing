@@ -12,9 +12,9 @@ export interface MacroTargetBarsProps {
 }
 
 /**
- * Four hairline progress bars (P/C/F/Fi) against the day's targets. Deliberately
- * uncolored past 100% — overshoot is only a problem for calories, and the kcal
- * readout carries that signal.
+ * Four hairline progress bars (P/C/F/Fi) against the day's floors. Deliberately uncolored past
+ * 100% — every macro is a `floor` in `MACRO_TARGET_KIND`, so clearing one is the whole ask and
+ * overshoot means nothing. Calories are the only budget, and `KcalReadout` carries that signal.
  */
 export const MacroTargetBars: FC<MacroTargetBarsProps> = ({ totals, targets, className }) => (
 	<div className={cn('flex gap-0.5', className)}>
