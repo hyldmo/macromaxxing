@@ -4,7 +4,13 @@
  * MuscleLoadPanel/BodyMap + HistoryChart render and style correctly inside a standalone bundle. The
  * live MCP handshake is exercised separately (in claude.ai).
  */
-import { computeBalances, type MuscleGroup, type MuscleLoad, withZones } from '@macromaxxing/db'
+import {
+	computeBalances,
+	type ExerciseContribution,
+	type MuscleGroup,
+	type MuscleLoad,
+	withZones
+} from '@macromaxxing/db'
 import { createRoot } from 'react-dom/client'
 import { ExerciseHistoryWidgetView } from './ExerciseHistoryWidgetView'
 import { MuscleLoadWidgetView } from './MuscleLoadWidgetView'
@@ -43,6 +49,18 @@ const loads: MuscleLoad[] = [
 	mk('core', 8)
 ]
 
+// Tooltip attribution for two of the muscles above — the rest fall back to the set count alone.
+const breakdown: Partial<Record<MuscleGroup, ExerciseContribution[]>> = {
+	chest: [
+		{ name: 'Barbell Bench Press', sets: 7 },
+		{ name: 'Incline Dumbbell Press', sets: 5 }
+	],
+	triceps: [
+		{ name: 'Barbell Bench Press', sets: 2.1 },
+		{ name: 'Cable Pushdown', sets: 1.9 }
+	]
+}
+
 // A progressing e1RM series (fixed base timestamp — deterministic, no Date.now()).
 const WEEK_MS = 7 * 86_400_000
 const BASE_MS = 1_700_000_000_000
@@ -66,6 +84,7 @@ if (el) {
 					sex: 'male',
 					muscles: withZones(loads),
 					balances: computeBalances(loads),
+					breakdown,
 					unitLabel: 'sets/wk'
 				}}
 			/>

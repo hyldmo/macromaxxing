@@ -175,6 +175,7 @@ src/
                                             #   (stable {exerciseId, setNumber} identity) against it via src/lib/workouts/timerQueue.ts
       components/
         BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
+        MuscleContributionList.tsx          # Tooltip lines under a body-map set count: exercise name + its sets
         MuscleHeatGrid.tsx                  # Muscle group volume/frequency stats grid
         WorkoutCard.tsx                     # Workout template card with exercise count + last session
         SessionCard.tsx                     # Session history card (date, exercises, volume)
@@ -236,7 +237,9 @@ packages/db/                                # Shared package @macromaxxing/db
                                             #   the ONE place an {amount, unit} pair becomes grams (server + client).
                                             #   A unit's grams is EDIBLE weight on the same basis as the per-100g macros
   muscle-load.ts                            # Pure muscle-load aggregation (MEV/MAV/MRV zones, balance ratios) +
-                                            #   plannedRowContributions (template row → per-muscle contributions)
+                                            #   plannedRowContributions (template row → per-muscle contributions) +
+                                            #   computeExerciseBreakdown (contributions → which exercises put the sets
+                                            #   on each muscle; merges by name, sums to that muscle's workingSets)
   equipment.ts                              # EQUIPMENT_CATEGORIES + missingEquipment/equipmentSet/formatEquipment (labels = startCase of value)
   weights.ts                                # The ONE place a computed load (warmup %, backoff %, estimate) becomes a
                                             #   weight someone can lift: LOAD_CLASSES/loadClass (which equipment carries

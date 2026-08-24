@@ -1,4 +1,4 @@
-import type { BalanceRatio, MuscleLoadWithZone, Sex } from '@macromaxxing/db'
+import type { BalanceRatio, ExerciseContribution, MuscleGroup, MuscleLoadWithZone, Sex } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { MuscleLoadPanel } from '~/features/workouts/components/MuscleLoadPanel'
 
@@ -15,6 +15,8 @@ export interface MuscleLoadWidgetData {
 	sex: Sex
 	muscles: MuscleLoadWithZone[]
 	balances: BalanceRatio[]
+	/** Which exercises put the sets on each muscle — listed under the tooltip's set count. */
+	breakdown: Partial<Record<MuscleGroup, ExerciseContribution[]>>
 	/** Volume unit for the body-map tooltip: 'sets/wk' (template) or 'sets/cycle' (program). */
 	unitLabel: string
 }
@@ -27,7 +29,7 @@ export interface MuscleLoadWidgetData {
  * app. Kept free of the ext-apps bootstrap so the render fixture can mount it.
  */
 export const MuscleLoadWidgetView: FC<{ data: MuscleLoadWidgetData }> = ({ data }) => {
-	const { title, subtitle, muscles, balances, sex, unitLabel } = data
+	const { title, subtitle, muscles, balances, breakdown, sex, unitLabel } = data
 	const belowMev = muscles
 		.filter(m => m.zone === 'below_mev' && m.landmark.mev > 0)
 		.map(m => m.muscleGroup.replace('_', ' '))
@@ -55,7 +57,13 @@ export const MuscleLoadWidgetView: FC<{ data: MuscleLoadWidgetData }> = ({ data 
 					)}
 				</div>
 			)}
-			<MuscleLoadPanel muscles={muscles} balances={balances} sex={sex} unitLabel={unitLabel} />
+			<MuscleLoadPanel
+				muscles={muscles}
+				balances={balances}
+				sex={sex}
+				unitLabel={unitLabel}
+				breakdown={breakdown}
+			/>
 		</div>
 	)
 }

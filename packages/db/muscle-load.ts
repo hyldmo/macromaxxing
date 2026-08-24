@@ -94,6 +94,11 @@ export interface MuscleContribution {
 	fatigueTier: FatigueTier
 	/** Per-exercise training goal if overridden, else parent (workout/session) goal. */
 	trainingGoal: TrainingGoal
+	/**
+	 * Name of the exercise this contribution came from. A label for `computeExerciseBreakdown`,
+	 * never part of the math — omit it where attribution is meaningless (a single-exercise dose).
+	 */
+	exerciseName?: string
 }
 
 /**
@@ -109,6 +114,7 @@ export interface PlannedRow {
 	/** Per-exercise override; falls back to the parent workout's goal. */
 	trainingGoal: TrainingGoal | null
 	exercise: {
+		name: string
 		type: ExerciseType
 		fatigueTier: FatigueTier
 		bwMultiplier: number
@@ -137,7 +143,7 @@ export function plannedRowContributions(
 	const trainingGoal: TrainingGoal = row.trainingGoal ?? parentGoal
 	const targetSets = row.targetSets ?? (trainingGoal === 'strength' ? 5 : 3)
 	const targetReps = row.targetReps ?? 0
-	const { type: exerciseType, fatigueTier, bwMultiplier, muscles, equipment } = row.exercise
+	const { name: exerciseName, type: exerciseType, fatigueTier, bwMultiplier, muscles, equipment } = row.exercise
 	const implementsPerSet = implementCount(equipment)
 
 	const { workingCount, backoff } = splitTargetSets({
@@ -164,7 +170,8 @@ export function plannedRowContributions(
 			implementCount: implementsPerSet,
 			exerciseType,
 			fatigueTier,
-			trainingGoal
+			trainingGoal,
+			exerciseName
 		}))
 	)
 }
@@ -231,6 +238,41 @@ export function computeMuscleLoad(contributions: readonly MuscleContribution[]):
 	}
 
 	return Array.from(byMuscle.values())
+}
+
+export interface ExerciseContribution {
+	/** Exercise name, as carried by the contributions summed into it. */
+	name: string
+	/** Σ(sets × intensity) this exercise puts on the muscle. Sums to the muscle's `workingSets`. */
+	sets: number
+}
+
+/**
+ * Attribute each muscle's `workingSets` back to the exercises that produced them — the "why is
+ * chest at 14 sets" answer behind a body-map tooltip. Contributions merge by name, so an exercise
+ * trained in two workouts of a cycle (or a row whose backoff is folded in) reads as one line.
+ * Contributions with no `exerciseName` are left out; a muscle nothing names is absent from the map.
+ *
+ * A plain object rather than a Map so it survives the tRPC/MCP JSON round-trip to the widget.
+ */
+export function computeExerciseBreakdown(
+	contributions: readonly MuscleContribution[]
+): Partial<Record<MuscleGroup, ExerciseContribution[]>> {
+	const byMuscle = new Map<MuscleGroup, Map<string, number>>()
+	for (const c of contributions) {
+		if (!c.exerciseName) continue
+		const sets = c.sets * c.intensity
+		if (sets === 0) continue
+		const byExercise = byMuscle.get(c.muscleGroup) ?? new Map<string, number>()
+		byExercise.set(c.exerciseName, (byExercise.get(c.exerciseName) ?? 0) + sets)
+		byMuscle.set(c.muscleGroup, byExercise)
+	}
+
+	const breakdown: Partial<Record<MuscleGroup, ExerciseContribution[]>> = {}
+	for (const [muscleGroup, byExercise] of byMuscle) {
+		breakdown[muscleGroup] = [...byExercise].map(([name, sets]) => ({ name, sets })).sort((a, b) => b.sets - a.sets)
+	}
+	return breakdown
 }
 
 export interface MuscleLoadWithZone extends MuscleLoad {

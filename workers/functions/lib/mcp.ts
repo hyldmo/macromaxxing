@@ -38,6 +38,7 @@ function mapWorkoutMuscleLoad(result: WorkoutMuscleLoadResult) {
 		sex: result.sex,
 		muscles: result.muscles,
 		balances: result.balances,
+		breakdown: result.breakdown,
 		unitLabel: 'sets/wk'
 	}
 }
@@ -51,6 +52,7 @@ function mapProgramMuscleLoad(result: ProgramMuscleLoadResult) {
 		sex: result.sex,
 		muscles: result.muscles,
 		balances: result.balances,
+		breakdown: result.breakdown,
 		unitLabel: 'sets/cycle'
 	}
 }

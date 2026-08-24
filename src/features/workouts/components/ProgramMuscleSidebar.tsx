@@ -77,7 +77,13 @@ export const ProgramMuscleSidebar: FC<ProgramMuscleSidebarProps> = ({ workouts }
 				</div>
 			</Card>
 
-			<MuscleLoadPanel muscles={load.muscles} balances={load.balances} sex={sex} unitLabel="sets/cycle" />
+			<MuscleLoadPanel
+				muscles={load.muscles}
+				balances={load.balances}
+				sex={sex}
+				unitLabel="sets/cycle"
+				breakdown={load.breakdown}
+			/>
 		</div>
 	)
 }
