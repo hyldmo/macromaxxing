@@ -764,6 +764,11 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
   `INSERT OR IGNORE` them back after the rename** — see `20260805203035_colossal_wallow.sql`. That is
   correct whether or not the cascade fires. Also re-add the `NOT NULL` drizzle-kit now omits from
   `id text PRIMARY KEY`; SQLite lets a TEXT primary key be null without it.
+  **To rehearse one honestly**: `wrangler d1 export --table ...` a copy, then replay the migration
+  through `node:sqlite` splitting on `--> statement-breakpoint` and re-asserting `PRAGMA
+  foreign_keys=ON` before EACH statement. Feeding the file to the `sqlite3` CLI runs it as one
+  transaction, so the `foreign_keys=OFF` holds and the cascade you are trying to catch never fires.
+  Assert on conserved quantities (row counts, and the gram weight behind each slot), not on shape.
 - D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
 
 **MCP Apps widgets**
