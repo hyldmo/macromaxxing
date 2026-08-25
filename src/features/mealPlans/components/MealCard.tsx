@@ -38,17 +38,17 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 	const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 	const macros = calculateSlotMacros(portionMacros, slot.portions)
 
-	// An `ingredient` wrapper holds 100 g, so its portions are hectograms — reading "0.76" back at
+	// A bare ingredient is held in 100 g portions, so they read as hectograms — showing "0.76" to
 	// someone who typed "2 small" is what this splits on. Recipes are countable and stay in halves.
-	const isWrapper = recipe.type === 'ingredient'
+	const isIngredient = slot.inventory.ingredientId !== null
 	const amount: SlotAmount = {
 		displayAmount: slot.displayAmount,
 		displayUnit: slot.displayUnit,
 		weightGrams: macros.weight
 	}
-	const step = isWrapper ? slotAmountStep(amount) : 0.5
-	const value = isWrapper ? slotAmountValue(amount) : slot.portions
-	const label = isWrapper ? formatSlotAmount(amount) : String(slot.portions)
+	const step = isIngredient ? slotAmountStep(amount) : 0.5
+	const value = isIngredient ? slotAmountValue(amount) : slot.portions
+	const label = isIngredient ? formatSlotAmount(amount) : String(slot.portions)
 
 	function stepBy(delta: number) {
 		const next = value + delta
@@ -56,7 +56,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 		// The server owns the unit conversion, so the amount goes up in the unit it was entered in
 		// and comes back as portions. A client that pre-multiplied would be a second rule to drift.
 		updateMutation.mutate(
-			isWrapper ? { slotId: slot.id, displayAmount: next } : { slotId: slot.id, portions: next }
+			isIngredient ? { slotId: slot.id, displayAmount: next } : { slotId: slot.id, portions: next }
 		)
 	}
 

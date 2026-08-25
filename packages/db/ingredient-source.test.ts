@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { authoredIngredientSource, getSourceUrl } from './ingredient-source'
+import { getSourceUrl } from './ingredient-source'
 
 describe('getSourceUrl', () => {
 	it('builds a USDA FoodData Central URL from a numeric fdcId string', () => {
@@ -19,19 +19,5 @@ describe('getSourceUrl', () => {
 
 	it('returns null when sourceId is missing for a known source', () => {
 		expect(getSourceUrl('usda', null)).toBeNull()
-	})
-})
-
-describe('authoredIngredientSource', () => {
-	it('accepts every provenance a caller can legitimately claim', () => {
-		for (const source of ['manual', 'ai', 'usda', 'openfoodfacts'] as const) {
-			expect(authoredIngredientSource.parse(source)).toBe(source)
-		}
-	})
-
-	it("rejects 'label' and points at recipe.addPremade", () => {
-		const result = authoredIngredientSource.safeParse('label')
-		expect(result.success).toBe(false)
-		expect(result.error?.issues[0]?.message).toContain('recipe.addPremade')
 	})
 })

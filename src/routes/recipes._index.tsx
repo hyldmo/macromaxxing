@@ -1,10 +1,9 @@
 import { by, Order } from '@hyldmo/by'
 import type { AbsoluteMacros, Recipe } from '@macromaxxing/db'
-import { Import, Package, Plus } from 'lucide-react'
+import { Import, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button, Card, Select, Spinner, TRPCError } from '~/components/ui'
-import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import { RecipeCard } from '~/features/recipes/components/RecipeCard'
 import { RecipeImportDialog } from '~/features/recipes/components/RecipeImportDialog'
 import {
@@ -19,7 +18,7 @@ import { trpc } from '~/lib/trpc'
 
 export const clientLoader = () => prefetchRoute(utils => [utils.recipe.list.ensureData()])
 
-type Filter = 'all' | 'mine' | 'premade'
+type Filter = 'all' | 'mine'
 
 type Sort = 'recent' | keyof AbsoluteMacros | keyof Recipe
 const sortOptions: Sort[] = ['recent', 'protein', 'carbs', 'fat', 'kcal', 'fiber', 'name']
@@ -32,7 +31,6 @@ export default function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = usePersistentState<Sort>(SORT_STORAGE_KEY, isSort, 'recent')
 	const [showImport, setShowImport] = useState(false)
-	const [showPremade, setShowPremade] = useState(false)
 	const navigate = useNavigate()
 	const { user } = useUser()
 	const recipesQuery = trpc.recipe.list.useQuery()
@@ -49,11 +47,7 @@ export default function RecipeListPage() {
 	}, [recipesQuery.data, user?.id])
 
 	const sortedRecipes = useMemo(() => {
-		const filtered = recipesWithMacros.filter(r => {
-			if (filter === 'mine') return r.isMine && r.recipe.type !== 'premade'
-			if (filter === 'premade') return r.isMine && r.recipe.type === 'premade'
-			return r.recipe.type !== 'premade'
-		})
+		const filtered = recipesWithMacros.filter(r => (filter === 'mine' ? r.isMine : true))
 		return filtered.toSorted(
 			by(v => {
 				if (sort in v.portion) return v.portion[sort as keyof typeof v.portion]
@@ -63,8 +57,7 @@ export default function RecipeListPage() {
 		)
 	}, [recipesWithMacros, filter, sort])
 
-	const myRecipeCount = recipesWithMacros.filter(r => r.isMine && r.recipe.type !== 'premade').length
-	const premadeCount = recipesWithMacros.filter(r => r.isMine && r.recipe.type === 'premade').length
+	const myRecipeCount = recipesWithMacros.filter(r => r.isMine).length
 
 	return (
 		<div className="space-y-3">
@@ -97,18 +90,6 @@ export default function RecipeListPage() {
 							>
 								Mine{myRecipeCount > 0 && ` (${myRecipeCount})`}
 							</button>
-							<button
-								type="button"
-								onClick={() => setFilter('premade')}
-								className={cn(
-									'rounded-full px-2.5 py-0.5 text-xs transition-colors',
-									filter === 'premade'
-										? 'bg-accent text-white'
-										: 'bg-surface-2 text-ink-muted hover:text-ink'
-								)}
-							>
-								Premade{premadeCount > 0 && ` (${premadeCount})`}
-							</button>
 						</div>
 					)}
 				</div>
@@ -119,10 +100,6 @@ export default function RecipeListPage() {
 							<Button variant="outline" onClick={() => setShowImport(true)}>
 								<Import className="size-4" />
 								Import
-							</Button>
-							<Button variant="outline" onClick={() => setShowPremade(true)}>
-								<Package className="size-4" />
-								Premade
 							</Button>
 							<Link to="/recipes/new">
 								<Button>
@@ -145,11 +122,9 @@ export default function RecipeListPage() {
 
 			{sortedRecipes.length === 0 && !recipesQuery.isLoading && (
 				<Card className="py-12 text-center text-ink-faint">
-					{filter === 'premade'
-						? "You haven't added any premade meals yet."
-						: filter === 'mine'
-							? "You haven't created any recipes yet."
-							: 'No recipes yet. Create the first one!'}
+					{filter === 'mine'
+						? "You haven't created any recipes yet."
+						: 'No recipes yet. Create the first one!'}
 				</Card>
 			)}
 
@@ -165,11 +140,6 @@ export default function RecipeListPage() {
 				))}
 			</div>
 			<RecipeImportDialog open={showImport} onClose={() => setShowImport(false)} />
-			<PremadeDialog
-				open={showPremade}
-				onClose={() => setShowPremade(false)}
-				onCreated={recipe => navigate(`/recipes/${recipe.id}`)}
-			/>
 		</div>
 	)
 }

@@ -35,6 +35,7 @@ describe('MCP mutations', () => {
 			[
 			  "ai_lookup",
 			  "ai_parseRecipe",
+			  "ingredient_addFromLabel",
 			  "ingredient_create",
 			  "ingredient_findOrCreate",
 			  "ingredient_update",
@@ -49,7 +50,6 @@ describe('MCP mutations', () => {
 			  "mealPlan_removeSlot",
 			  "mealPlan_update",
 			  "recipe_addIngredient",
-			  "recipe_addPremade",
 			  "recipe_create",
 			  "recipe_delete",
 			  "recipe_removeIngredient",

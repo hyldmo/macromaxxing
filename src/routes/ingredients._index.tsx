@@ -1,5 +1,5 @@
 import { startCase } from 'es-toolkit'
-import { ArrowDown, ArrowUp, NotebookPenIcon, Pencil, Plus, ScanLine, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, NotebookPenIcon, Package, Pencil, Plus, ScanLine, Sparkles, Trash2 } from 'lucide-react'
 import { Fragment, useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { USDA } from '~/components/icons'
@@ -7,6 +7,7 @@ import { Button, Card, Input, Spinner, TRPCError } from '~/components/ui'
 import { IngredientForm } from '~/features/ingredients/components/IngredientForm'
 import { BarcodeScanDialog } from '~/features/recipes/components/BarcodeScanDialog'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
+import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import type { OFFProduct } from '~/lib'
 import { offUnits, prefetchRoute, useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -24,6 +25,9 @@ export default function IngredientListPage() {
 	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [showForm, setShowForm] = useState(false)
 	const [showBarcodeDialog, setShowBarcodeDialog] = useState(false)
+	// A packaged product read off its label. It lands here rather than in the recipe library,
+	// because it is one ingredient with a serving-sized `pcs` unit, not something you cook.
+	const [showPremade, setShowPremade] = useState(false)
 	const [editId, setEditId] = useState<string | null>(null)
 	const [sortKey, setSortKey] = useState<'recent' | 'name' | 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'>('recent')
 	const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -86,6 +90,10 @@ export default function IngredientListPage() {
 							<ScanLine className="size-4" />
 							Scan
 						</Button>
+						<Button variant="outline" onClick={() => setShowPremade(true)}>
+							<Package className="size-4" />
+							Premade
+						</Button>
 						<Button
 							onClick={() => {
 								setEditId(null)
@@ -104,6 +112,7 @@ export default function IngredientListPage() {
 				onClose={() => setShowBarcodeDialog(false)}
 				onProductFound={handleBarcodeProduct}
 			/>
+			<PremadeDialog open={showPremade} onClose={() => setShowPremade(false)} />
 			{createIngredient.error && <TRPCError error={createIngredient.error} />}
 
 			{showForm && !editId && (

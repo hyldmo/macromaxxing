@@ -3,9 +3,6 @@ import {
 	calculateRecipeTotals,
 	getEffectiveCookedWeight,
 	type IngredientWithAmount,
-	ingredients,
-	ingredientUnits,
-	type RecipeType,
 	recipeIngredients,
 	recipes,
 	type TypeIDString,
@@ -85,21 +82,14 @@ const updateIngredientSchema = z.object({
 })
 
 /**
- * Types the user actually authored. `ingredient` wrappers exist only so `mealPlan.logMeal` can put a
- * bare ingredient in a plan — they're plumbing, and listing them would duplicate the ingredient list.
+ * Visibility rule shared by `list` and `search`: everyone's public recipes plus all of your own.
+ *
+ * There used to be a `type` filter here as well, because a bare ingredient and a packaged product
+ * were both stored as recipes and neither belonged in the library. Both are ingredients now, so
+ * every row in this table is something the user actually authored.
  */
-const AUTHORED_TYPES: RecipeType[] = ['recipe', 'premade']
-
-/** Visibility rule shared by `list` and `search`: everyone's public recipes plus all of your own. */
 const visibleRecipes = (userId: string | undefined) =>
-	userId
-		? {
-				OR: [
-					{ isPublic: true, type: 'recipe' as const },
-					{ userId, type: { in: AUTHORED_TYPES } }
-				]
-			}
-		: { isPublic: true, type: 'recipe' as const }
+	userId ? { OR: [{ isPublic: true }, { userId }] } : { isPublic: true }
 
 const DEFAULT_SEARCH_LIMIT = 20
 
@@ -153,7 +143,6 @@ export const recipesRouter = router({
 				return {
 					id: recipe.id,
 					name: recipe.name,
-					type: recipe.type,
 					image: recipe.image,
 					portionSize: recipe.portionSize,
 					cookedWeight,
@@ -390,99 +379,5 @@ export const recipesRouter = router({
 
 			await ctx.db.delete(recipeIngredients).where(eq(recipeIngredients.id, input.id))
 			await ctx.db.update(recipes).set({ updatedAt: Date.now() }).where(eq(recipes.id, ri.recipeId))
-		}),
-
-	addPremade: protectedProcedure
-		.meta({
-			description:
-				"Create a premade/packaged meal from its nutrition label: a type:'premade' recipe backed by a source:'label' ingredient. Macros are PER SERVING (not per 100g); servingSize is that serving's weight in grams and servings is how many servings the package holds. The backing ingredient gets a 'pcs' unit worth one serving. Use this instead of recipe_create for store-bought products — recipe_create always yields type:'recipe'."
-		})
-		.input(
-			z.object({
-				name: z.string().min(1),
-				servingSize: z.number().positive(),
-				servings: z.number().positive().default(1),
-				protein: z.number().nonnegative(),
-				carbs: z.number().nonnegative(),
-				fat: z.number().nonnegative(),
-				kcal: z.number().nonnegative(),
-				fiber: z.number().nonnegative().default(0),
-				sourceUrl: z.string().url().nullable().optional(),
-				/** Barcode when the label came from a scan, so the ingredient keeps its provenance too */
-				sourceId: z.string().nullable().optional()
-			})
-		)
-		.mutation(async ({ ctx, input }) => {
-			const now = Date.now()
-			const per100g = (value: number) => (value / input.servingSize) * 100
-
-			// 1. Create backing ingredient with per-100g macros
-			const [ingredient] = await ctx.db
-				.insert(ingredients)
-				.values({
-					userId: ctx.user.id,
-					name: input.name,
-					protein: per100g(input.protein),
-					carbs: per100g(input.carbs),
-					fat: per100g(input.fat),
-					kcal: per100g(input.kcal),
-					fiber: per100g(input.fiber),
-					source: 'label',
-					sourceId: input.sourceId ?? null,
-					createdAt: now
-				})
-				.returning()
-
-			// 2. Units: 'g' plus a 'pcs' worth one serving, so the package can be logged as a countable
-			//    item ("1 pcs = 330 g") instead of the user re-deriving the gram weight every time.
-			await ctx.db.insert(ingredientUnits).values([
-				{
-					ingredientId: ingredient.id,
-					name: 'g',
-					grams: 1,
-					isDefault: false,
-					source: 'manual',
-					createdAt: now
-				},
-				{
-					ingredientId: ingredient.id,
-					name: 'pcs',
-					grams: input.servingSize,
-					isDefault: true,
-					source: 'manual',
-					createdAt: now
-				}
-			])
-
-			// 3. Create premade recipe
-			const [recipe] = await ctx.db
-				.insert(recipes)
-				.values({
-					userId: ctx.user.id,
-					name: input.name,
-					type: 'premade',
-					portionSize: null,
-					isPublic: false,
-					sourceUrl: input.sourceUrl ?? null,
-					createdAt: now,
-					updatedAt: now
-				})
-				.returning()
-
-			// 4. Link ingredient to recipe
-			await ctx.db.insert(recipeIngredients).values({
-				recipeId: recipe.id,
-				ingredientId: ingredient.id,
-				amountGrams: input.servingSize * input.servings,
-				displayUnit: 'pcs',
-				displayAmount: input.servings,
-				sortOrder: 0
-			})
-
-			// 5. Return with populated relations
-			return ctx.db.query.recipes.findFirst({
-				where: { id: recipe.id },
-				with: recipeIngredientsWithOrdered
-			})
 		})
 })

@@ -8,10 +8,11 @@ import {
 } from '~/features/recipes/utils/macros'
 
 /**
- * `mealPlan.logMeal` puts a bare ingredient in a plan by wrapping it in a `type: 'ingredient'` recipe
- * holding 100 g, with `portionSize: 100` and no cooked weight, then storing the amount as the slot's
- * portions (`grams / 100`). Nothing downstream knows about that encoding — every macro surface just
- * runs the normal recipe path — so these assert the round trip actually reproduces the grams logged.
+ * A bare ingredient in a meal plan is projected as a recipe holding 100 g of itself
+ * (`ingredientAsTarget`, workers/functions/lib/inventory.ts): `portionSize: 100`, no cooked weight,
+ * amount stored as the slot's portions (`grams / 100`). Nothing downstream knows about that encoding
+ * — every macro surface just runs the normal recipe path — so these assert the round trip actually
+ * reproduces the grams logged.
  */
 const PORTION_GRAMS = 100
 
@@ -25,7 +26,7 @@ function wrapperPortionMacros() {
 	return calculatePortionMacros(totals, cookedWeight, PORTION_GRAMS)
 }
 
-describe('ingredient wrapper recipe', () => {
+describe('ingredient portion projection', () => {
 	it('prices one portion as exactly 100 g of the ingredient', () => {
 		const portion = wrapperPortionMacros()
 

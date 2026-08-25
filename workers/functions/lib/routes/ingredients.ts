@@ -1,4 +1,4 @@
-import { authoredIngredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
+import { ingredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -130,7 +130,7 @@ const createIngredientSchema = z.object({
 	fiber: z.number().nonnegative(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	source: authoredIngredientSource.default('manual'),
+	source: ingredientSource.default('manual'),
 	units: z.array(unitInputSchema).optional()
 })
 
@@ -144,8 +144,7 @@ const updateIngredientSchema = z.object({
 	fiber: z.number().nonnegative().optional(),
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
-	// Correcting a mis-tagged provenance is fine; retagging a row as `label` would hide it, so it's rejected
-	source: authoredIngredientSource.optional(),
+	source: ingredientSource.optional(),
 	// Add or update measurement units; matched by name (case-insensitive), so re-sending a name updates its grams
 	units: z.array(unitInputSchema).optional()
 })
@@ -174,24 +173,88 @@ export const ingredientsRouter = router({
 		.query(async ({ ctx, input }) => {
 			const search = input?.search
 			return ctx.db.query.ingredients.findMany({
-				where: {
-					// Narrows every source. Without it `search` only ever ADDED the label row below, so the
-					// unfiltered list came back verbatim — invisible to the UI, which filters client-side anyway.
-					...(search
-						? {
-								RAW: t =>
-									sql`lower(${t.name}) like ${`%${escapeLikePattern(search.toLowerCase())}%`} escape '\\'`
-							}
-						: {}),
-					// `label` rows are a premade's backing ingredient and stay hidden, unless the search names one
-					// exactly: /ingredients?search=<name> is how clicking an ingredient in a recipe reaches it to edit.
-					OR: [{ source: { ne: 'label' } }, ...(search ? [{ source: 'label', name: search }] : [])]
-				},
+				where: search
+					? {
+							RAW: t =>
+								sql`lower(${t.name}) like ${`%${escapeLikePattern(search.toLowerCase())}%`} escape '\\'`
+						}
+					: {},
 				with: { units: true },
 				orderBy: { name: 'asc' },
 				limit: input?.limit ?? DEFAULT_LIST_LIMIT,
 				offset: input?.offset ?? 0
 			})
+		}),
+
+	/**
+	 * A packaged product read off its label.
+	 *
+	 * This used to be `recipe.addPremade`, which wrote this exact ingredient and then wrapped it in a
+	 * `type: 'premade'` recipe. The recipe held one fact the ingredient did not — how big a serving
+	 * is — so that moved to the `pcs` unit and the wrapper went away.
+	 */
+	addFromLabel: protectedProcedure
+		.meta({
+			description:
+				"Create a packaged product from its nutrition label. Macros are PER SERVING (not per 100g); servingSize is that serving's weight in grams. Stores per-100g macros plus a 'pcs' unit worth one serving, so it logs as `amount: 1, unit: 'pcs'`. Use this for store-bought items instead of ingredient.create, which takes per-100g values."
+		})
+		.input(
+			z.object({
+				name: z.string().min(1),
+				servingSize: z.number().positive(),
+				protein: z.number().nonnegative(),
+				carbs: z.number().nonnegative(),
+				fat: z.number().nonnegative(),
+				kcal: z.number().nonnegative(),
+				fiber: z.number().nonnegative().default(0),
+				sourceUrl: z.string().url().nullable().optional(),
+				/** Barcode when the label came from a scan, so the row keeps its provenance */
+				sourceId: z.string().nullable().optional()
+			})
+		)
+		.mutation(async ({ ctx, input }) => {
+			const now = Date.now()
+			const per100g = (value: number) => (value / input.servingSize) * 100
+
+			const [ingredient] = await ctx.db
+				.insert(ingredients)
+				.values({
+					userId: ctx.user.id,
+					name: normalizeIngredientName(input.name),
+					protein: per100g(input.protein),
+					carbs: per100g(input.carbs),
+					fat: per100g(input.fat),
+					kcal: per100g(input.kcal),
+					fiber: per100g(input.fiber),
+					source: 'label',
+					sourceId: input.sourceId ?? null,
+					sourceUrl: input.sourceUrl ?? null,
+					createdAt: now
+				})
+				.returning()
+
+			// 'pcs' is the default so the log modal opens on "1 pcs" rather than 100 g — a package is
+			// counted, not weighed.
+			await ctx.db.insert(ingredientUnits).values([
+				{
+					ingredientId: ingredient.id,
+					name: 'g',
+					grams: 1,
+					isDefault: false,
+					source: 'manual',
+					createdAt: now
+				},
+				{
+					ingredientId: ingredient.id,
+					name: 'pcs',
+					grams: input.servingSize,
+					isDefault: true,
+					source: 'manual',
+					createdAt: now
+				}
+			])
+
+			return ctx.db.query.ingredients.findFirst({ where: { id: ingredient.id }, with: { units: true } })
 		}),
 
 	searchUSDA: publicProcedure.input(z.object({ query: z.string().min(2) })).query(async ({ ctx, input }) => {

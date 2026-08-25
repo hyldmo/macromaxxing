@@ -1,15 +1,4 @@
-import { type IngredientSource, ingredientSource } from './custom-types'
-
-/**
- * The sources a caller may assign directly. `label` is excluded because it doubles as a visibility
- * flag: `ingredient.list` hides `label` rows since they're the backing ingredient of a `type: 'premade'`
- * recipe and would otherwise duplicate it. `recipe.addPremade` inserts those itself, so no legitimate
- * create/update carries it — but an agent transcribing a nutrition label reads the word and reaches for
- * it, and the row it made would be invisible to every list surface with no error to explain why.
- */
-export const authoredIngredientSource = ingredientSource.exclude(['label'], {
-	error: "source 'label' is reserved for the backing ingredient of a premade product — use recipe.addPremade, which creates both the ingredient and its premade recipe."
-})
+import type { IngredientSource } from './custom-types'
 
 interface SourceMeta {
 	label: string

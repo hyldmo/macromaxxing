@@ -81,14 +81,18 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 				{day.meals.map(meal => (
 					<Link
 						key={meal.id}
-						to={`/recipes/${meal.recipeId}`}
+						to={
+							meal.recipeId
+								? `/recipes/${meal.recipeId}`
+								: `/ingredients?search=${encodeURIComponent(meal.name)}`
+						}
 						className="flex items-baseline gap-1 rounded-sm px-1.5 py-0.5 text-xs transition-colors hover:bg-surface-2"
 						title={`${meal.name} · ${meal.planName}`}
 					>
 						<span className="truncate text-ink">{meal.name}</span>
 						{/* A bare ingredient was logged by amount, so show what was entered (`2 small`,
 						    falling back to grams) rather than the hectogram count portions hold. */}
-						{meal.recipeType === 'ingredient' ? (
+						{meal.ingredientId ? (
 							<span className="shrink-0 font-mono text-[10px] text-ink-faint tabular-nums">
 								{formatSlotAmount({
 									displayAmount: meal.displayAmount,
