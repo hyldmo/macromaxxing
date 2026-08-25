@@ -4,7 +4,7 @@ import { Package, ScanLine, Search, X } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button, Input, Modal, NumberInput, Select, Spinner, TRPCError } from '~/components/ui'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
-import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
+import { type LabelIngredient, PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import { getAllUnits, resolveUnitGrams } from '~/features/recipes/utils/format'
 import {
 	calculatePortionMacros,
@@ -17,7 +17,6 @@ import { type RouterOutput, trpc } from '~/lib/trpc'
 
 /** Lean picker row: `recipe.search` prices the portion server-side, so no ingredients come down. */
 type RecipeHit = RouterOutput['recipe']['search'][number]
-type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
 type IngredientOption = RouterOutput['ingredient']['list'][number]
 
@@ -41,15 +40,6 @@ function getRecipePortionMacros(recipe: {
 	const totals = calculateRecipeTotals(items)
 	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
 	return calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-}
-
-/** Only the premade dialog still hands us a full recipe — search results carry `defaultPortions`. */
-function getDefaultPortions(recipe: PremadeRecipe) {
-	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-	const totals = calculateRecipeTotals(items)
-	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-	if (!recipe.portionSize) return 1
-	return Math.round(cookedWeight / recipe.portionSize)
 }
 
 export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onClose, slotAllocation }) => {
@@ -150,11 +140,11 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 	const filtered = recipesQuery.data?.filter(r => !inventoryRecipeIds?.has(r.id)).slice(0, 10) ?? []
 
 	const query = search.toLowerCase()
-	// Ingredient wrappers are excluded from the quick-picks on purpose. They'd duplicate the row the
+	// Bare-ingredient rows are excluded from the quick-picks on purpose. They'd duplicate the row the
 	// Ingredients section already shows, and the quick-pick allocates a fixed 1 portion through
 	// `allocate` — which doesn't grow the pool, so re-logging one would trip the over-allocation
 	// warning that logging is supposed to stay clear of. Re-log via Ingredients, which sets the amount.
-	const loggableInventory = slotAllocation?.inventory.filter(inv => inv.recipe.type !== 'ingredient')
+	const loggableInventory = slotAllocation?.inventory.filter(inv => inv.recipeId !== null)
 	const filteredInventory = loggableInventory
 		? query
 			? loggableInventory.filter(inv => inv.recipe.name.toLowerCase().includes(query))
@@ -193,17 +183,16 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 		})
 	}
 
-	function handlePremadeCreated(recipe: PremadeRecipe) {
-		if (slotAllocation) {
-			logMealMutation.mutate({
-				planId,
-				dayOfWeek: slotAllocation.dayOfWeek,
-				slotIndex: slotAllocation.slotIndex,
-				entry: { kind: 'recipe', recipeId: recipe.id, portions: 1 }
-			})
-			return
-		}
-		addMutation.mutate({ planId, recipeId: recipe.id, totalPortions: getDefaultPortions(recipe) })
+	// A packaged product is an ingredient with a serving-sized `pcs` unit, so it logs as one piece.
+	// Planning a cook-up out of one makes no sense, so there is nothing to add to inventory here.
+	function handlePremadeCreated(ingredient: LabelIngredient) {
+		if (!slotAllocation) return
+		logMealMutation.mutate({
+			planId,
+			dayOfWeek: slotAllocation.dayOfWeek,
+			slotIndex: slotAllocation.slotIndex,
+			entry: { kind: 'ingredient', ingredientId: ingredient.id, amount: 1, unit: 'pcs' }
+		})
 	}
 
 	function handleAllocateExisting(inv: InventoryItem) {
@@ -389,11 +378,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 												</span>
 												{!slotAllocation && (
 													<span className="shrink-0 font-mono text-ink-muted text-xs tabular-nums">
-														{/* A premade's package IS the portion, so it always adds as one
-														    countable item — "1 portions" reads like a bug. */}
-														{recipe.type === 'premade'
-															? '1 item'
-															: `${recipe.defaultPortions} portions`}
+														{`${recipe.defaultPortions} portions`}
 													</span>
 												)}
 											</div>

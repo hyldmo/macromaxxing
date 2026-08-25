@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm'
-import { type AnySQLiteColumn, index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import {
+	type AnySQLiteColumn,
+	check,
+	index,
+	integer,
+	real,
+	sqliteTable,
+	text,
+	uniqueIndex
+} from 'drizzle-orm/sqlite-core'
 import {
 	type ActivitySetting,
 	type AiProvider,
@@ -10,7 +19,6 @@ import {
 	type MuscleGroup,
 	type NutritionGoal,
 	newId,
-	type RecipeType,
 	type SetMode,
 	type SetType,
 	type Sex,
@@ -89,6 +97,8 @@ export const ingredients = sqliteTable(
 		density: real('density'), // g/ml, for volume conversions (null for solids)
 		sourceId: text('source_id'), // external record id: USDA fdcId (as text) or OFF barcode; null for manual/ai
 		source: text('source').notNull(), // 'manual' | 'ai' | 'usda' | 'openfoodfacts' | 'label'
+		/** Product page a label was read off. `getSourceUrl` covers usda/openfoodfacts; this holds the rest. */
+		sourceUrl: text('source_url'),
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('ingredients_user_id_idx').on(t.userId)]
@@ -118,7 +128,6 @@ export const recipes = sqliteTable(
 			.notNull()
 			.references(() => users.id),
 		name: text('name').notNull(),
-		type: text('type').$type<RecipeType>().notNull().default('recipe'),
 		instructions: text('instructions'),
 		cookedWeight: real('cooked_weight'), // nullable, null = use raw total
 		portionSize: real('portion_size'), // null = entire dish is 1 portion
@@ -181,13 +190,21 @@ export const mealPlanInventory = sqliteTable(
 		mealPlanId: typeidCol('mpl')('meal_plan_id')
 			.notNull()
 			.references(() => mealPlans.id, { onDelete: 'cascade' }),
-		recipeId: typeidCol('rcp')('recipe_id')
-			.notNull()
-			.references(() => recipes.id),
+		// Exactly one of these is set. A bare ingredient used to be wrapped in a hidden
+		// `type: 'ingredient'` recipe so this column could stay non-null; that wrapper duplicated
+		// the ingredient row, hid itself from every list, and encoded the amount as hectograms.
+		// The union lives here and in `toInventoryItem` (workers/lib/inventory.ts). Nothing
+		// downstream branches on it.
+		recipeId: typeidCol('rcp')('recipe_id').references(() => recipes.id),
+		ingredientId: typeidCol('ing')('ingredient_id').references(() => ingredients.id),
+		/** For an ingredient row, one portion is `INGREDIENT_PORTION_GRAMS` (100 g). */
 		totalPortions: real('total_portions').notNull(),
 		createdAt: integer('created_at').notNull()
 	},
-	t => [index('meal_plan_inventory_meal_plan_id_idx').on(t.mealPlanId)]
+	t => [
+		index('meal_plan_inventory_meal_plan_id_idx').on(t.mealPlanId),
+		check('meal_plan_inventory_one_target', sql`(${t.recipeId} is null) <> (${t.ingredientId} is null)`)
+	]
 )
 
 // Allocated meal slots (references inventory, not recipe directly)
@@ -203,6 +220,13 @@ export const mealPlanSlots = sqliteTable(
 		dayOfWeek: integer('day_of_week').notNull(), // 0=Mon, 6=Sun
 		slotIndex: integer('slot_index').notNull(), // 0, 1, 2, 3...
 		portions: real('portions').notNull().default(1), // Fractional allowed (0.5, 1.5)
+		// What the user actually typed, so the card can read back "2 small" instead of "0.76".
+		// `portions` stays the truth every macro path multiplies by; these two only decide how it
+		// renders and what one tap of the stepper means. Null on recipe slots and on gram-measured
+		// logs, where the portion count already reads correctly. Same split as
+		// `recipeIngredients.displayUnit/displayAmount`.
+		displayAmount: real('display_amount'),
+		displayUnit: text('display_unit'),
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('meal_plan_slots_inventory_id_idx').on(t.inventoryId)]

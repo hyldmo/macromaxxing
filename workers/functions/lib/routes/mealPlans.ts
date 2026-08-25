@@ -3,8 +3,6 @@ import {
 	mealPlanInventory,
 	mealPlanSlots,
 	mealPlans,
-	recipeIngredients,
-	recipes,
 	resolveUnitGrams,
 	type TypeIDString,
 	zodTypeID,
@@ -12,6 +10,7 @@ import {
 } from '@macromaxxing/db'
 import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
+import { INGREDIENT_PORTION_GRAMS, toInventoryItem } from '../inventory'
 import { protectedProcedure, router, type TRPCContext } from '../trpc'
 
 /**
@@ -38,9 +37,6 @@ async function resolveSlotIndex(
 	return Math.max(...taken) + 1
 }
 
-/** One portion of an `ingredient`-type wrapper recipe, so a slot's portions read as hectograms. */
-const PORTION_GRAMS = 100
-
 /**
  * Inventory takes a recipe id straight from the client, and `mealPlan.get` hands back each one as a
  * full recipe with its ingredients. Without this, adding someone else's private recipe to your own
@@ -52,61 +48,6 @@ async function assertRecipeVisible(db: TRPCContext['db'], recipeId: TypeIDString
 		columns: { userId: true, isPublic: true }
 	})
 	if (!(recipe && (recipe.isPublic || recipe.userId === userId))) throw new Error('Recipe not found')
-}
-
-/**
- * Find (or create) the wrapper recipe that lets a bare library ingredient sit in a meal plan.
- *
- * Inventory references recipes, not ingredients, so "200 g chicken breast" needs a recipe to hang
- * off. Wrapping keeps every downstream consumer — macros, grocery list, week calendar, export —
- * working on one shape instead of a nullable recipe/ingredient union. The wrapper holds 100 g so
- * 1 portion = 100 g and the slot's (fractional) portions carry the amount, and it is reused across
- * plans so logging chicken twice doesn't spawn a second recipe.
- */
-async function findOrCreateIngredientRecipe(
-	db: TRPCContext['db'],
-	userId: string,
-	ingredientId: TypeIDString<'ing'>
-): Promise<TypeIDString<'rcp'>> {
-	const [existing] = await db
-		.select({ id: recipes.id })
-		.from(recipes)
-		.innerJoin(recipeIngredients, eq(recipeIngredients.recipeId, recipes.id))
-		.where(
-			and(
-				eq(recipes.userId, userId),
-				eq(recipes.type, 'ingredient'),
-				eq(recipeIngredients.ingredientId, ingredientId)
-			)
-		)
-		.limit(1)
-	if (existing) return existing.id
-
-	const ingredient = await db.query.ingredients.findFirst({ where: { id: ingredientId } })
-	if (!ingredient) throw new Error('Ingredient not found')
-
-	const now = Date.now()
-	const [recipe] = await db
-		.insert(recipes)
-		.values({
-			userId,
-			name: ingredient.name,
-			type: 'ingredient',
-			portionSize: PORTION_GRAMS,
-			isPublic: false,
-			createdAt: now,
-			updatedAt: now
-		})
-		.returning()
-
-	await db.insert(recipeIngredients).values({
-		recipeId: recipe.id,
-		ingredientId,
-		amountGrams: PORTION_GRAMS,
-		sortOrder: 0
-	})
-
-	return recipe.id
 }
 
 /**
@@ -140,6 +81,29 @@ async function resolveIngredientGrams(
 	return entry.amount * gramsPerUnit
 }
 
+/**
+ * Grams in one `unitName` of an inventory row's ingredient, or null when the row holds a recipe —
+ * those are counted in portions and have no unit to step in.
+ *
+ * Editing a slot's amount reruns the conversion `logMeal` did, so a stepper tap sends `3 small` and
+ * gets the grams the server would have computed for an agent sending the same pair.
+ */
+async function resolveInventoryUnitGrams(
+	db: TRPCContext['db'],
+	ingredientId: TypeIDString<'ing'> | null,
+	unitName: string
+): Promise<number | null> {
+	if (!ingredientId) return null
+
+	const ingredient = await db.query.ingredients.findFirst({
+		where: { id: ingredientId },
+		with: { units: true }
+	})
+	if (!ingredient) return null
+
+	return resolveUnitGrams(unitName, ingredient.units, ingredient.density)
+}
+
 export const mealPlansRouter = router({
 	list: protectedProcedure.meta({ description: 'List meal plans' }).query(async ({ ctx }) => {
 		const result = await ctx.db.query.mealPlans.findMany({
@@ -154,7 +118,7 @@ export const mealPlansRouter = router({
 		.meta({ description: 'Get meal plan with inventory and weekly slot allocations' })
 		.input(z.object({ id: zodTypeID('mpl') }))
 		.query(async ({ ctx, input }) => {
-			const [plan, allRecipes] = await ctx.db.batch([
+			const [plan, allRecipes, allIngredients] = await ctx.db.batch([
 				// Q1: Plan + inventory + slots (2 levels, shallow)
 				ctx.db.query.mealPlans.findFirst({
 					where: { id: input.id, userId: ctx.user.id },
@@ -181,17 +145,29 @@ export const mealPlansRouter = router({
 							orderBy: { sortOrder: 'asc' }
 						}
 					}
+				}),
+				// Q3: Bare ingredients the plan points at, same trick
+				ctx.db.query.ingredients.findMany({
+					where: {
+						RAW: t =>
+							inArray(
+								t.id,
+								ctx.db
+									.select({ id: mealPlanInventory.ingredientId })
+									.from(mealPlanInventory)
+									.where(eq(mealPlanInventory.mealPlanId, input.id))
+							)
+					},
+					with: { units: true }
 				})
 			] as const)
 			if (!plan) throw new Error('Meal plan not found')
 
 			const recipeMap = new Map(allRecipes.map(r => [r.id, r]))
+			const ingredientMap = new Map(allIngredients.map(i => [i.id, i]))
 			return {
 				...plan,
-				inventory: plan.inventory.map(inv => ({
-					...inv,
-					recipe: recipeMap.get(inv.recipeId)!
-				}))
+				inventory: plan.inventory.map(inv => toInventoryItem(inv, recipeMap, ingredientMap))
 			}
 		}),
 
@@ -503,18 +479,33 @@ export const mealPlansRouter = router({
 
 			if (input.entry.kind === 'recipe') await assertRecipeVisible(ctx.db, input.entry.recipeId, ctx.user.id)
 
-			const { recipeId, portions } =
+			// A bare ingredient is counted in 100 g portions, so the slot's (fractional) portions carry
+			// the amount. Nothing is created for it: the inventory row points straight at the row in
+			// the ingredient library.
+			const target =
 				input.entry.kind === 'recipe'
-					? { recipeId: input.entry.recipeId, portions: input.entry.portions }
+					? { recipeId: input.entry.recipeId, ingredientId: null, portions: input.entry.portions }
 					: {
-							// Amount first: an unknown unit must fail before findOrCreate leaves a wrapper recipe behind.
-							portions: (await resolveIngredientGrams(ctx.db, input.entry)) / PORTION_GRAMS,
-							recipeId: await findOrCreateIngredientRecipe(ctx.db, ctx.user.id, input.entry.ingredientId)
+							recipeId: null,
+							ingredientId: input.entry.ingredientId,
+							portions: (await resolveIngredientGrams(ctx.db, input.entry)) / INGREDIENT_PORTION_GRAMS
 						}
+			const { portions } = target
+
+			// Remember what was typed. A wrapper holds 100 g, so "2 small eggs" resolves to 0.76
+			// portions and the card has nothing to render but that number unless the pair is kept.
+			// `grams` callers already measured in the unit they'd read back, so they store nothing.
+			const display =
+				input.entry.kind === 'ingredient' && input.entry.grams == null && input.entry.amount != null
+					? { displayAmount: input.entry.amount, displayUnit: input.entry.unit ?? 'g' }
+					: {}
 
 			const now = Date.now()
 			const existing = await ctx.db.query.mealPlanInventory.findFirst({
-				where: { mealPlanId: input.planId, recipeId },
+				where: {
+					mealPlanId: input.planId,
+					...(target.recipeId ? { recipeId: target.recipeId } : { ingredientId: target.ingredientId })
+				},
 				with: { slots: true }
 			})
 
@@ -534,7 +525,13 @@ export const mealPlansRouter = router({
 			} else {
 				const [inv] = await ctx.db
 					.insert(mealPlanInventory)
-					.values({ mealPlanId: input.planId, recipeId, totalPortions: portions, createdAt: now })
+					.values({
+						mealPlanId: input.planId,
+						recipeId: target.recipeId,
+						ingredientId: target.ingredientId,
+						totalPortions: portions,
+						createdAt: now
+					})
 					.returning()
 				inventoryId = inv.id
 			}
@@ -542,7 +539,7 @@ export const mealPlansRouter = router({
 			const slotIndex = await resolveSlotIndex(ctx.db, input.planId, input.dayOfWeek, input.slotIndex)
 			const [slot] = await ctx.db
 				.insert(mealPlanSlots)
-				.values({ inventoryId, dayOfWeek: input.dayOfWeek, slotIndex, portions, createdAt: now })
+				.values({ inventoryId, dayOfWeek: input.dayOfWeek, slotIndex, portions, ...display, createdAt: now })
 				.returning()
 
 			await ctx.db.update(mealPlans).set({ updatedAt: now }).where(eq(mealPlans.id, input.planId))
@@ -595,6 +592,11 @@ export const mealPlansRouter = router({
 			z.object({
 				slotId: zodTypeID('mps'),
 				portions: z.number().positive().optional(),
+				/**
+				 * New amount in the slot's own `displayUnit` (2 -> "2 small"). Takes precedence over
+				 * `portions`, which it recomputes. Sent by the card's stepper so one tap means one egg.
+				 */
+				displayAmount: z.number().positive().optional(),
 				inventoryId: zodTypeID('mpi').optional()
 			})
 		)
@@ -613,7 +615,29 @@ export const mealPlansRouter = router({
 			}
 
 			const updates: Partial<typeof mealPlanSlots.$inferInsert> = {}
-			if (input.portions !== undefined) updates.portions = input.portions
+
+			// The two numbers are one fact, so whichever side moves, the other is recomputed through
+			// the ingredient's own unit table. Letting them drift is what lets a card claim "2 small"
+			// over macros priced for three. Slots logged by weight carry no unit yet, so they resolve
+			// as grams and the first edit pins that down.
+			const unitName = slot.displayUnit ?? 'g'
+			// A query, so a plain swap (the common case from the popover) doesn't pay for it.
+			const gramsPerUnit =
+				input.displayAmount === undefined && input.portions === undefined
+					? null
+					: await resolveInventoryUnitGrams(ctx.db, slot.inventory.ingredientId, unitName)
+			if (input.displayAmount !== undefined) {
+				if (gramsPerUnit == null) throw new Error('Slot holds a recipe, so it counts in portions')
+				updates.displayAmount = input.displayAmount
+				updates.displayUnit = unitName
+				updates.portions = (input.displayAmount * gramsPerUnit) / INGREDIENT_PORTION_GRAMS
+			} else if (input.portions !== undefined) {
+				updates.portions = input.portions
+				if (slot.displayUnit && gramsPerUnit) {
+					updates.displayAmount = (input.portions * INGREDIENT_PORTION_GRAMS) / gramsPerUnit
+				}
+			}
+
 			if (input.inventoryId !== undefined) {
 				// Slots load through their inventory row rather than their plan, so an unchecked
 				// destination lets you re-parent your own slot onto another user's inventory — which
@@ -626,6 +650,10 @@ export const mealPlansRouter = router({
 					throw new Error('Inventory item not found')
 				}
 				updates.inventoryId = input.inventoryId
+				// A swap re-points the slot at a different recipe, and the amount was counted in the
+				// old ingredient's unit. Drop it rather than let "2 small" ride along onto chicken.
+				updates.displayAmount = null
+				updates.displayUnit = null
 			}
 
 			if (Object.keys(updates).length > 0) {
@@ -703,6 +731,8 @@ export const mealPlansRouter = router({
 						dayOfWeek: day,
 						slotIndex,
 						portions: slot.portions,
+						displayAmount: slot.displayAmount,
+						displayUnit: slot.displayUnit,
 						createdAt: now
 					})
 					.returning()

@@ -6,7 +6,7 @@ import type { OFFProduct } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { BarcodeLookup } from './BarcodeLookup'
 
-type PremadeRecipe = NonNullable<RouterOutput['recipe']['addPremade']>
+export type LabelIngredient = NonNullable<RouterOutput['ingredient']['addFromLabel']>
 
 /** Form values carry more precision than the display: a 10 g serving amplifies each rounded digit 10× */
 const fmt = (value: number) => String(Math.round(value * 100) / 100)
@@ -14,7 +14,7 @@ const fmt = (value: number) => String(Math.round(value * 100) / 100)
 export interface PremadeDialogProps {
 	open: boolean
 	onClose: () => void
-	onCreated?: (recipe: PremadeRecipe) => void
+	onCreated?: (ingredient: LabelIngredient) => void
 	/** Open straight into the barcode scanner (entry point is a "Scan" button, not "Premade") */
 	autoScan?: boolean
 }
@@ -23,7 +23,6 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 	const [name, setName] = useState('')
 	const [url, setUrl] = useState('')
 	const [servingSize, setServingSize] = useState('')
-	const [servings, setServings] = useState('1')
 	const [protein, setProtein] = useState('')
 	const [carbs, setCarbs] = useState('')
 	const [fat, setFat] = useState('')
@@ -40,7 +39,6 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 		onSuccess: data => {
 			setName(data.name)
 			setServingSize(String(data.servingSize))
-			if (data.servings != null) setServings(String(data.servings))
 			setProtein(String(data.protein))
 			setCarbs(String(data.carbs))
 			setFat(String(data.fat))
@@ -49,24 +47,25 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 		}
 	})
 
-	const addPremade = trpc.recipe.addPremade.useMutation({
-		onSuccess: recipe => {
-			if (!recipe) return
-			utils.recipe.list.invalidate()
-			onCreated?.(recipe)
+	// A packaged product is an ingredient with a serving-sized `pcs` unit. It used to also get a
+	// `type: 'premade'` recipe wrapped around it, which held nothing the unit does not.
+	const addFromLabel = trpc.ingredient.addFromLabel.useMutation({
+		onSuccess: ingredient => {
+			if (!ingredient) return
+			utils.ingredient.list.invalidate()
+			onCreated?.(ingredient)
 			onClose()
 		}
 	})
 
 	// Reset state when dialog closes
-	const resetAdd = addPremade.reset
+	const resetAdd = addFromLabel.reset
 	const resetParse = parseProduct.reset
 	useEffect(() => {
 		if (!open) {
 			setName('')
 			setUrl('')
 			setServingSize('')
-			setServings('1')
 			setProtein('')
 			setCarbs('')
 			setFat('')
@@ -93,13 +92,11 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 	function handleSubmit(e: React.FormEvent) {
 		e.preventDefault()
 		const sz = Number.parseFloat(servingSize)
-		const sv = Number.parseFloat(servings) || 1
 		if (!(name.trim() && sz)) return
 
-		addPremade.mutate({
+		addFromLabel.mutate({
 			name: name.trim(),
 			servingSize: sz,
-			servings: sv,
 			protein: Number.parseFloat(protein) || 0,
 			carbs: Number.parseFloat(carbs) || 0,
 			fat: Number.parseFloat(fat) || 0,
@@ -115,7 +112,6 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 		// OFF records with no serving describe 100 g; keep that explicit rather than inventing a package
 		setServingSize(String(product.servingSize ?? 100))
 		setServingUnit(product.servingUnit)
-		if (product.servings != null) setServings(String(product.servings))
 		setProtein(fmt(product.perServing.protein))
 		setCarbs(fmt(product.perServing.carbs))
 		setFat(fmt(product.perServing.fat))
@@ -147,7 +143,7 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 			{/* Header */}
 			<div className="flex items-center justify-between border-edge border-b px-4 py-3">
 				<h2 className="font-semibold text-ink">Add Premade</h2>
-				<Button variant="ghost" size="icon" onClick={onClose} disabled={addPremade.isPending}>
+				<Button variant="ghost" size="icon" onClick={onClose} disabled={addFromLabel.isPending}>
 					<X className="size-4" />
 				</Button>
 			</div>
@@ -217,10 +213,6 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 							placeholder="e.g. 60"
 						/>
 					</label>
-					<label>
-						<span className="mb-1 block text-ink-muted text-xs">Servings</span>
-						<NumberInput value={servings} onChange={e => setServings(e.target.value)} placeholder="1" />
-					</label>
 				</div>
 
 				{servingUnit && servingUnit !== 'g' && (
@@ -255,14 +247,14 @@ export const PremadeDialog: FC<PremadeDialogProps> = ({ open, onClose, onCreated
 					</div>
 				)}
 
-				{addPremade.error && <TRPCError error={addPremade.error} />}
+				{addFromLabel.error && <TRPCError error={addFromLabel.error} />}
 
 				<div className="flex justify-end gap-2 pt-1">
-					<Button type="button" variant="ghost" onClick={onClose} disabled={addPremade.isPending}>
+					<Button type="button" variant="ghost" onClick={onClose} disabled={addFromLabel.isPending}>
 						Cancel
 					</Button>
-					<Button type="submit" disabled={!canSubmit || addPremade.isPending}>
-						{addPremade.isPending ? (
+					<Button type="submit" disabled={!canSubmit || addFromLabel.isPending}>
+						{addFromLabel.isPending ? (
 							<>
 								<Spinner className="size-4 text-current" />
 								Adding...

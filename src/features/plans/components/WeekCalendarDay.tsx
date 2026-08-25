@@ -2,6 +2,7 @@ import type { MacroTargets } from '@macromaxxing/db'
 import { Dumbbell, Plus } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
+import { formatSlotAmount } from '~/features/mealPlans/utils/slotAmount'
 import { KcalReadout } from '~/features/nutrition/components/KcalReadout'
 import { MacroTargetBars } from '~/features/nutrition/components/MacroTargetBars'
 import type { CalendarDay } from '~/features/plans/utils/weekCalendar'
@@ -80,15 +81,24 @@ export const WeekCalendarDay: FC<WeekCalendarDayProps> = ({ day, planned, isNext
 				{day.meals.map(meal => (
 					<Link
 						key={meal.id}
-						to={`/recipes/${meal.recipeId}`}
+						to={
+							meal.recipeId
+								? `/recipes/${meal.recipeId}`
+								: `/ingredients?search=${encodeURIComponent(meal.name)}`
+						}
 						className="flex items-baseline gap-1 rounded-sm px-1.5 py-0.5 text-xs transition-colors hover:bg-surface-2"
 						title={`${meal.name} · ${meal.planName}`}
 					>
 						<span className="truncate text-ink">{meal.name}</span>
-						{/* A bare ingredient was logged by weight, so show grams rather than a portion count. */}
-						{meal.recipeType === 'ingredient' ? (
+						{/* A bare ingredient was logged by amount, so show what was entered (`2 small`,
+						    falling back to grams) rather than the hectogram count portions hold. */}
+						{meal.ingredientId ? (
 							<span className="shrink-0 font-mono text-[10px] text-ink-faint tabular-nums">
-								{meal.macros.weight.toFixed(0)}g
+								{formatSlotAmount({
+									displayAmount: meal.displayAmount,
+									displayUnit: meal.displayUnit,
+									weightGrams: meal.macros.weight
+								})}
 							</span>
 						) : (
 							meal.portions !== 1 && (

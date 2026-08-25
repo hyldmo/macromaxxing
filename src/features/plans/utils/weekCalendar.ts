@@ -1,4 +1,4 @@
-import type { AbsoluteMacros, MealPlan, Recipe } from '@macromaxxing/db'
+import type { AbsoluteMacros, Ingredient, MealPlan, Recipe } from '@macromaxxing/db'
 import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
 import {
 	calculateDayTotals,
@@ -32,15 +32,18 @@ const DAY_MS = 86_400_000
 
 export interface CalendarMeal {
 	id: Slot['id']
-	recipeId: Recipe['id']
+	/** Where the meal links to. Exactly one is set, matching the inventory row it came from. */
+	recipeId: Recipe['id'] | null
+	ingredientId: Ingredient['id'] | null
 	name: string
-	/** `ingredient` wrappers hold exactly 100g, so their portions read as an amount, not a count. */
-	recipeType: Recipe['type']
 	planId: MealPlan['id']
 	planName: string
 	/** Position within the day (breakfast → dinner), from `mealPlanSlots.slotIndex`. */
 	slotIndex: number
 	portions: number
+	/** What was typed when the meal was logged — `2` + `small`. Null for recipes and older rows. */
+	displayAmount: number | null
+	displayUnit: string | null
 	macros: AbsoluteMacros
 }
 
@@ -76,23 +79,27 @@ export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): Cal
 	for (const plan of plans) {
 		if (!isPlanForWeek(plan, weekKey)) continue
 		for (const inv of plan.inventory) {
-			const recipe = inv.recipe
-			const recipeTotals = calculateRecipeTotals(recipe.recipeIngredients.map(toIngredientWithAmount))
-			const cookedWeight = getEffectiveCookedWeight(recipeTotals.weight, recipe.cookedWeight)
-			const portionMacros = calculatePortionMacros(recipeTotals, cookedWeight, recipe.portionSize)
+			// A bare ingredient arrives already shaped like a recipe (see workers/lib/inventory.ts),
+			// so the macro path below does not care which kind of row this is.
+			const target = inv.recipe
+			const recipeTotals = calculateRecipeTotals(target.recipeIngredients.map(toIngredientWithAmount))
+			const cookedWeight = getEffectiveCookedWeight(recipeTotals.weight, target.cookedWeight)
+			const portionMacros = calculatePortionMacros(recipeTotals, cookedWeight, target.portionSize)
 
 			for (const slot of inv.slots) {
 				const meals = mealsByDay[slot.dayOfWeek]
 				if (!meals) continue
 				meals.push({
 					id: slot.id,
-					recipeId: recipe.id,
-					name: recipe.name,
-					recipeType: recipe.type,
+					recipeId: inv.recipeId,
+					ingredientId: inv.ingredientId,
+					name: target.name,
 					planId: plan.id,
 					planName: mealPlanLabel(plan),
 					slotIndex: slot.slotIndex,
 					portions: slot.portions,
+					displayAmount: slot.displayAmount,
+					displayUnit: slot.displayUnit,
 					macros: calculateSlotMacros(portionMacros, slot.portions)
 				})
 			}

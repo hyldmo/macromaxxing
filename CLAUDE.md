@@ -133,6 +133,9 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
+      utils/slotAmount.ts                   # How a slot's amount reads back: formatSlotAmount ("2 small",
+                                            #   else grams) + slotAmountStep (one unit, or 10 for g/ml —
+                                            #   derived from what one unit weighs, not a list of names)
       utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week its `weekStart`
                                             #   declares. Dashboard "Today's Meals" and the /plans calendar both filter
                                             #   on it; without it every other week's plan stacks onto the same weekday.
@@ -256,6 +259,8 @@ workers/functions/
     router.ts                               # Merges all route files into appRouter
     auth.ts                                 # Clerk cookie verification → AuthUser { id, email }
     db.ts                                   # Drizzle D1 setup → Database type
+    inventory.ts                            # toInventoryItem: the ONE place a meal-plan inventory row's
+                                            #   recipe-or-ingredient union is resolved (+ INGREDIENT_PORTION_GRAMS)
     ai-utils.ts                             # Multi-provider AI client (Gemini/OpenAI/Anthropic), model fallback
     crypto.ts                               # AES-GCM encrypt/decrypt for API keys
     constants.ts                            # Shared constants + Zod schemas
@@ -318,20 +323,23 @@ users(id PK clerk_user_id, email)
                  nutritionGoal?: cut|maintain|bulk|custom,
                  targetKcal?/targetProtein?/targetCarbs?/targetFat?/targetFiber?  -- ONLY read when goal='custom')
 
-ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?, source: manual|ai|usda|openfoodfacts|label)
+ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?,
+            source: manual|ai|usda|openfoodfacts|label, sourceUrl? -- product page a label was read off)
   → ingredientUnits(id typeid:inu, ingredientId, name e.g. tbsp/scoop/pcs, grams, isDefault, source)
     -- `grams` is EDIBLE weight, on the same basis as the parent's per-100g macros: 1 pcs avocado is
     -- the ~140g of flesh, not the ~200g fruit with skin and pit. Volume units (ml/tsp/tbsp/dl/cup)
     -- are NOT stored — they're derived from `ingredients.density` (see packages/db/units.ts)
 
-recipes(id typeid:rcp, userId, name, type: recipe|premade|ingredient, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
-  -- type 'ingredient' = auto-created wrapper holding 100g of one library ingredient, so mealPlan.logMeal
-  -- can put a bare ingredient in a plan; hidden from recipe.list (AUTHORED_TYPES in routes/recipes.ts)
+recipes(id typeid:rcp, userId, name, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
+  -- No `type` column: every row is a recipe someone authored. Bare ingredients and packaged products
+  -- used to be stored here as wrapper recipes; both are ingredients now (see Meal Plans)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)
 
 mealPlans(id typeid:mpl, userId, name? -- null reads as its week number, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
-  → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
-    → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
+  → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId?, ingredientId?, totalPortions)
+    -- CHECK: exactly one of recipeId/ingredientId. An ingredient row counts in 100 g portions
+    → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1,
+                    displayAmount?, displayUnit?  -- the amount as typed ("2 small"); null on recipe slots)
 
 locations(id typeid:loc, userId, name, UNIQUE(userId, name))
   → locationEquipment(id typeid:leq, locationId ON DELETE CASCADE, equipment, UNIQUE(locationId, equipment))
@@ -420,8 +428,9 @@ trpc.recipe.search                          # Lean picker feed: SQL name match, 
                                             #   page's fat payload (capped at 50) and must not be searched over.
 trpc.recipe.addIngredient/updateIngredient/removeIngredient
 trpc.recipe.addSubrecipe                    # Add recipe as subrecipe component (with cycle detection)
-trpc.recipe.addPremade                      # Creates premade meal (ingredient source:'label' + recipe type:'premade') from nutrition label
 trpc.ingredient.list/create/update/delete/findOrCreate/batchFindOrCreate
+trpc.ingredient.addFromLabel                # Packaged product from its label: PER-SERVING macros in, per-100g
+                                            #   plus a serving-sized 'pcs' unit out. No recipe involved.
 trpc.ingredient.listUnits/createUnit/updateUnit/deleteUnit
 trpc.mealPlan.list/get/create/update/delete/duplicate   # create/update/duplicate take weekStart (null = template)
                                             #   and an optional name (null = unnamed; update null clears it)
@@ -548,12 +557,26 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   unknown unit is an error, never a silent 1 g fallback. This is only as accurate as the unit rows
   themselves: `ingredientUnits.grams` must be EDIBLE weight (see DB Schema), which is what the AI
   lookup prompts now demand — a whole-fruit gram value overstates every logged piece by the peel.
-- `logMeal` also takes a bare library ingredient + grams — it wraps it in a `type: 'ingredient'` recipe
-  holding 100g (so 1 portion = 100g and the slot's fractional portions carry the amount), reused across
-  plans. Inventory stays a non-nullable recipe FK, so macros/grocery/calendar/export all keep working on
-  one shape instead of a recipe-or-ingredient union. Surfaces that show a portion COUNT must special-case
-  these (`recipeType === 'ingredient'` → render grams); `×2.5` is a meaningless way to say 250g.
-- Ingredient wrappers are filtered out of `AddToInventoryModal`'s inventory quick-picks. They duplicate
+- **A slot stores what was typed next to what it resolved to, and the server moves both together.**
+  A wrapper holds 100 g, so two small eggs land in `portions` as `0.76` — a true number that reads
+  as nothing. `displayAmount`/`displayUnit` carry the `2 small`, so the card renders it and steps by
+  whole eggs. `portions` stays the only number macros multiply by. `updateSlot` takes ONE side and
+  recomputes the other through `resolveUnitGrams`; never write them independently, or a card claims
+  `2 small` over macros priced for three. A swap onto another inventory row clears the pair, since
+  the amount was counted in the old ingredient's unit. Rows logged by `grams` (and everything
+  predating the columns) carry no unit and read back in grams, which is what was measured anyway.
+- **An inventory row points at a recipe OR a bare ingredient, and the union is resolved in exactly one
+  place.** `toInventoryItem` (`workers/functions/lib/inventory.ts`) hands back an ingredient dressed as
+  a 100 g single-ingredient recipe, so macros, the grocery list, the week calendar, and the export all
+  keep reading one shape and none of them branch. The projection carries `id: null`; the row's own
+  `recipeId`/`ingredientId` is the discriminator, and a `CHECK` enforces exactly one.
+  - This used to be a real `type: 'ingredient'` row in `recipes`, find-or-created per ingredient. It cost
+    a hidden duplicate of every logged ingredient, a table full of rows no list surface would show, and
+    a `type` column read as a visibility flag. Do not reintroduce it: if a bare ingredient needs to look
+    like a recipe, project it, don't store it.
+  - Surfaces that show a portion COUNT must still special-case ingredient rows (`inv.ingredientId !==
+    null` → render the amount, see `formatSlotAmount`); `×2.5` is a meaningless way to say 250 g.
+- Bare-ingredient rows are filtered out of `AddToInventoryModal`'s inventory quick-picks. They duplicate
   the Ingredients row, and the quick-pick goes through `allocate` — which doesn't grow the pool, so
   re-logging one would trip the very over-allocation warning logging is meant to stay clear of.
 - Slots reference inventory items, enabling portion tracking (remaining = total - allocated)
@@ -572,7 +595,7 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 
 **Public endpoints (no auth):** `recipe.list`, `recipe.get`, `ingredient.list` — all use `publicProcedure` (auth optional). Authenticated users see their own items in addition to public ones.
 
-**Premade meals** — Tracked as `type: 'premade'` recipes backed by a single ingredient with `source: 'label'`. Premade recipes are always private (never shown to unauthenticated users). Backing ingredients are hidden from the ingredient list (`source != 'label'` filter), which makes `source` a visibility flag as well as provenance — so `label` is NOT caller-assignable: `ingredient.create`/`update` take `authoredIngredientSource` (`@macromaxxing/db`, the enum minus `label`) and `recipe.addPremade` inserts the row itself. Without that, an agent transcribing a nutrition label picks `source: 'label'` and creates a row no list surface will ever show, with no error saying why. Premades carry `portionSize: null` (the whole package is one portion — `getEffectivePortionSize` falls back to `cookedWeight`), so meal-plan UI must NOT gate portion controls on `portionSize != null`: a premade is still a countable unit and its quantity has to stay adjustable.
+**Packaged products ("premades")** — An ingredient with `source: 'label'` and a serving-sized `pcs` unit, created by `ingredient.addFromLabel` (PER-SERVING macros in, per-100 g out). They used to be a `type: 'premade'` recipe wrapped around exactly that ingredient, which held one fact the ingredient did not: how big a serving is. That moved to the `pcs` unit and the wrapper went away, taking with it the `source != 'label'` list filter, the `authoredIngredientSource` enum that existed only to stop agents writing invisible rows, and the "is the package one portion" special-casing in meal-plan UI. A 6-pack is `6 pcs`, so `servings` is gone too. `sourceUrl` moved onto the ingredient so a scanned product keeps its page.
 
 **Recipe images** — Single `image` column stores either an R2 object basename `{recipeId}-{uploadTimestamp}` (R2 upload at `recipes/{basename}`; legacy rows hold the bare recipe ID) or an `http*` URL (external, hotlinked). Keys are versioned per upload because replacing an image must change its URL — R2 serves `Last-Modified` without `Cache-Control`, so browsers heuristically cache a stable URL for ~10% of the object's age with no revalidation. Deletion sites only touch keys prefixed by the owning recipe's ID (`recipe.update` accepts any `rcp_*` string as `image`, so a crafted value must not delete another recipe's object). Upload/delete via raw Hono routes (`POST/DELETE /api/recipes/:id/image`) since tRPC doesn't support multipart. Frontend resolves via `getImageUrl()` from `~/lib/images`. External images show "from hostname" attribution. R2 objects are cleaned up on image removal and recipe deletion. Images extracted from JSON-LD during recipe URL imports.
 
@@ -741,6 +764,11 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
   `INSERT OR IGNORE` them back after the rename** — see `20260805203035_colossal_wallow.sql`. That is
   correct whether or not the cascade fires. Also re-add the `NOT NULL` drizzle-kit now omits from
   `id text PRIMARY KEY`; SQLite lets a TEXT primary key be null without it.
+  **To rehearse one honestly**: `wrangler d1 export --table ...` a copy, then replay the migration
+  through `node:sqlite` splitting on `--> statement-breakpoint` and re-asserting `PRAGMA
+  foreign_keys=ON` before EACH statement. Feeding the file to the `sqlite3` CLI runs it as one
+  transaction, so the `foreign_keys=OFF` holds and the cascade you are trying to catch never fires.
+  Assert on conserved quantities (row counts, and the gram weight behind each slot), not on shape.
 - D1 has a 100-bound-param limit per statement; insert chunk size = `floor(100 / cols)` (10 cols → 10 rows)
 
 **MCP Apps widgets**

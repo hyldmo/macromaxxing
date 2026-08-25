@@ -11,6 +11,7 @@ import {
 	toIngredientWithAmount
 } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
+import { formatSlotAmount, type SlotAmount, slotAmountStep, slotAmountValue } from '../utils/slotAmount'
 import { MealPopover } from './MealPopover'
 
 type InventoryItem = RouterOutput['mealPlan']['get']['inventory'][number]
@@ -37,9 +38,26 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 	const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 	const macros = calculateSlotMacros(portionMacros, slot.portions)
 
-	function updatePortions(newPortions: number) {
-		if (newPortions < 0.5) return
-		updateMutation.mutate({ slotId: slot.id, portions: newPortions })
+	// A bare ingredient is held in 100 g portions, so they read as hectograms — showing "0.76" to
+	// someone who typed "2 small" is what this splits on. Recipes are countable and stay in halves.
+	const isIngredient = slot.inventory.ingredientId !== null
+	const amount: SlotAmount = {
+		displayAmount: slot.displayAmount,
+		displayUnit: slot.displayUnit,
+		weightGrams: macros.weight
+	}
+	const step = isIngredient ? slotAmountStep(amount) : 0.5
+	const value = isIngredient ? slotAmountValue(amount) : slot.portions
+	const label = isIngredient ? formatSlotAmount(amount) : String(slot.portions)
+
+	function stepBy(delta: number) {
+		const next = value + delta
+		if (next < step) return
+		// The server owns the unit conversion, so the amount goes up in the unit it was entered in
+		// and comes back as portions. A client that pre-multiplied would be a second rule to drift.
+		updateMutation.mutate(
+			isIngredient ? { slotId: slot.id, displayAmount: next } : { slotId: slot.id, portions: next }
+		)
 	}
 
 	const cardRef = useRef<HTMLDivElement>(null)
@@ -68,21 +86,19 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 						type="button"
 						onClick={e => {
 							e.stopPropagation()
-							updatePortions(slot.portions - 0.5)
+							stepBy(-step)
 						}}
-						disabled={slot.portions <= 0.5 || updateMutation.isPending}
+						disabled={value <= step || updateMutation.isPending}
 						className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
 					>
 						<Minus className="size-3" />
 					</button>
-					<span className="min-w-8 text-center font-mono text-ink-muted text-xs tabular-nums">
-						{slot.portions}
-					</span>
+					<span className="min-w-10 text-center font-mono text-ink-muted text-xs tabular-nums">{label}</span>
 					<button
 						type="button"
 						onClick={e => {
 							e.stopPropagation()
-							updatePortions(slot.portions + 0.5)
+							stepBy(step)
 						}}
 						disabled={updateMutation.isPending}
 						className="cursor-pointer rounded-sm p-0.5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"

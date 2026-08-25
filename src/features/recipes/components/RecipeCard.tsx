@@ -47,9 +47,7 @@ export const RecipeCard: FC<RecipeCardProps> = ({ recipe, portion, totalWeight, 
 					</span>
 				</div>
 				<p className="text-ink-faint text-xs">
-					{recipe.type === 'premade'
-						? `premade / ${recipe.portionSize ? `${recipe.portionSize}g serving` : `${totalWeight.toFixed(0)}g item`}`
-						: `${recipe.recipeIngredients.length} items / ${recipe.portionSize ? `${recipe.portionSize}g portion` : `${totalWeight.toFixed(0)}g dish`}`}
+					{`${recipe.recipeIngredients.length} items / ${recipe.portionSize ? `${recipe.portionSize}g portion` : `${totalWeight.toFixed(0)}g dish`}`}
 				</p>
 				<div className="mt-1 flex items-center gap-3 font-mono text-xs">
 					<span className="text-macro-protein">P {portion.protein.toFixed(0)}g</span>

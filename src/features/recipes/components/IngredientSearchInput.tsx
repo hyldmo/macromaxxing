@@ -295,10 +295,10 @@ export const IngredientSearchInput: FC<IngredientSearchInputProps> = ({ recipeId
 	)
 	const usdaResults = (usdaSearchQuery.data ?? []).filter(r => !localFdcIds.has(r.fdcId))
 
-	// Recipe search: filter out self, premade, and already-added subrecipes
+	// Recipe search: filter out self and already-added subrecipes
 	const recipeSearchResults = searchName.trim()
 		? (recipesQuery.data ?? [])
-				.filter(r => r.id !== recipeId && r.type === 'recipe')
+				.filter(r => r.id !== recipeId)
 				.flatMap(r => {
 					const match = fuzzyMatch(searchName, r.name)
 					return match ? [{ recipe: r, match }] : []
