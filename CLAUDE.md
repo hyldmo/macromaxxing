@@ -133,6 +133,9 @@ src/
       components/                           # InventorySidebar, InventoryCard, AddToInventoryModal,
                                             #   WeekGrid, DayColumn, MealSlot, MealCard, MealPopover,
                                             #   SlotPickerPopover, DayTotals, WeeklyAverages
+      utils/slotAmount.ts                   # How a slot's amount reads back: formatSlotAmount ("2 small",
+                                            #   else grams) + slotAmountStep (one unit, or 10 for g/ml —
+                                            #   derived from what one unit weighs, not a list of names)
       utils/planWeek.ts                     # isPlanForWeek — a plan's weekday slots belong to the week its `weekStart`
                                             #   declares. Dashboard "Today's Meals" and the /plans calendar both filter
                                             #   on it; without it every other week's plan stacks onto the same weekday.
@@ -331,7 +334,8 @@ recipes(id typeid:rcp, userId, name, type: recipe|premade|ingredient, instructio
 
 mealPlans(id typeid:mpl, userId, name? -- null reads as its week number, weekStart?: 'YYYY-MM-DD' Monday -- null = reusable template)
   → mealPlanInventory(id typeid:mpi, mealPlanId, recipeId, totalPortions)
-    → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1)
+    → mealPlanSlots(id typeid:mps, inventoryId, dayOfWeek 0=Mon..6=Sun, slotIndex, portions default 1,
+                    displayAmount?, displayUnit?  -- the amount as typed ("2 small"); null on recipe slots)
 
 locations(id typeid:loc, userId, name, UNIQUE(userId, name))
   → locationEquipment(id typeid:leq, locationId ON DELETE CASCADE, equipment, UNIQUE(locationId, equipment))
@@ -548,6 +552,14 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
   unknown unit is an error, never a silent 1 g fallback. This is only as accurate as the unit rows
   themselves: `ingredientUnits.grams` must be EDIBLE weight (see DB Schema), which is what the AI
   lookup prompts now demand — a whole-fruit gram value overstates every logged piece by the peel.
+- **A slot stores what was typed next to what it resolved to, and the server moves both together.**
+  A wrapper holds 100 g, so two small eggs land in `portions` as `0.76` — a true number that reads
+  as nothing. `displayAmount`/`displayUnit` carry the `2 small`, so the card renders it and steps by
+  whole eggs. `portions` stays the only number macros multiply by. `updateSlot` takes ONE side and
+  recomputes the other through `resolveUnitGrams`; never write them independently, or a card claims
+  `2 small` over macros priced for three. A swap onto another inventory row clears the pair, since
+  the amount was counted in the old ingredient's unit. Rows logged by `grams` (and everything
+  predating the columns) carry no unit and read back in grams, which is what was measured anyway.
 - `logMeal` also takes a bare library ingredient + grams — it wraps it in a `type: 'ingredient'` recipe
   holding 100g (so 1 portion = 100g and the slot's fractional portions carry the amount), reused across
   plans. Inventory stays a non-nullable recipe FK, so macros/grocery/calendar/export all keep working on

@@ -203,6 +203,13 @@ export const mealPlanSlots = sqliteTable(
 		dayOfWeek: integer('day_of_week').notNull(), // 0=Mon, 6=Sun
 		slotIndex: integer('slot_index').notNull(), // 0, 1, 2, 3...
 		portions: real('portions').notNull().default(1), // Fractional allowed (0.5, 1.5)
+		// What the user actually typed, so the card can read back "2 small" instead of "0.76".
+		// `portions` stays the truth every macro path multiplies by; these two only decide how it
+		// renders and what one tap of the stepper means. Null on recipe slots and on gram-measured
+		// logs, where the portion count already reads correctly. Same split as
+		// `recipeIngredients.displayUnit/displayAmount`.
+		displayAmount: real('display_amount'),
+		displayUnit: text('display_unit'),
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('meal_plan_slots_inventory_id_idx').on(t.inventoryId)]

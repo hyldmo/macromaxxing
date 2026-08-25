@@ -41,6 +41,9 @@ export interface CalendarMeal {
 	/** Position within the day (breakfast → dinner), from `mealPlanSlots.slotIndex`. */
 	slotIndex: number
 	portions: number
+	/** What was typed when the meal was logged — `2` + `small`. Null for recipes and older rows. */
+	displayAmount: number | null
+	displayUnit: string | null
 	macros: AbsoluteMacros
 }
 
@@ -93,6 +96,8 @@ export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): Cal
 					planName: mealPlanLabel(plan),
 					slotIndex: slot.slotIndex,
 					portions: slot.portions,
+					displayAmount: slot.displayAmount,
+					displayUnit: slot.displayUnit,
 					macros: calculateSlotMacros(portionMacros, slot.portions)
 				})
 			}
