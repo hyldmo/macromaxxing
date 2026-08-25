@@ -439,7 +439,9 @@ trpc.mealPlan.logMeal                       # LOGGING verb: recipe or bare ingre
                                             #   Ingredient entries take `grams`, or `amount` + `unit` (e.g. 0.5 pcs)
                                             #   resolved server-side against that ingredient's units — unknown unit errors
 trpc.mealPlan.addToInventory/updateInventory/removeFromInventory
-trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot   # allocate = PLANNING verb (never grows the pool)
+trpc.mealPlan.allocate/updateSlot/removeSlot/copySlot   # allocate = PLANNING verb (never grows the pool).
+                                            #   updateSlot corrects an amount: an ingredient slot takes
+                                            #   `displayAmount` in its own unit, a recipe slot takes `portions`
 trpc.workout.guide                                                        # No-arg orientation doc (MCP tool workout_guide) — training/program-design conventions reference incl. bwMultiplier bodyweight logging
 trpc.workout.listExercises/createExercise/updateExercise/deleteExercise   # System + user exercises with muscle mappings + equipment; listExercises filters: type?, search?, muscleGroup?, equipment[]? (AND), limit?/offset?
 trpc.workout.getGuide/upsertGuide/deleteGuide                             # Technique guide (description, cues, pitfalls) per exercise; system guides read-only

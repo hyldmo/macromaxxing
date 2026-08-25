@@ -2,7 +2,7 @@ import { by, Order } from '@hyldmo/by'
 import type { AbsoluteMacros, Recipe } from '@macromaxxing/db'
 import { Import, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { Button, Card, Select, Spinner, TRPCError } from '~/components/ui'
 import { RecipeCard } from '~/features/recipes/components/RecipeCard'
 import { RecipeImportDialog } from '~/features/recipes/components/RecipeImportDialog'
@@ -31,7 +31,6 @@ export default function RecipeListPage() {
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = usePersistentState<Sort>(SORT_STORAGE_KEY, isSort, 'recent')
 	const [showImport, setShowImport] = useState(false)
-	const navigate = useNavigate()
 	const { user } = useUser()
 	const recipesQuery = trpc.recipe.list.useQuery()
 

@@ -588,6 +588,10 @@ export const mealPlansRouter = router({
 		}),
 
 	updateSlot: protectedProcedure
+		.meta({
+			description:
+				'Change how much of a meal sits in a slot, or move the slot onto a different inventory row. A slot holding a bare ingredient counts in that ingredient\'s own units, so send `displayAmount` (2 -> "2 small") and the server reprices the portions; a slot holding a recipe counts in portions, so send `portions` and `displayAmount` errors. Correcting an amount is the only edit here — to change WHAT was eaten, pass `inventoryId`, which drops the old amount\'s unit.'
+		})
 		.input(
 			z.object({
 				slotId: zodTypeID('mps'),
