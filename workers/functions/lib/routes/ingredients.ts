@@ -1,4 +1,11 @@
-import { ingredientSource, ingredients, ingredientUnits, isVolumeUnit, zodTypeID } from '@macromaxxing/db'
+import {
+	calculateLabelMacrosPer100g,
+	ingredientSource,
+	ingredients,
+	ingredientUnits,
+	isVolumeUnit,
+	zodTypeID
+} from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { Output } from 'ai'
 import { and, eq, inArray, sql } from 'drizzle-orm'
@@ -214,18 +221,14 @@ export const ingredientsRouter = router({
 		)
 		.mutation(async ({ ctx, input }) => {
 			const now = Date.now()
-			const per100g = (value: number) => (value / input.servingSize) * 100
+			const macros = calculateLabelMacrosPer100g(input, input.servingSize)
 
 			const [ingredient] = await ctx.db
 				.insert(ingredients)
 				.values({
 					userId: ctx.user.id,
 					name: normalizeIngredientName(input.name),
-					protein: per100g(input.protein),
-					carbs: per100g(input.carbs),
-					fat: per100g(input.fat),
-					kcal: per100g(input.kcal),
-					fiber: per100g(input.fiber),
+					...macros,
 					source: 'label',
 					sourceId: input.sourceId ?? null,
 					sourceUrl: input.sourceUrl ?? null,
