@@ -13,6 +13,22 @@ export interface IngredientWithAmount {
 	amountGrams: number
 }
 
+/** Convert label values for one serving into stored per-100 g values. */
+export function calculateLabelMacrosPer100g(labelMacros: MacrosPer100g, servingSize: number): MacrosPer100g {
+	const per100g = (value: number, decimalPlaces: number) => {
+		const scale = 10 ** decimalPlaces
+		return Math.round(((value / servingSize) * 100 + Number.EPSILON) * scale) / scale
+	}
+
+	return {
+		protein: per100g(labelMacros.protein, 1),
+		carbs: per100g(labelMacros.carbs, 1),
+		fat: per100g(labelMacros.fat, 1),
+		kcal: per100g(labelMacros.kcal, 0),
+		fiber: per100g(labelMacros.fiber, 1)
+	}
+}
+
 export function calculateIngredientMacros(per100g: MacrosPer100g, amountGrams: number): AbsoluteMacros {
 	const factor = amountGrams / 100
 	return {
