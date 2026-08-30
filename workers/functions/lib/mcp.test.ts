@@ -237,4 +237,18 @@ describe('extractMcpTools input schemas', () => {
 			'workoutId'
 		])
 	})
+
+	it('lets settings_getTargets preview any derived nutrition goal', () => {
+		const tool = extractMcpTools(appRouter).find(tool => tool.name === 'settings_getTargets')
+		expect(tool?.zodSchema).toBeDefined()
+
+		const schema = z.toJSONSchema(tool?.zodSchema as z.ZodType)
+		expect(schema).toMatchObject({
+			type: 'object',
+			properties: {
+				nutritionGoal: { type: 'string', enum: ['cut', 'maintain', 'bulk'] }
+			}
+		})
+		expect(schema.required).toBeUndefined()
+	})
 })
