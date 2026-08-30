@@ -122,8 +122,20 @@ async function insertIngredientWithUnits(
 	}))!
 }
 
-// A measurement unit (e.g. tbsp, scoop, pcs) with its gram equivalent per 1 unit
-const unitInputSchema = z.object({ name: z.string().min(1), grams: z.number().positive() })
+// A measurement unit (e.g. tbsp, scoop, pcs) with its gram equivalent per 1 unit.
+// One unit can be marked as the default so clients know which amount to suggest first.
+const unitInputSchema = z.object({
+	name: z.string().min(1),
+	grams: z.number().positive(),
+	isDefault: z
+		.boolean()
+		.optional()
+		.describe('Set true for the one preferred unit to show first, such as pcs for eggs or scoop for protein powder')
+})
+
+const unitsInputSchema = z.array(unitInputSchema).refine(units => units.filter(unit => unit.isDefault).length <= 1, {
+	message: 'Only one unit can be the default'
+})
 
 // TODO: Replace with drizzle-zod once Buffer type detection is fixed for Cloudflare Workers
 // See: https://github.com/drizzle-team/drizzle-orm/pull/5192
@@ -138,7 +150,7 @@ const createIngredientSchema = z.object({
 	density: z.number().nonnegative().nullable().optional(),
 	sourceId: z.string().nullable().optional(),
 	source: ingredientSource.default('manual'),
-	units: z.array(unitInputSchema).optional()
+	units: unitsInputSchema.optional()
 })
 
 const updateIngredientSchema = z.object({
@@ -153,7 +165,7 @@ const updateIngredientSchema = z.object({
 	sourceId: z.string().nullable().optional(),
 	source: ingredientSource.optional(),
 	// Add or update measurement units; matched by name (case-insensitive), so re-sending a name updates its grams
-	units: z.array(unitInputSchema).optional()
+	units: unitsInputSchema.optional()
 })
 
 const createUnitSchema = z.object({
@@ -236,26 +248,16 @@ export const ingredientsRouter = router({
 				})
 				.returning()
 
-			// 'pcs' is the default so the log modal opens on "1 pcs" rather than 100 g — a package is
-			// counted, not weighed.
-			await ctx.db.insert(ingredientUnits).values([
-				{
-					ingredientId: ingredient.id,
-					name: 'g',
-					grams: 1,
-					isDefault: false,
-					source: 'manual',
-					createdAt: now
-				},
-				{
-					ingredientId: ingredient.id,
-					name: 'pcs',
-					grams: input.servingSize,
-					isDefault: true,
-					source: 'manual',
-					createdAt: now
-				}
-			])
+			// Grams always resolve implicitly. Store only the serving-sized unit so the log modal opens
+			// on "1 pcs" rather than 100 g — a package is counted, not weighed.
+			await ctx.db.insert(ingredientUnits).values({
+				ingredientId: ingredient.id,
+				name: 'pcs',
+				grams: input.servingSize,
+				isDefault: true,
+				source: 'manual',
+				createdAt: now
+			})
 
 			return ctx.db.query.ingredients.findFirst({ where: { id: ingredient.id }, with: { units: true } })
 		}),
@@ -328,7 +330,7 @@ export const ingredientsRouter = router({
 	create: protectedProcedure
 		.meta({
 			description:
-				"Create a custom ingredient with macros per 100g, plus optional measurement units (tbsp, pcs, scoop, …) whose grams are EDIBLE weight — peel, pit, shell and bone excluded, on the same basis as the macros. `source` records where the numbers came from and defaults to 'manual' (copied off a package or weighed yourself); use 'ai' when you estimated them, or 'usda'/'openfoodfacts' with the matching sourceId when you copied a specific record. For a store-bought packaged product, prefer recipe.addPremade — it takes PER-SERVING macros off the label and creates the premade recipe alongside the ingredient."
+				"Create a custom ingredient with macros per 100g, plus optional measurement units (tbsp, pcs, scoop, …) whose grams are EDIBLE weight — peel, pit, shell and bone excluded, on the same basis as the macros. Mark the most natural unit with `isDefault: true` so it is suggested first; set it for one unit only. `source` records where the numbers came from and defaults to 'manual' (copied off a package or weighed yourself); use 'ai' when you estimated them, or 'usda'/'openfoodfacts' with the matching sourceId when you copied a specific record. For a store-bought packaged product, prefer recipe.addPremade — it takes PER-SERVING macros off the label and creates the premade recipe alongside the ingredient."
 		})
 		.input(createIngredientSchema)
 		.mutation(async ({ ctx, input }) => {
@@ -350,7 +352,7 @@ export const ingredientsRouter = router({
 						ingredientId: ingredient.id,
 						name: unit.name,
 						grams: unit.grams,
-						isDefault: false,
+						isDefault: unit.isDefault ?? false,
 						source: 'manual',
 						createdAt: now
 					}))
@@ -363,7 +365,7 @@ export const ingredientsRouter = router({
 	update: protectedProcedure
 		.meta({
 			description:
-				"Update an ingredient you created (macros per 100g, name, density) and optionally add or correct measurement units (tbsp, scoop, pcs, …). Units are matched by name, so re-sending an existing name overwrites its grams. A unit's grams is EDIBLE weight on the same basis as the per-100g macros — skin, peel, pit, shell and bone excluded (1 pcs avocado ≈ 140g of flesh, not the ~200g whole fruit)."
+				"Update an ingredient you created (macros per 100g, name, density) and optionally add or correct measurement units (tbsp, scoop, pcs, …). Units are matched by name, so re-sending an existing name overwrites its grams. Set `isDefault: true` on the one preferred unit to suggest it first. A unit's grams is EDIBLE weight on the same basis as the per-100g macros — skin, peel, pit, shell and bone excluded (1 pcs avocado ≈ 140g of flesh, not the ~200g whole fruit)."
 		})
 		.input(updateIngredientSchema)
 		.mutation(async ({ ctx, input }) => {
@@ -383,19 +385,26 @@ export const ingredientsRouter = router({
 				const existingUnits = await ctx.db.query.ingredientUnits.findMany({ where: { ingredientId: id } })
 				const byName = new Map(existingUnits.map(u => [u.name.toLowerCase(), u]))
 				const now = Date.now()
+				if (units.some(unit => unit.isDefault)) {
+					await ctx.db
+						.update(ingredientUnits)
+						.set({ isDefault: false })
+						.where(eq(ingredientUnits.ingredientId, id))
+				}
 				for (const unit of units) {
 					const match = byName.get(unit.name.toLowerCase())
 					if (match) {
-						await ctx.db
-							.update(ingredientUnits)
-							.set({ grams: unit.grams })
-							.where(eq(ingredientUnits.id, match.id))
+						const unitUpdates =
+							unit.isDefault === undefined
+								? { grams: unit.grams }
+								: { grams: unit.grams, isDefault: unit.isDefault }
+						await ctx.db.update(ingredientUnits).set(unitUpdates).where(eq(ingredientUnits.id, match.id))
 					} else {
 						await ctx.db.insert(ingredientUnits).values({
 							ingredientId: id,
 							name: unit.name,
 							grams: unit.grams,
-							isDefault: false,
+							isDefault: unit.isDefault ?? false,
 							source: 'manual',
 							createdAt: now
 						})
