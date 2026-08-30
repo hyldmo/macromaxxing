@@ -487,7 +487,7 @@ trpc.analytics.calendarHeatmap              # Per-day training density (sessions
 trpc.analytics.weeklyVolumeByMuscle         # Per-week intensity-weighted volume by muscle group (Monday-aligned UTC grid)
 trpc.settings.get/save
 trpc.settings.getProfile/saveProfile         # Body profile (height, weight, age, sex)
-trpc.settings.getTargets/saveTargets         # Macro targets: goal + activity setting in, resolved targets + TDEE out
+trpc.settings.getTargets/saveTargets         # Macro targets: getTargets accepts optional nutritionGoal (cut/maintain/bulk) to preview a derived goal; otherwise it uses the saved goal
                                              #   (plus trainingSessionsPerWeek + resolvedActivityLevel, so an 'auto'
                                              #   setting explains itself without the caller knowing the brackets)
 trpc.settings.listTokens/createToken/deleteToken    # Personal access token management

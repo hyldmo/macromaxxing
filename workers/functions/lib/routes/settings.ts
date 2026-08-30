@@ -105,20 +105,32 @@ export const settingsRouter = router({
 		}),
 
 	getTargets: protectedProcedure
-		.meta({ description: "Get the user's daily macro targets (kcal/protein/carbs/fat/fiber) and TDEE" })
-		.query(async ({ ctx }) => {
+		.meta({
+			description:
+				"Get the user's daily macro targets (kcal/protein/carbs/fat/fiber) and TDEE. Pass nutritionGoal (cut, maintain, or bulk) to preview that goal without changing saved settings; omit it to use the saved goal."
+		})
+		.input(
+			z
+				.object({
+					nutritionGoal: nutritionGoal.exclude(['custom']).optional()
+				})
+				.optional()
+		)
+		.query(async ({ ctx, input }) => {
 			const [settings, sessionsPerWeek, hardSetsPerWeek] = await Promise.all([
 				ctx.db.query.userSettings.findFirst({ where: { userId: ctx.user.id } }),
 				trainingSessionsPerWeek(ctx.db, ctx.user.id),
 				trainingHardSetsPerWeek(ctx.db, ctx.user.id)
 			])
+			const targetNutritionGoal = input?.nutritionGoal ?? settings?.nutritionGoal ?? null
 			const profile = settings && {
 				...settings,
+				nutritionGoal: targetNutritionGoal,
 				trainingSessionsPerWeek: sessionsPerWeek,
 				trainingHardSetsPerWeek: hardSetsPerWeek
 			}
 			return {
-				nutritionGoal: settings?.nutritionGoal ?? null,
+				nutritionGoal: targetNutritionGoal,
 				activityLevel: settings?.activityLevel ?? null,
 				// Body profile echoed back so the settings form can explain a missing TDEE
 				// without a second query.
