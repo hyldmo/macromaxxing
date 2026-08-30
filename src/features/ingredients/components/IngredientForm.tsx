@@ -12,6 +12,7 @@ export interface IngredientFormProps {
 interface NewUnit {
 	name: string
 	grams: string
+	isDefault: boolean
 }
 
 export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredient }) => {
@@ -22,7 +23,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 	const [kcal, setKcal] = useState(editIngredient?.kcal.toString() ?? '')
 	const [fiber, setFiber] = useState(editIngredient?.fiber.toString() ?? '')
 	const [density, setDensity] = useState(editIngredient?.density?.toString() ?? '')
-	const [newUnit, setNewUnit] = useState<NewUnit>({ name: '', grams: '' })
+	const [newUnit, setNewUnit] = useState<NewUnit>({ name: '', grams: '', isDefault: false })
 	const [isEnriching, setIsEnriching] = useState(false)
 	const utils = trpc.useUtils()
 
@@ -44,7 +45,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 	const createUnitMutation = trpc.ingredient.createUnit.useMutation({
 		onSuccess: () => {
 			utils.ingredient.list.invalidate()
-			setNewUnit({ name: '', grams: '' })
+			setNewUnit({ name: '', grams: '', isDefault: false })
 		}
 	})
 
@@ -92,6 +93,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 			// Add units that don't already exist (by name, case-insensitive)
 			const existingUnitNames = new Set(units.map(u => u.name.toLowerCase()))
 			const newUnits = result.units.filter(u => !existingUnitNames.has(u.name.toLowerCase()))
+			const defaultUnitIndex = newUnits.findIndex(unit => unit.isDefault)
 
 			// Create units sequentially to avoid race conditions
 			for (const unit of newUnits) {
@@ -99,7 +101,7 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 					ingredientId: editIngredient.id,
 					name: unit.name,
 					grams: unit.grams,
-					isDefault: unit.isDefault && units.length === 0 && newUnits.indexOf(unit) === 0
+					isDefault: newUnits.indexOf(unit) === defaultUnitIndex
 				})
 			}
 
@@ -137,7 +139,8 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 		createUnitMutation.mutate({
 			ingredientId: editIngredient.id,
 			name: newUnit.name.trim(),
-			grams
+			grams,
+			isDefault: newUnit.isDefault
 		})
 	}
 
@@ -254,6 +257,20 @@ export const IngredientForm: FC<IngredientFormProps> = ({ onClose, editIngredien
 								className="text-sm"
 							/>
 						</label>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="size-8"
+							onClick={() => setNewUnit(unit => ({ ...unit, isDefault: !unit.isDefault }))}
+							aria-label={newUnit.isDefault ? 'Unit will be the default' : 'Make this the default unit'}
+							aria-pressed={newUnit.isDefault}
+							title={newUnit.isDefault ? 'Unit will be the default' : 'Make this the default unit'}
+						>
+							<Star
+								className={`size-3.5 ${newUnit.isDefault ? 'fill-accent text-accent' : 'text-ink-faint'}`}
+							/>
+						</Button>
 						<Button
 							type="button"
 							variant="secondary"
