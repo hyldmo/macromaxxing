@@ -2,6 +2,10 @@ ALTER TABLE `users` ADD `last_push_subscription_at` integer;
 --> statement-breakpoint
 ALTER TABLE `users` ADD `last_rest_alert_test_at` integer;
 --> statement-breakpoint
+ALTER TABLE `users` ADD `last_rest_alert_scheduled_at` integer;
+--> statement-breakpoint
+ALTER TABLE `users` ADD `last_rest_alert_cancelled_at` integer;
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `push_subscriptions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,

@@ -1792,6 +1792,26 @@
 		},
 		{
 			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "last_rest_alert_scheduled_at",
+			"entityType": "columns",
+			"table": "users"
+		},
+		{
+			"type": "integer",
+			"notNull": false,
+			"autoincrement": false,
+			"default": null,
+			"generated": null,
+			"name": "last_rest_alert_cancelled_at",
+			"entityType": "columns",
+			"table": "users"
+		},
+		{
+			"type": "integer",
 			"notNull": true,
 			"autoincrement": false,
 			"default": null,

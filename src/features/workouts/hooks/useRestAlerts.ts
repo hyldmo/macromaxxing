@@ -30,7 +30,11 @@ interface RestAlertDeliveryDependencies {
 		restId: TypeIDString<'rnj'>
 		sessionId: TypeIDString<'wks'>
 		subscriptionId: TypeIDString<'psb'>
-	}) => void
+	}) => Promise<unknown>
+}
+
+function isDefinitiveScheduleFailure(error: unknown): boolean {
+	return typeof error === 'object' && error !== null && 'data' in error && error.data !== undefined
 }
 
 /** Starts one delivery attempt and returns its best-effort cancellation cleanup. */
@@ -55,7 +59,23 @@ export function startRestAlertDelivery(
 			subscriptionId: delivery.subscriptionId,
 			remainingMs
 		})
-		void serverRequest.catch(() => {
+		void serverRequest.catch(async error => {
+			if (!active || delivery.rest.endAt <= Date.now() || !dependencies.isCurrentRest(delivery.rest.id)) return
+			const cancelInput = {
+				restId: delivery.rest.id,
+				sessionId: delivery.sessionId,
+				subscriptionId: delivery.subscriptionId
+			}
+			if (isDefinitiveScheduleFailure(error)) {
+				void dependencies.cancelServer(cancelInput).catch(() => undefined)
+			} else {
+				try {
+					await dependencies.cancelServer(cancelInput)
+				} catch {
+					// The schedule result is indeterminate, so a local alert could duplicate a queued push.
+					return
+				}
+			}
 			if (active && delivery.rest.endAt > Date.now() && dependencies.isCurrentRest(delivery.rest.id)) {
 				dependencies.scheduleLocal(delivery.rest, delivery.sessionId)
 			}
@@ -67,11 +87,13 @@ export function startRestAlertDelivery(
 		clearTimeout(timeoutId)
 		dependencies.clearLocal(delivery.rest.id)
 		if (serverRequest && dependencies.isOnline()) {
-			dependencies.cancelServer({
-				restId: delivery.rest.id,
-				sessionId: delivery.sessionId,
-				subscriptionId: delivery.subscriptionId
-			})
+			void dependencies
+				.cancelServer({
+					restId: delivery.rest.id,
+					sessionId: delivery.sessionId,
+					subscriptionId: delivery.subscriptionId
+				})
+				.catch(() => undefined)
 		}
 	}
 }
@@ -81,7 +103,7 @@ export function useRestAlerts() {
 	const sessionId = useWorkoutSessionStore(state => state.sessionId)
 	const subscriptionId = useRestAlertSubscriptionId()
 	const { mutateAsync: scheduleRest } = trpc.restNotifications.scheduleRest.useMutation()
-	const { mutate: cancelRest } = trpc.restNotifications.cancelRest.useMutation()
+	const { mutateAsync: cancelRest } = trpc.restNotifications.cancelRest.useMutation()
 
 	useEffect(() => {
 		if (!(rest && sessionId && subscriptionId) || rest.endAt <= Date.now()) return

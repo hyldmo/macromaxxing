@@ -6,14 +6,18 @@ import {
 	vapidPublicKeyBytes
 } from './pushSubscriptions'
 
-function pushSubscription(endpoint: string): PushSubscription {
+function pushSubscription(
+	endpoint: string,
+	applicationServerKey: ArrayBuffer | null = null,
+	unsubscribe = vi.fn().mockResolvedValue(true)
+): PushSubscription {
 	return {
 		endpoint,
 		expirationTime: null,
-		options: { applicationServerKey: null, userVisibleOnly: true },
+		options: { applicationServerKey, userVisibleOnly: true },
 		getKey: () => null,
 		toJSON: () => ({ endpoint }),
-		unsubscribe: async () => true
+		unsubscribe
 	}
 }
 
@@ -48,7 +52,7 @@ describe('push subscription helpers', () => {
 	})
 
 	it('reuses an existing browser subscription instead of creating a duplicate', async () => {
-		const existing = pushSubscription('https://push.example/existing')
+		const existing = pushSubscription('https://push.example/existing', new Uint8Array([1, 2, 3]).buffer)
 		const pushManager: PushManager = {
 			getSubscription: vi.fn().mockResolvedValue(existing),
 			permissionState: vi.fn().mockResolvedValue('granted'),
@@ -57,6 +61,28 @@ describe('push subscription helpers', () => {
 
 		expect(await getOrCreatePushSubscription(pushManager, 'AQID')).toBe(existing)
 		expect(pushManager.subscribe).not.toHaveBeenCalled()
+	})
+
+	it('replaces a browser subscription after VAPID key rotation', async () => {
+		const unsubscribe = vi.fn().mockResolvedValue(true)
+		const existing = pushSubscription(
+			'https://push.example/existing',
+			new Uint8Array([4, 5, 6]).buffer,
+			unsubscribe
+		)
+		const replacement = pushSubscription('https://push.example/replacement')
+		const pushManager: PushManager = {
+			getSubscription: vi.fn().mockResolvedValue(existing),
+			permissionState: vi.fn().mockResolvedValue('granted'),
+			subscribe: vi.fn().mockResolvedValue(replacement)
+		}
+
+		expect(await getOrCreatePushSubscription(pushManager, 'AQID')).toBe(replacement)
+		expect(unsubscribe).toHaveBeenCalledOnce()
+		expect(pushManager.subscribe).toHaveBeenCalledWith({
+			userVisibleOnly: true,
+			applicationServerKey: new Uint8Array([1, 2, 3])
+		})
 	})
 
 	it('creates a user-visible subscription with the decoded VAPID key when none exists', async () => {

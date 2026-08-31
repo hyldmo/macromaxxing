@@ -1,19 +1,19 @@
-import type { TypeIDString } from '@macromaxxing/db'
+import { newId, type TypeIDString, users } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
 import { describe, expect, it, vi } from 'vitest'
 import { appRouter } from '../router'
 
 const session: { id: TypeIDString<'wks'>; userId: string; completedAt: number | null } = {
-	id: 'wks_session',
+	id: newId('wks'),
 	userId: 'user_1',
 	completedAt: null
 }
 const subscription: { id: TypeIDString<'psb'>; userId: string } = {
-	id: 'psb_subscription',
+	id: newId('psb'),
 	userId: 'user_1'
 }
 const input = {
-	restId: 'rnj_rest' as TypeIDString<'rnj'>,
+	restId: newId('rnj'),
 	sessionId: session.id,
 	subscriptionId: subscription.id,
 	remainingMs: 60_000
@@ -49,15 +49,20 @@ function createCaller(options?: {
 				}))
 			}))
 		})),
-		update: vi.fn(() => ({
+		update: vi.fn(table => ({
 			set: vi.fn((values: Record<string, unknown>) => ({
 				where: vi.fn(() => {
+					if (table === users) {
+						return { returning: vi.fn().mockResolvedValue([{ id: 'user_1' }]) }
+					}
 					updates.push(values)
 					if (state.job?.status === 'scheduled') state.job = { ...state.job, ...values }
 					return Promise.resolve([])
 				})
 			}))
-		}))
+		})),
+		delete: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })),
+		$count: vi.fn().mockResolvedValue(0)
 	}
 	const caller = appRouter.createCaller({
 		db: db as never,
@@ -96,6 +101,17 @@ describe('restNotifications scheduling policy', () => {
 		const { caller, queueSend } = createCaller()
 		await expect(
 			caller.restNotifications.scheduleRest({ ...input, remainingMs: 15 * 60 * 1000 + 1 })
+		).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+		expect(queueSend).not.toHaveBeenCalled()
+	})
+
+	it('rejects a non-canonical or oversized rest job ID', async () => {
+		const { caller, queueSend } = createCaller()
+		await expect(
+			caller.restNotifications.scheduleRest({
+				...input,
+				restId: `rnj_${'a'.repeat(500)}` as TypeIDString<'rnj'>
+			})
 		).rejects.toMatchObject({ code: 'BAD_REQUEST' })
 		expect(queueSend).not.toHaveBeenCalled()
 	})

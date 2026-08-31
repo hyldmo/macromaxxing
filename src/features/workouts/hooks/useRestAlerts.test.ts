@@ -16,7 +16,7 @@ function dependencies(online: boolean) {
 		scheduleLocal: vi.fn(),
 		clearLocal: vi.fn(),
 		scheduleServer: vi.fn().mockResolvedValue({ accepted: true }),
-		cancelServer: vi.fn()
+		cancelServer: vi.fn().mockResolvedValue({ ok: true })
 	}
 }
 
@@ -67,21 +67,41 @@ describe('startRestAlertDelivery', () => {
 
 	it('falls back locally when online scheduling fails before acceptance', async () => {
 		const deps = dependencies(true)
-		deps.scheduleServer.mockRejectedValue(new Error('offline'))
+		deps.scheduleServer.mockRejectedValue({ data: { code: 'INTERNAL_SERVER_ERROR' } })
 		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, deps)
 		vi.runAllTimers()
 		await Promise.resolve()
 		await Promise.resolve()
+		await Promise.resolve()
 
+		expect(deps.cancelServer).toHaveBeenCalledWith({
+			restId: rest.id,
+			sessionId: 'wks_session',
+			subscriptionId: 'psb_subscription'
+		})
 		expect(deps.scheduleLocal).toHaveBeenCalledWith(rest, 'wks_session')
+	})
+
+	it('does not arm a duplicate when a failed schedule cannot be reconciled', async () => {
+		const deps = dependencies(true)
+		deps.scheduleServer.mockRejectedValue(new Error('response lost'))
+		deps.cancelServer.mockRejectedValue(new Error('still offline'))
+		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, deps)
+		vi.runAllTimers()
+		await Promise.resolve()
+		await Promise.resolve()
+		await Promise.resolve()
+
+		expect(deps.scheduleLocal).not.toHaveBeenCalled()
 	})
 
 	it('does not fall back after the rest expires or is replaced', async () => {
 		const expiredDeps = dependencies(true)
-		expiredDeps.scheduleServer.mockRejectedValue(new Error('offline'))
+		expiredDeps.scheduleServer.mockRejectedValue({ data: { code: 'INTERNAL_SERVER_ERROR' } })
 		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, expiredDeps)
 		vi.runAllTimers()
 		vi.setSystemTime(rest.endAt)
+		await Promise.resolve()
 		await Promise.resolve()
 		await Promise.resolve()
 		expect(expiredDeps.scheduleLocal).not.toHaveBeenCalled()
@@ -89,9 +109,10 @@ describe('startRestAlertDelivery', () => {
 		vi.setSystemTime(1_000)
 		const replacedDeps = dependencies(true)
 		replacedDeps.isCurrentRest.mockReturnValue(false)
-		replacedDeps.scheduleServer.mockRejectedValue(new Error('offline'))
+		replacedDeps.scheduleServer.mockRejectedValue({ data: { code: 'INTERNAL_SERVER_ERROR' } })
 		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, replacedDeps)
 		vi.runAllTimers()
+		await Promise.resolve()
 		await Promise.resolve()
 		await Promise.resolve()
 		expect(replacedDeps.scheduleLocal).not.toHaveBeenCalled()

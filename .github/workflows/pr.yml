@@ -55,15 +55,6 @@ jobs:
           name: dist
           path: workers/dist
 
-      - name: Ensure rest notification queue
-        run: |
-          if ! yarn workspace @macromaxxing/workers wrangler queues info macromaxxing-rest-notifications; then
-            yarn workspace @macromaxxing/workers wrangler queues create macromaxxing-rest-notifications
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
       - name: Deploy preview
         id: deploy
         run: |

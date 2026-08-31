@@ -14,6 +14,7 @@ A recipe nutrition tracker and workout logger for fitness enthusiasts who meal p
 - **Weekly Meal Planning** — Template-based weekly planner with per-plan recipe inventory and portion tracking
 - **Workout Tracking** — Template-based training with checklist-driven session logging, supersets, auto-generated warmup/backoff sets, fatigue-tier-based rest timers, and interactive body map
 - **Rest Alerts** — Optional Web Push notifications when a rest ends, including after the installed app is closed or the phone is locked, with local-only offline fallback
+  - Pages previews disable rest alert mutations so preview traffic cannot create production notification jobs.
 - **Training Locations** — Define the places you train (gym, home, hotel) with equipment checklists; templates and sessions warn when an exercise needs equipment the location doesn't have
 - **Auth** — Google/GitHub OAuth via Clerk
 - **Responsive Design** — Two-column editor on desktop, mobile-first with bottom tab navigation

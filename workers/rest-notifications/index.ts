@@ -24,6 +24,13 @@ function createRepository(db: Database): RestNotificationRepository {
 				.returning({ id: restNotificationJobs.id })
 			return claimed !== undefined
 		},
+		ownsSubscription: async (subscriptionId, userId) => {
+			const subscription = await db.query.pushSubscriptions.findFirst({
+				where: { id: subscriptionId, userId },
+				columns: { id: true }
+			})
+			return subscription !== undefined
+		},
 		expire: async (jobId, now) => {
 			await db
 				.update(restNotificationJobs)

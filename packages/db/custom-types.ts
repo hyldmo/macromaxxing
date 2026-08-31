@@ -1,6 +1,6 @@
 import { text } from 'drizzle-orm/sqlite-core'
 import { startCase } from 'es-toolkit'
-import { typeid } from 'typeid-js'
+import { TypeID, typeid } from 'typeid-js'
 import { z } from 'zod'
 
 export type Nullable<T> = T | null | undefined
@@ -19,6 +19,16 @@ export const newId = <T extends string>(prefix: T) => typeid(prefix).toString() 
 // registration). z.custom() has no JSON Schema representation and throws at
 // conversion time.
 export const zodTypeID = <T extends string>(prefix: T) => z.templateLiteral([prefix, '_', z.string()])
+
+/** Strict parser for IDs accepted from clients that can create durable work. */
+export const strictZodTypeID = <T extends string>(prefix: T) =>
+	zodTypeID(prefix).refine(value => {
+		try {
+			return TypeID.fromString(value, prefix).toString() === value
+		} catch {
+			return false
+		}
+	}, `Expected a canonical ${prefix} TypeID`)
 
 export type AiProvider = z.infer<typeof zAiProvider>
 export const zAiProvider = z.enum(['gemini', 'openai', 'anthropic'])

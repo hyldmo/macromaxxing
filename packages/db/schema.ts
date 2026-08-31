@@ -33,6 +33,8 @@ export const users = sqliteTable('users', {
 	email: text('email').notNull().unique(),
 	lastPushSubscriptionAt: integer('last_push_subscription_at'),
 	lastRestAlertTestAt: integer('last_rest_alert_test_at'),
+	lastRestAlertScheduledAt: integer('last_rest_alert_scheduled_at'),
+	lastRestAlertCancelledAt: integer('last_rest_alert_cancelled_at'),
 	createdAt: integer('created_at').notNull()
 })
 

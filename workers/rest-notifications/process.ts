@@ -19,6 +19,7 @@ export interface RestNotificationDeliveryJob {
 export interface RestNotificationRepository {
 	find: (jobId: TypeIDString<'rnj'>) => Promise<RestNotificationDeliveryJob | null>
 	claim: (jobId: TypeIDString<'rnj'>, now: number) => Promise<boolean>
+	ownsSubscription: (subscriptionId: TypeIDString<'psb'>, userId: string) => Promise<boolean>
 	expire: (jobId: TypeIDString<'rnj'>, now: number) => Promise<void>
 	markSent: (jobId: TypeIDString<'rnj'>, now: number) => Promise<void>
 	markFailed: (jobId: TypeIDString<'rnj'>, now: number) => Promise<void>
@@ -47,7 +48,10 @@ export async function processRestNotification(
 		return 'expired'
 	}
 	if (!(await repository.claim(job.id, now))) return 'ignored'
-	if (job.subscription.userId !== job.userId) {
+	if (
+		job.subscription.userId !== job.userId ||
+		!(await repository.ownsSubscription(job.subscriptionId, job.userId))
+	) {
 		await repository.markFailed(job.id, now)
 		return 'failed'
 	}

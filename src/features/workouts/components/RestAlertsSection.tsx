@@ -9,9 +9,11 @@ import { clearLocalRestNotification } from '../store/useWorkoutSessionStore'
 export function RestAlertsSection() {
 	const subscriptionId = useRestAlertSubscriptionId()
 	const publicKeyQuery = trpc.restNotifications.publicKey.useQuery(undefined, { retry: false })
+	const { data: publicKeyData, error: publicKeyError, refetch: refetchPublicKey } = publicKeyQuery
 	const registerMutation = trpc.restNotifications.registerSubscription.useMutation()
 	const { mutateAsync: registerSubscription } = registerMutation
 	const unregisterMutation = trpc.restNotifications.unregisterSubscription.useMutation()
+	const { mutateAsync: unregisterSubscription } = unregisterMutation
 	const testMutation = trpc.restNotifications.sendTestNotification.useMutation()
 	const [reconciling, setReconciling] = useState(true)
 	const [operationPending, setOperationPending] = useState(false)
@@ -24,7 +26,7 @@ export function RestAlertsSection() {
 		registerMutation.isPending ||
 		unregisterMutation.isPending ||
 		testMutation.isPending
-	const trpcError = registerMutation.error ?? unregisterMutation.error ?? testMutation.error ?? publicKeyQuery.error
+	const trpcError = registerMutation.error ?? unregisterMutation.error ?? testMutation.error ?? publicKeyError
 
 	useEffect(() => {
 		if (!supported) {
@@ -42,13 +44,17 @@ export function RestAlertsSection() {
 		let active = true
 		void (async () => {
 			try {
+				const publicKeyResult = publicKeyData ?? (await refetchPublicKey()).data
+				if (!publicKeyResult) throw new Error('Rest alerts are not configured yet.')
 				const registration = await navigator.serviceWorker.ready
-				const subscription = await registration.pushManager.getSubscription()
-				if (!subscription) {
-					if (active) setRestAlertSubscriptionId(null)
-					return
-				}
+				const subscription = await getOrCreatePushSubscription(
+					registration.pushManager,
+					publicKeyResult.publicKey
+				)
 				const registered = await registerSubscription(serializePushSubscription(subscription))
+				if (registered.id !== subscriptionId) {
+					await unregisterSubscription({ subscriptionId }).catch(() => undefined)
+				}
 				if (active) setRestAlertSubscriptionId(registered.id)
 			} catch {
 				if (active) {
@@ -62,7 +68,7 @@ export function RestAlertsSection() {
 		return () => {
 			active = false
 		}
-	}, [registerSubscription, subscriptionId, supported])
+	}, [publicKeyData, refetchPublicKey, registerSubscription, subscriptionId, supported, unregisterSubscription])
 
 	async function enable() {
 		setOperationPending(true)
@@ -73,7 +79,7 @@ export function RestAlertsSection() {
 		try {
 			const permission = await Notification.requestPermission()
 			if (permission !== 'granted') throw new Error('Notifications are not allowed in browser settings.')
-			const publicKeyResult = publicKeyQuery.data ?? (await publicKeyQuery.refetch()).data
+			const publicKeyResult = publicKeyData ?? (await refetchPublicKey()).data
 			if (!publicKeyResult) throw new Error('Rest alerts are not configured yet.')
 			const registration = await navigator.serviceWorker.ready
 			subscription = await getOrCreatePushSubscription(registration.pushManager, publicKeyResult.publicKey)

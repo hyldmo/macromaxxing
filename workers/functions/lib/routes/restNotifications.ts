@@ -1,13 +1,26 @@
-import { newId, pushSubscriptions, restNotificationJobs, type TypeIDString, users, zodTypeID } from '@macromaxxing/db'
+import {
+	newId,
+	pushSubscriptions,
+	restNotificationJobs,
+	strictZodTypeID,
+	type TypeIDString,
+	users,
+	zodTypeID
+} from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { and, eq, isNull, lt, or } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNull, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 import { pushErrorStatus, sendWebPush } from '../web-push'
 
 const MAX_REST_MS = 15 * 60 * 1000
+const MAX_ACTIVE_REST_NOTIFICATION_JOBS_PER_USER = 5
+const MAX_REST_NOTIFICATION_JOBS_PER_USER = 100
 const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10
 const PUSH_EXPIRY_GRACE_MS = 30 * 1000
+const REST_NOTIFICATION_CANCEL_COOLDOWN_MS = 50
+const REST_NOTIFICATION_JOB_RETENTION_MS = MAX_REST_MS + PUSH_EXPIRY_GRACE_MS
+const REST_NOTIFICATION_SCHEDULE_COOLDOWN_MS = 1000
 const SUBSCRIPTION_REGISTRATION_COOLDOWN_MS = 1000
 const TEST_NOTIFICATION_COOLDOWN_MS = 10 * 1000
 const TRUSTED_PUSH_DOMAINS = [
@@ -45,7 +58,7 @@ const subscriptionInput = z.object({
 })
 
 const scheduleRestInput = z.object({
-	restId: zodTypeID('rnj'),
+	restId: strictZodTypeID('rnj'),
 	sessionId: zodTypeID('wks'),
 	subscriptionId: zodTypeID('psb'),
 	remainingMs: z.number().int().positive().max(MAX_REST_MS)
@@ -60,15 +73,22 @@ function vapidConfig(env: Cloudflare.Env) {
 	return { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY }
 }
 
+const restAlertsProcedure = protectedProcedure.use(({ ctx, next }) => {
+	if (ctx.env.REST_ALERTS_ENABLED === 'false') {
+		throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Rest alerts are disabled in previews' })
+	}
+	return next()
+})
+
 export const restNotificationsRouter = router({
-	publicKey: protectedProcedure.query(({ ctx }) => {
+	publicKey: restAlertsProcedure.query(({ ctx }) => {
 		if (!ctx.env.VAPID_PUBLIC_KEY) {
 			throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Rest alerts are not configured' })
 		}
 		return { publicKey: ctx.env.VAPID_PUBLIC_KEY }
 	}),
 
-	registerSubscription: protectedProcedure.input(subscriptionInput).mutation(async ({ ctx, input }) => {
+	registerSubscription: restAlertsProcedure.input(subscriptionInput).mutation(async ({ ctx, input }) => {
 		const existing = await ctx.db.query.pushSubscriptions.findFirst({ where: { endpoint: input.endpoint } })
 		const now = Date.now()
 		if (existing?.userId !== ctx.user.id) {
@@ -130,7 +150,7 @@ export const restNotificationsRouter = router({
 		return subscription
 	}),
 
-	unregisterSubscription: protectedProcedure
+	unregisterSubscription: restAlertsProcedure
 		.input(z.object({ subscriptionId: zodTypeID('psb') }))
 		.mutation(async ({ ctx, input }) => {
 			const subscription = await ctx.db.query.pushSubscriptions.findFirst({
@@ -156,7 +176,7 @@ export const restNotificationsRouter = router({
 			return { ok: true }
 		}),
 
-	scheduleRest: protectedProcedure.input(scheduleRestInput).mutation(async ({ ctx, input }) => {
+	scheduleRest: restAlertsProcedure.input(scheduleRestInput).mutation(async ({ ctx, input }) => {
 		const [session, subscription, found] = await Promise.all([
 			ctx.db.query.workoutSessions.findFirst({ where: { id: input.sessionId } }),
 			ctx.db.query.pushSubscriptions.findFirst({ where: { id: input.subscriptionId } }),
@@ -168,6 +188,8 @@ export const restNotificationsRouter = router({
 		if (!subscription || subscription.userId !== ctx.user.id) {
 			throw new TRPCError({ code: 'NOT_FOUND', message: 'Subscription not found' })
 		}
+		const queue = ctx.env.REST_NOTIFICATION_QUEUE
+		if (!queue) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Rest alerts are not configured' })
 
 		let existing = found
 		const validateExisting = () => {
@@ -187,6 +209,49 @@ export const restNotificationsRouter = router({
 		if (validateExisting()) return { accepted: true }
 
 		const now = Date.now()
+		const [scheduleClaim] = await ctx.db
+			.update(users)
+			.set({ lastRestAlertScheduledAt: now })
+			.where(
+				and(
+					eq(users.id, ctx.user.id),
+					or(
+						isNull(users.lastRestAlertScheduledAt),
+						lt(users.lastRestAlertScheduledAt, now - REST_NOTIFICATION_SCHEDULE_COOLDOWN_MS)
+					)
+				)
+			)
+			.returning({ id: users.id })
+		if (!scheduleClaim) {
+			throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Wait before scheduling another rest alert' })
+		}
+		if (!existing) {
+			await ctx.db
+				.delete(restNotificationJobs)
+				.where(
+					and(
+						eq(restNotificationJobs.userId, ctx.user.id),
+						lt(restNotificationJobs.expiresAt, now - REST_NOTIFICATION_JOB_RETENTION_MS)
+					)
+				)
+			const [jobCount, activeJobCount] = await Promise.all([
+				ctx.db.$count(restNotificationJobs, eq(restNotificationJobs.userId, ctx.user.id)),
+				ctx.db.$count(
+					restNotificationJobs,
+					and(
+						eq(restNotificationJobs.userId, ctx.user.id),
+						inArray(restNotificationJobs.status, ['scheduled', 'sending']),
+						gt(restNotificationJobs.expiresAt, now)
+					)
+				)
+			])
+			if (jobCount >= MAX_REST_NOTIFICATION_JOBS_PER_USER) {
+				throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Too many recent rest alerts' })
+			}
+			if (activeJobCount >= MAX_ACTIVE_REST_NOTIFICATION_JOBS_PER_USER) {
+				throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Too many active rest alerts' })
+			}
+		}
 		let dueAt = existing?.dueAt ?? now + input.remainingMs
 		const expiresAt = existing?.expiresAt ?? dueAt + PUSH_EXPIRY_GRACE_MS
 		if (dueAt <= now) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Rest has already ended' })
@@ -216,7 +281,7 @@ export const restNotificationsRouter = router({
 		}
 
 		try {
-			await ctx.env.REST_NOTIFICATION_QUEUE.send(
+			await queue.send(
 				{ jobId: input.restId },
 				{ delaySeconds: Math.max(0, Math.ceil((dueAt - Date.now()) / 1000)) }
 			)
@@ -230,16 +295,21 @@ export const restNotificationsRouter = router({
 			})
 		}
 
-		await ctx.db
-			.update(restNotificationJobs)
-			.set({ queuedAt: Date.now(), updatedAt: Date.now() })
-			.where(
-				and(
-					eq(restNotificationJobs.id, input.restId),
-					eq(restNotificationJobs.userId, ctx.user.id),
-					eq(restNotificationJobs.status, 'scheduled')
+		try {
+			await ctx.db
+				.update(restNotificationJobs)
+				.set({ queuedAt: Date.now(), updatedAt: Date.now() })
+				.where(
+					and(
+						eq(restNotificationJobs.id, input.restId),
+						eq(restNotificationJobs.userId, ctx.user.id),
+						eq(restNotificationJobs.status, 'scheduled')
+					)
 				)
-			)
+		} catch {
+			// Queue acceptance is authoritative; duplicate messages remain safe through the atomic claim.
+			console.error('rest_notification_queue_marker_failed', { jobId: input.restId })
+		}
 		console.info('rest_notification_scheduled', {
 			jobId: input.restId,
 			subscriptionId: input.subscriptionId
@@ -247,7 +317,7 @@ export const restNotificationsRouter = router({
 		return { accepted: true }
 	}),
 
-	cancelRest: protectedProcedure.input(cancelRestInput).mutation(async ({ ctx, input }) => {
+	cancelRest: restAlertsProcedure.input(cancelRestInput).mutation(async ({ ctx, input }) => {
 		const job = await ctx.db.query.restNotificationJobs.findFirst({ where: { id: input.restId } })
 		if (job && job.userId !== ctx.user.id) {
 			throw new TRPCError({ code: 'NOT_FOUND', message: 'Rest notification not found' })
@@ -257,12 +327,40 @@ export const restNotificationsRouter = router({
 		}
 		const now = Date.now()
 		if (!job) {
+			const [cancelClaim] = await ctx.db
+				.update(users)
+				.set({ lastRestAlertCancelledAt: now })
+				.where(
+					and(
+						eq(users.id, ctx.user.id),
+						or(
+							isNull(users.lastRestAlertCancelledAt),
+							lt(users.lastRestAlertCancelledAt, now - REST_NOTIFICATION_CANCEL_COOLDOWN_MS)
+						)
+					)
+				)
+				.returning({ id: users.id })
+			if (!cancelClaim) {
+				throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Wait before cancelling another rest alert' })
+			}
 			const [session, subscription] = await Promise.all([
 				ctx.db.query.workoutSessions.findFirst({ where: { id: input.sessionId } }),
 				ctx.db.query.pushSubscriptions.findFirst({ where: { id: input.subscriptionId } })
 			])
 			if (!session || session.userId !== ctx.user.id || !subscription || subscription.userId !== ctx.user.id) {
 				throw new TRPCError({ code: 'NOT_FOUND', message: 'Rest notification context not found' })
+			}
+			await ctx.db
+				.delete(restNotificationJobs)
+				.where(
+					and(
+						eq(restNotificationJobs.userId, ctx.user.id),
+						lt(restNotificationJobs.expiresAt, now - REST_NOTIFICATION_JOB_RETENTION_MS)
+					)
+				)
+			const jobCount = await ctx.db.$count(restNotificationJobs, eq(restNotificationJobs.userId, ctx.user.id))
+			if (jobCount >= MAX_REST_NOTIFICATION_JOBS_PER_USER) {
+				throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Too many recent rest alerts' })
 			}
 			const [inserted] = await ctx.db
 				.insert(restNotificationJobs)
@@ -309,7 +407,7 @@ export const restNotificationsRouter = router({
 		return { ok: true }
 	}),
 
-	sendTestNotification: protectedProcedure
+	sendTestNotification: restAlertsProcedure
 		.input(z.object({ subscriptionId: zodTypeID('psb') }))
 		.mutation(async ({ ctx, input }) => {
 			const subscription = await ctx.db.query.pushSubscriptions.findFirst({

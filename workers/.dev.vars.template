@@ -4,3 +4,4 @@ CLERK_PUBLISHABLE_KEY=placeholder
 CLERK_SECRET_KEY=placeholder
 VAPID_PUBLIC_KEY=placeholder
 VAPID_PRIVATE_KEY=placeholder
+REST_ALERTS_ENABLED=true

@@ -24,9 +24,20 @@ export async function getOrCreatePushSubscription(
 	pushManager: PushManager,
 	publicKey: string
 ): Promise<PushSubscription> {
+	const applicationServerKey = vapidPublicKeyBytes(publicKey)
 	const existing = await pushManager.getSubscription()
-	if (existing) return existing
-	return pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidPublicKeyBytes(publicKey) })
+	if (existing) {
+		const existingKey = existing.options.applicationServerKey
+		if (
+			existingKey &&
+			existingKey.byteLength === applicationServerKey.byteLength &&
+			new Uint8Array(existingKey).every((byte, index) => byte === applicationServerKey[index])
+		) {
+			return existing
+		}
+		await existing.unsubscribe()
+	}
+	return pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
 }
 
 export function supportsRestAlerts(): boolean {

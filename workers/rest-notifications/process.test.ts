@@ -18,6 +18,7 @@ function repository(found: RestNotificationDeliveryJob | null = job): RestNotifi
 	return {
 		find: vi.fn().mockResolvedValue(found),
 		claim: vi.fn().mockResolvedValue(true),
+		ownsSubscription: vi.fn().mockResolvedValue(true),
 		expire: vi.fn().mockResolvedValue(undefined),
 		markSent: vi.fn().mockResolvedValue(undefined),
 		markFailed: vi.fn().mockResolvedValue(undefined),
@@ -66,6 +67,16 @@ describe('processRestNotification', () => {
 		const send = vi.fn()
 		expect(await processRestNotification(job.id, 10_000, repo, send, vapid)).toBe('failed')
 		expect(repo.claim).toHaveBeenCalledWith(job.id, 10_000)
+		expect(repo.markFailed).toHaveBeenCalledWith(job.id, 10_000)
+		expect(send).not.toHaveBeenCalled()
+	})
+
+	it('revalidates subscription ownership after claiming', async () => {
+		const repo = repository()
+		vi.mocked(repo.ownsSubscription).mockResolvedValue(false)
+		const send = vi.fn()
+		expect(await processRestNotification(job.id, 10_000, repo, send, vapid)).toBe('failed')
+		expect(repo.ownsSubscription).toHaveBeenCalledWith(job.subscriptionId, job.userId)
 		expect(repo.markFailed).toHaveBeenCalledWith(job.id, 10_000)
 		expect(send).not.toHaveBeenCalled()
 	})
