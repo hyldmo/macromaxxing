@@ -35,7 +35,7 @@ export function startRestAlertDelivery(
 	dependencies: RestAlertDeliveryDependencies
 ): () => void {
 	let active = true
-	let serverAttempted = false
+	let serverRequest: Promise<unknown> | null = null
 	const timeoutId = setTimeout(() => {
 		if (!active) return
 		const remainingMs = delivery.rest.endAt - Date.now()
@@ -45,26 +45,33 @@ export function startRestAlertDelivery(
 			return
 		}
 
-		serverAttempted = true
-		void dependencies
-			.scheduleServer({
-				restId: delivery.rest.id,
-				sessionId: delivery.sessionId,
-				subscriptionId: delivery.subscriptionId,
-				remainingMs
-			})
-			.catch(() => {
-				if (active && delivery.rest.endAt > Date.now() && dependencies.isCurrentRest(delivery.rest.id)) {
-					dependencies.scheduleLocal(delivery.rest, delivery.sessionId)
-				}
-			})
+		serverRequest = dependencies.scheduleServer({
+			restId: delivery.rest.id,
+			sessionId: delivery.sessionId,
+			subscriptionId: delivery.subscriptionId,
+			remainingMs
+		})
+		void serverRequest.catch(() => {
+			if (active && delivery.rest.endAt > Date.now() && dependencies.isCurrentRest(delivery.rest.id)) {
+				dependencies.scheduleLocal(delivery.rest, delivery.sessionId)
+			}
+		})
 	}, 0)
 
 	return () => {
 		active = false
 		clearTimeout(timeoutId)
 		dependencies.clearLocal(delivery.rest.id)
-		if (serverAttempted && dependencies.isOnline()) dependencies.cancelServer(delivery.rest.id)
+		if (serverRequest) {
+			void serverRequest.then(
+				() => {
+					if (dependencies.isOnline()) dependencies.cancelServer(delivery.rest.id)
+				},
+				() => {
+					if (dependencies.isOnline()) dependencies.cancelServer(delivery.rest.id)
+				}
+			)
+		}
 	}
 }
 

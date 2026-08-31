@@ -12,7 +12,7 @@ function serviceWorker() {
 	const listeners = new Map<string, (event: ServiceWorkerEvent) => void>()
 	const showNotification = vi.fn().mockResolvedValue(undefined)
 	const openWindow = vi.fn().mockResolvedValue(undefined)
-	const source = readFileSync(new URL('./sw-custom.js', import.meta.url), 'utf8')
+	const source = readFileSync(new URL('../../public/sw-custom.js', import.meta.url), 'utf8')
 	runInNewContext(source, {
 		URL,
 		self: {
@@ -29,7 +29,7 @@ function serviceWorker() {
 describe('rest push service worker', () => {
 	it('shows only the fixed notification copy for a valid payload', async () => {
 		const worker = serviceWorker()
-		let completion = Promise.resolve()
+		let completion: Promise<unknown> = Promise.resolve()
 		worker.listeners.get('push')?.({
 			data: {
 				json: () => ({
@@ -75,7 +75,7 @@ describe('rest push service worker', () => {
 
 	it('falls back to the app root for unsafe click targets', async () => {
 		const worker = serviceWorker()
-		let completion = Promise.resolve()
+		let completion: Promise<unknown> = Promise.resolve()
 		worker.listeners.get('notificationclick')?.({
 			notification: { close: vi.fn(), data: { url: 'https://evil.example.test' } },
 			waitUntil: promise => {

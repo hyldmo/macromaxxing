@@ -57,6 +57,7 @@ describe('startRestAlertDelivery', () => {
 		expect(deps.scheduleLocal).not.toHaveBeenCalled()
 
 		cleanup()
+		await Promise.resolve()
 		expect(deps.cancelServer).toHaveBeenCalledWith('rnj_rest')
 	})
 

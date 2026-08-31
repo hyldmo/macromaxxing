@@ -10,6 +10,7 @@ export function RestAlertsSection() {
 	const subscriptionId = useRestAlertSubscriptionId()
 	const publicKeyQuery = trpc.restNotifications.publicKey.useQuery(undefined, { retry: false })
 	const registerMutation = trpc.restNotifications.registerSubscription.useMutation()
+	const { mutateAsync: registerSubscription } = registerMutation
 	const unregisterMutation = trpc.restNotifications.unregisterSubscription.useMutation()
 	const testMutation = trpc.restNotifications.sendTestNotification.useMutation()
 	const [reconciling, setReconciling] = useState(true)
@@ -34,7 +35,7 @@ export function RestAlertsSection() {
 					if (active) setRestAlertSubscriptionId(null)
 					return
 				}
-				const registered = await registerMutation.mutateAsync(serializePushSubscription(subscription))
+				const registered = await registerSubscription(serializePushSubscription(subscription))
 				if (active) setRestAlertSubscriptionId(registered.id)
 			} catch {
 				if (active) {
@@ -48,7 +49,7 @@ export function RestAlertsSection() {
 		return () => {
 			active = false
 		}
-	}, [registerMutation.mutateAsync, supported, registerMutation])
+	}, [registerSubscription, supported])
 
 	async function enable() {
 		setLocalError(null)
@@ -62,7 +63,7 @@ export function RestAlertsSection() {
 			if (!publicKeyResult) throw new Error('Rest alerts are not configured yet.')
 			const registration = await navigator.serviceWorker.ready
 			subscription = await getOrCreatePushSubscription(registration.pushManager, publicKeyResult.publicKey)
-			const registered = await registerMutation.mutateAsync(serializePushSubscription(subscription))
+			const registered = await registerSubscription(serializePushSubscription(subscription))
 			setRestAlertSubscriptionId(registered.id)
 		} catch (error) {
 			await subscription?.unsubscribe().catch(() => false)

@@ -13,6 +13,7 @@ A recipe nutrition tracker and workout logger for fitness enthusiasts who meal p
 - **AI-Powered Ingredient Lookup** — USDA FoodData Central API priority, AI fallback (Gemini/OpenAI/Anthropic BYOK). Batch lookups and model fallback configurable per user
 - **Weekly Meal Planning** — Template-based weekly planner with per-plan recipe inventory and portion tracking
 - **Workout Tracking** — Template-based training with checklist-driven session logging, supersets, auto-generated warmup/backoff sets, fatigue-tier-based rest timers, and interactive body map
+- **Rest Alerts** — Optional Web Push notifications when a rest ends, including after the installed app is closed or the phone is locked, with local-only offline fallback
 - **Training Locations** — Define the places you train (gym, home, hotel) with equipment checklists; templates and sessions warn when an exercise needs equipment the location doesn't have
 - **Auth** — Google/GitHub OAuth via Clerk
 - **Responsive Design** — Two-column editor on desktop, mobile-first with bottom tab navigation
@@ -29,6 +30,7 @@ A recipe nutrition tracker and workout logger for fitness enthusiasts who meal p
 **Backend:**
 - Cloudflare Pages Functions (Hono + tRPC)
 - Cloudflare D1 (SQLite) with Drizzle ORM
+- Cloudflare Queues + a dedicated Worker for delayed rest-alert delivery
 - Clerk for authentication (cookie-based sessions)
 - AES-GCM encrypted API key storage
 
@@ -57,7 +59,9 @@ src/
 │   │   └── MealPlannerPage.tsx
 │   ├── workouts/
 │   │   ├── components/      # BodyMap, ExerciseSetForm, SetRow, SupersetForm, SessionReview,
-│   │   │                    #   TimerMode, TimerRing, RestTimer, ExerciseSearch, ImportDialog, etc.
+│   │   │                    #   TimerMode, TimerRing, RestTimer, RestAlertsSection, etc.
+│   │   ├── hooks/           # Rest-alert delivery controller and session hooks
+│   │   ├── store/           # Persisted workout session/timer state
 │   │   ├── utils/           # formulas.ts, sets.ts, export.ts
 │   │   ├── RestTimerContext.tsx
 │   │   ├── WorkoutListPage.tsx
@@ -72,7 +76,7 @@ src/
 └── index.css                # Design tokens (surfaces, ink, macro colors, etc.)
 
 packages/db/                 # Shared package @macromaxxing/db
-├── schema.ts                # All tables (users, ingredients, recipes, mealPlans, workouts, etc.)
+├── schema.ts                # All tables, including pushSubscriptions and restNotificationJobs
 ├── relations.ts             # Drizzle relations
 ├── types.ts                 # Inferred types
 ├── custom-types.ts          # TypeID helpers, AiProvider, FatigueTier, MuscleGroup, SetMode, etc.
@@ -96,7 +100,10 @@ workers/functions/
         ├── workouts.ts      # Exercises, templates, sessions, sets, muscle stats, import
         ├── ai.ts            # lookup, estimateCookedWeight, parseRecipe, parseProduct
         ├── settings.ts      # AI config + body profile
+        ├── restNotifications.ts # Push subscription, scheduling, cancellation, and test notification API
         └── user.ts          # User endpoints
+
+workers/rest-notifications/  # Queue consumer that claims due jobs and sends Web Push
 
 scripts/
 └── seed-exercises.ts        # System exercises with muscle group mappings + strength standards
@@ -168,6 +175,10 @@ yarn test
 - `USDA_API_KEY` — USDA FoodData Central API key
 - `CLERK_PUBLISHABLE_KEY` — Clerk publishable key
 - `CLERK_SECRET_KEY` — Clerk secret key
+- `VAPID_PUBLIC_KEY` — URL-safe public key used for browser push subscriptions
+- `VAPID_PRIVATE_KEY` — matching private key used only by server-side delivery
+
+Rest alerts use the `macromaxxing-rest-notifications` Cloudflare Queue. Production needs the same VAPID key pair in the Pages project and the dedicated `macromaxxing-rest-notifications` Worker. The deploy workflow creates the queue, deploys its consumer before Pages, and configures the consumer from the `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` GitHub Actions secrets. Keep the Pages copies in the Cloudflare dashboard; never add either key to `wrangler.toml`.
 
 ## License
 
