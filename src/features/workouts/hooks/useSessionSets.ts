@@ -1,7 +1,6 @@
 import type { WorkoutSession } from '@macromaxxing/db'
 import { effectiveSetWeightKg } from '~/lib'
 import { type RouterInput, type RouterOutput, trpc } from '~/lib/trpc'
-import { useWorkoutSessionStore } from '../store'
 
 type SessionData = RouterOutput['workout']['getSession']
 type SessionLog = SessionData['logs'][number]
@@ -91,8 +90,8 @@ export function withPatchedLog(
 /**
  * Session set mutations with optimistic getSession cache updates, shared by the
  * checklist page and timer mode. Rest timers are the caller's concern (the
- * checklist starts one per confirmed set, the timer runs its own) — except on add
- * failure, where any optimistically started rest is cleared here.
+ * checklist starts one per confirmed set, the timer runs its own). A failed network
+ * save rolls back the optimistic log but does not undo the physical set or its rest.
  */
 export function useSessionSets(sessionId: WorkoutSession['id'] | undefined) {
 	const utils = trpc.useUtils()
@@ -124,8 +123,6 @@ export function useSessionSets(sessionId: WorkoutSession['id'] | undefined) {
 			if (context?.previous) {
 				utils.workout.getSession.setData({ id: variables.sessionId }, context.previous)
 			}
-			// A rest timer started for this set has nothing to rest from
-			useWorkoutSessionStore.getState().dismissRest()
 		},
 		onSettled: (_data, _err, variables) => utils.workout.getSession.invalidate({ id: variables.sessionId })
 	})

@@ -57,6 +57,7 @@ import { WORKOUT_GUIDE } from '../mcp-instructions'
 import { protectedProcedure, publicProcedure, router } from '../trpc'
 import { ensureUserSettingsRow } from '../utils'
 import { loadWeightLadders } from '../weight-ladders'
+import { assertWorkoutSessionOwner } from '../workout-authorization'
 import { stripVerboseSession, stripVerboseWorkout, toSessionListItem } from '../workout-response'
 import {
 	buildTemplateExercisePatch,
@@ -1727,6 +1728,9 @@ export const workoutsRouter = router({
 			})
 		)
 		.mutation(async ({ ctx, input }) => {
+			const session = await ctx.db.query.workoutSessions.findFirst({ where: { id: input.sessionId } })
+			assertWorkoutSessionOwner(session, ctx.user.id)
+
 			// Auto-assign set number per exercise in session
 			const existing = await ctx.db
 				.select({ count: sql<number>`count(*)` })

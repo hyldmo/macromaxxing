@@ -1,7 +1,7 @@
 import type { Exercise } from '@macromaxxing/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SetCursor } from '~/lib'
-import { useWorkoutSessionStore } from './useWorkoutSessionStore'
+import { scheduleLocalRestNotification, useWorkoutSessionStore } from './useWorkoutSessionStore'
 
 const BENCH: SetCursor = { exerciseId: 'exc_bench' as Exercise['id'], setNumber: 1 }
 const BENCH_2: SetCursor = { exerciseId: 'exc_bench' as Exercise['id'], setNumber: 2 }
@@ -14,7 +14,7 @@ beforeEach(() => {
 	vi.useFakeTimers()
 	// Mock browser APIs
 	vi.stubGlobal('window', globalThis)
-	vi.stubGlobal('navigator', { vibrate: vi.fn() })
+	vi.stubGlobal('navigator', { vibrate: vi.fn(), onLine: true })
 	vi.stubGlobal('Notification', { permission: 'default', requestPermission: vi.fn() })
 	// Reset store between tests
 	store().reset()
@@ -169,12 +169,14 @@ describe('startRest()', () => {
 		vi.setSystemTime(5000)
 		store().startRest(60, 'working')
 
-		expect(store().rest).toEqual({
+		expect(store().rest).toMatchObject({
 			startedAt: 5000,
 			endAt: 5000 + 60 * 1000,
 			total: 60,
 			setType: 'working'
 		})
+		expect(store().rest?.id).toMatch(/^rnj_/)
+		expect(Notification.requestPermission).not.toHaveBeenCalled()
 	})
 
 	it('set time is NOT subtracted from rest', () => {
@@ -208,6 +210,39 @@ describe('startRest()', () => {
 		vi.setSystemTime(5000)
 		store().recordTransition()
 		expect(store().roundStartedAt).toBe(1000)
+	})
+})
+
+describe('local rest notification', () => {
+	it('does not fire after the scheduled rest is replaced', async () => {
+		const showNotification = vi.fn()
+		vi.stubGlobal('navigator', {
+			vibrate: vi.fn(),
+			onLine: false,
+			serviceWorker: { ready: Promise.resolve({ showNotification }) }
+		})
+		vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+		vi.setSystemTime(1000)
+		store().startRest(10, 'working')
+		const firstRest = store().rest
+		if (!firstRest) throw new Error('Expected active rest')
+		scheduleLocalRestNotification(firstRest, 'wks_1')
+
+		store().startRest(20, 'working')
+		vi.advanceTimersByTime(10_000)
+		await Promise.resolve()
+
+		expect(showNotification).not.toHaveBeenCalled()
+	})
+
+	it('does not arm an already expired rest', () => {
+		vi.setSystemTime(1000)
+		store().startRest(1, 'working')
+		const rest = store().rest
+		if (!rest) throw new Error('Expected active rest')
+		vi.setSystemTime(3000)
+		scheduleLocalRestNotification(rest, 'wks_1')
+		expect(vi.getTimerCount()).toBe(0)
 	})
 })
 

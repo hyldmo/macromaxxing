@@ -1,7 +1,8 @@
-import type { SetType } from '@macromaxxing/db'
+import { newId, type SetType, type TypeIDString } from '@macromaxxing/db'
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
 import { cursorEquals, type SetCursor } from '~/lib'
+import { getRestAlertSubscriptionId } from '~/lib/restAlerts'
 
 /**
  * Ephemeral workout-session state that cannot be derived from server data.
@@ -25,6 +26,7 @@ export interface WorkoutSessionStore {
 	setTimer: { startedAt: number; pausedAt: number | null } | null
 
 	rest: {
+		id: TypeIDString<'rnj'>
 		startedAt: number
 		endAt: number
 		total: number
@@ -75,27 +77,28 @@ function fireNotification(sessionId: string | null) {
 	}
 }
 
-// Notification timeout — scheduled when rest starts, cleared on dismiss/reset
-let notificationTimeoutId: ReturnType<typeof setTimeout> | null = null
+// Local delivery is used only while offline or after server scheduling fails.
+let localNotification: { restId: TypeIDString<'rnj'>; timeoutId: ReturnType<typeof setTimeout> } | null = null
 
-function clearNotificationTimeout() {
-	if (notificationTimeoutId !== null) {
-		clearTimeout(notificationTimeoutId)
-		notificationTimeoutId = null
+export function clearLocalRestNotification(restId?: TypeIDString<'rnj'>) {
+	if (localNotification && (restId === undefined || localNotification.restId === restId)) {
+		clearTimeout(localNotification.timeoutId)
+		localNotification = null
 	}
 }
 
-function scheduleNotification(endAt: number, sessionId: string | null) {
-	clearNotificationTimeout()
-	const delay = endAt - Date.now()
-	if (delay > 0) {
-		notificationTimeoutId = setTimeout(() => {
-			fireNotification(sessionId)
-			notificationTimeoutId = null
-		}, delay)
-	} else {
-		fireNotification(sessionId)
-	}
+export function scheduleLocalRestNotification(
+	rest: NonNullable<WorkoutSessionStore['rest']>,
+	sessionId: string | null
+) {
+	clearLocalRestNotification()
+	const delay = rest.endAt - Date.now()
+	if (delay <= 0) return
+	const timeoutId = setTimeout(() => {
+		if (useWorkoutSessionStore.getState().rest?.id === rest.id) fireNotification(sessionId)
+		if (localNotification?.restId === rest.id) localNotification = null
+	}, delay)
+	localNotification = { restId: rest.id, timeoutId }
 }
 
 // --- Initial state ---
@@ -146,7 +149,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 
 			setSession: session => {
 				if (session === null) {
-					clearNotificationTimeout()
+					clearLocalRestNotification()
 					set({ ...INITIAL_STATE })
 					return
 				}
@@ -154,7 +157,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 				const current = get().sessionId
 				if (current !== null && current !== session.id) {
 					// Different session: cursor, edits, and timers belong to the old one
-					clearNotificationTimeout()
+					clearLocalRestNotification()
 					set({ ...INITIAL_STATE, sessionId: session.id, ...startedAt })
 				} else {
 					set({ sessionId: session.id, ...startedAt })
@@ -162,7 +165,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 			},
 
 			reset: () => {
-				clearNotificationTimeout()
+				clearLocalRestNotification()
 				set({ ...INITIAL_STATE })
 			},
 
@@ -219,11 +222,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 			// --- Rest timer ---
 
 			startRest: (durationSec, setType) => {
-				clearNotificationTimeout()
-
-				if ('Notification' in window && Notification.permission === 'default') {
-					Notification.requestPermission()
-				}
+				clearLocalRestNotification()
 
 				const state = get()
 				const now = Date.now()
@@ -235,10 +234,14 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 				const remainingMs = Math.max(0, durationSec * 1000 - roundElapsedMs)
 				const endAt = now + remainingMs
 
-				scheduleNotification(endAt, state.sessionId)
-
 				set({
-					rest: { startedAt: now - roundElapsedMs, endAt, total: durationSec, setType },
+					rest: {
+						id: newId('rnj'),
+						startedAt: now - roundElapsedMs,
+						endAt,
+						total: durationSec,
+						setType
+					},
 					roundStartedAt: null
 				})
 			},
@@ -250,7 +253,7 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 			},
 
 			dismissRest: () => {
-				clearNotificationTimeout()
+				clearLocalRestNotification()
 				set({ rest: null, roundStartedAt: null })
 			}
 		}),
@@ -270,6 +273,11 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 				// JSON boundary: zustand hands back `unknown`; partialize wrote PersistedSessionState
 				const restored: WorkoutSessionStore = { ...current, ...(persisted as Partial<PersistedSessionState>) }
 				const now = Date.now()
+				// Pre-rest-alert persisted state has no identity. Give it one during the
+				// backwards-compatible hydration instead of letting an undefined tag leak.
+				if (restored.rest && typeof restored.rest.id !== 'string') {
+					restored.rest = { ...restored.rest, id: newId('rnj') }
+				}
 				if (restored.rest && now - restored.rest.endAt > STALE_TIMER_MS) restored.rest = null
 				if (restored.setTimer && now - restored.setTimer.startedAt > STALE_TIMER_MS) restored.setTimer = null
 				if (restored.roundStartedAt !== null && now - restored.roundStartedAt > STALE_TIMER_MS) {
@@ -278,9 +286,16 @@ export const useWorkoutSessionStore = create<WorkoutSessionStore>()(
 				return restored
 			},
 			onRehydrateStorage: () => state => {
-				// Re-arm the end-of-rest notification lost with the previous JS context
-				if (state?.rest && state.rest.endAt > Date.now()) {
-					scheduleNotification(state.rest.endAt, state.sessionId)
+				// Only the offline path uses page-local delivery. Online rests are owned by
+				// the server once accepted and expired rests never fire during hydration.
+				if (
+					state?.rest &&
+					state.rest.endAt > Date.now() &&
+					getRestAlertSubscriptionId() !== null &&
+					typeof navigator !== 'undefined' &&
+					navigator.onLine === false
+				) {
+					scheduleLocalRestNotification(state.rest, state.sessionId)
 				}
 			}
 		}
