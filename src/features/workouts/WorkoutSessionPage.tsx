@@ -280,15 +280,8 @@ export function WorkoutSessionPage() {
 	const session = sessionQuery.data
 	const goal: TrainingGoal = session?.workout?.trainingGoal ?? 'hypertrophy'
 
-	// The weights this gym actually has, so generated warmups/backoffs land on a rung the
-	// user can load rather than a rounded number no rack holds.
-	const laddersQuery = trpc.workout.weightLadders.useQuery(
-		{ locationId: session?.locationId ?? null },
-		{ enabled: !!session }
-	)
-
 	const planRows = useMemo(() => (session ? sessionPlanRows(session) : []), [session])
-	const plan = useMemo(() => buildSessionPlanFromSession(session, laddersQuery.data), [session, laddersQuery.data])
+	const plan = useMemo(() => buildSessionPlanFromSession(session), [session])
 	const { exerciseGroups, extraExercises, modes: exerciseModes, goals: exerciseGoals } = plan
 
 	// Mode/goal edits persist via updatePlannedExercise, which needs a snapshot
