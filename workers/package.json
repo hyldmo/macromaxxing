@@ -18,9 +18,11 @@
     "@trpc/server": "*",
     "drizzle-orm": "beta",
     "hono": "^4.11.7",
+    "web-push": "3.6.7",
     "zod": "*"
   },
   "devDependencies": {
+    "@types/web-push": "3.6.4",
     "typescript": "*",
     "wrangler": "^4.87.0"
   }

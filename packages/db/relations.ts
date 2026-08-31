@@ -16,7 +16,9 @@ export const relations = defineRelations(schema, r => ({
 		workoutPrograms: r.many.workoutPrograms(),
 		workoutSkips: r.many.workoutSkips(),
 		locations: r.many.locations(),
-		apiTokens: r.many.apiTokens()
+		apiTokens: r.many.apiTokens(),
+		pushSubscriptions: r.many.pushSubscriptions(),
+		restNotificationJobs: r.many.restNotificationJobs()
 	},
 
 	apiTokens: {
@@ -25,6 +27,15 @@ export const relations = defineRelations(schema, r => ({
 			to: r.users.id,
 			optional: false
 		})
+	},
+
+	pushSubscriptions: {
+		user: r.one.users({
+			from: r.pushSubscriptions.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		jobs: r.many.restNotificationJobs()
 	},
 
 	userSettings: {
@@ -275,7 +286,26 @@ export const relations = defineRelations(schema, r => ({
 			to: r.locations.id
 		}),
 		logs: r.many.workoutLogs(),
-		plannedExercises: r.many.sessionPlannedExercises()
+		plannedExercises: r.many.sessionPlannedExercises(),
+		restNotificationJobs: r.many.restNotificationJobs()
+	},
+
+	restNotificationJobs: {
+		user: r.one.users({
+			from: r.restNotificationJobs.userId,
+			to: r.users.id,
+			optional: false
+		}),
+		session: r.one.workoutSessions({
+			from: r.restNotificationJobs.sessionId,
+			to: r.workoutSessions.id,
+			optional: false
+		}),
+		subscription: r.one.pushSubscriptions({
+			from: r.restNotificationJobs.subscriptionId,
+			to: r.pushSubscriptions.id,
+			optional: false
+		})
 	},
 
 	sessionPlannedExercises: {

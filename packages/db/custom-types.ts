@@ -53,6 +53,9 @@ export const setMode = z.enum(['working', 'warmup', 'backoff', 'full'])
 export type SetMode = z.infer<typeof setMode>
 export type SetType = Exclude<SetMode, 'full'>
 
+export const restNotificationStatus = z.enum(['scheduled', 'sending', 'sent', 'cancelled', 'expired', 'failed'])
+export type RestNotificationStatus = z.infer<typeof restNotificationStatus>
+
 export type HttpsUrl = `https://${string}`
 export type ImageSource = HttpsUrl | TypeIDString<'rcp'>
 

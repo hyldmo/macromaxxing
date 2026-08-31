@@ -12,3 +12,7 @@ migrations_dir = "../packages/db/drizzle"
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "macromaxxing-images"
+
+[[queues.producers]]
+binding = "REST_NOTIFICATION_QUEUE"
+queue = "macromaxxing-rest-notifications"
