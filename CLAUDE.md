@@ -61,6 +61,10 @@ USDA_API_KEY=your-usda-api-key
 # Get from Clerk dashboard
 CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
+# Matching VAPID key pair for local rest-alert subscriptions and delivery
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+REST_ALERTS_ENABLED=true
 ```
 
 Create `.env.local` for frontend:
@@ -284,6 +288,7 @@ workers/rest-notifications/                 # Dedicated Cloudflare Queue consume
   process.ts                                # Atomic claim + send/expire/fail state machine
   wrangler.toml                             # Consumer binding (Pages remains producer-only)
 scripts/
+  flatten-migrations.ts                     # Copy Drizzle's nested migration SQL to Wrangler's flat layout
   seed-exercises.ts                         # System exercises with muscle group mappings + strength standards
   seed-usda.ts                              # Import USDA Foundation + SR Legacy foods into D1
   build-widgets.ts                          # Bundle src/mcp-widgets/ → workers/functions/widgets/widgets.generated.ts (WIDGET_HTML) for MCP Apps
@@ -321,13 +326,15 @@ src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx
 ## DB Schema
 
 ```
-users(id PK clerk_user_id, email)
+users(id PK clerk_user_id, email,
+      lastPushSubscriptionAt?, lastRestAlertTestAt?, lastRestAlertScheduledAt?, lastRestAlertCancelledAt?)
   → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
                  heightCm?, weightKg?, age?, sex: male|female,
                  activityLevel?: auto|sedentary|light|moderate|active|very_active,  -- 'auto' = derived from
                                  -- logged session frequency on read; plain text column, widening needs no migration
                  nutritionGoal?: cut|maintain|bulk|custom,
                  targetKcal?/targetProtein?/targetCarbs?/targetFat?/targetFiber?  -- ONLY read when goal='custom')
+  → pushSubscriptions(id typeid:psb, userId FK, endpoint unique, p256dh, auth, createdAt, updatedAt)
 
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?,
             source: manual|ai|usda|openfoodfacts|label, sourceUrl? -- product page a label was read off)
@@ -366,6 +373,8 @@ workoutSessions(id typeid:wks, userId, workoutId?, locationId? — snapshotted f
                             targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)
+  → restNotificationJobs(id typeid:rnj, sessionId ON DELETE CASCADE, userId, subscriptionId ON DELETE CASCADE,
+                         dueAt, expiresAt, status: scheduled|sending|sent|cancelled|expired|failed, queuedAt?)
 
 workoutPrograms(id typeid:wpr, userId, name, sortOrder, UNIQUE(userId, name))
   → workoutProgramItems(id typeid:wpi, programId, workoutId, sortOrder)  -- both FKs ON DELETE CASCADE
@@ -732,7 +741,7 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - `public/self-heal.js` (loaded synchronously in `<head>` via `src/root.tsx`) catches `<script>/<link>` load failures for `/assets/*` paths (the symptom of a stale SW or browser cache referencing a removed hashed chunk), unregisters the SW, clears caches, and reloads with a `_v=<timestamp>` cache-bust param. Guards: skips when offline, skips when already on a `_v=` URL to prevent reload loops. This is the recovery path when the React bundle itself can't run — the in-app `ReloadPrompt` banner needs the bundle to render, so a fully stuck client needs the HTML-level watchdog.
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
-- Optional rest alerts use Web Push when online so delivery survives an app close or phone lock. Pages Functions only produce delayed queue messages; `workers/rest-notifications/` is the separate consumer. `public/sw-custom.js` validates the versioned opaque payload and owns the fixed notification copy. If the device is offline when a rest starts, or server scheduling fails before acceptance, `useRestAlerts` arms the existing page-local timeout instead; an accepted server job never gets an immediate local duplicate.
+- Optional rest alerts use Web Push when online so delivery survives an app close or phone lock. Pages Functions only produce delayed queue messages; `workers/rest-notifications/` is the separate consumer. `public/sw-custom.js` validates the versioned opaque payload and owns the fixed notification copy. If the device is offline when a rest starts, or server scheduling fails before acceptance, `useRestAlerts` arms the existing page-local timeout instead; an accepted server job never gets an immediate local duplicate. Delivery is intentionally at-most-once: the consumer sets `max_retries = 0` and acknowledges every message, so a consumer or provider failure can miss an accepted alert instead of delivering it late after the rest.
 
 **MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Two auth paths on the same `/api/mcp` endpoint:
 - **Clerk OAuth** (Claude.ai custom connectors, Cursor, VS Code, etc.) — Clerk acts as OAuth 2.1 authorization server via Dynamic Client Registration. `@clerk/mcp-tools` generates the RFC 9728 protected-resource metadata and proxies Clerk's RFC 8414 auth-server metadata. On 401, the `WWW-Authenticate` header points clients to the resource metadata URL.

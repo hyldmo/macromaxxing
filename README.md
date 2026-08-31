@@ -14,6 +14,8 @@ A recipe nutrition tracker and workout logger for fitness enthusiasts who meal p
 - **Weekly Meal Planning** — Template-based weekly planner with per-plan recipe inventory and portion tracking
 - **Workout Tracking** — Template-based training with checklist-driven session logging, supersets, auto-generated warmup/backoff sets, fatigue-tier-based rest timers, and interactive body map
 - **Rest Alerts** — Optional Web Push notifications when a rest ends, including after the installed app is closed or the phone is locked, with local-only offline fallback
+  - Enable them under Settings → Rest alerts, approve browser notifications, then use **Test notification** to verify delivery on the device.
+  - Delivery is intentionally best-effort: Queue retries are disabled, avoiding stale late alerts at the cost of a rare missed accepted alert if consumer processing fails.
   - Pages previews disable rest alert mutations so preview traffic cannot create production notification jobs.
 - **Training Locations** — Define the places you train (gym, home, hotel) with equipment checklists; templates and sessions warn when an exercise needs equipment the location doesn't have
 - **Auth** — Google/GitHub OAuth via Clerk
@@ -86,7 +88,8 @@ packages/db/                 # Shared package @macromaxxing/db
 workers/functions/
 ├── api/[[route]].ts         # Hono entry: Clerk auth middleware → tRPC handler
 └── lib/
-    ├── router.ts            # tRPC app router (recipe, ingredient, mealPlan, workout, ai, settings, user)
+    ├── router.ts            # tRPC app router (recipe, ingredient, settings, ai, dashboard, mealPlan,
+    │                        #   user, workout, analytics, restNotifications)
     ├── trpc.ts              # tRPC context + procedures
     ├── auth.ts              # Clerk cookie verification
     ├── db.ts                # Drizzle D1 setup
@@ -178,6 +181,7 @@ yarn test
 - `CLERK_SECRET_KEY` — Clerk secret key
 - `VAPID_PUBLIC_KEY` — URL-safe public key used for browser push subscriptions
 - `VAPID_PRIVATE_KEY` — matching private key used only by server-side delivery
+- `REST_ALERTS_ENABLED` — runtime feature gate; production enables it while Pages previews set it to `false` in `workers/wrangler.toml`
 
 Rest alerts use the `macromaxxing-rest-notifications` Cloudflare Queue. Production needs the same VAPID key pair in the Pages project and the dedicated `macromaxxing-rest-notifications` Worker. The deploy workflow creates the queue, deploys its consumer before Pages, and configures both runtimes from the `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` GitHub Actions secrets. Never add either key to `wrangler.toml`.
 
