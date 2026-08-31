@@ -1,0 +1,87 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { startRestAlertDelivery } from './useRestAlerts'
+
+const rest = {
+	id: 'rnj_rest',
+	startedAt: 1_000,
+	endAt: 61_000,
+	total: 60,
+	setType: 'working'
+} as const
+
+function dependencies(online: boolean) {
+	return {
+		isOnline: vi.fn(() => online),
+		isCurrentRest: vi.fn(() => true),
+		scheduleLocal: vi.fn(),
+		clearLocal: vi.fn(),
+		scheduleServer: vi.fn().mockResolvedValue({ accepted: true }),
+		cancelServer: vi.fn()
+	}
+}
+
+beforeEach(() => {
+	vi.useFakeTimers()
+	vi.setSystemTime(1_000)
+})
+
+afterEach(() => {
+	vi.useRealTimers()
+})
+
+describe('startRestAlertDelivery', () => {
+	it('uses page-local delivery when the rest starts offline', () => {
+		const deps = dependencies(false)
+		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, deps)
+		vi.runAllTimers()
+
+		expect(deps.scheduleLocal).toHaveBeenCalledWith(rest, 'wks_session')
+		expect(deps.scheduleServer).not.toHaveBeenCalled()
+	})
+
+	it('uses server delivery online without arming a local duplicate', async () => {
+		const deps = dependencies(true)
+		const cleanup = startRestAlertDelivery(
+			{ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' },
+			deps
+		)
+		vi.runAllTimers()
+		await Promise.resolve()
+
+		expect(deps.scheduleServer).toHaveBeenCalledWith({
+			restId: 'rnj_rest',
+			sessionId: 'wks_session',
+			subscriptionId: 'psb_subscription',
+			remainingMs: 60_000
+		})
+		expect(deps.scheduleLocal).not.toHaveBeenCalled()
+
+		cleanup()
+		expect(deps.cancelServer).toHaveBeenCalledWith('rnj_rest')
+	})
+
+	it('falls back locally when online scheduling fails before acceptance', async () => {
+		const deps = dependencies(true)
+		deps.scheduleServer.mockRejectedValue(new Error('offline'))
+		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, deps)
+		vi.runAllTimers()
+		await Promise.resolve()
+		await Promise.resolve()
+
+		expect(deps.scheduleLocal).toHaveBeenCalledWith(rest, 'wks_session')
+	})
+
+	it('does no work when Strict Mode cleans up the deferred first pass', () => {
+		const deps = dependencies(true)
+		const cleanup = startRestAlertDelivery(
+			{ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' },
+			deps
+		)
+		cleanup()
+		vi.runAllTimers()
+
+		expect(deps.scheduleServer).not.toHaveBeenCalled()
+		expect(deps.scheduleLocal).not.toHaveBeenCalled()
+		expect(deps.cancelServer).not.toHaveBeenCalled()
+	})
+})

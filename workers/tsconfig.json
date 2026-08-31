@@ -12,5 +12,5 @@
 		"resolveJsonModule": true
 	},
 	"files": ["worker-configuration.d.ts"],
-	"include": ["functions/**/*.ts"]
+	"include": ["functions/**/*.ts", "rest-notifications/**/*.ts"]
 }

@@ -14,7 +14,7 @@ import { getRestAlertSubscriptionId } from '~/lib/restAlerts'
  * edits, and running timers.
  */
 export interface WorkoutSessionStore {
-	sessionId: string | null
+	sessionId: TypeIDString<'wks'> | null
 	sessionStartedAt: number | null
 
 	/** Position in the workout. Resolved against the live queue at render via `resolveCursorIndex`. */
@@ -37,7 +37,7 @@ export interface WorkoutSessionStore {
 	roundStartedAt: number | null
 
 	// Session lifecycle
-	setSession: (session: { id: string; startedAt?: number } | null) => void
+	setSession: (session: { id: TypeIDString<'wks'>; startedAt?: number } | null) => void
 	reset: () => void
 
 	// Cursor + per-set edit state
@@ -58,7 +58,7 @@ export interface WorkoutSessionStore {
 
 // --- Notification ---
 
-function fireNotification(sessionId: string | null) {
+function fireNotification(sessionId: TypeIDString<'wks'> | null) {
 	if (navigator.vibrate) navigator.vibrate(200)
 	if ('Notification' in window && Notification.permission === 'granted') {
 		const timerUrl = sessionId ? `/workouts/sessions/${sessionId}/timer` : '/'
@@ -89,7 +89,7 @@ export function clearLocalRestNotification(restId?: TypeIDString<'rnj'>) {
 
 export function scheduleLocalRestNotification(
 	rest: NonNullable<WorkoutSessionStore['rest']>,
-	sessionId: string | null
+	sessionId: TypeIDString<'wks'> | null
 ) {
 	clearLocalRestNotification()
 	const delay = rest.endAt - Date.now()
@@ -104,7 +104,7 @@ export function scheduleLocalRestNotification(
 // --- Initial state ---
 
 const INITIAL_STATE = {
-	sessionId: null as string | null,
+	sessionId: null as TypeIDString<'wks'> | null,
 	sessionStartedAt: null as number | null,
 	cursor: null as SetCursor | null,
 	draft: {} as WorkoutSessionStore['draft'],

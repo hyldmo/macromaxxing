@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router'
+import { useRestAlerts } from '~/features/workouts/hooks/useRestAlerts'
 import { ReloadPrompt } from '../ui/ReloadPrompt'
 import { Nav } from './Nav'
 
 export function RootLayout() {
 	const navigate = useNavigate()
+	useRestAlerts()
 
 	// Notification clicks arrive as SW messages so navigation stays client-side —
 	// a hard navigate would reload the app and drop mid-session timer state
