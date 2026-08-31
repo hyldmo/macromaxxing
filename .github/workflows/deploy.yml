@@ -71,6 +71,16 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
 
+      - name: Configure rest notification Pages secrets
+        run: |
+          printf '%s' "$VAPID_PUBLIC_KEY" | yarn workspace @macromaxxing/workers wrangler pages secret put VAPID_PUBLIC_KEY --project-name=${{ github.event.repository.name }}
+          printf '%s' "$VAPID_PRIVATE_KEY" | yarn workspace @macromaxxing/workers wrangler pages secret put VAPID_PRIVATE_KEY --project-name=${{ github.event.repository.name }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+
       - name: Build
         run: yarn build
         env:

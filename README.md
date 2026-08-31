@@ -178,7 +178,7 @@ yarn test
 - `VAPID_PUBLIC_KEY` — URL-safe public key used for browser push subscriptions
 - `VAPID_PRIVATE_KEY` — matching private key used only by server-side delivery
 
-Rest alerts use the `macromaxxing-rest-notifications` Cloudflare Queue. Production needs the same VAPID key pair in the Pages project and the dedicated `macromaxxing-rest-notifications` Worker. The deploy workflow creates the queue, deploys its consumer before Pages, and configures the consumer from the `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` GitHub Actions secrets. Keep the Pages copies in the Cloudflare dashboard; never add either key to `wrangler.toml`.
+Rest alerts use the `macromaxxing-rest-notifications` Cloudflare Queue. Production needs the same VAPID key pair in the Pages project and the dedicated `macromaxxing-rest-notifications` Worker. The deploy workflow creates the queue, deploys its consumer before Pages, and configures both runtimes from the `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` GitHub Actions secrets. Never add either key to `wrangler.toml`.
 
 ## License
 

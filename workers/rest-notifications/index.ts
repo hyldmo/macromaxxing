@@ -42,8 +42,10 @@ function createRepository(db: Database): RestNotificationRepository {
 				.set({ status: 'failed', updatedAt: now })
 				.where(and(eq(restNotificationJobs.id, jobId), eq(restNotificationJobs.status, 'sending')))
 		},
-		deleteSubscription: async subscriptionId => {
-			await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscriptionId))
+		deleteSubscription: async (subscriptionId, userId) => {
+			await db
+				.delete(pushSubscriptions)
+				.where(and(eq(pushSubscriptions.id, subscriptionId), eq(pushSubscriptions.userId, userId)))
 		}
 	}
 }

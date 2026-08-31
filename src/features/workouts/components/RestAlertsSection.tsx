@@ -14,15 +14,28 @@ export function RestAlertsSection() {
 	const unregisterMutation = trpc.restNotifications.unregisterSubscription.useMutation()
 	const testMutation = trpc.restNotifications.sendTestNotification.useMutation()
 	const [reconciling, setReconciling] = useState(true)
+	const [operationPending, setOperationPending] = useState(false)
 	const [localError, setLocalError] = useState<string | null>(null)
 	const [testAccepted, setTestAccepted] = useState(false)
 	const supported = supportsRestAlerts()
-	const pending = reconciling || registerMutation.isPending || unregisterMutation.isPending || testMutation.isPending
+	const pending =
+		reconciling ||
+		operationPending ||
+		registerMutation.isPending ||
+		unregisterMutation.isPending ||
+		testMutation.isPending
 	const trpcError = registerMutation.error ?? unregisterMutation.error ?? testMutation.error ?? publicKeyQuery.error
 
 	useEffect(() => {
 		if (!supported) {
 			setRestAlertSubscriptionId(null)
+			setReconciling(false)
+			return
+		}
+		// The local opaque ID is also the user's enabled preference. A browser
+		// subscription left behind by failed cleanup must not silently turn alerts
+		// back on the next time Settings opens.
+		if (subscriptionId === null) {
 			setReconciling(false)
 			return
 		}
@@ -49,9 +62,10 @@ export function RestAlertsSection() {
 		return () => {
 			active = false
 		}
-	}, [registerSubscription, supported])
+	}, [registerSubscription, subscriptionId, supported])
 
 	async function enable() {
+		setOperationPending(true)
 		setLocalError(null)
 		setTestAccepted(false)
 		registerMutation.reset()
@@ -69,10 +83,13 @@ export function RestAlertsSection() {
 			await subscription?.unsubscribe().catch(() => false)
 			setRestAlertSubscriptionId(null)
 			setLocalError(error instanceof Error ? error.message : 'Could not enable rest alerts.')
+		} finally {
+			setOperationPending(false)
 		}
 	}
 
 	async function disable() {
+		setOperationPending(true)
 		setLocalError(null)
 		setTestAccepted(false)
 		unregisterMutation.reset()
@@ -87,6 +104,7 @@ export function RestAlertsSection() {
 		if (results.some(result => result.status === 'rejected')) {
 			setLocalError('Rest alerts were turned off locally, but server cleanup could not be confirmed.')
 		}
+		setOperationPending(false)
 	}
 
 	async function sendTest() {

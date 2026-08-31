@@ -1,18 +1,46 @@
-import { newId, pushSubscriptions, restNotificationJobs, type TypeIDString, zodTypeID } from '@macromaxxing/db'
+import { newId, pushSubscriptions, restNotificationJobs, type TypeIDString, users, zodTypeID } from '@macromaxxing/db'
 import { TRPCError } from '@trpc/server'
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, lt, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { protectedProcedure, router } from '../trpc'
 import { pushErrorStatus, sendWebPush } from '../web-push'
 
 const MAX_REST_MS = 15 * 60 * 1000
+const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10
 const PUSH_EXPIRY_GRACE_MS = 30 * 1000
+const SUBSCRIPTION_REGISTRATION_COOLDOWN_MS = 1000
+const TEST_NOTIFICATION_COOLDOWN_MS = 10 * 1000
+const TRUSTED_PUSH_DOMAINS = [
+	'fcm.googleapis.com',
+	'notify.windows.com',
+	'push.samsungosp.com',
+	'push.services.mozilla.com',
+	'web.push.apple.com'
+]
+
+function isTrustedPushEndpoint(endpoint: string): boolean {
+	try {
+		const url = new URL(endpoint)
+		if (url.username || url.password || (url.port && url.port !== '443')) return false
+		return TRUSTED_PUSH_DOMAINS.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`))
+	} catch {
+		return false
+	}
+}
 
 const subscriptionInput = z.object({
-	endpoint: z.url().startsWith('https://'),
+	endpoint: z.url().startsWith('https://').max(2048).refine(isTrustedPushEndpoint, 'Unsupported push service'),
 	keys: z.object({
-		p256dh: z.string().min(1),
-		auth: z.string().min(1)
+		p256dh: z
+			.string()
+			.min(1)
+			.max(256)
+			.regex(/^[A-Za-z0-9_-]+={0,2}$/),
+		auth: z
+			.string()
+			.min(1)
+			.max(256)
+			.regex(/^[A-Za-z0-9_-]+={0,2}$/)
 	})
 })
 
@@ -43,6 +71,28 @@ export const restNotificationsRouter = router({
 	registerSubscription: protectedProcedure.input(subscriptionInput).mutation(async ({ ctx, input }) => {
 		const existing = await ctx.db.query.pushSubscriptions.findFirst({ where: { endpoint: input.endpoint } })
 		const now = Date.now()
+		if (existing?.userId !== ctx.user.id) {
+			const [claimed] = await ctx.db
+				.update(users)
+				.set({ lastPushSubscriptionAt: now })
+				.where(
+					and(
+						eq(users.id, ctx.user.id),
+						or(
+							isNull(users.lastPushSubscriptionAt),
+							lt(users.lastPushSubscriptionAt, now - SUBSCRIPTION_REGISTRATION_COOLDOWN_MS)
+						)
+					)
+				)
+				.returning({ id: users.id })
+			if (!claimed) {
+				throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Wait before registering another device' })
+			}
+			const subscriptionCount = await ctx.db.$count(pushSubscriptions, eq(pushSubscriptions.userId, ctx.user.id))
+			if (subscriptionCount >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+				throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Too many registered devices' })
+			}
+		}
 		if (existing && existing.userId !== ctx.user.id) {
 			await ctx.db
 				.update(restNotificationJobs)
@@ -95,10 +145,13 @@ export const restNotificationsRouter = router({
 				.where(
 					and(
 						eq(restNotificationJobs.subscriptionId, subscription.id),
+						eq(restNotificationJobs.userId, ctx.user.id),
 						eq(restNotificationJobs.status, 'scheduled')
 					)
 				)
-			await ctx.db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id))
+			await ctx.db
+				.delete(pushSubscriptions)
+				.where(and(eq(pushSubscriptions.id, subscription.id), eq(pushSubscriptions.userId, ctx.user.id)))
 			console.info('push_subscription_unregistered', { subscriptionId: subscription.id })
 			return { ok: true }
 		}),
@@ -168,16 +221,6 @@ export const restNotificationsRouter = router({
 				{ delaySeconds: Math.max(0, Math.ceil((dueAt - Date.now()) / 1000)) }
 			)
 		} catch (error) {
-			await ctx.db
-				.update(restNotificationJobs)
-				.set({ status: 'failed', updatedAt: Date.now() })
-				.where(
-					and(
-						eq(restNotificationJobs.id, input.restId),
-						eq(restNotificationJobs.status, 'scheduled'),
-						isNull(restNotificationJobs.queuedAt)
-					)
-				)
 			console.error('rest_notification_queue_failed', { jobId: input.restId })
 			// biome-ignore lint/nursery/useErrorCause: TRPCError receives the original cause through its options.
 			throw new TRPCError({
@@ -190,7 +233,13 @@ export const restNotificationsRouter = router({
 		await ctx.db
 			.update(restNotificationJobs)
 			.set({ queuedAt: Date.now(), updatedAt: Date.now() })
-			.where(and(eq(restNotificationJobs.id, input.restId), eq(restNotificationJobs.status, 'scheduled')))
+			.where(
+				and(
+					eq(restNotificationJobs.id, input.restId),
+					eq(restNotificationJobs.userId, ctx.user.id),
+					eq(restNotificationJobs.status, 'scheduled')
+				)
+			)
 		console.info('rest_notification_scheduled', {
 			jobId: input.restId,
 			subscriptionId: input.subscriptionId
@@ -269,12 +318,33 @@ export const restNotificationsRouter = router({
 			if (!subscription || subscription.userId !== ctx.user.id) {
 				throw new TRPCError({ code: 'NOT_FOUND', message: 'Subscription not found' })
 			}
+			const now = Date.now()
+			const [claimed] = await ctx.db
+				.update(users)
+				.set({ lastRestAlertTestAt: now })
+				.where(
+					and(
+						eq(users.id, ctx.user.id),
+						or(
+							isNull(users.lastRestAlertTestAt),
+							lt(users.lastRestAlertTestAt, now - TEST_NOTIFICATION_COOLDOWN_MS)
+						)
+					)
+				)
+				.returning({ id: users.id })
+			if (!claimed) {
+				throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Wait before sending another test' })
+			}
 			try {
 				await sendWebPush(subscription, { version: 1, restId: newId('rnj'), url: null }, vapidConfig(ctx.env))
 			} catch (error) {
 				const status = pushErrorStatus(error)
 				if (status === 404 || status === 410) {
-					await ctx.db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, subscription.id))
+					await ctx.db
+						.delete(pushSubscriptions)
+						.where(
+							and(eq(pushSubscriptions.id, subscription.id), eq(pushSubscriptions.userId, ctx.user.id))
+						)
 					// biome-ignore lint/nursery/useErrorCause: TRPCError receives the original cause through its options.
 					throw new TRPCError({
 						code: 'PRECONDITION_FAILED',

@@ -66,27 +66,12 @@ export function startRestAlertDelivery(
 		active = false
 		clearTimeout(timeoutId)
 		dependencies.clearLocal(delivery.rest.id)
-		if (serverRequest) {
-			void serverRequest.then(
-				() => {
-					if (dependencies.isOnline()) {
-						dependencies.cancelServer({
-							restId: delivery.rest.id,
-							sessionId: delivery.sessionId,
-							subscriptionId: delivery.subscriptionId
-						})
-					}
-				},
-				() => {
-					if (dependencies.isOnline()) {
-						dependencies.cancelServer({
-							restId: delivery.rest.id,
-							sessionId: delivery.sessionId,
-							subscriptionId: delivery.subscriptionId
-						})
-					}
-				}
-			)
+		if (serverRequest && dependencies.isOnline()) {
+			dependencies.cancelServer({
+				restId: delivery.rest.id,
+				sessionId: delivery.sessionId,
+				subscriptionId: delivery.subscriptionId
+			})
 		}
 	}
 }

@@ -4,11 +4,12 @@ import { processRestNotification } from './process'
 
 const job: RestNotificationDeliveryJob = {
 	id: 'rnj_rest',
+	userId: 'user_1',
 	sessionId: 'wks_session',
 	subscriptionId: 'psb_subscription',
 	expiresAt: 20_000,
 	status: 'scheduled',
-	subscription: { endpoint: 'https://push.example.test', p256dh: 'key', auth: 'auth' }
+	subscription: { userId: 'user_1', endpoint: 'https://push.example.test', p256dh: 'key', auth: 'auth' }
 }
 
 const vapid = { publicKey: 'public', privateKey: 'private' }
@@ -60,11 +61,20 @@ describe('processRestNotification', () => {
 		expect(repo.markSent).toHaveBeenCalledWith(job.id, expect.any(Number))
 	})
 
+	it('fails a transferred subscription instead of delivering across users', async () => {
+		const repo = repository({ ...job, subscription: { ...job.subscription, userId: 'user_2' } })
+		const send = vi.fn()
+		expect(await processRestNotification(job.id, 10_000, repo, send, vapid)).toBe('failed')
+		expect(repo.claim).toHaveBeenCalledWith(job.id, 10_000)
+		expect(repo.markFailed).toHaveBeenCalledWith(job.id, 10_000)
+		expect(send).not.toHaveBeenCalled()
+	})
+
 	it('deletes dead subscriptions and marks other provider failures', async () => {
 		const deadRepo = repository()
 		const deadSend = vi.fn().mockRejectedValue({ statusCode: 410 })
 		expect(await processRestNotification(job.id, 10_000, deadRepo, deadSend, vapid)).toBe('failed')
-		expect(deadRepo.deleteSubscription).toHaveBeenCalledWith(job.subscriptionId)
+		expect(deadRepo.deleteSubscription).toHaveBeenCalledWith(job.subscriptionId, job.userId)
 		expect(deadRepo.markFailed).not.toHaveBeenCalled()
 
 		const failedRepo = repository()

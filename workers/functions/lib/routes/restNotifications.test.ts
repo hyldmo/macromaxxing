@@ -92,13 +92,47 @@ describe('restNotifications scheduling policy', () => {
 		expect(queueSend).not.toHaveBeenCalled()
 	})
 
-	it('marks the job failed when Queue rejects so the client can fall back locally', async () => {
+	it('rejects an oversized duration before doing delivery work', async () => {
+		const { caller, queueSend } = createCaller()
+		await expect(
+			caller.restNotifications.scheduleRest({ ...input, remainingMs: 15 * 60 * 1000 + 1 })
+		).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+		expect(queueSend).not.toHaveBeenCalled()
+	})
+
+	it('hides sessions and subscriptions owned by another user', async () => {
+		const foreignSession = createCaller({ session: { ...session, userId: 'user_2' } })
+		await expect(foreignSession.caller.restNotifications.scheduleRest(input)).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+			message: 'Session not found'
+		})
+
+		const foreignSubscription = createCaller({ subscription: { ...subscription, userId: 'user_2' } })
+		await expect(foreignSubscription.caller.restNotifications.scheduleRest(input)).rejects.toMatchObject({
+			code: 'NOT_FOUND',
+			message: 'Subscription not found'
+		})
+	})
+
+	it('leaves an unqueued job retryable when Queue rejects so the client can fall back locally', async () => {
 		const { caller, state } = createCaller({ queueError: new Error('queue unavailable') })
 		await expect(caller.restNotifications.scheduleRest(input)).rejects.toMatchObject({
 			code: 'INTERNAL_SERVER_ERROR',
 			message: 'Could not schedule rest alert'
 		})
-		expect(state.job).toMatchObject({ status: 'failed' })
+		expect(state.job).toMatchObject({ status: 'scheduled', queuedAt: null })
+	})
+
+	it('does not poison a concurrent successful enqueue when another Queue call fails', async () => {
+		const { caller, queueSend, state } = createCaller()
+		queueSend.mockReset().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('queue unavailable'))
+		const results = await Promise.allSettled([
+			caller.restNotifications.scheduleRest(input),
+			caller.restNotifications.scheduleRest(input)
+		])
+
+		expect(results.map(result => result.status).sort()).toEqual(['fulfilled', 'rejected'])
+		expect(state.job).toMatchObject({ status: 'scheduled', queuedAt: expect.any(Number) })
 	})
 
 	it('persists a cancellation tombstone before scheduling can win the same rest ID', async () => {
@@ -135,5 +169,16 @@ describe('restNotifications scheduling policy', () => {
 			code: 'NOT_FOUND',
 			message: 'Rest notification not found'
 		})
+	})
+
+	it('rejects non-browser push-service endpoints before touching storage', async () => {
+		const { caller, insertedValues } = createCaller()
+		await expect(
+			caller.restNotifications.registerSubscription({
+				endpoint: 'https://example.com/callback',
+				keys: { p256dh: 'key', auth: 'auth' }
+			})
+		).rejects.toMatchObject({ code: 'BAD_REQUEST' })
+		expect(insertedValues).toHaveLength(0)
 	})
 })

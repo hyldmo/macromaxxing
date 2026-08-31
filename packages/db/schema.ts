@@ -31,6 +31,8 @@ import {
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(), // Clerk user ID (user_xxx)
 	email: text('email').notNull().unique(),
+	lastPushSubscriptionAt: integer('last_push_subscription_at'),
+	lastRestAlertTestAt: integer('last_rest_alert_test_at'),
 	createdAt: integer('created_at').notNull()
 })
 

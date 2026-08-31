@@ -3,11 +3,13 @@ import { pushErrorStatus, type RestPushPayload, type VapidConfig } from '../func
 
 export interface RestNotificationDeliveryJob {
 	id: TypeIDString<'rnj'>
+	userId: string
 	sessionId: TypeIDString<'wks'>
 	subscriptionId: TypeIDString<'psb'>
 	expiresAt: number
 	status: RestNotificationStatus
 	subscription: {
+		userId: string
 		endpoint: string
 		p256dh: string
 		auth: string
@@ -20,7 +22,7 @@ export interface RestNotificationRepository {
 	expire: (jobId: TypeIDString<'rnj'>, now: number) => Promise<void>
 	markSent: (jobId: TypeIDString<'rnj'>, now: number) => Promise<void>
 	markFailed: (jobId: TypeIDString<'rnj'>, now: number) => Promise<void>
-	deleteSubscription: (subscriptionId: TypeIDString<'psb'>) => Promise<void>
+	deleteSubscription: (subscriptionId: TypeIDString<'psb'>, userId: string) => Promise<void>
 }
 
 export type RestNotificationSender = (
@@ -45,6 +47,10 @@ export async function processRestNotification(
 		return 'expired'
 	}
 	if (!(await repository.claim(job.id, now))) return 'ignored'
+	if (job.subscription.userId !== job.userId) {
+		await repository.markFailed(job.id, now)
+		return 'failed'
+	}
 
 	try {
 		await send(
@@ -60,8 +66,9 @@ export async function processRestNotification(
 		return 'sent'
 	} catch (error) {
 		const status = pushErrorStatus(error)
-		if (status === 404 || status === 410) await repository.deleteSubscription(job.subscriptionId)
-		else await repository.markFailed(job.id, Date.now())
+		if (status === 404 || status === 410) {
+			await repository.deleteSubscription(job.subscriptionId, job.userId)
+		} else await repository.markFailed(job.id, Date.now())
 		return 'failed'
 	}
 }

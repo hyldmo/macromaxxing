@@ -111,16 +111,16 @@ describe('startRestAlertDelivery', () => {
 		)
 		vi.runAllTimers()
 		cleanup()
-		rejectRequest(new Error('offline'))
-		await Promise.resolve()
-		await Promise.resolve()
-
-		expect(deps.scheduleLocal).not.toHaveBeenCalled()
 		expect(deps.cancelServer).toHaveBeenCalledWith({
 			restId: rest.id,
 			sessionId: 'wks_session',
 			subscriptionId: 'psb_subscription'
 		})
+		rejectRequest(new Error('offline'))
+		await Promise.resolve()
+		await Promise.resolve()
+
+		expect(deps.scheduleLocal).not.toHaveBeenCalled()
 	})
 
 	it('does no work when Strict Mode cleans up the deferred first pass', () => {
