@@ -8,7 +8,13 @@ interface ServiceWorkerEvent {
 	waitUntil: (promise: Promise<unknown>) => void
 }
 
-function serviceWorker() {
+function serviceWorker(
+	windowClients: Array<{
+		url: string
+		focus: () => Promise<unknown>
+		postMessage: (message: unknown) => void
+	}> = []
+) {
 	const listeners = new Map<string, (event: ServiceWorkerEvent) => void>()
 	const showNotification = vi.fn().mockResolvedValue(undefined)
 	const openWindow = vi.fn().mockResolvedValue(undefined)
@@ -21,7 +27,7 @@ function serviceWorker() {
 			addEventListener: (type: string, listener: (event: ServiceWorkerEvent) => void) =>
 				listeners.set(type, listener)
 		},
-		clients: { matchAll: vi.fn().mockResolvedValue([]), openWindow }
+		clients: { matchAll: vi.fn().mockResolvedValue(windowClients), openWindow }
 	})
 	return { listeners, showNotification, openWindow }
 }
@@ -85,5 +91,31 @@ describe('rest push service worker', () => {
 		await completion
 
 		expect(worker.openWindow).toHaveBeenCalledWith('https://app.example.test/')
+	})
+
+	it('focuses an existing app window and sends it a safe client-side route', async () => {
+		const client = {
+			url: 'https://app.example.test/workouts',
+			focus: vi.fn().mockResolvedValue(undefined),
+			postMessage: vi.fn()
+		}
+		const worker = serviceWorker([client])
+		const close = vi.fn()
+		let completion: Promise<unknown> = Promise.resolve()
+		worker.listeners.get('notificationclick')?.({
+			notification: { close, data: { url: '/workouts/sessions/wks_session/timer' } },
+			waitUntil: promise => {
+				completion = promise
+			}
+		})
+		await completion
+
+		expect(close).toHaveBeenCalledOnce()
+		expect(client.postMessage).toHaveBeenCalledWith({
+			type: 'navigate',
+			url: '/workouts/sessions/wks_session/timer'
+		})
+		expect(client.focus).toHaveBeenCalledOnce()
+		expect(worker.openWindow).not.toHaveBeenCalled()
 	})
 })

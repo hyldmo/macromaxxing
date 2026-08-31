@@ -58,7 +58,11 @@ describe('startRestAlertDelivery', () => {
 
 		cleanup()
 		await Promise.resolve()
-		expect(deps.cancelServer).toHaveBeenCalledWith('rnj_rest')
+		expect(deps.cancelServer).toHaveBeenCalledWith({
+			restId: 'rnj_rest',
+			sessionId: 'wks_session',
+			subscriptionId: 'psb_subscription'
+		})
 	})
 
 	it('falls back locally when online scheduling fails before acceptance', async () => {
@@ -70,6 +74,53 @@ describe('startRestAlertDelivery', () => {
 		await Promise.resolve()
 
 		expect(deps.scheduleLocal).toHaveBeenCalledWith(rest, 'wks_session')
+	})
+
+	it('does not fall back after the rest expires or is replaced', async () => {
+		const expiredDeps = dependencies(true)
+		expiredDeps.scheduleServer.mockRejectedValue(new Error('offline'))
+		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, expiredDeps)
+		vi.runAllTimers()
+		vi.setSystemTime(rest.endAt)
+		await Promise.resolve()
+		await Promise.resolve()
+		expect(expiredDeps.scheduleLocal).not.toHaveBeenCalled()
+
+		vi.setSystemTime(1_000)
+		const replacedDeps = dependencies(true)
+		replacedDeps.isCurrentRest.mockReturnValue(false)
+		replacedDeps.scheduleServer.mockRejectedValue(new Error('offline'))
+		startRestAlertDelivery({ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' }, replacedDeps)
+		vi.runAllTimers()
+		await Promise.resolve()
+		await Promise.resolve()
+		expect(replacedDeps.scheduleLocal).not.toHaveBeenCalled()
+	})
+
+	it('cancels a rejected in-flight server request without arming a local alert after cleanup', async () => {
+		const deps = dependencies(true)
+		let rejectRequest: (error: Error) => void = () => undefined
+		deps.scheduleServer.mockReturnValue(
+			new Promise((_resolve, reject) => {
+				rejectRequest = reject
+			})
+		)
+		const cleanup = startRestAlertDelivery(
+			{ rest, sessionId: 'wks_session', subscriptionId: 'psb_subscription' },
+			deps
+		)
+		vi.runAllTimers()
+		cleanup()
+		rejectRequest(new Error('offline'))
+		await Promise.resolve()
+		await Promise.resolve()
+
+		expect(deps.scheduleLocal).not.toHaveBeenCalled()
+		expect(deps.cancelServer).toHaveBeenCalledWith({
+			restId: rest.id,
+			sessionId: 'wks_session',
+			subscriptionId: 'psb_subscription'
+		})
 	})
 
 	it('does no work when Strict Mode cleans up the deferred first pass', () => {

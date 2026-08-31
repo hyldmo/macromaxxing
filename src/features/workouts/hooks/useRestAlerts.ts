@@ -26,7 +26,11 @@ interface RestAlertDeliveryDependencies {
 		subscriptionId: TypeIDString<'psb'>
 		remainingMs: number
 	}) => Promise<unknown>
-	cancelServer: (restId: TypeIDString<'rnj'>) => void
+	cancelServer: (input: {
+		restId: TypeIDString<'rnj'>
+		sessionId: TypeIDString<'wks'>
+		subscriptionId: TypeIDString<'psb'>
+	}) => void
 }
 
 /** Starts one delivery attempt and returns its best-effort cancellation cleanup. */
@@ -65,10 +69,22 @@ export function startRestAlertDelivery(
 		if (serverRequest) {
 			void serverRequest.then(
 				() => {
-					if (dependencies.isOnline()) dependencies.cancelServer(delivery.rest.id)
+					if (dependencies.isOnline()) {
+						dependencies.cancelServer({
+							restId: delivery.rest.id,
+							sessionId: delivery.sessionId,
+							subscriptionId: delivery.subscriptionId
+						})
+					}
 				},
 				() => {
-					if (dependencies.isOnline()) dependencies.cancelServer(delivery.rest.id)
+					if (dependencies.isOnline()) {
+						dependencies.cancelServer({
+							restId: delivery.rest.id,
+							sessionId: delivery.sessionId,
+							subscriptionId: delivery.subscriptionId
+						})
+					}
 				}
 			)
 		}
@@ -92,7 +108,7 @@ export function useRestAlerts() {
 				scheduleLocal: scheduleLocalRestNotification,
 				clearLocal: clearLocalRestNotification,
 				scheduleServer: scheduleRest,
-				cancelServer: restId => cancelRest({ restId })
+				cancelServer: cancelRest
 			}
 		)
 	}, [rest, sessionId, subscriptionId, scheduleRest, cancelRest])

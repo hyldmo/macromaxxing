@@ -1,7 +1,11 @@
 import type { Exercise } from '@macromaxxing/db'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SetCursor } from '~/lib'
-import { scheduleLocalRestNotification, useWorkoutSessionStore } from './useWorkoutSessionStore'
+import {
+	clearLocalRestNotification,
+	scheduleLocalRestNotification,
+	useWorkoutSessionStore
+} from './useWorkoutSessionStore'
 
 const BENCH: SetCursor = { exerciseId: 'exc_bench' as Exercise['id'], setNumber: 1 }
 const BENCH_2: SetCursor = { exerciseId: 'exc_bench' as Exercise['id'], setNumber: 2 }
@@ -214,6 +218,54 @@ describe('startRest()', () => {
 })
 
 describe('local rest notification', () => {
+	it('fires through the service worker while the scheduled rest is still current', async () => {
+		const showNotification = vi.fn()
+		const vibrate = vi.fn()
+		vi.stubGlobal('navigator', {
+			vibrate,
+			onLine: false,
+			serviceWorker: { ready: Promise.resolve({ showNotification }) }
+		})
+		vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+		vi.setSystemTime(1000)
+		store().setSession({ id: 'wks_1' })
+		store().startRest(10, 'working')
+		const rest = store().rest
+		if (!rest) throw new Error('Expected active rest')
+		scheduleLocalRestNotification(rest, 'wks_1')
+
+		vi.advanceTimersByTime(10_000)
+		await Promise.resolve()
+
+		expect(vibrate).toHaveBeenCalledWith(200)
+		expect(showNotification).toHaveBeenCalledWith('Rest timer done', {
+			body: 'Time for your next set',
+			tag: 'rest-timer',
+			icon: '/pwa-192x192.png',
+			data: { url: '/workouts/sessions/wks_1/timer' }
+		})
+	})
+
+	it('keeps a local alert armed when asked to clear a different rest ID', async () => {
+		const showNotification = vi.fn()
+		vi.stubGlobal('navigator', {
+			vibrate: vi.fn(),
+			onLine: false,
+			serviceWorker: { ready: Promise.resolve({ showNotification }) }
+		})
+		vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+		vi.setSystemTime(1000)
+		store().startRest(10, 'working')
+		const rest = store().rest
+		if (!rest) throw new Error('Expected active rest')
+		scheduleLocalRestNotification(rest, 'wks_1')
+		clearLocalRestNotification('rnj_other')
+
+		vi.advanceTimersByTime(10_000)
+		await Promise.resolve()
+		expect(showNotification).toHaveBeenCalledOnce()
+	})
+
 	it('does not fire after the scheduled rest is replaced', async () => {
 		const showNotification = vi.fn()
 		vi.stubGlobal('navigator', {

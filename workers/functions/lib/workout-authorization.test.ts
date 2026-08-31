@@ -7,7 +7,10 @@ describe('assertWorkoutSessionOwner', () => {
 		expect(() => assertWorkoutSessionOwner({ userId: 'user_1' }, 'user_1')).not.toThrow()
 	})
 
-	it('hides a different user session', () => {
+	it('hides a missing or different-user session', () => {
+		expect(() => assertWorkoutSessionOwner(null, 'user_1')).toThrowError(
+			new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' })
+		)
 		expect(() => assertWorkoutSessionOwner({ userId: 'user_2' }, 'user_1')).toThrowError(
 			new TRPCError({ code: 'NOT_FOUND', message: 'Session not found' })
 		)
