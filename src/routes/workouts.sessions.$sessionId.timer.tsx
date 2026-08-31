@@ -34,11 +34,6 @@ const TimerMode: FC = () => {
 	// surfaces always render the same live session state.
 	const sessionQuery = trpc.workout.getSession.useQuery({ id: sessionId! }, { enabled: !!sessionId })
 	const session = sessionQuery.data
-	// Same ladder feed as the checklist page — both surfaces must plan on the same weights.
-	const laddersQuery = trpc.workout.weightLadders.useQuery(
-		{ locationId: session?.locationId ?? null },
-		{ enabled: !!session }
-	)
 	const profileQuery = trpc.settings.getProfile.useQuery()
 	const bodyWeightKg = profileQuery.data?.weightKg ?? null
 	const utils = trpc.useUtils()
@@ -94,10 +89,7 @@ const TimerMode: FC = () => {
 	// edits, replacements, and checklist-mode logging are always reflected. The
 	// store only holds the cursor (stable set identity), which resolveCursorIndex
 	// maps back into the current queue.
-	const { exerciseGroups } = useMemo(
-		() => buildSessionPlanFromSession(session, laddersQuery.data),
-		[session, laddersQuery.data]
-	)
+	const { exerciseGroups } = useMemo(() => buildSessionPlanFromSession(session), [session])
 	const flatSets = useMemo(() => flattenSets(exerciseGroups), [exerciseGroups])
 	// Per-exercise notes edit the template row's note (workoutExercises.note), so the
 	// notepad lists the session's template exercises in plan order.

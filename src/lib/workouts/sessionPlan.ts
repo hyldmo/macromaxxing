@@ -1,5 +1,5 @@
-import type { Exercise, SessionPlannedExercise, SetMode, TrainingGoal, WeightLadders } from '@macromaxxing/db'
-import { snapperFor } from '@macromaxxing/db'
+import type { Exercise, SessionPlannedExercise, SetMode, TrainingGoal } from '@macromaxxing/db'
+import { weightSnapper } from '@macromaxxing/db'
 import type { RouterOutput } from '~/lib/trpc'
 import { generatePlannedSets, type PlannedSet, type RenderItem, type SessionLog, TRAINING_DEFAULTS } from './sets'
 
@@ -30,11 +30,6 @@ export interface SessionPlanInput {
 	workoutGoal: TrainingGoal
 	/** Per-exercise guidance notes, read live from the template (not part of the plan snapshot). */
 	notes?: ReadonlyMap<Exercise['id'], string | null>
-	/**
-	 * Weights the user has actually logged per load class at this session's location
-	 * (`workout.weightLadders`). Absent → generated sets fall back to the equipment's plate grid.
-	 */
-	ladders?: WeightLadders
 }
 
 export interface SessionPlan {
@@ -51,13 +46,7 @@ export interface SessionPlan {
  * exercises logged outside the plan. Pure — derived fresh from live session data
  * on every call.
  */
-export function buildSessionPlan({
-	plannedExercises,
-	logs,
-	workoutGoal,
-	notes,
-	ladders
-}: SessionPlanInput): SessionPlan {
+export function buildSessionPlan({ plannedExercises, logs, workoutGoal, notes }: SessionPlanInput): SessionPlan {
 	type ExerciseGroup = { exercise: SessionExercise; logs: SessionLog[] }
 
 	const logsByExercise = new Map<Exercise['id'], ExerciseGroup>()
@@ -112,8 +101,7 @@ export function buildSessionPlan({
 			muscles: pe.exercise.muscles,
 			warmedUpMuscles,
 			bwMultiplier: pe.exercise.bwMultiplier,
-			snap: snapperFor(pe.exercise.equipment, ladders),
-			gridSnap: snapperFor(pe.exercise.equipment, undefined),
+			snap: weightSnapper({ equipment: pe.exercise.equipment }),
 			backoffFrom: lastWorkingLog && { weightKg: lastWorkingLog.weightKg, reps: lastWorkingLog.reps }
 		})
 
@@ -201,13 +189,12 @@ export const sessionPlanRows = (session: SessionData): PlannedExerciseRow[] =>
  * fallback, live template notes, workout-goal default. Shared by the checklist
  * page and timer mode so both surfaces always derive the same plan.
  */
-export function buildSessionPlanFromSession(session: SessionData | undefined, ladders?: WeightLadders): SessionPlan {
+export function buildSessionPlanFromSession(session: SessionData | undefined): SessionPlan {
 	if (!session) return buildSessionPlan({ plannedExercises: [], logs: [], workoutGoal: 'hypertrophy' })
 	return buildSessionPlan({
 		plannedExercises: sessionPlanRows(session),
 		logs: session.logs,
 		workoutGoal: session.workout?.trainingGoal ?? 'hypertrophy',
-		notes: new Map((session.workout?.exercises ?? []).map(we => [we.exerciseId, we.note ?? null])),
-		ladders
+		notes: new Map((session.workout?.exercises ?? []).map(we => [we.exerciseId, we.note ?? null]))
 	})
 }

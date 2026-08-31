@@ -35,9 +35,7 @@ import {
 	implementCount,
 	nextLoadableWeight,
 	roundWeight,
-	snapperInputFor,
 	totalVolume,
-	type WeightLadders,
 	weightForReps
 } from '@macromaxxing/db'
 
@@ -223,9 +221,7 @@ export function computeDivergences(
 	logs: ReadonlyArray<LogInput>,
 	plannedExercises: ReadonlyArray<PlannedExerciseInput>,
 	workoutGoal: TrainingGoal,
-	bodyWeightKg: number | null = null,
-	/** The user's logged rungs — without them a "go heavier" suggestion falls back to plate math. */
-	ladders?: WeightLadders
+	bodyWeightKg: number | null = null
 ): Divergence[] {
 	const result: Divergence[] = []
 
@@ -267,7 +263,7 @@ export function computeDivergences(
 			const suggestion: Divergence['suggestion'] = hitCeiling
 				? {
 						targetReps: range.min,
-						targetWeight: nextLoadableWeight(bestAddedKg, snapperInputFor(we.exercise.equipment, ladders))
+						targetWeight: nextLoadableWeight(bestAddedKg, { equipment: we.exercise.equipment })
 					}
 				: {
 						targetReps: bestSet.reps,

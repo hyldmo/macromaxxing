@@ -178,15 +178,8 @@ export interface GeneratePlannedSetsInput {
 	muscles: MuscleMapping[]
 	warmedUpMuscles: Map<string, number>
 	bwMultiplier?: number
-	/** Loadable-weight grid for this exercise (equipment + the user's logged ladder). */
+	/** Loadable-weight grid for this exercise, from the equipment that carries the load. */
 	snap?: WeightSnapper
-	/**
-	 * Equipment grid WITHOUT the logged ladder, used for the folded backoff. The backend prices
-	 * the same backoff for muscle load on the grid, so planning it on the ladder instead would
-	 * make planned volume disagree across surfaces. Warmups have no such reader, so they get the
-	 * user's real rungs.
-	 */
-	gridSnap?: WeightSnapper
 	/**
 	 * The working set the folded backoff drops off, when the session has one logged. Defaults to
 	 * this row's own target — see `TargetSetSplitInput.backoffFrom`.
@@ -208,7 +201,6 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 		warmedUpMuscles,
 		bwMultiplier = 0,
 		snap = defaultSnapper,
-		gridSnap = snap,
 		backoffFrom
 	} = input
 	const result: PlannedSet[] = []
@@ -241,7 +233,7 @@ export function generatePlannedSets(input: GeneratePlannedSetsInput): PlannedSet
 		targetReps: reps,
 		targetWeight: weightKg,
 		bwMultiplier,
-		snap: gridSnap,
+		snap,
 		backoffFrom
 	})
 	for (let i = 0; i < workingCount; i++) {
