@@ -6,13 +6,7 @@ import { Button, Input, Modal, NumberInput, Select, Spinner, TRPCError } from '~
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { type LabelIngredient, PremadeDialog } from '~/features/recipes/components/PremadeDialog'
 import { getAllUnits, resolveUnitGrams } from '~/features/recipes/utils/format'
-import {
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateRecipeMacros } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
 /** Lean picker row: `recipe.search` prices the portion server-side, so no ingredients come down. */
@@ -29,17 +23,6 @@ export interface AddToInventoryModalProps {
 		slotIndex: number
 		inventory: InventoryItem[]
 	}
-}
-
-function getRecipePortionMacros(recipe: {
-	recipeIngredients: Parameters<typeof toIngredientWithAmount>[0][]
-	cookedWeight: number | null
-	portionSize: number | null
-}) {
-	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-	const totals = calculateRecipeTotals(items)
-	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-	return calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
 }
 
 export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onClose, slotAllocation }) => {
@@ -321,7 +304,7 @@ export const AddToInventoryModal: FC<AddToInventoryModalProps> = ({ planId, onCl
 										</div>
 									)}
 									{filteredInventory.map(inv => {
-										const macros = getRecipePortionMacros(inv.recipe)
+										const macros = calculateRecipeMacros(inv.recipe).portion
 										return (
 											<button
 												key={inv.id}

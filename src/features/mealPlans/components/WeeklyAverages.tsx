@@ -5,13 +5,9 @@ import { KcalReadout } from '~/features/nutrition/components/KcalReadout'
 import { MacroDelta } from '~/features/nutrition/components/MacroDelta'
 import {
 	calculateDayTotals,
-	calculatePortionMacros,
-	calculateRecipeTotals,
+	calculateRecipeMacros,
 	calculateSlotMacros,
-	calculateWeeklyAverage,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
+	calculateWeeklyAverage
 } from '~/features/recipes/utils/macros'
 import type { RouterOutput } from '~/lib/trpc'
 
@@ -31,14 +27,7 @@ export const WeeklyAverages: FC<WeeklyAveragesProps> = ({ inventory, targets }) 
 		const slotsForDay = inventory.flatMap(inv =>
 			inv.slots
 				.filter(s => s.dayOfWeek === day)
-				.map(slot => {
-					const recipe = inv.recipe
-					const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-					const totals = calculateRecipeTotals(items)
-					const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-					const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-					return calculateSlotMacros(portionMacros, slot.portions)
-				})
+				.map(slot => calculateSlotMacros(calculateRecipeMacros(inv.recipe).portion, slot.portions))
 		)
 		dayTotals.push(calculateDayTotals(slotsForDay))
 	}

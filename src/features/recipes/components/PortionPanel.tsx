@@ -1,6 +1,7 @@
 import type { AbsoluteMacros } from '@macromaxxing/db'
 import type { FC } from 'react'
 import { CookedWeightInput } from './CookedWeightInput'
+import { DiscardedFatInput } from './DiscardedFatInput'
 import { MacroReadout } from './MacroReadout'
 import { MacroRing } from './MacroRing'
 import { PortionSizeInput } from './PortionSizeInput'
@@ -9,9 +10,11 @@ export interface PortionPanelProps {
 	portion: AbsoluteMacros
 	cookedWeight: number | null
 	rawTotal: number
+	discardedFat: number | null
 	portionSize: number | null
 	effectiveCookedWeight: number
 	onCookedWeightChange?: (value: number | null) => void
+	onDiscardedFatChange?: (value: number | null) => void
 	onPortionSizeChange?: (value: number | null) => void
 	ingredients?: Array<{ name: string; grams: number }>
 	instructions?: string
@@ -21,9 +24,11 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 	portion,
 	cookedWeight,
 	rawTotal,
+	discardedFat,
 	portionSize,
 	effectiveCookedWeight,
 	onCookedWeightChange,
+	onDiscardedFatChange,
 	onPortionSizeChange,
 	ingredients,
 	instructions
@@ -54,6 +59,7 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 						ingredients={ingredients}
 						instructions={instructions}
 					/>
+					<DiscardedFatInput discardedFat={discardedFat} onChange={onDiscardedFatChange} />
 					<PortionSizeInput
 						portionSize={portionSize}
 						effectiveCookedWeight={effectiveCookedWeight}

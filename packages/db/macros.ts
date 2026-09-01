@@ -58,6 +58,20 @@ export function calculateRecipeTotals(ingredients: IngredientWithAmount[]): Abso
 	)
 }
 
+/**
+ * Subtract rendered fat that stayed in the pan: the grams come off fat and weight, the calories at
+ * 9 kcal/g. Cooking conserves every other macro, so this is the only per-macro loss modelled.
+ */
+export function applyDiscardedFat(totals: AbsoluteMacros, discardedFat: number | null): AbsoluteMacros {
+	if (!discardedFat) return totals
+	return {
+		...totals,
+		fat: Math.max(0, totals.fat - discardedFat),
+		kcal: Math.max(0, totals.kcal - discardedFat * 9),
+		weight: Math.max(0, totals.weight - discardedFat)
+	}
+}
+
 export function getEffectiveCookedWeight(rawTotal: number, cookedWeight: number | null): number {
 	return cookedWeight ?? rawTotal
 }
@@ -83,6 +97,38 @@ export function calculatePortionMacros(
 		fiber: totalMacros.fiber * factor,
 		weight: effectivePortionSize
 	}
+}
+
+export interface RecipeMacroSource {
+	recipeIngredients: Parameters<typeof toIngredientWithAmount>[0][]
+	cookedWeight: number | null
+	discardedFat: number | null
+	portionSize: number | null
+}
+
+export interface RecipeMacros {
+	/** Raw ingredient sum — what went into the pan */
+	totals: AbsoluteMacros
+	/** Totals minus discarded fat — what gets eaten */
+	consumed: AbsoluteMacros
+	cookedWeight: number
+	portionSize: number
+	portion: AbsoluteMacros
+}
+
+/**
+ * The one chain from a recipe row to priced macros. Every surface that shows what a portion costs
+ * goes through here, so the discarded-fat deduction cannot be skipped on one of them. Grocery
+ * amounts stay on `calculateRecipeTotals` — shopping needs the raw grams.
+ */
+export function calculateRecipeMacros(recipe: RecipeMacroSource): RecipeMacros {
+	const items = recipe.recipeIngredients.map(toIngredientWithAmount)
+	const totals = calculateRecipeTotals(items)
+	const consumed = applyDiscardedFat(totals, recipe.discardedFat)
+	const cookedWeight = getEffectiveCookedWeight(consumed.weight, recipe.cookedWeight)
+	const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
+	const portion = calculatePortionMacros(consumed, cookedWeight, recipe.portionSize)
+	return { totals, consumed, cookedWeight, portionSize, portion }
 }
 
 export function macroPercentage(macroGrams: number, totalWeight: number): number {
@@ -165,11 +211,12 @@ export function calculateWeeklyAverage(dayTotals: AbsoluteMacros[]): AbsoluteMac
 export function calculateSubrecipePer100g(subrecipe: {
 	recipeIngredients: Array<{ ingredient: MacrosPer100g | null; amountGrams: number }>
 	cookedWeight: number | null
+	discardedFat: number | null
 }): MacrosPer100g {
 	const items: IngredientWithAmount[] = subrecipe.recipeIngredients
 		.filter(ri => ri.ingredient != null)
 		.map(ri => ({ per100g: ri.ingredient!, amountGrams: ri.amountGrams }))
-	const totals = calculateRecipeTotals(items)
+	const totals = applyDiscardedFat(calculateRecipeTotals(items), subrecipe.discardedFat)
 	const effectiveWeight = subrecipe.cookedWeight ?? totals.weight
 	if (effectiveWeight === 0) return { protein: 0, carbs: 0, fat: 0, kcal: 0, fiber: 0 }
 	return {
@@ -187,6 +234,7 @@ export function toIngredientWithAmount(ri: {
 	subrecipe: {
 		recipeIngredients: Array<{ ingredient: MacrosPer100g | null; amountGrams: number }>
 		cookedWeight: number | null
+		discardedFat: number | null
 	} | null
 	amountGrams: number
 }): IngredientWithAmount {

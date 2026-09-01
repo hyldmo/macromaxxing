@@ -1,13 +1,6 @@
 import type { AbsoluteMacros, Ingredient, MealPlan, Recipe } from '@macromaxxing/db'
 import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
-import {
-	calculateDayTotals,
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	calculateSlotMacros,
-	getEffectiveCookedWeight,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateDayTotals, calculateRecipeMacros, calculateSlotMacros } from '~/features/recipes/utils/macros'
 import {
 	type ActiveProgramRef,
 	DAYS_SHORT,
@@ -82,9 +75,7 @@ export function buildWeekDays({ plans, sessions, now }: BuildWeekDaysInput): Cal
 			// A bare ingredient arrives already shaped like a recipe (see workers/lib/inventory.ts),
 			// so the macro path below does not care which kind of row this is.
 			const target = inv.recipe
-			const recipeTotals = calculateRecipeTotals(target.recipeIngredients.map(toIngredientWithAmount))
-			const cookedWeight = getEffectiveCookedWeight(recipeTotals.weight, target.cookedWeight)
-			const portionMacros = calculatePortionMacros(recipeTotals, cookedWeight, target.portionSize)
+			const { portion: portionMacros } = calculateRecipeMacros(target)
 
 			for (const slot of inv.slots) {
 				const meals = mealsByDay[slot.dayOfWeek]

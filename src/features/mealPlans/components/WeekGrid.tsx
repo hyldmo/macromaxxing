@@ -1,15 +1,7 @@
 import type { AbsoluteMacros, MacroTargets, MealPlan } from '@macromaxxing/db'
 import { type FC, type PropsWithChildren, useState } from 'react'
 import { objectKeys } from 'ts-extras'
-import {
-	calculateDayTotals,
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	calculateSlotMacros,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateDayTotals, calculateRecipeMacros, calculateSlotMacros } from '~/features/recipes/utils/macros'
 import { cn, DAYS_SHORT } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayColumn } from './DayColumn'
@@ -53,14 +45,7 @@ export const WeekGrid: FC<WeekGridProps> = ({ planId, inventory, onDrop, targets
 		const slotsForDay = inventory.flatMap(inv =>
 			inv.slots
 				.filter(s => s.dayOfWeek === dayIndex)
-				.map(slot => {
-					const recipe = inv.recipe
-					const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-					const totals = calculateRecipeTotals(items)
-					const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-					const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-					return calculateSlotMacros(portionMacros, slot.portions)
-				})
+				.map(slot => calculateSlotMacros(calculateRecipeMacros(inv.recipe).portion, slot.portions))
 		)
 		return calculateDayTotals(slotsForDay)
 	})

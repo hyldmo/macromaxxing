@@ -8,7 +8,6 @@ import { CookIngredientList } from '~/features/recipes/components/CookIngredient
 import { CookInstructionSteps } from '~/features/recipes/components/CookInstructionSteps'
 import { CookPortionSummary } from '~/features/recipes/components/CookPortionSummary'
 import { useRecipeCalculations } from '~/features/recipes/hooks/useRecipeCalculations'
-import { getEffectiveCookedWeight, getEffectivePortionSize } from '~/features/recipes/utils/macros'
 import { getImageAttribution, getImageUrl, isExternalImage, prefetchRoute, useDocumentTitle } from '~/lib'
 import { trpc } from '~/lib/trpc'
 import type { Route } from './+types/recipes.$id_.cook'
@@ -40,8 +39,7 @@ export default function CookModePage() {
 		return null
 	}
 
-	const cookedWeight = getEffectiveCookedWeight(calculations.totals.weight, recipe.cookedWeight)
-	const portionSize = getEffectivePortionSize(cookedWeight, recipe.portionSize)
+	const { cookedWeight, portionSize } = calculations
 	const hasPortions = recipe.portionSize != null
 	const basePortions = cookedWeight / portionSize
 	const activePortions = targetPortions ?? Math.round(basePortions)

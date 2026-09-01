@@ -8,14 +8,7 @@ import { LandingPage } from '~/features/landing'
 import { isPlanForWeek } from '~/features/mealPlans/utils/planWeek'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { MacroRing } from '~/features/recipes/components/MacroRing'
-import {
-	calculateDayTotals,
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	calculateSlotMacros,
-	getEffectiveCookedWeight,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateDayTotals, calculateRecipeMacros, calculateSlotMacros } from '~/features/recipes/utils/macros'
 import { MuscleReadinessChip } from '~/features/workouts/components/MuscleChip'
 import { SessionCard } from '~/features/workouts/components/SessionCard'
 import {
@@ -102,10 +95,7 @@ function computeTodayMeals(plans: RouterOutput['dashboard']['summary']['plans'])
 			if (todaySlots.length === 0) continue
 
 			const recipe = inv.recipe
-			const items = recipe.recipeIngredients.map(toIngredientWithAmount)
-			const recipeTotals = calculateRecipeTotals(items)
-			const cookedWeight = getEffectiveCookedWeight(recipeTotals.weight, recipe.cookedWeight)
-			const portionMacros = calculatePortionMacros(recipeTotals, cookedWeight, recipe.portionSize)
+			const { portion: portionMacros } = calculateRecipeMacros(recipe)
 
 			for (const slot of todaySlots) {
 				meals.push({

@@ -6,6 +6,7 @@ type Recipe = RouterOutput['recipe']['get']
 
 interface RecipeCalculations {
 	totals: AbsoluteMacros
+	consumed: AbsoluteMacros
 	cookedWeight: number
 	portionSize: number
 	portion: AbsoluteMacros
@@ -62,7 +63,10 @@ export function formatRecipe(recipe: Recipe, calculations: RecipeCalculations): 
 
 	lines.push('')
 	lines.push('## Totals (full recipe)')
-	lines.push(fmt(calculations.totals))
+	lines.push(fmt(calculations.consumed))
+	if (recipe.discardedFat) {
+		lines.push(`(after discarding ${Math.round(recipe.discardedFat)}g rendered fat during cooking)`)
+	}
 
 	if (recipe.instructions?.trim()) {
 		lines.push('')

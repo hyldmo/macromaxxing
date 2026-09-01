@@ -1,0 +1,1 @@
+ALTER TABLE `recipes` ADD `discarded_fat` real;

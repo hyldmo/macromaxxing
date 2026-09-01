@@ -6,13 +6,7 @@ import { Link } from 'react-router'
 import { Button, Card, Select, Spinner, TRPCError } from '~/components/ui'
 import { RecipeCard } from '~/features/recipes/components/RecipeCard'
 import { RecipeImportDialog } from '~/features/recipes/components/RecipeImportDialog'
-import {
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateRecipeMacros } from '~/features/recipes/utils/macros'
 import { cn, prefetchRoute, useDocumentTitle, usePersistentState, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
@@ -37,10 +31,7 @@ export default function RecipeListPage() {
 	const recipesWithMacros = useMemo(() => {
 		if (!recipesQuery.data) return []
 		return recipesQuery.data.map(recipe => {
-			const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-			const totals = calculateRecipeTotals(items)
-			const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-			const portion = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
+			const { portion, cookedWeight } = calculateRecipeMacros(recipe)
 			return { recipe, portion, cookedWeight, isMine: recipe.userId === user?.id }
 		})
 	}, [recipesQuery.data, user?.id])

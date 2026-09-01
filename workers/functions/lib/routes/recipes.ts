@@ -1,12 +1,8 @@
 import {
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
+	calculateRecipeMacros,
 	recipeIngredients,
 	recipes,
 	type TypeIDString,
-	toIngredientWithAmount,
 	zImageSource,
 	zodTypeID
 } from '@macromaxxing/db'
@@ -58,6 +54,12 @@ const updateRecipeSchema = z.object({
 	name: z.string().min(1).optional(),
 	instructions: z.string().nullable().optional(),
 	cookedWeight: z.number().positive().nullable().optional(),
+	discardedFat: z
+		.number()
+		.positive()
+		.nullable()
+		.optional()
+		.describe('Grams of rendered fat discarded during cooking (left in the pan) — subtracted from fat and kcal'),
 	portionSize: z.number().positive().nullable().optional(),
 	isPublic: z.boolean().optional(),
 	image: zImageSource.nullable().optional()
@@ -137,16 +139,14 @@ export const recipesRouter = router({
 				offset: input?.offset ?? 0
 			})
 			return rows.map(recipe => {
-				const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-				const totals = calculateRecipeTotals(items)
-				const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
+				const { cookedWeight, portion } = calculateRecipeMacros(recipe)
 				return {
 					id: recipe.id,
 					name: recipe.name,
 					image: recipe.image,
 					portionSize: recipe.portionSize,
 					cookedWeight,
-					portionMacros: calculatePortionMacros(totals, cookedWeight, recipe.portionSize),
+					portionMacros: portion,
 					// How many portions a cook-up yields, i.e. what `addToInventory` should pre-fill.
 					// A null portionSize means the whole thing is one portion — premades always land here.
 					defaultPortions: recipe.portionSize ? Math.round(cookedWeight / recipe.portionSize) : 1
@@ -198,7 +198,7 @@ export const recipesRouter = router({
 		}),
 
 	update: protectedProcedure
-		.meta({ description: 'Update recipe name, instructions, portions, or visibility' })
+		.meta({ description: 'Update recipe name, instructions, portions, discarded fat, or visibility' })
 		.input(updateRecipeSchema)
 		.mutation(async ({ ctx, input }) => {
 			const { id, isPublic, image, ...updates } = input
@@ -311,7 +311,7 @@ export const recipesRouter = router({
 
 			// Calculate effective portion size
 			const rawTotal = subrecipe.recipeIngredients.reduce((sum, ri) => sum + ri.amountGrams, 0)
-			const effectiveCookedWeight = subrecipe.cookedWeight ?? rawTotal
+			const effectiveCookedWeight = subrecipe.cookedWeight ?? rawTotal - (subrecipe.discardedFat ?? 0)
 			const effectivePortionSize = subrecipe.portionSize ?? effectiveCookedWeight
 			const amountGrams = input.portions * effectivePortionSize
 

@@ -156,6 +156,7 @@ export const recipes = sqliteTable(
 		name: text('name').notNull(),
 		instructions: text('instructions'),
 		cookedWeight: real('cooked_weight'), // nullable, null = use raw total
+		discardedFat: real('discarded_fat'), // grams of rendered fat left in the pan, subtracted from totals (null = none)
 		portionSize: real('portion_size'), // null = entire dish is 1 portion
 		isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(false),
 		sourceUrl: text('source_url'), // URL the recipe was imported from (null = manual/text)
