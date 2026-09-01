@@ -6,7 +6,13 @@
 @theme {
 	--breakpoint-2xs: 375px; /* 375px */
 	--breakpoint-xs: 30rem; /* 480px — between default and sm */
+	/* Down from Tailwind's 1536px so it lines up with --container-8xl: past this
+	   the shell stops growing, so 2xl reads as "the shell is at full width" */
+	--breakpoint-2xl: 90rem; /* 1440px */
 	--spacing-e: 1em;
+
+	/* App shell width — one step past Tailwind's 7xl (80rem) */
+	--container-8xl: 90rem; /* 1440px */
 
 	/* Surfaces — dark soapstone with warm undertone */
 	--color-surface-0: oklch(0.13 0.008 60);

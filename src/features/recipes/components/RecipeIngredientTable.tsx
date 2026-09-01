@@ -103,6 +103,7 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 									<MacroHeader macro="protein" label="Prot" />
 									<MacroHeader macro="carbs" label="Carbs" />
 									<MacroHeader macro="fat" label="Fat" />
+									<MacroHeader macro="fiber" label="Fiber" className="hidden 2xl:table-cell" />
 									<MacroHeader macro="kcal" label="Kcal" />
 									{!readOnly && <th className="w-8" />}
 								</tr>
@@ -160,6 +161,9 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
 												&mdash;
 											</td>
+											<td className="hidden px-2 py-1.5 text-right font-mono text-ink-faint text-sm 2xl:table-cell">
+												&mdash;
+											</td>
 											<td className="px-2 py-1.5 text-right font-mono text-ink-faint text-sm">
 												&mdash;
 											</td>
@@ -179,6 +183,8 @@ export const RecipeIngredientTable: FC<RecipeIngredientTableProps> = ({
 												? 'No ingredients in this recipe.'
 												: 'No ingredients yet. Search above to add some.'}
 										</td>
+										{/* Fiber column, only present at 2xl — see RecipeIngredientRow */}
+										<td className="hidden 2xl:table-cell" />
 									</tr>
 								</tbody>
 							)}

@@ -405,6 +405,11 @@ Use these Tailwind classes (defined in `src/index.css`):
 **Accent:** `bg-accent`, `text-accent`, `hover:bg-accent-hover`
 **Radius:** `rounded-sm` (4px), `rounded-md` (6px)
 **Sizing:** Use `size-4` instead of `w-4 h-4`
+**Shell width:** `max-w-8xl` (1440px) on the nav + `<main>` — a custom `--container-8xl`, since Tailwind stops at 7xl (1280px)
+**Breakpoints:** added `2xs` (375px) and `xs` (480px); **`2xl` is retuned from 1536px to 1440px** so it fires exactly
+where the shell hits `max-w-8xl` and stops growing. `2xl:` therefore means "the shell is at full width, spend the
+slack" — the recipe ingredient table's Fiber column is the first user. Change one of the two 90rem values and the
+pairing breaks.
 
 No shadows — borders-only depth strategy.
 
