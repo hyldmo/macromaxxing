@@ -1,4 +1,4 @@
-import type { AbsoluteMacros } from '@macromaxxing/db'
+import { type AbsoluteMacros, roundMacrosPer100g } from '@macromaxxing/db'
 
 type MacroSet = Omit<AbsoluteMacros, 'weight'>
 
@@ -18,6 +18,7 @@ export interface OFFProduct {
 	 * bake the rounding error in at 100/servingSize × its size (0.5 g/100 g on a 10 g serving).
 	 */
 	perServing: MacroSet
+	/** At label precision — OFF derives this by division when a record only declares a serving */
 	per100g: MacroSet
 	barcode: string
 }
@@ -70,13 +71,17 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 	const p = data.product
 	const n = p.nutriments ?? {}
 
-	const per100g: MacroSet = {
+	// OFF computes its per-100 g column from the serving when the record only declares one,
+	// so a 430 g tub of 296 kcal comes back as 68.8372093023256. That is the number ingredients
+	// are STORED with, so cut it to what the packet prints before it leaves this function.
+	const raw: MacroSet = {
 		protein: Number(n.proteins_100g) || 0,
 		carbs: Number(n.carbohydrates_100g) || 0,
 		fat: Number(n.fat_100g) || 0,
 		kcal: Number(n['energy-kcal_100g']) || 0,
 		fiber: Number(n.fiber_100g) || 0
 	}
+	const per100g = roundMacrosPer100g(raw)
 
 	const servingQty = Number(p.serving_quantity) || 0
 	const servingSize = servingQty > 0 ? round1(servingQty) : null
@@ -97,12 +102,14 @@ export async function lookupBarcode(barcode: string): Promise<OFFLookupResult> {
 			servingUnit: p.serving_quantity_unit?.trim() || null,
 			servings,
 			packageSize: productQty > 0 ? round1(productQty) : null,
+			// Off the raw column, not the rounded one: a 10 g serving multiplies any rounding
+			// here 10x on the way back to per-100g
 			perServing: {
-				protein: per100g.protein * factor,
-				carbs: per100g.carbs * factor,
-				fat: per100g.fat * factor,
-				kcal: per100g.kcal * factor,
-				fiber: per100g.fiber * factor
+				protein: raw.protein * factor,
+				carbs: raw.carbs * factor,
+				fat: raw.fat * factor,
+				kcal: raw.kcal * factor,
+				fiber: raw.fiber * factor
 			},
 			per100g,
 			barcode

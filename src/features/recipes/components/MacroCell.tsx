@@ -1,9 +1,11 @@
 import type { FC } from 'react'
 import { isPresent } from 'ts-extras'
 import { cn } from '~/lib'
+import type { MacroType } from '../utils/format'
+import { formatMacro } from '../utils/format'
 import { macroPercentage } from '../utils/macros'
 
-export type MacroType = 'protein' | 'carbs' | 'fat' | 'kcal' | 'fiber'
+export type { MacroType } from '../utils/format'
 
 const macroColorClass: Record<MacroType, string> = {
 	protein: 'text-macro-protein',
@@ -23,11 +25,10 @@ export interface MacroCellProps {
 
 export const MacroCell: FC<MacroCellProps> = ({ grams, weight, macro, className }) => {
 	const pct = weight ? macroPercentage(grams, weight) : undefined
-	const isKcal = macro === 'kcal'
 	return (
 		<td className={cn('px-2 py-1.5 text-right font-mono text-sm', className)}>
 			{isPresent(pct) && <span className="text-ink-faint text-xs">{pct.toFixed(0)}% </span>}
-			<span className={cn('font-medium', macroColorClass[macro])}>{grams.toFixed(isKcal ? 0 : 1)}</span>
+			<span className={cn('font-medium', macroColorClass[macro])}>{formatMacro(grams, macro)}</span>
 		</td>
 	)
 }

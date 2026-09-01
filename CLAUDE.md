@@ -417,6 +417,9 @@ No shadows — borders-only depth strategy.
 
 - All numbers use `font-mono tabular-nums`
 - Macro visualization: `MacroRing` (donut), `MacroBar` (stacked bar), `MacroReadout` (single value) — accept `macros` object prop, not individual scalars
+- Macro numbers render through `formatMacro` (`features/recipes/utils/format`): whole calories, 0.1 g for
+  everything else. Stored values are longer — USDA carries 2 decimals, and a per-100 g value someone divided
+  out carries all 13 (`68.8372093023256`) — so a cell printing `{ingredient.kcal}` raw prints every digit
 - Reuse existing types (`Pick<AbsoluteMacros, ...>`, `RouterOutput`, etc.) — never manually spell out fields that an existing type already covers
 - Never cast types. There's a 99% chance you're wrong or dug yourself into a corner, and you will introduce bugs. Always prefer `const foo: Type = bar` over `const foo = bar as Type`
 - Always prefer using TypeID types, like `Exercise['id]` instead of strings.

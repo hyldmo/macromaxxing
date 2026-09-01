@@ -8,6 +8,7 @@ import { IngredientForm } from '~/features/ingredients/components/IngredientForm
 import { BarcodeScanDialog } from '~/features/recipes/components/BarcodeScanDialog'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
 import { PremadeDialog } from '~/features/recipes/components/PremadeDialog'
+import { formatMacro } from '~/features/recipes/utils/format'
 import type { OFFProduct } from '~/lib'
 import { offUnits, prefetchRoute, useDocumentTitle, useUser } from '~/lib'
 import { trpc } from '~/lib/trpc'
@@ -182,11 +183,21 @@ export default function IngredientListPage() {
 											)}
 										</div>
 										<div className="mt-1 flex flex-wrap gap-2 font-mono text-xs">
-											<span className="text-macro-protein">P {ingredient.protein}</span>
-											<span className="text-macro-carbs">C {ingredient.carbs}</span>
-											<span className="text-macro-fat">F {ingredient.fat}</span>
-											<span className="text-macro-kcal">{ingredient.kcal} kcal</span>
-											<span className="text-macro-fiber">Fib {ingredient.fiber}</span>
+											<span className="text-macro-protein">
+												P {formatMacro(ingredient.protein, 'protein')}
+											</span>
+											<span className="text-macro-carbs">
+												C {formatMacro(ingredient.carbs, 'carbs')}
+											</span>
+											<span className="text-macro-fat">
+												F {formatMacro(ingredient.fat, 'fat')}
+											</span>
+											<span className="text-macro-kcal">
+												{formatMacro(ingredient.kcal, 'kcal')} kcal
+											</span>
+											<span className="text-macro-fiber">
+												Fib {formatMacro(ingredient.fiber, 'fiber')}
+											</span>
 										</div>
 										<div className="mt-1.5">
 											<MacroBar macros={ingredient} />
@@ -278,19 +289,19 @@ export default function IngredientListPage() {
 										<tr className="transition-colors hover:bg-surface-2/50">
 											<td className="px-2 py-1.5 font-medium text-ink">{ingredient.name}</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-protein">
-												{ingredient.protein}
+												{formatMacro(ingredient.protein, 'protein')}
 											</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-carbs">
-												{ingredient.carbs}
+												{formatMacro(ingredient.carbs, 'carbs')}
 											</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-fat">
-												{ingredient.fat}
+												{formatMacro(ingredient.fat, 'fat')}
 											</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-kcal">
-												{ingredient.kcal}
+												{formatMacro(ingredient.kcal, 'kcal')}
 											</td>
 											<td className="px-2 py-1.5 text-right font-mono text-macro-fiber">
-												{ingredient.fiber}
+												{formatMacro(ingredient.fiber, 'fiber')}
 											</td>
 											<td className="px-2 py-1.5 text-right">
 												{ingredient.source === 'ai' ? (

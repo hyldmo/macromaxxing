@@ -51,6 +51,21 @@ describe('lookupBarcode', () => {
 		expect(result.product.servingUnit).toBe('ml')
 	})
 
+	it('stores per-100g at label precision, not the float OFF derived it as', async () => {
+		// 296 kcal / 430 g tub — OFF hands back 68.8372093023256, which the ingredient row keeps
+		mockOFF({
+			product_name: 'Yt Proteinyoghurt',
+			serving_quantity: 430,
+			nutriments: { proteins_100g: 9.30232558139535, 'energy-kcal_100g': 68.8372093023256 }
+		})
+
+		const result = await lookupBarcode('7038010068997')
+		if (!result.found) throw new Error('expected found')
+
+		expect(result.product.per100g.protein).toBe(9.3)
+		expect(result.product.per100g.kcal).toBe(69)
+	})
+
 	it('leaves servingSize null when OFF declares none, so callers can tell 100g-by-default apart', async () => {
 		mockOFF({ product_name: 'x', nutriments: { proteins_100g: 25 } })
 

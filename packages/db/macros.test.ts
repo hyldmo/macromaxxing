@@ -3,7 +3,8 @@ import {
 	applyDiscardedFat,
 	calculateLabelMacrosPer100g,
 	calculateRecipeMacros,
-	calculateSubrecipePer100g
+	calculateSubrecipePer100g,
+	roundMacrosPer100g
 } from './macros'
 
 describe('calculateLabelMacrosPer100g', () => {
@@ -95,5 +96,19 @@ describe('calculateSubrecipePer100g', () => {
 		// 80 g fat / 720 kcal over 180 g
 		expect(per100g.fat).toBeCloseTo(44.4, 1)
 		expect(per100g.kcal).toBeCloseTo(400, 0)
+	})
+})
+
+describe('roundMacrosPer100g', () => {
+	it('cuts a per-100g energy Open Food Facts derived by division back to whole calories', () => {
+		expect(
+			roundMacrosPer100g({
+				protein: 9.30232558139535,
+				carbs: 3.7,
+				fat: 1.8,
+				kcal: 68.8372093023256,
+				fiber: 0
+			})
+		).toEqual({ protein: 9.3, carbs: 3.7, fat: 1.8, kcal: 69, fiber: 0 })
 	})
 })
