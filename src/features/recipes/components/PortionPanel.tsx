@@ -51,7 +51,11 @@ export const PortionPanel: FC<PortionPanelProps> = ({
 
 				<div className="my-1 h-px w-full bg-edge" />
 
-				<div className="flex w-full flex-col gap-3">
+				{/* One grid for all three fields — input · unit · action, with labels and hints spanning
+				    the row. Sharing the tracks is what aligns them, and each track sizes itself: the
+				    action column collapses in the read-only view, which has no AI button. The children
+				    render bare cells into it. */}
+				<div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-1">
 					<CookedWeightInput
 						cookedWeight={cookedWeight}
 						rawTotal={rawTotal}

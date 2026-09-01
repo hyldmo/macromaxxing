@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react'
-import { type FC, useState } from 'react'
+import { type FC, useId, useState } from 'react'
 import { Button, NumberInput, Spinner } from '~/components/ui'
 import { trpc } from '~/lib/trpc'
 
@@ -11,6 +11,10 @@ export interface CookedWeightInputProps {
 	instructions?: string
 }
 
+/**
+ * Renders bare cells for PortionPanel's shared grid (label row, then input · unit · action, then a
+ * hint row) — it has no box of its own, so it only works inside that grid.
+ */
 export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 	cookedWeight,
 	rawTotal,
@@ -19,6 +23,7 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 	instructions
 }) => {
 	const readOnly = !onChange
+	const inputId = useId()
 	const [value, setValue] = useState(cookedWeight?.toString() ?? '')
 	const estimateMutation = trpc.ai.estimateCookedWeight.useMutation({
 		onSuccess: data => {
@@ -48,39 +53,42 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 	const canEstimate = !readOnly && ingredients && ingredients.length > 0
 
 	return (
-		<label className="flex flex-col gap-1">
-			<span className="text-ink-muted text-xs uppercase tracking-wider">Cooked weight</span>
-			<div className="grid grid-cols-[minmax(0,1fr)_3.5rem_2rem] items-center gap-2">
-				<NumberInput
-					className="h-8"
-					placeholder={rawTotal.toFixed(0)}
-					value={value}
-					onChange={e => setValue(e.target.value)}
-					onBlur={handleBlur}
-					min={0}
-					readOnly={readOnly}
-					disabled={readOnly}
-				/>
-				<span className="text-ink-faint text-xs">g</span>
-				{canEstimate && (
-					<Button
-						variant="ghost"
-						size="icon"
-						className="size-8"
-						onClick={() => estimateMutation.mutate({ ingredients, instructions })}
-						disabled={estimateMutation.isPending}
-						title="Estimate with AI"
-					>
-						{estimateMutation.isPending ? (
-							<Spinner className="size-4 text-current" />
-						) : (
-							<Sparkles className="size-4 text-current" />
-						)}
-					</Button>
-				)}
-			</div>
+		<>
+			<label
+				htmlFor={inputId}
+				className="col-span-3 col-start-1 mt-2 text-ink-muted text-xs uppercase tracking-wider first:mt-0"
+			>
+				Cooked weight
+			</label>
+			<NumberInput
+				id={inputId}
+				placeholder={rawTotal.toFixed(0)}
+				value={value}
+				onChange={e => setValue(e.target.value)}
+				onBlur={handleBlur}
+				min={0}
+				readOnly={readOnly}
+				disabled={readOnly}
+			/>
+			<span className="text-ink-faint text-xs">g</span>
+			{canEstimate && (
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-8"
+					onClick={() => estimateMutation.mutate({ ingredients, instructions })}
+					disabled={estimateMutation.isPending}
+					title="Estimate with AI"
+				>
+					{estimateMutation.isPending ? (
+						<Spinner className="size-4 text-current" />
+					) : (
+						<Sparkles className="size-4 text-current" />
+					)}
+				</Button>
+			)}
 			{rawTotal > 0 && (
-				<span className="font-mono text-[10px] text-ink-faint">
+				<span className="col-span-3 col-start-1 font-mono text-[10px] text-ink-faint">
 					{rawTotal.toFixed(0)}g raw{' '}
 					{cookedWeight && cookedWeight !== rawTotal && (
 						<>
@@ -90,6 +98,6 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 					)}
 				</span>
 			)}
-		</label>
+		</>
 	)
 }
