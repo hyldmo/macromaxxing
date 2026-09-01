@@ -12,8 +12,10 @@ import type {
 	mealPlanInventory,
 	mealPlanSlots,
 	mealPlans,
+	pushSubscriptions,
 	recipeIngredients,
 	recipes,
+	restNotificationJobs,
 	sessionPlannedExercises,
 	strengthStandards,
 	usdaFoods,
@@ -32,6 +34,8 @@ import type {
 export type User = InferSelectModel<typeof users>
 export type UserSettings = InferSelectModel<typeof userSettings>
 export type ApiToken = InferSelectModel<typeof apiTokens>
+export type PushSubscriptionRow = InferSelectModel<typeof pushSubscriptions>
+export type RestNotificationJob = InferSelectModel<typeof restNotificationJobs>
 export type Ingredient = InferSelectModel<typeof ingredients>
 export type IngredientUnit = InferSelectModel<typeof ingredientUnits>
 export type Recipe = InferSelectModel<typeof recipes>

@@ -4,6 +4,7 @@ import { dashboardRouter } from './routes/dashboard'
 import { ingredientsRouter } from './routes/ingredients'
 import { mealPlansRouter } from './routes/mealPlans'
 import { recipesRouter } from './routes/recipes'
+import { restNotificationsRouter } from './routes/restNotifications'
 import { settingsRouter } from './routes/settings'
 import { userRouter } from './routes/user'
 import { workoutsRouter } from './routes/workouts'
@@ -18,7 +19,8 @@ export const appRouter = router({
 	mealPlan: mealPlansRouter,
 	user: userRouter,
 	workout: workoutsRouter,
-	analytics: analyticsRouter
+	analytics: analyticsRouter,
+	restNotifications: restNotificationsRouter
 })
 
 export type AppRouter = typeof appRouter

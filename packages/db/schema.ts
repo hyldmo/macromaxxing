@@ -19,6 +19,7 @@ import {
 	type MuscleGroup,
 	type NutritionGoal,
 	newId,
+	type RestNotificationStatus,
 	type SetMode,
 	type SetType,
 	type Sex,
@@ -30,6 +31,10 @@ import {
 export const users = sqliteTable('users', {
 	id: text('id').primaryKey(), // Clerk user ID (user_xxx)
 	email: text('email').notNull().unique(),
+	lastPushSubscriptionAt: integer('last_push_subscription_at'),
+	lastRestAlertTestAt: integer('last_rest_alert_test_at'),
+	lastRestAlertScheduledAt: integer('last_rest_alert_scheduled_at'),
+	lastRestAlertCancelledAt: integer('last_rest_alert_cancelled_at'),
 	createdAt: integer('created_at').notNull()
 })
 
@@ -77,6 +82,27 @@ export const apiTokens = sqliteTable(
 		createdAt: integer('created_at').notNull()
 	},
 	t => [index('api_tokens_user_id_idx').on(t.userId), uniqueIndex('api_tokens_hash_idx').on(t.tokenHash)]
+)
+
+export const pushSubscriptions = sqliteTable(
+	'push_subscriptions',
+	{
+		id: typeidCol('psb')('id')
+			.primaryKey()
+			.$defaultFn(() => newId('psb')),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		endpoint: text('endpoint').notNull(),
+		p256dh: text('p256dh').notNull(),
+		auth: text('auth').notNull(),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	t => [
+		index('push_subscriptions_user_id_idx').on(t.userId),
+		uniqueIndex('push_subscriptions_endpoint_idx').on(t.endpoint)
+	]
 )
 
 export const ingredients = sqliteTable(
@@ -461,6 +487,37 @@ export const workoutLogs = sqliteTable(
 		index('workout_logs_session_id_idx').on(t.sessionId),
 		index('workout_logs_exercise_id_idx').on(t.exerciseId),
 		index('workout_logs_exercise_session_idx').on(t.exerciseId, t.sessionId)
+	]
+)
+
+export const restNotificationJobs = sqliteTable(
+	'rest_notification_jobs',
+	{
+		id: typeidCol('rnj')('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id),
+		sessionId: typeidCol('wks')('session_id')
+			.notNull()
+			.references(() => workoutSessions.id, { onDelete: 'cascade' }),
+		subscriptionId: typeidCol('psb')('subscription_id')
+			.notNull()
+			.references(() => pushSubscriptions.id, { onDelete: 'cascade' }),
+		dueAt: integer('due_at').notNull(),
+		expiresAt: integer('expires_at').notNull(),
+		status: text('status').notNull().$type<RestNotificationStatus>(),
+		queuedAt: integer('queued_at'),
+		createdAt: integer('created_at').notNull(),
+		updatedAt: integer('updated_at').notNull()
+	},
+	t => [
+		index('rest_notification_jobs_user_id_idx').on(t.userId),
+		index('rest_notification_jobs_session_id_idx').on(t.sessionId),
+		index('rest_notification_jobs_subscription_id_idx').on(t.subscriptionId),
+		check(
+			'rest_notification_jobs_status_check',
+			sql`${t.status} in ('scheduled', 'sending', 'sent', 'cancelled', 'expired', 'failed')`
+		)
 	]
 )
 

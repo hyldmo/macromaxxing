@@ -14,6 +14,7 @@ import {
 import { MacroTargetsForm } from '~/features/nutrition/components/MacroTargetsForm'
 import { LocationsSection } from '~/features/workouts/components/LocationsSection'
 import { ProfileForm } from '~/features/workouts/components/ProfileForm'
+import { RestAlertsSection } from '~/features/workouts/components/RestAlertsSection'
 import { prefetchRoute, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { trpc } from '~/lib/trpc'
 
@@ -226,6 +227,8 @@ export default function SettingsPage() {
 			</Card>
 
 			<LocationsSection />
+
+			<RestAlertsSection />
 
 			<ApiTokensSection />
 

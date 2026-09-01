@@ -3,6 +3,12 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist/client"
 
+[vars]
+REST_ALERTS_ENABLED = "true"
+
+[env.preview.vars]
+REST_ALERTS_ENABLED = "false"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "macromaxxing"
@@ -12,3 +18,17 @@ migrations_dir = "../packages/db/drizzle"
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "macromaxxing-images"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "macromaxxing"
+database_id = "c76ae2a2-9925-4351-ad53-1de7d6dfe504"
+migrations_dir = "../packages/db/drizzle"
+
+[[env.preview.r2_buckets]]
+binding = "IMAGES"
+bucket_name = "macromaxxing-images"
+
+[[queues.producers]]
+binding = "REST_NOTIFICATION_QUEUE"
+queue = "macromaxxing-rest-notifications"

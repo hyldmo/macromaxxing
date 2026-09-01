@@ -61,6 +61,10 @@ USDA_API_KEY=your-usda-api-key
 # Get from Clerk dashboard
 CLERK_PUBLISHABLE_KEY=pk_test_...
 CLERK_SECRET_KEY=sk_test_...
+# Matching VAPID key pair for local rest-alert subscriptions and delivery
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+REST_ALERTS_ENABLED=true
 ```
 
 Create `.env.local` for frontend:
@@ -178,6 +182,8 @@ src/
                                             #   SW notification clicks route client-side via postMessage (public/sw-custom.js → RootLayout listener) — never client.navigate(), which reloads and wipes state.
                                             #   Holds NO set queue: timer mode derives it live via flattenSets(exerciseGroups) and resolves cursor
                                             #   (stable {exerciseId, setNumber} identity) against it via src/lib/workouts/timerQueue.ts
+      hooks/useRestAlerts.ts                 # Root-mounted delivery controller: online rests schedule server push;
+                                            #   offline or pre-acceptance failures use the page-local timeout
       components/
         BodyMap.tsx                          # Interactive front/back muscle group SVG (male/female)
         MuscleContributionList.tsx          # Tooltip lines under a body-map set count: exercise name + its sets
@@ -214,6 +220,7 @@ src/
         EquipmentChecklist.tsx              # Toggle-chip checklist over the fixed EQUIPMENT vocabulary
         EquipmentWarning.tsx                # Amber "missing: X" chip (template rows, search results, replace modal)
         LocationsSection.tsx                # Settings card: locations CRUD + per-location equipment checklist
+        RestAlertsSection.tsx               # Settings switch + test action for persistent Web Push subscription
       utils/
         sets.ts                             # generateWarmupSets, generateBackoffSets, calculateRest, shouldSkipWarmup
         export.ts                           # Workout data export
@@ -274,8 +281,14 @@ workers/functions/
       analytics.ts                          # analytics.* endpoints (PRs, stalled, top, weeklyTrend, calendarHeatmap)
       ai.ts                                 # ai.* endpoints
       settings.ts                           # settings.* endpoints
+      restNotifications.ts                  # restNotifications.* subscription/schedule/cancel/test endpoints
       user.ts                               # user.* endpoints
+workers/rest-notifications/                 # Dedicated Cloudflare Queue consumer for delayed Web Push
+  index.ts                                  # Queue adapter, D1 repository, and acknowledgement boundary
+  process.ts                                # Atomic claim + send/expire/fail state machine
+  wrangler.toml                             # Consumer binding (Pages remains producer-only)
 scripts/
+  flatten-migrations.ts                     # Copy Drizzle's nested migration SQL to Wrangler's flat layout
   seed-exercises.ts                         # System exercises with muscle group mappings + strength standards
   seed-usda.ts                              # Import USDA Foundation + SR Legacy foods into D1
   build-widgets.ts                          # Bundle src/mcp-widgets/ → workers/functions/widgets/widgets.generated.ts (WIDGET_HTML) for MCP Apps
@@ -313,13 +326,15 @@ src/mcp-widgets/                            # MCP Apps widget: shell (widget.tsx
 ## DB Schema
 
 ```
-users(id PK clerk_user_id, email)
+users(id PK clerk_user_id, email,
+      lastPushSubscriptionAt?, lastRestAlertTestAt?, lastRestAlertScheduledAt?, lastRestAlertCancelledAt?)
   → userSettings(userId FK, aiProvider, aiApiKey encrypted, aiModel, batchLookups, modelFallback,
                  heightCm?, weightKg?, age?, sex: male|female,
                  activityLevel?: auto|sedentary|light|moderate|active|very_active,  -- 'auto' = derived from
                                  -- logged session frequency on read; plain text column, widening needs no migration
                  nutritionGoal?: cut|maintain|bulk|custom,
                  targetKcal?/targetProtein?/targetCarbs?/targetFat?/targetFiber?  -- ONLY read when goal='custom')
+  → pushSubscriptions(id typeid:psb, userId FK, endpoint unique, p256dh, auth, createdAt, updatedAt)
 
 ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g raw, density?, sourceId?,
             source: manual|ai|usda|openfoodfacts|label, sourceUrl? -- product page a label was read off)
@@ -358,6 +373,8 @@ workoutSessions(id typeid:wks, userId, workoutId?, locationId? — snapshotted f
                             targetWeight?, setMode, trainingGoal?, supersetGroup?)
   → workoutLogs(id typeid:wkl, sessionId, exerciseId, setNumber, setType: warmup|working|backoff,
                 weightKg, reps, rpe?, failureFlag)
+  → restNotificationJobs(id typeid:rnj, sessionId ON DELETE CASCADE, userId, subscriptionId ON DELETE CASCADE,
+                         dueAt, expiresAt, status: scheduled|sending|sent|cancelled|expired|failed, queuedAt?)
 
 workoutPrograms(id typeid:wpr, userId, name, sortOrder, UNIQUE(userId, name))
   → workoutProgramItems(id typeid:wpi, programId, workoutId, sortOrder)  -- both FKs ON DELETE CASCADE
@@ -466,6 +483,10 @@ trpc.workout.coverageStats                  # Template muscle coverage for body 
 trpc.workout.exerciseMuscleLoad             # Single-exercise muscle breakdown at a given sets/reps/weight dose
 trpc.workout.workoutMuscleLoad              # Workout-template weekly breakdown with MEV/MAV/MRV zones + balance ratios
 trpc.workout.sessionMuscleLoad              # Logged-session breakdown from actual hard sets + balance ratios
+trpc.restNotifications.publicKey/registerSubscription/unregisterSubscription
+trpc.restNotifications.scheduleRest/cancelRest/sendTestNotification
+                                            # Authenticated Web Push control plane; scheduleRest accepts at most 15m,
+                                            #   verifies session/subscription ownership, and enqueues one opaque job ID
 trpc.workout.muscleGroupTrend               # Current vs rolling-average muscle load per window (sets + kg·reps delta %)
 trpc.workout.exerciseHistory                # Per-exercise time series (top set, e1RM, volume per session) over 4w/12w/1y
 trpc.workout.generateWarmup/generateBackoff # Auto-calculated warmup/backoff sets, snapped to what the exercise's
@@ -720,6 +741,7 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - `public/self-heal.js` (loaded synchronously in `<head>` via `src/root.tsx`) catches `<script>/<link>` load failures for `/assets/*` paths (the symptom of a stale SW or browser cache referencing a removed hashed chunk), unregisters the SW, clears caches, and reloads with a `_v=<timestamp>` cache-bust param. Guards: skips when offline, skips when already on a `_v=` URL to prevent reload loops. This is the recovery path when the React bundle itself can't run — the in-app `ReloadPrompt` banner needs the bundle to render, so a fully stuck client needs the HTML-level watchdog.
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
+- Optional rest alerts use Web Push when online so delivery survives an app close or phone lock. Pages Functions only produce delayed queue messages; `workers/rest-notifications/` is the separate consumer. `public/sw-custom.js` validates the versioned opaque payload and owns the fixed notification copy. If the device is offline when a rest starts, or server scheduling fails before acceptance, `useRestAlerts` arms the existing page-local timeout instead; an accepted server job never gets an immediate local duplicate. Delivery is intentionally at-most-once: the consumer sets `max_retries = 0` and acknowledges every message, so a consumer or provider failure can miss an accepted alert instead of delivering it late after the rest.
 
 **MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Two auth paths on the same `/api/mcp` endpoint:
 - **Clerk OAuth** (Claude.ai custom connectors, Cursor, VS Code, etc.) — Clerk acts as OAuth 2.1 authorization server via Dynamic Client Registration. `@clerk/mcp-tools` generates the RFC 9728 protected-resource metadata and proxies Clerk's RFC 8414 auth-server metadata. On 401, the `WWW-Authenticate` header points clients to the resource metadata URL.
@@ -744,6 +766,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 
 **Cloudflare / D1**
 - Secrets live in the CF dashboard, never as `[vars]` in `wrangler.toml` (collision causes "Binding name already in use" on deploy)
+- Cloudflare Pages can produce Queue messages but cannot consume them. Rest alerts therefore deploy `macromaxxing-rest-notifications` before the Pages producer. The deploy workflow requires matching `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` GitHub secrets for the consumer; the Pages project keeps the same pair in its Cloudflare dashboard environment.
 - `worker-configuration.d.ts` is gitignored and regenerated by `yarn generate:wrangler` (which runs as part of `yarn generate` → `yarn check`/`yarn build`). The script invokes `wrangler types --env-file .dev.vars.template` against the committed `workers/.dev.vars.template` (placeholder values) so output is identical locally and in CI regardless of which secrets the dev has in `.dev.vars`. Resolves [workers-sdk#11038](https://github.com/cloudflare/workers-sdk/issues/11038); previously the file was committed with locally-generated content, which forced wrangler/workerd version drift to show up as huge diffs and broke CI any time the file got regenerated without `.dev.vars`. **Don't drop the `--env-file` flag** — without it wrangler reads `.dev.vars` (drifting per-machine) and the output stops being reproducible.
 - CI needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — the latter bypasses `/memberships` which fails with scoped tokens
 - `wrangler d1 execute --file` resolves paths from the workspace wrangler runs in, not cwd. Use absolute paths in scripts.
