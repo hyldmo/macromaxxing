@@ -50,9 +50,9 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 	return (
 		<label className="flex flex-col gap-1">
 			<span className="text-ink-muted text-xs uppercase tracking-wider">Cooked weight</span>
-			<div className="flex items-center gap-2">
+			<div className="grid grid-cols-[minmax(0,1fr)_3.5rem_2rem] items-center gap-2">
 				<NumberInput
-					className="h-8 w-full"
+					className="h-8"
 					placeholder={rawTotal.toFixed(0)}
 					value={value}
 					onChange={e => setValue(e.target.value)}
@@ -66,7 +66,7 @@ export const CookedWeightInput: FC<CookedWeightInputProps> = ({
 					<Button
 						variant="ghost"
 						size="icon"
-						className="size-8 shrink-0"
+						className="size-8"
 						onClick={() => estimateMutation.mutate({ ingredients, instructions })}
 						disabled={estimateMutation.isPending}
 						title="Estimate with AI"

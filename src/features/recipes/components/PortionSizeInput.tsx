@@ -54,7 +54,7 @@ export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, effec
 	return (
 		<div className="flex flex-col gap-1">
 			<span className="text-ink-muted text-xs uppercase tracking-wider">Portion size</span>
-			<div className="grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1">
+			<div className="grid grid-cols-[minmax(0,1fr)_3.5rem_2rem] items-center gap-x-2 gap-y-1">
 				<NumberInput
 					className="h-8"
 					value={gramsValue}
@@ -66,7 +66,7 @@ export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, effec
 					disabled={readOnly}
 				/>
 				<span className="text-ink-faint text-xs">g</span>
-				<span className="col-span-2 text-center text-ink-faint text-xs">=</span>
+				<span className="col-span-3 text-center text-ink-faint text-xs">=</span>
 				<NumberInput
 					className="h-8"
 					value={countValue}

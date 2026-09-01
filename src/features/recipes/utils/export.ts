@@ -65,7 +65,7 @@ export function formatRecipe(recipe: Recipe, calculations: RecipeCalculations): 
 	lines.push('## Totals (full recipe)')
 	lines.push(fmt(calculations.consumed))
 	if (recipe.discardedFat) {
-		lines.push(`(after discarding ${Math.round(recipe.discardedFat)}g rendered fat during cooking)`)
+		lines.push(`(−${Math.round(recipe.discardedFat)}g discarded fat)`)
 	}
 
 	if (recipe.instructions?.trim()) {
