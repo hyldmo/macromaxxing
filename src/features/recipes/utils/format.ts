@@ -1,3 +1,5 @@
+import type { MacrosPer100g } from '@macromaxxing/db'
+
 const FRACTIONS: [number, string][] = [
 	[0.25, '\u00BC'],
 	[0.5, '\u00BD'],
@@ -5,6 +7,12 @@ const FRACTIONS: [number, string][] = [
 	[0.333, '\u2153'],
 	[0.667, '\u2154']
 ]
+
+/** Which macro a number is — the app's macro colours and its on-screen precision both key off it */
+export type MacroType = keyof MacrosPer100g
+
+/** How much of a macro a screen shows: whole calories, 0.1 g on everything else */
+export const formatMacro = (value: number, macro: MacroType) => value.toFixed(macro === 'kcal' ? 0 : 1)
 
 /** Format a numeric amount with nice fractions (½, ¼, ¾, ⅓, ⅔) */
 export function formatAmount(value: number): string {

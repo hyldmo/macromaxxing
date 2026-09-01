@@ -13,20 +13,38 @@ export interface IngredientWithAmount {
 	amountGrams: number
 }
 
-/** Convert label values for one serving into stored per-100 g values. */
-export function calculateLabelMacrosPer100g(labelMacros: MacrosPer100g, servingSize: number): MacrosPer100g {
-	const per100g = (value: number, decimalPlaces: number) => {
+/**
+ * Cut stored per-100 g values back to label precision: 0.1 g per macro, whole calories.
+ * A packet prints no more than that, so a longer number is arithmetic left over from a
+ * division — Open Food Facts derives per-100 g energy that way and hands back
+ * `68.8372093023256`, which every macro surface then has to hide.
+ */
+export function roundMacrosPer100g(macros: MacrosPer100g): MacrosPer100g {
+	const round = (value: number, decimalPlaces: number) => {
 		const scale = 10 ** decimalPlaces
-		return Math.round(((value / servingSize) * 100 + Number.EPSILON) * scale) / scale
+		return Math.round((value + Number.EPSILON) * scale) / scale
 	}
 
 	return {
-		protein: per100g(labelMacros.protein, 1),
-		carbs: per100g(labelMacros.carbs, 1),
-		fat: per100g(labelMacros.fat, 1),
-		kcal: per100g(labelMacros.kcal, 0),
-		fiber: per100g(labelMacros.fiber, 1)
+		protein: round(macros.protein, 1),
+		carbs: round(macros.carbs, 1),
+		fat: round(macros.fat, 1),
+		kcal: round(macros.kcal, 0),
+		fiber: round(macros.fiber, 1)
 	}
+}
+
+/** Convert label values for one serving into stored per-100 g values. */
+export function calculateLabelMacrosPer100g(labelMacros: MacrosPer100g, servingSize: number): MacrosPer100g {
+	const per100g = (value: number) => (value / servingSize) * 100
+
+	return roundMacrosPer100g({
+		protein: per100g(labelMacros.protein),
+		carbs: per100g(labelMacros.carbs),
+		fat: per100g(labelMacros.fat),
+		kcal: per100g(labelMacros.kcal),
+		fiber: per100g(labelMacros.fiber)
+	})
 }
 
 export function calculateIngredientMacros(per100g: MacrosPer100g, amountGrams: number): AbsoluteMacros {
