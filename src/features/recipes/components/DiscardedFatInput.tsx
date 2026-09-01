@@ -32,9 +32,9 @@ export const DiscardedFatInput: FC<DiscardedFatInputProps> = ({ discardedFat, on
 	return (
 		<label className="flex flex-col gap-1">
 			<span className="text-ink-muted text-xs uppercase tracking-wider">Discarded fat</span>
-			<div className="flex items-center gap-2">
+			<div className="grid grid-cols-[minmax(0,1fr)_3.5rem_2rem] items-center gap-2">
 				<NumberInput
-					className="h-8 w-full"
+					className="h-8"
 					placeholder="1 spoonful ≈ 8 g"
 					value={value}
 					onChange={e => setValue(e.target.value)}

@@ -21,7 +21,7 @@ export const RecipeTotalsBar: FC<RecipeTotalsBarProps> = ({ totals, consumed, di
 			</div>
 			{consumed && discardedFat != null && discardedFat > 0 && (
 				<div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-ink-faint text-xs">
-					<span>−{discardedFat.toFixed(0)}g fat in pan</span>
+					<span>−{discardedFat.toFixed(0)}g fat</span>
 					<span>
 						→ F {consumed.fat.toFixed(0)} · {consumed.kcal.toFixed(0)} kcal eaten
 					</span>
