@@ -1,4 +1,4 @@
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useEffect, useId, useState } from 'react'
 import { NumberInput } from '~/components/ui'
 
 export interface PortionSizeInputProps {
@@ -7,7 +7,12 @@ export interface PortionSizeInputProps {
 	onChange?: (value: number | null) => void
 }
 
+/**
+ * Renders bare cells for PortionPanel's shared grid — a label row, the size in grams, then the same
+ * size read back as a portion count. It has no box of its own, so it only works inside that grid.
+ */
 export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, effectiveCookedWeight, onChange }) => {
+	const gramsId = useId()
 	const [gramsValue, setGramsValue] = useState(portionSize?.toString() ?? '')
 	const [countValue, setCountValue] = useState(() =>
 		portionSize !== null && portionSize > 0 ? (effectiveCookedWeight / portionSize).toFixed(1) : ''
@@ -52,33 +57,36 @@ export const PortionSizeInput: FC<PortionSizeInputProps> = ({ portionSize, effec
 	}
 
 	return (
-		<div className="flex flex-col gap-1">
-			<span className="text-ink-muted text-xs uppercase tracking-wider">Portion size</span>
-			<div className="grid grid-cols-[minmax(0,1fr)_3.5rem_2rem] items-center gap-x-2 gap-y-1">
-				<NumberInput
-					className="h-8"
-					value={gramsValue}
-					onChange={e => setGramsValue(e.target.value)}
-					onBlur={handleGramsBlur}
-					placeholder="Whole"
-					min={0}
-					readOnly={readOnly}
-					disabled={readOnly}
-				/>
-				<span className="text-ink-faint text-xs">g</span>
-				<span className="col-span-3 text-center text-ink-faint text-xs">=</span>
-				<NumberInput
-					className="h-8"
-					value={countValue}
-					onChange={e => setCountValue(e.target.value)}
-					onBlur={handleCountBlur}
-					placeholder="1"
-					min={0}
-					readOnly={readOnly}
-					disabled={readOnly}
-				/>
-				<span className="text-ink-faint text-xs">portions</span>
-			</div>
-		</div>
+		<>
+			<label
+				htmlFor={gramsId}
+				className="col-span-3 col-start-1 mt-2 text-ink-muted text-xs uppercase tracking-wider first:mt-0"
+			>
+				Portion size
+			</label>
+			<NumberInput
+				id={gramsId}
+				value={gramsValue}
+				onChange={e => setGramsValue(e.target.value)}
+				onBlur={handleGramsBlur}
+				placeholder="Whole"
+				min={0}
+				readOnly={readOnly}
+				disabled={readOnly}
+			/>
+			<span className="text-ink-faint text-xs">g</span>
+			<span className="col-span-3 col-start-1 text-center text-ink-faint text-xs">=</span>
+			<NumberInput
+				aria-label="Portions"
+				value={countValue}
+				onChange={e => setCountValue(e.target.value)}
+				onBlur={handleCountBlur}
+				placeholder="1"
+				min={0}
+				readOnly={readOnly}
+				disabled={readOnly}
+			/>
+			<span className="text-ink-faint text-xs">portions</span>
+		</>
 	)
 }
