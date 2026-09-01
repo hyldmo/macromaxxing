@@ -179,7 +179,7 @@ src/
       WorkoutMode.tsx                       # WorkoutModes: setMode ButtonGroup (working/warmup/backoff/full)
       store/useWorkoutSessionStore.ts       # Zustand: global session state (sessionId, cursor, draft, rest, setTimer) — canonical "is session in progress" signal; persists across routes
                                             #   AND reloads/PWA cold starts (localStorage via zustand persist; timers are absolute timestamps, stale ones dropped on rehydrate).
-                                            #   SW notification clicks route client-side via postMessage (public/sw-custom.js → RootLayout listener) — never client.navigate(), which reloads and wipes state.
+                                            #   SW notification clicks route client-side via postMessage or a parked route (public/sw-custom.js → usePushRouting) — never client.navigate(), which reloads and wipes state.
                                             #   Holds NO set queue: timer mode derives it live via flattenSets(exerciseGroups) and resolves cursor
                                             #   (stable {exerciseId, setNumber} identity) against it via src/lib/workouts/timerQueue.ts
       hooks/useRestAlerts.ts                 # Root-mounted delivery controller: online rests schedule server push;
@@ -742,6 +742,13 @@ GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxi
 - Full web manifest with icons (64, 192, 512, maskable) for home screen install
 - `display: 'standalone'` for native app feel
 - Optional rest alerts use Web Push when online so delivery survives an app close or phone lock. Pages Functions only produce delayed queue messages; `workers/rest-notifications/` is the separate consumer. `public/sw-custom.js` validates the versioned opaque payload and owns the fixed notification copy. If the device is offline when a rest starts, or server scheduling fails before acceptance, `useRestAlerts` arms the existing page-local timeout instead; an accepted server job never gets an immediate local duplicate. Delivery is intentionally at-most-once: the consumer sets `max_retries = 0` and acknowledges every message, so a consumer or provider failure can miss an accepted alert instead of delivering it late after the rest.
+- **A notification tap needs three landing routes, because iOS honours none of them reliably.** A
+  backgrounded home-screen app is resumed on the screen it was left on: `clients.openWindow`'s path is
+  ignored and a `postMessage` to a frozen page is dropped, so a tap looks like it did nothing. So
+  `public/sw-custom.js` PARKS the target in Cache Storage (`push-route` / `/__push-route`) before it posts
+  or focuses, and `usePushRouting` claims it on mount and on `visibilitychange`. The parked copy expires
+  after 2 minutes and reading it spends it, so a tap cannot land twice or hours late. Keep all three:
+  the message keeps an in-progress session alive, `openWindow` covers a cold start, and the park covers iOS.
 
 **MCP Server** — Exposes annotated tRPC procedures as MCP tools via `@modelcontextprotocol/sdk`. Two auth paths on the same `/api/mcp` endpoint:
 - **Clerk OAuth** (Claude.ai custom connectors, Cursor, VS Code, etc.) — Clerk acts as OAuth 2.1 authorization server via Dynamic Client Registration. `@clerk/mcp-tools` generates the RFC 9728 protected-resource metadata and proxies Clerk's RFC 8414 auth-server metadata. On 401, the `WWW-Authenticate` header points clients to the resource metadata URL.

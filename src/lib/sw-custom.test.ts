@@ -18,6 +18,7 @@ function serviceWorker(
 	const listeners = new Map<string, (event: ServiceWorkerEvent) => void>()
 	const showNotification = vi.fn().mockResolvedValue(undefined)
 	const openWindow = vi.fn().mockResolvedValue(undefined)
+	const parkRoute = vi.fn().mockResolvedValue(undefined)
 	const source = readFileSync(new URL('../../public/sw-custom.js', import.meta.url), 'utf8')
 	runInNewContext(source, {
 		URL,
@@ -27,9 +28,11 @@ function serviceWorker(
 			addEventListener: (type: string, listener: (event: ServiceWorkerEvent) => void) =>
 				listeners.set(type, listener)
 		},
-		clients: { matchAll: vi.fn().mockResolvedValue(windowClients), openWindow }
+		clients: { matchAll: vi.fn().mockResolvedValue(windowClients), openWindow },
+		caches: { open: vi.fn().mockResolvedValue({ put: parkRoute }) },
+		Response
 	})
-	return { listeners, showNotification, openWindow }
+	return { listeners, showNotification, openWindow, parkRoute }
 }
 
 describe('rest push service worker', () => {
@@ -117,5 +120,42 @@ describe('rest push service worker', () => {
 		})
 		expect(client.focus).toHaveBeenCalledOnce()
 		expect(worker.openWindow).not.toHaveBeenCalled()
+	})
+
+	it('parks the route so a tap survives iOS resuming the app where it left off', async () => {
+		const client = {
+			url: 'https://app.example.test/settings',
+			focus: vi.fn().mockRejectedValue(new Error('focus refused')),
+			postMessage: vi.fn()
+		}
+		const worker = serviceWorker([client])
+		let completion: Promise<unknown> = Promise.resolve()
+		worker.listeners.get('notificationclick')?.({
+			notification: { close: vi.fn(), data: { url: '/workouts/sessions/wks_session/timer' } },
+			waitUntil: promise => {
+				completion = promise
+			}
+		})
+		await completion
+
+		const [key, parked] = worker.parkRoute.mock.calls[0]
+		expect(key).toBe('/__push-route')
+		expect(await parked.json()).toMatchObject({ url: '/workouts/sessions/wks_session/timer' })
+		expect(client.postMessage).toHaveBeenCalledOnce()
+	})
+
+	it('parks nothing when the tap has no destination beyond the app root', async () => {
+		const worker = serviceWorker()
+		let completion: Promise<unknown> = Promise.resolve()
+		worker.listeners.get('notificationclick')?.({
+			notification: { close: vi.fn(), data: { url: null } },
+			waitUntil: promise => {
+				completion = promise
+			}
+		})
+		await completion
+
+		expect(worker.parkRoute).not.toHaveBeenCalled()
+		expect(worker.openWindow).toHaveBeenCalledWith('https://app.example.test/')
 	})
 })
