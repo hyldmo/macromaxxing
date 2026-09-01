@@ -103,6 +103,10 @@ export function RecipeEditorPage() {
 		if (id && isOwner) updateMutation.mutate({ id, cookedWeight: value })
 	}
 
+	function handleDiscardedFatChange(value: number | null) {
+		if (id && isOwner) updateMutation.mutate({ id, discardedFat: value })
+	}
+
 	function handlePortionSizeChange(value: number | null) {
 		if (id && isOwner) updateMutation.mutate({ id, portionSize: value })
 	}
@@ -210,9 +214,11 @@ export function RecipeEditorPage() {
 							portion={calculations.portion}
 							cookedWeight={recipeQuery.data.cookedWeight}
 							rawTotal={calculations.totals.weight}
+							discardedFat={recipeQuery.data.discardedFat}
 							portionSize={recipeQuery.data.portionSize}
 							effectiveCookedWeight={calculations.cookedWeight}
 							onCookedWeightChange={isOwner ? handleCookedWeightChange : undefined}
+							onDiscardedFatChange={isOwner ? handleDiscardedFatChange : undefined}
 							onPortionSizeChange={isOwner ? handlePortionSizeChange : undefined}
 							ingredients={isOwner ? ingredients : undefined}
 							instructions={isOwner ? instructions : undefined}
@@ -228,7 +234,11 @@ export function RecipeEditorPage() {
 							readOnly={!isOwner}
 						/>
 						{recipeQuery.data.recipeIngredients.length > 0 && (
-							<RecipeTotalsBar totals={calculations.totals} />
+							<RecipeTotalsBar
+								totals={calculations.totals}
+								consumed={calculations.consumed}
+								discardedFat={recipeQuery.data.discardedFat}
+							/>
 						)}
 
 						<div className="space-y-1.5">

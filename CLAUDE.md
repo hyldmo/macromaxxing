@@ -343,7 +343,9 @@ ingredients(id typeid:ing, userId, name, protein/carbs/fat/kcal/fiber per 100g r
     -- the ~140g of flesh, not the ~200g fruit with skin and pit. Volume units (ml/tsp/tbsp/dl/cup)
     -- are NOT stored — they're derived from `ingredients.density` (see packages/db/units.ts)
 
-recipes(id typeid:rcp, userId, name, instructions?, cookedWeight?, portionSize?, isPublic, sourceUrl?, image?)
+recipes(id typeid:rcp, userId, name, instructions?, cookedWeight?, discardedFat? -- grams of rendered fat
+        -- left in the pan; calculateRecipeMacros subtracts it (fat + 9 kcal/g) from every consumed-macro
+        -- surface, portionSize?, isPublic, sourceUrl?, image?)
   -- No `type` column: every row is a recipe someone authored. Bare ingredients and packaged products
   -- used to be stored here as wrapper recipes; both are ingredients now (see Meal Plans)
   → recipeIngredients(id typeid:rci, recipeId, ingredientId?, subrecipeId?, amountGrams, displayUnit?, displayAmount?, preparation?, sortOrder)

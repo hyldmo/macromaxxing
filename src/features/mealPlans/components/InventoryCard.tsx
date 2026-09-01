@@ -1,14 +1,7 @@
 import { GripVertical, Minus, Plus, RotateCcw, X } from 'lucide-react'
 import type { FC } from 'react'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
-import {
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	calculateRemainingPortions,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateRecipeMacros, calculateRemainingPortions } from '~/features/recipes/utils/macros'
 import { cn } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 
@@ -32,11 +25,7 @@ export const InventoryCard: FC<InventoryCardProps> = ({ inventory }) => {
 	const recipe = inventory.recipe
 	const remaining = calculateRemainingPortions(inventory.totalPortions, inventory.slots)
 	const isOverAllocated = remaining < 0
-	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-	const totals = calculateRecipeTotals(items)
-	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-	const portionSize = recipe.portionSize ?? cookedWeight
-	const portionMacros = calculatePortionMacros(totals, cookedWeight, portionSize)
+	const { cookedWeight, portionSize, portion: portionMacros } = calculateRecipeMacros(recipe)
 	const defaultPortions = portionSize > 0 ? Math.round((cookedWeight / portionSize) * 2) / 2 : 1
 	const isAtDefault = inventory.totalPortions === defaultPortions
 

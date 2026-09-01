@@ -2,14 +2,7 @@ import { ChevronRight, GripVertical, Minus, Plus } from 'lucide-react'
 import { type FC, useRef, useState } from 'react'
 import { Card } from '~/components/ui'
 import { MacroBar } from '~/features/recipes/components/MacroBar'
-import {
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	calculateSlotMacros,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateRecipeMacros, calculateSlotMacros } from '~/features/recipes/utils/macros'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import { formatSlotAmount, type SlotAmount, slotAmountStep, slotAmountValue } from '../utils/slotAmount'
 import { MealPopover } from './MealPopover'
@@ -32,11 +25,7 @@ export const MealCard: FC<MealCardProps> = ({ slot, inventory }) => {
 
 	// Calculate macros based on current portions
 	const recipe = slot.inventory.recipe
-	const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-	const totals = calculateRecipeTotals(items)
-	const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-	const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-	const macros = calculateSlotMacros(portionMacros, slot.portions)
+	const macros = calculateSlotMacros(calculateRecipeMacros(recipe).portion, slot.portions)
 
 	// A bare ingredient is held in 100 g portions, so they read as hectograms — showing "0.76" to
 	// someone who typed "2 small" is what this splits on. Recipes are countable and stay in halves.

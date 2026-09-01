@@ -1,13 +1,9 @@
 import type { AbsoluteMacros } from '@macromaxxing/db'
 import {
 	calculateDayTotals,
-	calculatePortionMacros,
-	calculateRecipeTotals,
+	calculateRecipeMacros,
 	calculateSlotMacros,
-	calculateWeeklyAverage,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
+	calculateWeeklyAverage
 } from '~/features/recipes/utils/macros'
 import { DAYS_LONG, mealPlanLabel } from '~/lib'
 import type { RouterOutput } from '~/lib/trpc'
@@ -20,10 +16,7 @@ function fmt(m: AbsoluteMacros): string {
 }
 
 function getPortionMacros(inv: InventoryItem): AbsoluteMacros {
-	const items: IngredientWithAmount[] = inv.recipe.recipeIngredients.map(toIngredientWithAmount)
-	const totals = calculateRecipeTotals(items)
-	const cookedWeight = getEffectiveCookedWeight(totals.weight, inv.recipe.cookedWeight)
-	return calculatePortionMacros(totals, cookedWeight, inv.recipe.portionSize)
+	return calculateRecipeMacros(inv.recipe).portion
 }
 
 /** Format a meal plan as LLM-friendly markdown */

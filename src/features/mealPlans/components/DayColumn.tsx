@@ -1,14 +1,6 @@
 import type { MacroTargets, MealPlan } from '@macromaxxing/db'
 import type { FC } from 'react'
-import {
-	calculateDayTotals,
-	calculatePortionMacros,
-	calculateRecipeTotals,
-	calculateSlotMacros,
-	getEffectiveCookedWeight,
-	type IngredientWithAmount,
-	toIngredientWithAmount
-} from '~/features/recipes/utils/macros'
+import { calculateDayTotals, calculateRecipeMacros, calculateSlotMacros } from '~/features/recipes/utils/macros'
 import type { RouterOutput } from '~/lib/trpc'
 import { DayTotals } from './DayTotals'
 import { MealSlot } from './MealSlot'
@@ -48,14 +40,7 @@ export const DayColumn: FC<DayColumnProps> = ({ planId, dayName, dayOfWeek, slot
 
 	// Totals come from the slots themselves, so the column footer can't disagree with what's rendered
 	const dayTotal = calculateDayTotals(
-		slots.map(slot => {
-			const recipe = slot.inventory.recipe
-			const items: IngredientWithAmount[] = recipe.recipeIngredients.map(toIngredientWithAmount)
-			const totals = calculateRecipeTotals(items)
-			const cookedWeight = getEffectiveCookedWeight(totals.weight, recipe.cookedWeight)
-			const portionMacros = calculatePortionMacros(totals, cookedWeight, recipe.portionSize)
-			return calculateSlotMacros(portionMacros, slot.portions)
-		})
+		slots.map(slot => calculateSlotMacros(calculateRecipeMacros(slot.inventory.recipe).portion, slot.portions))
 	)
 
 	return (

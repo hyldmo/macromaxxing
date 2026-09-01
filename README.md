@@ -4,7 +4,7 @@ A recipe nutrition tracker and workout logger for fitness enthusiasts who meal p
 
 ## Features
 
-- **Recipe Management** — Create recipes with ingredients, track cooked weight vs raw weight, define portion sizes. Supports subrecipes (recipes as components of other recipes)
+- **Recipe Management** — Create recipes with ingredients, track cooked weight vs raw weight, record fat discarded during cooking, define portion sizes. Supports subrecipes (recipes as components of other recipes)
 - **Recipe Import** — Import recipes from URLs (JSON-LD structured data → AI fallback) or pasted text
 - **Premade Meals** — Add pre-made products via nutrition label data or URL parsing
 - **Macro Visualization** — MacroRing (donut chart showing P/C/F caloric ratio), MacroBar (stacked horizontal bar), per-portion readouts
