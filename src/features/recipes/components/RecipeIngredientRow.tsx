@@ -251,6 +251,12 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 				<MacroCell grams={macros.protein} weight={macros.weight} macro="protein" />
 				<MacroCell grams={macros.carbs} weight={macros.weight} macro="carbs" />
 				<MacroCell grams={macros.fat} weight={macros.weight} macro="fat" />
+				<MacroCell
+					grams={macros.fiber}
+					weight={macros.weight}
+					macro="fiber"
+					className="hidden 2xl:table-cell"
+				/>
 				<MacroCell grams={macros.kcal} macro="kcal" />
 				{!readOnly && (
 					<td className="px-1 py-1.5">
@@ -270,6 +276,8 @@ export const RecipeIngredientRow: FC<RecipeIngredientRowProps> = ({
 					<MacroBar macros={macros} />
 					{error && <TRPCError error={error} className="mt-1" />}
 				</td>
+				{/* Balances the fiber column, which only exists at 2xl — colSpan can't be responsive */}
+				<td className="hidden 2xl:table-cell" />
 			</tr>
 		</tbody>
 	)
