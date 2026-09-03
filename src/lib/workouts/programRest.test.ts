@@ -5,6 +5,7 @@ import {
 	computeProgramRest,
 	cycleOverlapLoad,
 	exerciseOverlapScore,
+	exerciseRestBottleneckMuscles,
 	findOptimalOrder,
 	programCycleDays,
 	type RestWorkoutInput,
@@ -169,6 +170,51 @@ describe('recoveryHoursFromFatigue', () => {
 			expect(hours).toBeGreaterThanOrEqual(prev)
 			prev = hours
 		}
+	})
+})
+
+describe('exerciseRestBottleneckMuscles', () => {
+	it('returns only the bottleneck muscles an exercise materially contributes to', () => {
+		const prior = w([
+			{
+				muscles: [
+					['chest', 1],
+					['triceps', 0.2]
+				],
+				targetSets: 4
+			},
+			{ muscles: [['triceps', 1]], targetSets: 2 }
+		])
+		const next = w([{ muscles: [['chest', 1]] }, { muscles: [['triceps', 1]] }])
+		const transition = computeProgramRest([prior, next])[0]
+
+		expect(transition.bottleneckMuscle).toBe('chest')
+		expect(exerciseRestBottleneckMuscles(prior.exercises[0], transition)).toEqual(['chest'])
+		expect(exerciseRestBottleneckMuscles(prior.exercises[1], transition)).toEqual([])
+	})
+
+	it('returns every maximum-hours muscle when the bottleneck is tied', () => {
+		const prior = w([
+			{
+				muscles: [
+					['chest', 1],
+					['triceps', 1]
+				],
+				targetSets: 4
+			}
+		])
+		const next = w([{ muscles: [['chest', 1]] }, { muscles: [['triceps', 1]] }])
+		const transition = computeProgramRest([prior, next])[0]
+
+		expect(exerciseRestBottleneckMuscles(prior.exercises[0], transition)).toEqual(['chest', 'triceps'])
+	})
+
+	it('returns no contributors when consecutive workouts do not overlap', () => {
+		const prior = w([{ muscles: [['chest', 1]] }])
+		const next = w([{ muscles: [['lats', 1]] }])
+		const transition = computeProgramRest([prior, next])[0]
+
+		expect(exerciseRestBottleneckMuscles(prior.exercises[0], transition)).toEqual([])
 	})
 })
 
