@@ -9,10 +9,14 @@ import { Button, Card, CopyButton, Input, Select, Spinner, TRPCError } from '~/c
 import { cn, formatProgram, formatTemplate, useDocumentTitle, useUnsavedChanges } from '~/lib'
 import { type RouterOutput, trpc } from '~/lib/trpc'
 import {
+	classifyRecovery,
 	collectWorkoutMuscles,
 	computeProgramRest,
 	cycleOverlapLoad,
-	findOptimalOrder
+	exerciseRestBottleneckMuscles,
+	findOptimalOrder,
+	type RecoveryBucket,
+	type RestTransition
 } from '~/lib/workouts/programRest'
 import { MuscleVolumeChip } from './MuscleChip'
 import { ProgramCyclePreview } from './ProgramCyclePreview'
@@ -234,6 +238,7 @@ export const ProgramEditor: FC = () => {
 														index={i}
 														item={item}
 														workout={workout}
+														transition={transition}
 														isEditing={isEditing}
 														onEdit={
 															workout
@@ -357,17 +362,51 @@ interface DraggableItemRowProps {
 	index: number
 	item: DraftItem
 	workout: WorkoutTemplate | undefined
+	transition: RestTransition | undefined
 	isEditing: boolean
 	/** Undefined until the template resolves from the cache — nothing to edit before then. */
 	onEdit?: () => void
 	onRemove: () => void
 }
 
-const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, isEditing, onEdit, onRemove }) => {
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.workoutId })
-	const style = { transform: CSS.Translate.toString(transform), transition }
+const COOLDOWN_CONTRIBUTOR_TONES: Record<RecoveryBucket, string> = {
+	fresh: 'bg-success/10',
+	moderate: 'bg-amber-500/10',
+	heavy: 'bg-destructive/10'
+}
 
-	const exerciseNames = workout?.exercises.map(e => e.exercise.name) ?? []
+const DraggableItemRow: FC<DraggableItemRowProps> = ({
+	index,
+	item,
+	workout,
+	transition,
+	isEditing,
+	onEdit,
+	onRemove
+}) => {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition: sortTransition,
+		isDragging
+	} = useSortable({
+		id: item.workoutId
+	})
+	const style = { transform: CSS.Translate.toString(transform), transition: sortTransition }
+
+	const exerciseContributions = useMemo(
+		() =>
+			workout?.exercises.map(exercise => ({
+				exercise,
+				muscles: transition ? exerciseRestBottleneckMuscles(exercise, transition) : []
+			})) ?? [],
+		[transition, workout]
+	)
+	const contributorTone = transition
+		? COOLDOWN_CONTRIBUTOR_TONES[classifyRecovery(transition.bottleneckHours)]
+		: undefined
 	const muscles = useMemo(() => (workout ? collectWorkoutMuscles(workout) : []), [workout])
 	const maxSets = muscles.reduce((m, x) => Math.max(m, x.effectiveSets), 0)
 
@@ -405,15 +444,24 @@ const DraggableItemRow: FC<DraggableItemRowProps> = ({ index, item, workout, isE
 						</span>
 					)}
 				</div>
-				{exerciseNames.length > 0 && (
+				{exerciseContributions.length > 0 && (
 					<div className="flex flex-wrap gap-x-3 overflow-hidden font-mono text-[11px] text-ink-faint">
-						{exerciseNames.map((name, i) => (
+						{exerciseContributions.map(({ exercise, muscles: contributionMuscles }) => (
 							<span
-								// biome-ignore lint/suspicious/noArrayIndexKey: names can repeat; position is the stable identity here
-								key={`${name}-${i}`}
-								className="relative before:absolute before:-left-2 before:content-['·'] first:before:hidden"
+								key={exercise.id}
+								className={cn(
+									"relative before:absolute before:-left-2 before:content-['·'] first:before:hidden",
+									contributionMuscles.length > 0 && ['-mx-1 px-1', contributorTone]
+								)}
+								title={
+									contributionMuscles.length > 0 && transition
+										? `Contributes to the ${transition.bottleneckHours}h ${contributionMuscles
+												.map(muscle => muscle.replace('_', ' '))
+												.join(' / ')} recovery bottleneck before the next workout`
+										: undefined
+								}
 							>
-								{name}
+								{exercise.exercise.name}
 							</span>
 						))}
 					</div>
