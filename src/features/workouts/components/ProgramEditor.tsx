@@ -370,9 +370,9 @@ interface DraggableItemRowProps {
 }
 
 const COOLDOWN_CONTRIBUTOR_TONES: Record<RecoveryBucket, string> = {
-	fresh: 'bg-success/10 text-success',
-	moderate: 'bg-amber-500/10 text-amber-500',
-	heavy: 'bg-destructive/10 text-destructive'
+	fresh: 'bg-success/10',
+	moderate: 'bg-amber-500/10',
+	heavy: 'bg-destructive/10'
 }
 
 const DraggableItemRow: FC<DraggableItemRowProps> = ({
