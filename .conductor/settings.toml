@@ -1,5 +1,9 @@
 "$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
 
+[[preview_urls]]
+name = "Web app"
+url = "http://localhost:1337"
+
 [scripts]
 archive = "rm -rf node_modules dist .wrangler"
 run_mode = "concurrent"
