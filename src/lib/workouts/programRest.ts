@@ -104,6 +104,25 @@ export interface RestTransition {
 }
 
 /**
+ * Bottleneck muscles this exercise materially contributes to for a transition.
+ * More than one muscle can be returned when recovery hours are tied for the maximum.
+ */
+export function exerciseRestBottleneckMuscles(
+	exercise: RestWorkoutInput['exercises'][number],
+	transition: RestTransition
+): MuscleGroup[] {
+	if (transition.bottleneckHours === 0) return []
+	const bottlenecks = new Set(
+		transition.muscles
+			.filter(muscle => muscle.recoveryHours === transition.bottleneckHours)
+			.map(muscle => muscle.muscleGroup)
+	)
+	return exercise.exercise.muscles.flatMap(muscle =>
+		muscle.intensity >= REST_INTENSITY_THRESHOLD && bottlenecks.has(muscle.muscleGroup) ? [muscle.muscleGroup] : []
+	)
+}
+
+/**
  * For each transition between consecutive workouts (with wrap), compute per-muscle
  * recovery hours needed before the next workout. Only muscles hit in BOTH the prior
  * and next workout constrain the rest — muscles unique to W_next don't contribute.
