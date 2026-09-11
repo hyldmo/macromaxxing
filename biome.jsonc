@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
 	"files": {
 		"includes": ["**", "!**/worker-configuration.d.ts"]
 	},
@@ -37,6 +37,7 @@
 				"useValidAutocomplete": "error"
 			},
 			"complexity": {
+				"useArrayFind": "error",
 				"noExcessiveNestedTestSuites": "error",
 				"noUselessStringRaw": "error",
 				"noUselessStringConcat": "error",
@@ -55,6 +56,8 @@
 			},
 			"suspicious": {
 				"useIterableCallbackReturn": "off",
+				"noProto": "error",
+				"noLeakedRender": "off", // Currently too many false positives as of v2.5.12
 				"noConsole": {
 					"level": "warn",
 					"options": {
@@ -71,7 +74,11 @@
 			},
 			"style": {
 				"noExportedImports": "error",
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "off",
+				"useConsistentEnumValueType": "error",
+				"useConsistentMethodSignatures": "error",
+				"useErrorCause": "error",
+				"noMultiAssign": "error"
 			},
 			"nursery": {
 				"useSortedClasses": {
@@ -81,15 +88,7 @@
 						"functions": ["cva", "cn"]
 					}
 				},
-				"noLeakedRender": "off", // Currently too many false positives as of v2.3.14
-				"useConsistentEnumValueType": "error",
-				"useConsistentMethodSignatures": "error",
-				"useErrorCause": "error",
-				"noMultiAssign": "error",
-				"useAwaitThenable": "off", // Currently too many false positives as of v2.3.14
-				"noMultiStr": "error",
-				"noProto": "error",
-				"useFind": "error"
+				"useAwaitThenable": "off" // Currently too many false positives as of v2.5.12
 			}
 		}
 	},

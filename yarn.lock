@@ -1486,18 +1486,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@biomejs/biome@npm:^2.3.8":
-  version: 2.3.14
-  resolution: "@biomejs/biome@npm:2.3.14"
+"@biomejs/biome@npm:^2.5.0":
+  version: 2.5.12
+  resolution: "@biomejs/biome@npm:2.5.12"
   dependencies:
-    "@biomejs/cli-darwin-arm64": "npm:2.3.14"
-    "@biomejs/cli-darwin-x64": "npm:2.3.14"
-    "@biomejs/cli-linux-arm64": "npm:2.3.14"
-    "@biomejs/cli-linux-arm64-musl": "npm:2.3.14"
-    "@biomejs/cli-linux-x64": "npm:2.3.14"
-    "@biomejs/cli-linux-x64-musl": "npm:2.3.14"
-    "@biomejs/cli-win32-arm64": "npm:2.3.14"
-    "@biomejs/cli-win32-x64": "npm:2.3.14"
+    "@biomejs/cli-darwin-arm64": "npm:2.5.12"
+    "@biomejs/cli-darwin-x64": "npm:2.5.12"
+    "@biomejs/cli-linux-arm64": "npm:2.5.12"
+    "@biomejs/cli-linux-arm64-musl": "npm:2.5.12"
+    "@biomejs/cli-linux-x64": "npm:2.5.12"
+    "@biomejs/cli-linux-x64-musl": "npm:2.5.12"
+    "@biomejs/cli-win32-arm64": "npm:2.5.12"
+    "@biomejs/cli-win32-x64": "npm:2.5.12"
   dependenciesMeta:
     "@biomejs/cli-darwin-arm64":
       optional: true
@@ -1517,62 +1517,62 @@ __metadata:
       optional: true
   bin:
     biome: bin/biome
-  checksum: 10c0/7dc4c0354c59046a24cc23e69465e0d7def81ba85e2039268b828461c5f0978693c68d917e08c554474392314a9b7039fed50487e8fc4b96d039f2f63b1b829a
+  checksum: 10c0/2433c73b3a3e2a1405ebe04f8fa54185fa33097f199c2527ee259525c223998d26d6bcf0ee6bfca4164c6dda5e7d975cbd38a42f57ab38dc1c1f91f9fea2b957
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-arm64@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-darwin-arm64@npm:2.3.14"
+"@biomejs/cli-darwin-arm64@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-darwin-arm64@npm:2.5.12"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-darwin-x64@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-darwin-x64@npm:2.3.14"
+"@biomejs/cli-darwin-x64@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-darwin-x64@npm:2.5.12"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64-musl@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-linux-arm64-musl@npm:2.3.14"
+"@biomejs/cli-linux-arm64-musl@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-linux-arm64-musl@npm:2.5.12"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-arm64@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-linux-arm64@npm:2.3.14"
+"@biomejs/cli-linux-arm64@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-linux-arm64@npm:2.5.12"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64-musl@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-linux-x64-musl@npm:2.3.14"
+"@biomejs/cli-linux-x64-musl@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-linux-x64-musl@npm:2.5.12"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@biomejs/cli-linux-x64@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-linux-x64@npm:2.3.14"
+"@biomejs/cli-linux-x64@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-linux-x64@npm:2.5.12"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-arm64@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-win32-arm64@npm:2.3.14"
+"@biomejs/cli-win32-arm64@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-win32-arm64@npm:2.5.12"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@biomejs/cli-win32-x64@npm:2.3.14":
-  version: 2.3.14
-  resolution: "@biomejs/cli-win32-x64@npm:2.3.14"
+"@biomejs/cli-win32-x64@npm:2.5.12":
+  version: 2.5.12
+  resolution: "@biomejs/cli-win32-x64@npm:2.5.12"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -11538,7 +11538,7 @@ __metadata:
     "@ai-sdk/anthropic": "npm:^3.0.36"
     "@ai-sdk/google": "npm:^3.0.21"
     "@ai-sdk/openai": "npm:^3.0.25"
-    "@biomejs/biome": "npm:^2.3.8"
+    "@biomejs/biome": "npm:^2.5.0"
     "@cfworker/json-schema": "npm:^4.1.1"
     "@clerk/clerk-react": "npm:^5.61.6"
     "@clerk/themes": "npm:^2.4.60"

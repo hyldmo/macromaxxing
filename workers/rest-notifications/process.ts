@@ -42,7 +42,7 @@ export async function processRestNotification(
 	vapid: VapidConfig
 ): Promise<RestNotificationProcessingResult> {
 	const job = await repository.find(jobId)
-	if (!job || job.status !== 'scheduled') return 'ignored'
+	if (job?.status !== 'scheduled') return 'ignored'
 	if (job.expiresAt <= now) {
 		await repository.expire(job.id, now)
 		return 'expired'

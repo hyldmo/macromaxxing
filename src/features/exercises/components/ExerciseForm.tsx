@@ -396,6 +396,7 @@ const RepeatableList: FC<RepeatableListProps> = ({ label, placeholder, items, on
 				</Button>
 			</div>
 			{effective.map((item, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: positional identity — items are primitives edited in place, a text key would remount the textarea on keystroke.
 				<div key={`${i}-${item.slice(0, 8)}`} className="flex items-start gap-2">
 					<span className="mt-2 font-mono text-ink-faint text-xs tabular-nums">{i + 1}.</span>
 					<Textarea

@@ -2838,7 +2838,7 @@ export const workoutsRouter = router({
 				program = created
 			} catch (err) {
 				if (err instanceof Error && /UNIQUE/.test(err.message)) {
-					// biome-ignore lint/nursery/useErrorCause: TRPCError takes cause inside its options object
+					// biome-ignore lint/style/useErrorCause: TRPCError takes cause inside its options object
 					throw new TRPCError({
 						code: 'CONFLICT',
 						message: `A program with the name "${input.name}" already exists`,
@@ -2916,7 +2916,7 @@ export const workoutsRouter = router({
 				}
 			} catch (err) {
 				if (err instanceof Error && /UNIQUE/.test(err.message)) {
-					// biome-ignore lint/nursery/useErrorCause: TRPCError takes cause inside its options object
+					// biome-ignore lint/style/useErrorCause: TRPCError takes cause inside its options object
 					throw new TRPCError({
 						code: 'CONFLICT',
 						message: `A program with the name "${input.name}" already exists`,
