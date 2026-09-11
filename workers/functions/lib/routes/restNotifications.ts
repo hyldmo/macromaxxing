@@ -287,7 +287,7 @@ export const restNotificationsRouter = router({
 			)
 		} catch (error) {
 			console.error('rest_notification_queue_failed', { jobId: input.restId })
-			// biome-ignore lint/nursery/useErrorCause: TRPCError receives the original cause through its options.
+			// biome-ignore lint/style/useErrorCause: TRPCError receives the original cause through its options.
 			throw new TRPCError({
 				code: 'INTERNAL_SERVER_ERROR',
 				message: 'Could not schedule rest alert',
@@ -443,14 +443,14 @@ export const restNotificationsRouter = router({
 						.where(
 							and(eq(pushSubscriptions.id, subscription.id), eq(pushSubscriptions.userId, ctx.user.id))
 						)
-					// biome-ignore lint/nursery/useErrorCause: TRPCError receives the original cause through its options.
+					// biome-ignore lint/style/useErrorCause: TRPCError receives the original cause through its options.
 					throw new TRPCError({
 						code: 'PRECONDITION_FAILED',
 						message: 'Push subscription expired',
 						cause: error
 					})
 				}
-				// biome-ignore lint/nursery/useErrorCause: TRPCError receives the original cause through its options.
+				// biome-ignore lint/style/useErrorCause: TRPCError receives the original cause through its options.
 				throw new TRPCError({
 					code: 'INTERNAL_SERVER_ERROR',
 					message: 'Push provider rejected the test',

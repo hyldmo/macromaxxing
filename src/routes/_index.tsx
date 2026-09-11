@@ -78,6 +78,7 @@ interface MealSlotMacros {
 	recipeName: string
 	planName: string
 	planId: string
+	slotId: string
 	portions: number
 	macros: AbsoluteMacros
 }
@@ -102,6 +103,7 @@ function computeTodayMeals(plans: RouterOutput['dashboard']['summary']['plans'])
 					recipeName: recipe.name,
 					planName: mealPlanLabel(plan),
 					planId: plan.id,
+					slotId: slot.id,
 					portions: slot.portions,
 					macros: calculateSlotMacros(portionMacros, slot.portions)
 				})
@@ -273,9 +275,9 @@ const TodayMealsSection: FC<TodayMealsSectionProps> = ({ meals, dayTotals }) => 
 
 					{/* Meal list */}
 					<div className="space-y-1">
-						{meals.map((meal, i) => (
+						{meals.map(meal => (
 							<Link
-								key={`${meal.planId}-${meal.recipeName}-${i}`}
+								key={meal.slotId}
 								to={`/plans/${meal.planId}`}
 								className="flex items-center gap-3 rounded-sm px-2 py-1.5 transition-colors hover:bg-surface-2"
 							>

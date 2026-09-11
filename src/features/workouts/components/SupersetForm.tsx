@@ -162,8 +162,11 @@ export const SupersetForm: FC<SupersetFormProps> = ({
 					{rounds.map((round, roundIdx) => {
 						const soloLetter =
 							round.sets.length === 1 ? String.fromCharCode(65 + round.sets[0].exerciseIndex) : null
+						const roundKey = `${round.setType}-${round.sets
+							.map(s => `${s.exerciseId}#${s.planned.setNumber}`)
+							.join('+')}`
 						return (
-							<div key={`${round.setType}-${roundIdx}`}>
+							<div key={roundKey}>
 								{roundIdx > 0 && <div className="my-1.5 border-edge border-t" />}
 								<div className="mb-0.5 font-mono text-[10px] text-ink-faint">
 									{soloLetter ?? `Round ${roundIdx + 1}`} — {round.setType}

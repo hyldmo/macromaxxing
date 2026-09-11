@@ -24,6 +24,15 @@ function startOfWeekMs(ts: number): number {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
+/** YYYY-MM-DD for a UTC ms epoch (matches the calendarHeatmap row dates). */
+function toDateKey(ms: number): string {
+	const d = new Date(ms)
+	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(
+		2,
+		'0'
+	)}`
+}
+
 function intensityClass(count: number, max: number): string {
 	if (count <= 0) return 'bg-surface-2'
 	if (max <= 0) return 'bg-surface-2'
@@ -55,11 +64,7 @@ export const CalendarHeatmap: FC<CalendarHeatmapProps> = ({ data, weeks }) => {
 					cells.push(null)
 					continue
 				}
-				const cellDate = new Date(cellMs)
-				const key = `${cellDate.getUTCFullYear()}-${String(cellDate.getUTCMonth() + 1).padStart(
-					2,
-					'0'
-				)}-${String(cellDate.getUTCDate()).padStart(2, '0')}`
+				const key = toDateKey(cellMs)
 				const row = byDate.get(key)
 				const count = row?.workingSetCount ?? 0
 				if (count > maxCount) maxCount = count
@@ -117,7 +122,7 @@ const HeatmapGrid: FC<HeatmapGridProps> = ({ columns, max }) => (
 					{col.cells.map((cell, i) =>
 						cell === null ? (
 							<div
-								key={`empty-${col.weekStart}-${i}`}
+								key={`empty-${toDateKey(col.weekStart + i * MS_PER_DAY)}`}
 								className="size-3 rounded-sm bg-transparent"
 								aria-hidden
 							/>
