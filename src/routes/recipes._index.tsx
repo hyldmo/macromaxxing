@@ -2,12 +2,13 @@ import { by, Order } from '@hyldmo/by'
 import type { AbsoluteMacros, Recipe } from '@macromaxxing/db'
 import { Import, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
-import { Button, Card, Select, Spinner, TRPCError } from '~/components/ui'
+import { Link, useSearchParams } from 'react-router'
+import { Button, Card, Input, Select, Spinner, TRPCError } from '~/components/ui'
 import { RecipeCard } from '~/features/recipes/components/RecipeCard'
 import { RecipeImportDialog } from '~/features/recipes/components/RecipeImportDialog'
 import { calculateRecipeMacros } from '~/features/recipes/utils/macros'
 import { cn, prefetchRoute, useDocumentTitle, usePersistentState, useUser } from '~/lib'
+import { fuzzyMatch } from '~/lib/fuzzy'
 import { trpc } from '~/lib/trpc'
 
 export const clientLoader = () => prefetchRoute(utils => [utils.recipe.list.ensureData()])
@@ -22,6 +23,9 @@ const isSort = (v: unknown): v is Sort => typeof v === 'string' && (sortOptions 
 
 export default function RecipeListPage() {
 	useDocumentTitle('Recipes')
+	const [searchParams, setSearchParams] = useSearchParams()
+	const search = searchParams.get('search') ?? ''
+	const setSearch = (value: string) => setSearchParams(value ? { search: value } : {}, { replace: true })
 	const [filter, setFilter] = useState<Filter>('all')
 	const [sort, setSort] = usePersistentState<Sort>(SORT_STORAGE_KEY, isSort, 'recent')
 	const [showImport, setShowImport] = useState(false)
@@ -38,14 +42,15 @@ export default function RecipeListPage() {
 
 	const sortedRecipes = useMemo(() => {
 		const filtered = recipesWithMacros.filter(r => (filter === 'mine' ? r.isMine : true))
-		return filtered.toSorted(
+		const searched = search ? filtered.filter(r => fuzzyMatch(search, r.recipe.name) !== null) : filtered
+		return searched.toSorted(
 			by(v => {
 				if (sort in v.portion) return v.portion[sort as keyof typeof v.portion]
 				if (sort in v.recipe) return v.recipe[sort as keyof typeof v.recipe]
 				return v.recipe.createdAt
 			}, Order.Desc)
 		)
-	}, [recipesWithMacros, filter, sort])
+	}, [recipesWithMacros, filter, search, sort])
 
 	const myRecipeCount = recipesWithMacros.filter(r => r.isMine).length
 
@@ -102,6 +107,10 @@ export default function RecipeListPage() {
 				</div>
 			</div>
 
+			<div className="flex items-center gap-2">
+				<Input placeholder="Search recipes..." value={search} onChange={e => setSearch(e.target.value)} />
+			</div>
+
 			{recipesQuery.isLoading && (
 				<div className="flex justify-center py-12">
 					<Spinner />
@@ -112,9 +121,11 @@ export default function RecipeListPage() {
 
 			{sortedRecipes.length === 0 && !recipesQuery.isLoading && (
 				<Card className="py-12 text-center text-ink-faint">
-					{filter === 'mine'
-						? "You haven't created any recipes yet."
-						: 'No recipes yet. Create the first one!'}
+					{search
+						? 'No recipes match your search.'
+						: filter === 'mine'
+							? "You haven't created any recipes yet."
+							: 'No recipes yet. Create the first one!'}
 				</Card>
 			)}
 
