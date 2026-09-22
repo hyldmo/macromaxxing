@@ -590,19 +590,25 @@ export const mealPlansRouter = router({
 	updateSlot: protectedProcedure
 		.meta({
 			description:
-				'Change how much of a meal sits in a slot, or move the slot onto a different inventory row. A slot holding a bare ingredient counts in that ingredient\'s own units, so send `displayAmount` (2 -> "2 small") and the server reprices the portions; a slot holding a recipe counts in portions, so send `portions` and `displayAmount` errors. Correcting an amount is the only edit here — to change WHAT was eaten, pass `inventoryId`, which drops the old amount\'s unit.'
+				"Change how much of a meal sits in a slot, move it to another day or position, or move it onto a different inventory row. A position move keeps the slot's amount unchanged. A slot holding a bare ingredient counts in that ingredient's own units, so send `displayAmount` (2 -> \"2 small\") and the server reprices the portions; a slot holding a recipe counts in portions, so send `portions` and `displayAmount` errors. To change WHAT was eaten, pass `inventoryId`, which drops the old amount's unit."
 		})
 		.input(
-			z.object({
-				slotId: zodTypeID('mps'),
-				portions: z.number().positive().optional(),
-				/**
-				 * New amount in the slot's own `displayUnit` (2 -> "2 small"). Takes precedence over
-				 * `portions`, which it recomputes. Sent by the card's stepper so one tap means one egg.
-				 */
-				displayAmount: z.number().positive().optional(),
-				inventoryId: zodTypeID('mpi').optional()
-			})
+			z
+				.object({
+					slotId: zodTypeID('mps'),
+					dayOfWeek: z.number().int().min(0).max(6).optional(),
+					slotIndex: z.number().int().min(0).optional(),
+					portions: z.number().positive().optional(),
+					/**
+					 * New amount in the slot's own `displayUnit` (2 -> "2 small"). Takes precedence over
+					 * `portions`, which it recomputes. Sent by the card's stepper so one tap means one egg.
+					 */
+					displayAmount: z.number().positive().optional(),
+					inventoryId: zodTypeID('mpi').optional()
+				})
+				.refine(input => (input.dayOfWeek === undefined) === (input.slotIndex === undefined), {
+					message: 'dayOfWeek and slotIndex must be provided together'
+				})
 		)
 		.mutation(async ({ ctx, input }) => {
 			// Get slot and verify ownership
@@ -640,6 +646,10 @@ export const mealPlansRouter = router({
 				if (slot.displayUnit && gramsPerUnit) {
 					updates.displayAmount = (input.portions * INGREDIENT_PORTION_GRAMS) / gramsPerUnit
 				}
+			}
+			if (input.dayOfWeek !== undefined && input.slotIndex !== undefined) {
+				updates.dayOfWeek = input.dayOfWeek
+				updates.slotIndex = input.slotIndex
 			}
 
 			if (input.inventoryId !== undefined) {

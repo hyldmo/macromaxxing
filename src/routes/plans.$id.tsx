@@ -57,7 +57,7 @@ const MealPlannerPage: FC = () => {
 		onSuccess: () => utils.mealPlan.get.invalidate({ id: id! })
 	})
 
-	const removeSlotMutation = trpc.mealPlan.removeSlot.useMutation({
+	const updateSlotMutation = trpc.mealPlan.updateSlot.useMutation({
 		onSuccess: () => utils.mealPlan.get.invalidate({ id: id! })
 	})
 
@@ -85,7 +85,8 @@ const MealPlannerPage: FC = () => {
 		sourceSlotId?: MealPlanSlot['id']
 	) {
 		if (sourceSlotId) {
-			removeSlotMutation.mutate({ slotId: sourceSlotId })
+			updateSlotMutation.mutate({ slotId: sourceSlotId, dayOfWeek, slotIndex })
+			return
 		}
 		allocateMutation.mutate({ inventoryId, dayOfWeek, slotIndex, portions: 1 })
 	}
