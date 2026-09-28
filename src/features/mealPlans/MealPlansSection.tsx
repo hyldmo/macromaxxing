@@ -27,6 +27,7 @@ function weekOptions(now: number): { value: WeekStart; label: string }[] {
 export const MealPlansSection: FC = () => {
 	const [newPlanName, setNewPlanName] = useState('')
 	const [isCreating, setIsCreating] = useState(false)
+	const [showAllPlans, setShowAllPlans] = useState(false)
 	const [now] = useState(() => Date.now())
 	const weeks = weekOptions(now)
 	// Default to the week you're in — the overwhelmingly common case is logging or planning it.
@@ -34,6 +35,8 @@ export const MealPlansSection: FC = () => {
 	const { user } = useUser()
 
 	const plansQuery = trpc.mealPlan.list.useQuery()
+	const plans = plansQuery.data ?? []
+	const visiblePlans = showAllPlans ? plans : plans.slice(0, 5)
 	const utils = trpc.useUtils()
 
 	const createMutation = trpc.mealPlan.create.useMutation({
@@ -122,7 +125,7 @@ export const MealPlansSection: FC = () => {
 			)}
 
 			<div className="grid grid-cols-1 gap-2">
-				{plansQuery.data?.map(plan => (
+				{visiblePlans.map(plan => (
 					<Link key={plan.id} to={`/plans/${plan.id}`}>
 						<Card className="flex items-center gap-4 p-3 transition-colors hover:bg-surface-2">
 							<div
@@ -154,6 +157,11 @@ export const MealPlansSection: FC = () => {
 					</Link>
 				))}
 			</div>
+			{plans.length > 5 && (
+				<Button variant="ghost" onClick={() => setShowAllPlans(showAll => !showAll)}>
+					{showAllPlans ? 'Show fewer plans' : `Show all ${plans.length} plans`}
+				</Button>
+			)}
 		</section>
 	)
 }
