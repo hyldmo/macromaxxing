@@ -530,7 +530,8 @@ DELETE /api/recipes/:id/image              # Remove recipe image (cleans up R2 i
 # MCP endpoint (Model Context Protocol)
 POST   /api/mcp                                       # MCP server (Clerk OAuth bearer OR personal token, stateless)
 GET    /.well-known/oauth-protected-resource/api/mcp  # RFC 9728 metadata (public, points at Clerk auth server)
-GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxies Clerk FAPI, public)
+GET    /.well-known/oauth-protected-resource          # Same document, for clients that probe the root
+GET    /.well-known/oauth-authorization-server        # RFC 8414 metadata (proxies Clerk FAPI, scopes_supported narrowed to MCP_OAUTH_SCOPES, public)
 ```
 
 `ingredient.findOrCreate` - Checks DB for existing ingredient (case-insensitive, auto-normalizes to Start Case), then tries USDA API, falls back to AI if not found. Returns `{ ingredient, source: 'existing' | 'usda' | 'ai' }`. AI also populates units (tbsp, pcs, scoop, etc.) with gram equivalents.
@@ -836,6 +837,7 @@ Silent failures and runtime-only issues — things `yarn check` won't catch.
 **MCP server**
 - Use `CfWorkerJsonSchemaValidator` from `@modelcontextprotocol/sdk/validation/cfworker` (Workers can't use AJV — dynamic eval). Needs `@cfworker/json-schema` peer dep.
 - Short-circuit `GET` and `DELETE` on `/api/mcp` with `405 Method Not Allowed` + `Allow: POST` **before** the SDK runs. The stateless SSE handler hangs the CF runtime; spec-compliant clients fall back to POST-only JSON-RPC.
+- **Clerk's `/oauth/authorize` answers 302 for every scope set, valid or not.** The check runs one hop later: `/oauth/authorize/continue` redirects to the client with `invalid_scope` before any sign-in, so curl that hop to test a scope set without a session. What passes depends on how the client registered, and Clerk's metadata advertises more than a scope-less DCR client holds (see `MCP_OAUTH_SCOPES`).
 - **A wrapped input schema silently erases every filter from the tool contract.** `.input(z.object({…}).optional())` is the natural way to make a filter bag optional for tRPC callers, but the SDK's `normalizeObjectSchema` only recognises a raw shape or a schema whose `def` carries a `shape` — a `ZodOptional`/`ZodDefault` has neither, so it returns undefined and `registerTool` publishes `EMPTY_OBJECT_JSON_SCHEMA`. The tool then advertises `{"type":"object","properties":{}}`, agents can't pass `window`/`search`/`limit`, and the only symptom is unfiltered full dumps. `unwrapInputSchema` in `mcp-tools.ts` strips the wrappers at extraction time — don't reintroduce an `as any` on `inputSchema` that would hide the next instance. Note `z.toJSONSchema()` converts wrapped schemas *correctly*, so a test that asserts against it will not catch this; assert the extracted schema is a `ZodObject`.
 
 **Drizzle ORM v1**

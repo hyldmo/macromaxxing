@@ -10,6 +10,7 @@ import { createDb } from '../lib/db'
 import { handleMcpRequest } from '../lib/mcp'
 import { authenticateByToken } from '../lib/mcp-auth'
 import { authenticateClerkOAuth } from '../lib/mcp-auth-clerk'
+import { MCP_OAUTH_SCOPES } from '../lib/mcp-oauth'
 import { appRouter } from '../lib/router'
 
 const MCP_RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource/api/mcp'
@@ -124,7 +125,7 @@ app.all('/api/mcp', async c => {
 			status: 401,
 			headers: {
 				'Content-Type': 'application/json',
-				'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"`
+				'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}", scope="${MCP_OAUTH_SCOPES.join(' ')}"`
 			}
 		})
 	}
