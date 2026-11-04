@@ -11,7 +11,8 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v5
       with:
-        node-version: "lts/*"
+        # Bump deliberately. "lts/*" jumped to Node 26 on its own and better-sqlite3 12.6.2 does not build there.
+        node-version: "24"
         check-latest: true
         cache: "yarn"
         cache-dependency-path: "yarn.lock"
